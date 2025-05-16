@@ -9,6 +9,7 @@ import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/gallery_model.dart';
 import 'package:flutter_chan/blocs/saved_attachments_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
+import 'package:flutter_chan/blocs/watched_media_model.dart';
 import 'package:flutter_chan/widgets/image_viewer.dart';
 import 'package:flutter_chan/widgets/webm_player.dart';
 import 'package:provider/provider.dart';
@@ -39,15 +40,28 @@ class _MediaPageState extends State<MediaPage> {
   late PageController controller;
 
   final String page = '0';
-  late int index;
+  int index = 0;
   String currentName = '';
   bool isSaved = false;
 
   List<Media> media = [];
 
-  void onPageChanged(int i, String media, GalleryProvider gallery) {
+  void onPageChanged(int i, String mediaName, GalleryProvider gallery) {
     gallery.setCurrentPage(i);
-    gallery.setCurrentMedia(media);
+    gallery.setCurrentMedia(mediaName);
+
+    // Mark media as watched when viewed
+    if (!widget.isAsset && widget.board != null) {
+      final watchedMediaProvider =
+          Provider.of<WatchedMediaProvider>(context, listen: false);
+      final currentMedia = media[i];
+      watchedMediaProvider.markAsWatched(
+        mediaId: currentMedia.videoId,
+        board: widget.board!,
+        fileName: currentMedia.fileName,
+        ext: currentMedia.ext,
+      );
+    }
 
     setState(() {
       index = i;
@@ -106,6 +120,28 @@ class _MediaPageState extends State<MediaPage> {
           ),
         );
       }
+    }
+
+    index = media.indexWhere(
+      (element) => element.videoName == widget.video,
+    );
+
+    if (index < 0) {
+      Navigator.of(context).pop();
+      return;
+    }
+
+    // Mark initial media as watched when opened
+    if (!widget.isAsset && widget.board != null) {
+      final watchedMediaProvider =
+          Provider.of<WatchedMediaProvider>(context, listen: false);
+      final initialMedia = media[index];
+      watchedMediaProvider.markAsWatched(
+        mediaId: initialMedia.videoId,
+        board: widget.board!,
+        fileName: initialMedia.fileName,
+        ext: initialMedia.ext,
+      );
     }
 
     index = media.indexWhere(
