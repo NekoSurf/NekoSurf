@@ -99,6 +99,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                                   video: widget.post.tim.toString() +
                                       widget.post.ext.toString(),
                                   board: widget.board,
+                                  thread: widget.thread,
                                   allPosts: widget.replies ?? widget.allPosts),
                             ),
                           ).then(
@@ -128,7 +129,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                                   final isWatched =
                                       watchedMediaProvider.isWatched(
                                     widget.post.tim ?? 0,
-                                    widget.board,
+                                    widget.thread,
                                   );
                                   return isWatched
                                       ? Container(

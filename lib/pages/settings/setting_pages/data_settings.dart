@@ -171,6 +171,24 @@ class DataSettingsState extends State<DataSettings> {
                   value: settings.getUseCachingOnVideos(),
                 ),
               ),
+              CupertinoListTile(
+                leading: const CupertinoSettingsIcon(
+                  icon: CupertinoIcons.arrow_down_circle,
+                  color: CupertinoColors.systemBlue,
+                ),
+                title: const Text(
+                  'Auto-scroll to last seen media',
+                ),
+                subtitle: const Text(
+                  'Automatically scroll to the last media you viewed',
+                ),
+                trailing: CupertinoSwitch(
+                  onChanged: (value) => {
+                    settings.setAutoScrollToLastSeen(value),
+                  },
+                  value: settings.getAutoScrollToLastSeen(),
+                ),
+              ),
             ],
           ),
           CupertinoListSection.insetGrouped(

@@ -21,6 +21,7 @@ class MediaPage extends StatefulWidget {
     Key? key,
     required this.video,
     this.board,
+    this.thread,
     required this.allPosts,
     this.isAsset = false,
     this.directory,
@@ -28,6 +29,7 @@ class MediaPage extends StatefulWidget {
 
   final String video;
   final String? board;
+  final int? thread;
   final List<Post> allPosts;
   final bool isAsset;
   final Directory? directory;
@@ -51,13 +53,13 @@ class _MediaPageState extends State<MediaPage> {
     gallery.setCurrentMedia(mediaName);
 
     // Mark media as watched when viewed
-    if (!widget.isAsset && widget.board != null) {
+    if (!widget.isAsset && widget.thread != null) {
       final watchedMediaProvider =
           Provider.of<WatchedMediaProvider>(context, listen: false);
       final currentMedia = media[i];
       watchedMediaProvider.markAsWatched(
         mediaId: currentMedia.videoId,
-        board: widget.board!,
+        thread: widget.thread!,
         fileName: currentMedia.fileName,
         ext: currentMedia.ext,
       );
@@ -138,7 +140,7 @@ class _MediaPageState extends State<MediaPage> {
       final initialMedia = media[index];
       watchedMediaProvider.markAsWatched(
         mediaId: initialMedia.videoId,
-        board: widget.board!,
+        thread: widget.thread!,
         fileName: initialMedia.fileName,
         ext: initialMedia.ext,
       );

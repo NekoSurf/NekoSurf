@@ -49,6 +49,7 @@ class MyApp extends StatelessWidget {
         ),
         ChangeNotifierProvider<WatchedMediaProvider>(
           create: (_) => WatchedMediaProvider(),
+          lazy: false,
         ),
       ],
       child: const AppWithTheme(),

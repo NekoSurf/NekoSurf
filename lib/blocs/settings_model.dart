@@ -12,6 +12,7 @@ class SettingsProvider with ChangeNotifier {
   Sort boardSort = Sort.byImagesCount;
   bool useCachingOnVideos = false;
   int watchedMediaRetentionDays = 7;
+  bool autoScrollToLastSeen = false;
 
   Future<void> loadPreferences() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -45,6 +46,10 @@ class SettingsProvider with ChangeNotifier {
 
     if (prefs.getInt('watchedMediaRetentionDays') != null) {
       watchedMediaRetentionDays = prefs.getInt('watchedMediaRetentionDays')!;
+    }
+
+    if (prefs.getBool('autoScrollToLastSeen') != null) {
+      autoScrollToLastSeen = prefs.getBool('autoScrollToLastSeen')!;
     }
 
     notifyListeners();
@@ -98,6 +103,19 @@ class SettingsProvider with ChangeNotifier {
 
     boardSort = sort;
     prefs.setString('boardSort', sort.name);
+
+    notifyListeners();
+  }
+
+  bool getAutoScrollToLastSeen() {
+    return autoScrollToLastSeen;
+  }
+
+  Future<void> setAutoScrollToLastSeen(bool value) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    autoScrollToLastSeen = value;
+    prefs.setBool('autoScrollToLastSeen', value);
 
     notifyListeners();
   }

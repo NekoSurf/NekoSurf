@@ -30,13 +30,13 @@ class WatchedMediaProvider with ChangeNotifier {
 
   Future<void> markAsWatched({
     required int mediaId,
-    required String board,
+    required int thread,
     required String fileName,
     required String ext,
   }) async {
     final WatchedMedia newWatchedMedia = WatchedMedia(
       mediaId: mediaId,
-      board: board,
+      thread: thread,
       fileName: fileName,
       ext: ext,
       watchedAt: DateTime.now(),
@@ -51,18 +51,18 @@ class WatchedMediaProvider with ChangeNotifier {
     clearOldWatchedMedia();
   }
 
-  Future<void> removeFromWatched(int mediaId, String board) async {
+  Future<void> removeFromWatched(int mediaId, int thread) async {
     _watchedMedia.removeWhere(
-        (media) => media.mediaId == mediaId && media.board == board);
+        (media) => media.mediaId == mediaId && media.thread == thread);
     await _saveWatchedMedia();
     notifyListeners();
 
     clearOldWatchedMedia();
   }
 
-  bool isWatched(int mediaId, String board) {
+  bool isWatched(int mediaId, int thread) {
     return _watchedMedia
-        .any((media) => media.mediaId == mediaId && media.board == board);
+        .any((media) => media.mediaId == mediaId && media.thread == thread);
   }
 
   Future<void> _saveWatchedMedia() async {
@@ -89,5 +89,17 @@ class WatchedMediaProvider with ChangeNotifier {
 
     await _saveWatchedMedia();
     notifyListeners();
+  }
+
+  WatchedMedia? getLatestWatchedMedia(int thread) {
+    final threadMedia =
+        _watchedMedia.where((media) => media.thread == thread).toList();
+
+    if (threadMedia.isEmpty) {
+      return null;
+    }
+
+    return threadMedia
+        .reduce((a, b) => a.watchedAt.isAfter(b.watchedAt) ? a : b);
   }
 }
