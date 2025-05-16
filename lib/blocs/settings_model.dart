@@ -11,6 +11,7 @@ class SettingsProvider with ChangeNotifier {
   ViewType boardView = ViewType.gridView;
   Sort boardSort = Sort.byImagesCount;
   bool useCachingOnVideos = false;
+  int watchedMediaRetentionDays = 7;
 
   Future<void> loadPreferences() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -40,6 +41,10 @@ class SettingsProvider with ChangeNotifier {
       final bool? useCachingOnVideosPrefs = prefs.getBool('useCachingOnVideos');
 
       useCachingOnVideos = useCachingOnVideosPrefs!;
+    }
+
+    if (prefs.getInt('watchedMediaRetentionDays') != null) {
+      watchedMediaRetentionDays = prefs.getInt('watchedMediaRetentionDays')!;
     }
 
     notifyListeners();
@@ -94,6 +99,17 @@ class SettingsProvider with ChangeNotifier {
     boardSort = sort;
     prefs.setString('boardSort', sort.name);
 
+    notifyListeners();
+  }
+
+  int getWatchedMediaRetentionDays() {
+    return watchedMediaRetentionDays;
+  }
+
+  Future<void> setWatchedMediaRetentionDays(int days) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    watchedMediaRetentionDays = days;
+    prefs.setInt('watchedMediaRetentionDays', days);
     notifyListeners();
   }
 }

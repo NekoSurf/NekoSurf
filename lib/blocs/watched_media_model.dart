@@ -24,6 +24,8 @@ class WatchedMediaProvider with ChangeNotifier {
       }
       notifyListeners();
     }
+
+    clearOldWatchedMedia();
   }
 
   Future<void> markAsWatched({
@@ -45,6 +47,8 @@ class WatchedMediaProvider with ChangeNotifier {
       await _saveWatchedMedia();
       notifyListeners();
     }
+
+    clearOldWatchedMedia();
   }
 
   Future<void> removeFromWatched(int mediaId, String board) async {
@@ -52,6 +56,8 @@ class WatchedMediaProvider with ChangeNotifier {
         (media) => media.mediaId == mediaId && media.board == board);
     await _saveWatchedMedia();
     notifyListeners();
+
+    clearOldWatchedMedia();
   }
 
   bool isWatched(int mediaId, String board) {
@@ -68,6 +74,19 @@ class WatchedMediaProvider with ChangeNotifier {
 
   Future<void> clearAllWatchedMedia() async {
     _watchedMedia.clear();
+    await _saveWatchedMedia();
+    notifyListeners();
+  }
+
+  Future<void> clearOldWatchedMedia() async {
+    final settings = await SharedPreferences.getInstance();
+    final int retentionDays = settings.getInt('watchedMediaRetentionDays') ?? 7;
+
+    final DateTime cutoffDate =
+        DateTime.now().subtract(Duration(days: retentionDays));
+
+    _watchedMedia.removeWhere((media) => media.watchedAt.isBefore(cutoffDate));
+
     await _saveWatchedMedia();
     notifyListeners();
   }

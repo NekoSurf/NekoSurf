@@ -186,18 +186,58 @@ class DataSettingsState extends State<DataSettings> {
               ),
             ],
           ),
+          CupertinoListSection.insetGrouped(children: [
+            CupertinoListTile(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              leading: const CupertinoSettingsIcon(
+                color: CupertinoColors.systemRed,
+                icon: CupertinoIcons.trash,
+              ),
+              title: const Text('Delete Cache'),
+              trailing: const CupertinoListTileChevron(),
+              onTap: () => deleteCache(),
+            )
+          ]),
           CupertinoListSection.insetGrouped(
             children: [
               CupertinoListTile(
-                padding:
-                    const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                leading: const CupertinoSettingsIcon(
-                  color: CupertinoColors.systemRed,
-                  icon: CupertinoIcons.trash,
+                title: const Text('Watched Media Retention Period'),
+                subtitle: const Text(
+                  'The number of days watched status of all media will be kept.',
                 ),
-                title: const Text('Delete Cache'),
-                trailing: const CupertinoListTileChevron(),
-                onTap: () => deleteCache(),
+                trailing: CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  child: Text(
+                    '${settings.getWatchedMediaRetentionDays()} days',
+                    style: const TextStyle(color: CupertinoColors.systemGrey),
+                  ),
+                  onPressed: () async {
+                    final int? selected = await showCupertinoModalPopup<int>(
+                      context: context,
+                      builder: (context) {
+                        return CupertinoActionSheet(
+                          title: const Text('Select retention period'),
+                          actions: [
+                            for (final days in [3, 7, 14, 30])
+                              CupertinoActionSheetAction(
+                                onPressed: () {
+                                  Navigator.pop(context, days);
+                                },
+                                child: Text('$days days'),
+                              ),
+                          ],
+                          cancelButton: CupertinoActionSheetAction(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Cancel'),
+                          ),
+                        );
+                      },
+                    );
+                    if (selected != null) {
+                      await settings.setWatchedMediaRetentionDays(selected);
+                    }
+                  },
+                ),
               ),
               CupertinoListTile(
                 padding:
