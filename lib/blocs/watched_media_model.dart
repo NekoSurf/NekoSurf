@@ -42,11 +42,23 @@ class WatchedMediaProvider with ChangeNotifier {
       watchedAt: DateTime.now(),
     );
 
-    if (!_watchedMedia.contains(newWatchedMedia)) {
+    final existingMediaIndex = _watchedMedia.indexWhere(
+        (media) => media.mediaId == mediaId && media.thread == thread);
+
+    if (existingMediaIndex != -1) {
+      _watchedMedia[existingMediaIndex] = WatchedMedia(
+        mediaId: mediaId,
+        thread: thread,
+        fileName: fileName,
+        ext: ext,
+        watchedAt: DateTime.now(),
+      );
+    } else {
       _watchedMedia.add(newWatchedMedia);
-      await _saveWatchedMedia();
-      notifyListeners();
     }
+
+    await _saveWatchedMedia();
+    notifyListeners();
 
     clearOldWatchedMedia();
   }
