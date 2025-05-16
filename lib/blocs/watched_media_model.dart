@@ -65,4 +65,10 @@ class WatchedMediaProvider with ChangeNotifier {
         _watchedMedia.map((media) => json.encode(media.toJson())).toList();
     await prefs.setStringList('watchedMedia', watchedMediaStrings);
   }
+
+  Future<void> clearAllWatchedMedia() async {
+    _watchedMedia.clear();
+    await _saveWatchedMedia();
+    notifyListeners();
+  }
 }

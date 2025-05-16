@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/blocs/theme.dart';
+import 'package:flutter_chan/blocs/watched_media_model.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
@@ -188,13 +189,38 @@ class DataSettingsState extends State<DataSettings> {
           CupertinoListSection.insetGrouped(
             children: [
               CupertinoListTile(
-                title: const Center(
-                  child: Text(
-                    'Delete Cache',
-                    style: TextStyle(color: Colors.red),
-                  ),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                leading: const CupertinoSettingsIcon(
+                  color: CupertinoColors.systemRed,
+                  icon: CupertinoIcons.trash,
                 ),
+                title: const Text('Delete Cache'),
+                trailing: const CupertinoListTileChevron(),
                 onTap: () => deleteCache(),
+              ),
+              CupertinoListTile(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                leading: const CupertinoSettingsIcon(
+                  color: CupertinoColors.systemRed,
+                  icon: CupertinoIcons.eye_slash,
+                ),
+                title: const Text('Clear Watched Media History'),
+                trailing: const CupertinoListTileChevron(),
+                onTap: () async {
+                  final watchedMediaProvider =
+                      Provider.of<WatchedMediaProvider>(context, listen: false);
+                  await watchedMediaProvider.clearAllWatchedMedia();
+                  if (mounted) {
+                    showCupertinoSnackbar(
+                      const Duration(milliseconds: 1800),
+                      true,
+                      context,
+                      'Watched media history cleared!',
+                    );
+                  }
+                },
               ),
             ],
           ),
