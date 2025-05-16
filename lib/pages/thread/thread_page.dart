@@ -89,11 +89,11 @@ class ThreadPageState extends State<ThreadPage> {
           allPosts.indexWhere((post) => post.tim == latestWatchedMedia.mediaId);
 
       if (index != -1) {
-        Future.delayed(const Duration(milliseconds: 100), () {
+        Future.delayed(const Duration(milliseconds: 250), () {
           if (mounted && itemScrollController.isAttached) {
             itemScrollController.scrollTo(
               index: index,
-              alignment: 0.3,
+              alignment: 0,
               duration: const Duration(milliseconds: 500),
               curve: Curves.easeInOutCubic,
             );
@@ -256,6 +256,7 @@ class ThreadPageState extends State<ThreadPage> {
                                       gallery.getCurrentMedia(),
                                 )
                                 .toList()[0],
+                            print(allPosts.indexOf(currentPage)),
                             itemScrollController.scrollTo(
                               index: allPosts.indexOf(currentPage),
                               alignment: 0,
