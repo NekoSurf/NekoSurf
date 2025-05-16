@@ -134,7 +134,7 @@ class _MediaPageState extends State<MediaPage> {
     }
 
     // Mark initial media as watched when opened
-    if (!widget.isAsset && widget.board != null) {
+    if (!widget.isAsset && widget.thread != null) {
       final watchedMediaProvider =
           Provider.of<WatchedMediaProvider>(context, listen: false);
       final initialMedia = media[index];
@@ -144,14 +144,6 @@ class _MediaPageState extends State<MediaPage> {
         fileName: initialMedia.fileName,
         ext: initialMedia.ext,
       );
-    }
-
-    index = media.indexWhere(
-      (element) => element.videoName == widget.video,
-    );
-
-    if (index < 0) {
-      Navigator.of(context).pop();
     }
 
     controller = PageController(

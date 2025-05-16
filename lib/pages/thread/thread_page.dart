@@ -256,7 +256,6 @@ class ThreadPageState extends State<ThreadPage> {
                                       gallery.getCurrentMedia(),
                                 )
                                 .toList()[0],
-                            print(allPosts.indexOf(currentPage)),
                             itemScrollController.scrollTo(
                               index: allPosts.indexOf(currentPage),
                               alignment: 0,

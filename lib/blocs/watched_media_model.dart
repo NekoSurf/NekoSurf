@@ -1,11 +1,38 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/Models/watched_media.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class WatchedMediaProvider with ChangeNotifier {
+class WatchedMediaProvider with ChangeNotifier, WidgetsBindingObserver {
   WatchedMediaProvider() {
     loadWatchedMedia();
+
+    WidgetsBinding.instance.addObserver(this);
+
+    _startCleanupTimer();
+  }
+
+  Timer? _cleanupTimer;
+
+  void _startCleanupTimer() {
+    _cleanupTimer = Timer.periodic(const Duration(minutes: 10), (timer) {
+      clearOldWatchedMedia();
+    });
+  }
+
+  @override
+  void dispose() {
+    _cleanupTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      clearOldWatchedMedia();
+    }
   }
 
   final List<WatchedMedia> _watchedMedia = [];
@@ -18,9 +45,13 @@ class WatchedMediaProvider with ChangeNotifier {
     if (watchedMediaList != null) {
       _watchedMedia.clear();
       for (final String mediaString in watchedMediaList) {
-        final Map<String, dynamic> mediaMap =
-            json.decode(mediaString) as Map<String, dynamic>;
-        _watchedMedia.add(WatchedMedia.fromJson(mediaMap));
+        try {
+          final Map<String, dynamic> mediaMap =
+              json.decode(mediaString) as Map<String, dynamic>;
+          _watchedMedia.add(WatchedMedia.fromJson(mediaMap));
+        } catch (e) {
+          debugPrint('Error parsing watched media entry: $e');
+        }
       }
       notifyListeners();
     }
@@ -46,21 +77,13 @@ class WatchedMediaProvider with ChangeNotifier {
         (media) => media.mediaId == mediaId && media.thread == thread);
 
     if (existingMediaIndex != -1) {
-      _watchedMedia[existingMediaIndex] = WatchedMedia(
-        mediaId: mediaId,
-        thread: thread,
-        fileName: fileName,
-        ext: ext,
-        watchedAt: DateTime.now(),
-      );
+      _watchedMedia[existingMediaIndex] = newWatchedMedia;
     } else {
       _watchedMedia.add(newWatchedMedia);
     }
 
     await _saveWatchedMedia();
     notifyListeners();
-
-    clearOldWatchedMedia();
   }
 
   Future<void> removeFromWatched(int mediaId, int thread) async {
@@ -68,8 +91,6 @@ class WatchedMediaProvider with ChangeNotifier {
         (media) => media.mediaId == mediaId && media.thread == thread);
     await _saveWatchedMedia();
     notifyListeners();
-
-    clearOldWatchedMedia();
   }
 
   bool isWatched(int mediaId, int thread) {
