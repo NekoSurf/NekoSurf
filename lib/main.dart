@@ -7,6 +7,7 @@ import 'package:flutter_chan/blocs/gallery_model.dart';
 import 'package:flutter_chan/blocs/saved_attachments_model.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
+import 'package:flutter_chan/blocs/watched_media_model.dart';
 import 'package:flutter_chan/pages/boards/board_list.dart';
 import 'package:provider/provider.dart';
 
@@ -45,6 +46,10 @@ class MyApp extends StatelessWidget {
         ),
         ChangeNotifierProvider<SavedAttachmentsProvider>(
           create: (_) => SavedAttachmentsProvider([]),
+        ),
+        ChangeNotifierProvider<WatchedMediaProvider>(
+          create: (_) => WatchedMediaProvider(),
+          lazy: false,
         ),
       ],
       child: const AppWithTheme(),

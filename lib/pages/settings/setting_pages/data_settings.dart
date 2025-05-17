@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/blocs/theme.dart';
+import 'package:flutter_chan/blocs/watched_media_model.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
@@ -170,6 +171,24 @@ class DataSettingsState extends State<DataSettings> {
                   value: settings.getUseCachingOnVideos(),
                 ),
               ),
+              CupertinoListTile(
+                leading: const CupertinoSettingsIcon(
+                  icon: CupertinoIcons.arrow_down_circle,
+                  color: CupertinoColors.systemBlue,
+                ),
+                title: const Text(
+                  'Auto-scroll to last seen media',
+                ),
+                subtitle: const Text(
+                  'Automatically scroll to the last media you viewed',
+                ),
+                trailing: CupertinoSwitch(
+                  onChanged: (value) => {
+                    settings.setAutoScrollToLastSeen(value),
+                  },
+                  value: settings.getAutoScrollToLastSeen(),
+                ),
+              ),
             ],
           ),
           CupertinoListSection.insetGrouped(
@@ -185,16 +204,81 @@ class DataSettingsState extends State<DataSettings> {
               ),
             ],
           ),
+          CupertinoListSection.insetGrouped(children: [
+            CupertinoListTile(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              leading: const CupertinoSettingsIcon(
+                color: CupertinoColors.systemRed,
+                icon: CupertinoIcons.trash,
+              ),
+              title: const Text('Delete Cache'),
+              trailing: const CupertinoListTileChevron(),
+              onTap: () => deleteCache(),
+            )
+          ]),
           CupertinoListSection.insetGrouped(
             children: [
               CupertinoListTile(
-                title: const Center(
-                  child: Text(
-                    'Delete Cache',
-                    style: TextStyle(color: Colors.red),
-                  ),
+                title: const Text('Watched Media Retention Period'),
+                subtitle: const Text(
+                  'The number of days watched status of all media will be kept.',
                 ),
-                onTap: () => deleteCache(),
+                trailing: CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  child: Text(
+                    '${settings.getWatchedMediaRetentionDays()} days',
+                    style: const TextStyle(color: CupertinoColors.systemGrey),
+                  ),
+                  onPressed: () async {
+                    final int? selected = await showCupertinoModalPopup<int>(
+                      context: context,
+                      builder: (context) {
+                        return CupertinoActionSheet(
+                          title: const Text('Select retention period'),
+                          actions: [
+                            for (final days in [3, 7, 14, 30])
+                              CupertinoActionSheetAction(
+                                onPressed: () {
+                                  Navigator.pop(context, days);
+                                },
+                                child: Text('$days days'),
+                              ),
+                          ],
+                          cancelButton: CupertinoActionSheetAction(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Cancel'),
+                          ),
+                        );
+                      },
+                    );
+                    if (selected != null) {
+                      await settings.setWatchedMediaRetentionDays(selected);
+                    }
+                  },
+                ),
+              ),
+              CupertinoListTile(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                leading: const CupertinoSettingsIcon(
+                  color: CupertinoColors.systemRed,
+                  icon: CupertinoIcons.eye_slash,
+                ),
+                title: const Text('Clear Watched Media History'),
+                trailing: const CupertinoListTileChevron(),
+                onTap: () async {
+                  final watchedMediaProvider =
+                      Provider.of<WatchedMediaProvider>(context, listen: false);
+                  await watchedMediaProvider.clearAllWatchedMedia();
+                  if (mounted) {
+                    showCupertinoSnackbar(
+                      const Duration(milliseconds: 1800),
+                      true,
+                      context,
+                      'Watched media history cleared!',
+                    );
+                  }
+                },
               ),
             ],
           ),

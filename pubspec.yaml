@@ -15,7 +15,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # In iOS, build-name is used as CFBundleShortVersionString while build-number used as CFBundleVersion.
 # Read more about iOS versioning at
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
-version: 0.9.6
+version: 0.10.0
 
 environment:
   sdk: ">=3.6.0"
@@ -44,16 +44,14 @@ dependencies:
   intl: ^0.20.2
   lint: ^2.3.0
   scrollable_positioned_list: ^0.3.8
-  ffmpeg_kit_flutter:
-    git:
-      url: https://github.com/MSOB7YY/ffmpeg-kit
-      path: flutter/flutter
   flutter_cache_manager: ^3.4.1
   package_info_plus: ^8.2.1
   app_settings: ^5.2.0
   modal_bottom_sheet: ^3.0.0
   device_info_plus: ^11.3.0
   country_flags: ^3.2.0
+  ffmpeg_kit_flutter_full_gpl:
+    git: https://github.com/Uopp-App/ffmpeg_kit_flutter_full_gpl
 
 dev_dependencies:
   flutter_test:

@@ -11,6 +11,8 @@ class SettingsProvider with ChangeNotifier {
   ViewType boardView = ViewType.gridView;
   Sort boardSort = Sort.byImagesCount;
   bool useCachingOnVideos = false;
+  int watchedMediaRetentionDays = 7;
+  bool autoScrollToLastSeen = false;
 
   Future<void> loadPreferences() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -40,6 +42,14 @@ class SettingsProvider with ChangeNotifier {
       final bool? useCachingOnVideosPrefs = prefs.getBool('useCachingOnVideos');
 
       useCachingOnVideos = useCachingOnVideosPrefs!;
+    }
+
+    if (prefs.getInt('watchedMediaRetentionDays') != null) {
+      watchedMediaRetentionDays = prefs.getInt('watchedMediaRetentionDays')!;
+    }
+
+    if (prefs.getBool('autoScrollToLastSeen') != null) {
+      autoScrollToLastSeen = prefs.getBool('autoScrollToLastSeen')!;
     }
 
     notifyListeners();
@@ -94,6 +104,30 @@ class SettingsProvider with ChangeNotifier {
     boardSort = sort;
     prefs.setString('boardSort', sort.name);
 
+    notifyListeners();
+  }
+
+  bool getAutoScrollToLastSeen() {
+    return autoScrollToLastSeen;
+  }
+
+  Future<void> setAutoScrollToLastSeen(bool value) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    autoScrollToLastSeen = value;
+    prefs.setBool('autoScrollToLastSeen', value);
+
+    notifyListeners();
+  }
+
+  int getWatchedMediaRetentionDays() {
+    return watchedMediaRetentionDays;
+  }
+
+  Future<void> setWatchedMediaRetentionDays(int days) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    watchedMediaRetentionDays = days;
+    prefs.setInt('watchedMediaRetentionDays', days);
     notifyListeners();
   }
 }

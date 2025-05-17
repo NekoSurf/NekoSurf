@@ -11,6 +11,7 @@ import 'package:flutter_chan/pages/replies_row.dart';
 import 'package:flutter_chan/pages/thread/thread_post_comment.dart';
 import 'package:flutter_chan/pages/thread/thread_replies.dart';
 import 'package:flutter_chan/services/string.dart';
+import 'package:flutter_chan/blocs/watched_media_model.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -98,6 +99,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                                   video: widget.post.tim.toString() +
                                       widget.post.ext.toString(),
                                   board: widget.board,
+                                  thread: widget.thread,
                                   allPosts: widget.replies ?? widget.allPosts),
                             ),
                           ).then(
@@ -106,11 +108,49 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                             },
                           )
                         },
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: Image.network(
-                            'https://i.4cdn.org/${widget.board}/${widget.post.tim}s.jpg',
-                            fit: BoxFit.cover,
+                        child: AspectRatio(
+                          aspectRatio: 1,
+                          child: Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: Container(
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  child: Image.network(
+                                    'https://i.4cdn.org/${widget.board}/${widget.post.tim}s.jpg',
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              ),
+                              Consumer<WatchedMediaProvider>(
+                                builder:
+                                    (context, watchedMediaProvider, child) {
+                                  final isWatched =
+                                      watchedMediaProvider.isWatched(
+                                    widget.post.tim ?? 0,
+                                    widget.thread,
+                                  );
+                                  return isWatched
+                                      ? Container(
+                                          decoration: BoxDecoration(
+                                            color:
+                                                Colors.black.withOpacity(0.5),
+                                            borderRadius:
+                                                BorderRadius.circular(10),
+                                          ),
+                                          child: const Center(
+                                            child: Icon(
+                                              Icons.visibility,
+                                              color: Colors.white,
+                                              size: 32,
+                                            ),
+                                          ),
+                                        )
+                                      : const SizedBox.shrink();
+                                },
+                              ),
+                            ],
                           ),
                         ),
                       ),

@@ -4,7 +4,9 @@ import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/Models/bookmark.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/gallery_model.dart';
+import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
+import 'package:flutter_chan/blocs/watched_media_model.dart';
 import 'package:flutter_chan/pages/bookmark_button.dart';
 import 'package:flutter_chan/pages/thread/thread_page_post.dart';
 import 'package:flutter_chan/services/string.dart';
@@ -43,6 +45,7 @@ class ThreadPageState extends State<ThreadPage> {
   late Future<List<Post>> _fetchAllPostsFromThread;
 
   List<Post> allPosts = [];
+  bool _hasScrolledToLastWatched = false;
 
   late Bookmark favorite;
   late Post currentPage;
@@ -67,6 +70,37 @@ class ThreadPageState extends State<ThreadPage> {
       _fetchAllPostsFromThread =
           fetchAllPostsFromThread(widget.board, widget.thread);
     });
+  }
+
+  void scrollToLastWatchedMedia(List<Post> allPosts) {
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final watchedMedia =
+        Provider.of<WatchedMediaProvider>(context, listen: false);
+
+    if (!settings.getAutoScrollToLastSeen()) {
+      return;
+    }
+
+    final latestWatchedMedia =
+        watchedMedia.getLatestWatchedMedia(widget.thread);
+
+    if (latestWatchedMedia != null) {
+      final index =
+          allPosts.indexWhere((post) => post.tim == latestWatchedMedia.mediaId);
+
+      if (index != -1) {
+        Future.delayed(const Duration(milliseconds: 250), () {
+          if (mounted && itemScrollController.isAttached) {
+            itemScrollController.scrollTo(
+              index: index,
+              alignment: 0,
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeInOutCubic,
+            );
+          }
+        });
+      }
+    }
   }
 
   @override
@@ -190,6 +224,13 @@ class ThreadPageState extends State<ThreadPage> {
                 );
               } else {
                 allPosts = snapshot.data ?? [];
+
+                if (!_hasScrolledToLastWatched) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    scrollToLastWatchedMedia(allPosts);
+                    _hasScrolledToLastWatched = true;
+                  });
+                }
 
                 return SafeArea(
                   top: true,
