@@ -1,0 +1,105 @@
+name: Build NekoSurf iOS IPA
+
+# This workflow is triggered on creation of a release.
+on:
+  release:
+    types: [published]
+
+jobs:
+  build_ipa:
+    name: Build iOS IPA
+    runs-on: macos-latest
+
+    steps:
+      - name: "📩 Checkout actions/checkout@v1"
+        uses: actions/checkout@v4
+
+      - name: "💎 Setup Ruby"
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: "🦋 Setup Flutter"
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.29.2"
+          channel: "stable"
+
+      - name: "❓ Verify Flutter"
+        run: flutter doctor
+
+      - name: "📦 Install dependencies"
+        run: flutter pub get
+
+      - name: "💭 Install CocoaPods"
+        run: |
+          gem install cocoapods
+          cd ios && pod install && cd ..
+        continue-on-error: true
+
+      - name: "🏗️ Build iOS app"
+        run: |
+          flutter build ios --release --no-codesign --verbose
+        continue-on-error: true
+
+      - name: "🔨 Create IPA"
+        run: |
+          APP_DIR="build/ios/Release-iphoneos"
+          OUTPUT_DIR="build/ios/ipa"
+          APP_NAME=$(find "$APP_DIR" -name "*.app" -maxdepth 1 | head -n 1)
+          if [ -z "$APP_NAME" ]; then
+            echo "No .app found in $APP_DIR"
+            exit 1
+          fi
+          APP_BASENAME=$(basename "$APP_NAME" .app)
+          mkdir -p "$OUTPUT_DIR/Payload"
+          cp -r "$APP_NAME" "$OUTPUT_DIR/Payload/"
+          cd "$OUTPUT_DIR"
+          zip -r "$APP_BASENAME.ipa" Payload
+          rm -rf Payload
+          echo "Created IPA: $OUTPUT_DIR/$APP_BASENAME.ipa"
+        continue-on-error: true
+
+      - name: "🚀 Upload IPA to Release"
+        run: |
+          gh release upload ${{ github.event.release.tag_name }} "build/ios/ipa/*.ipa"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build_apk:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: "📩 Checkout actions/checkout@v1"
+        uses: actions/checkout@v1
+
+      - name: "☕️ Setup Java"
+        uses: actions/setup-java@v1
+        with:
+          java-version: "17.x"
+
+      - name: "🦋 Setup Flutter"
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.29.2"
+          channel: "stable"
+
+      - name: "❓ Verify Flutter"
+        run: flutter doctor
+
+      - name: "📦 Install dependencies"
+        run: flutter pub get
+
+      - name: "📦 Set Gradle Heap Size"
+        run: echo "GRADLE_OPTS=-Xmx2048m" >> $GITHUB_ENV
+
+      - name: "🚀 Build APK"
+        run: |
+          flutter build apk --split-per-abi
+          gh release upload ${{github.event.release.tag_name}} build/app/outputs/apk/release/app-arm64-v8a-release.apk
+          gh release upload ${{github.event.release.tag_name}} build/app/outputs/apk/release/app-armeabi-v7a-release.apk
+          gh release upload ${{github.event.release.tag_name}} build/app/outputs/apk/release/app-x86_64-release.apk
+        env:
+          GITHUB_TOKEN: ${{ github.TOKEN }}
+        shell: bash
