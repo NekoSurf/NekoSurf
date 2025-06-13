@@ -5,6 +5,7 @@
   "groups" : [
     {
       "blur-material" : null,
+      "hidden" : false,
       "layers" : [
         {
           "blend-mode" : "normal",
@@ -13,16 +14,31 @@
           "hidden" : false,
           "image-name" : "Head.png",
           "name" : "Head",
-          "position" : {
-            "scale" : 0.35,
-            "translation-in-points" : [
-              0,
-              30
-            ]
-          }
+          "position-specializations" : [
+            {
+              "value" : {
+                "scale" : 0.35,
+                "translation-in-points" : [
+                  0,
+                  30
+                ]
+              }
+            },
+            {
+              "idiom" : "watchOS",
+              "value" : {
+                "scale" : 0.3,
+                "translation-in-points" : [
+                  0,
+                  30
+                ]
+              }
+            }
+          ]
         }
       ],
       "lighting" : "individual",
+      "name" : "Group",
       "shadow" : {
         "kind" : "neutral",
         "opacity" : 0.5
@@ -30,7 +46,7 @@
       "specular" : true,
       "translucency" : {
         "enabled" : true,
-        "value" : 0.5
+        "value" : 0.53
       }
     }
   ],

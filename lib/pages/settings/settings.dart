@@ -76,7 +76,7 @@ class _SettingsState extends State<Settings> {
                   padding:
                       const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                   leadingSize: 60,
-                  leading: Image.asset('assets/icons/icon.png'),
+                  leading: Image.asset('assets/icons/icon-round.png'),
                   title: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
