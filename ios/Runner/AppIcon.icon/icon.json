@@ -1,0 +1,144 @@
+{
+  "fill" : {
+    "solid" : "display-p3:0.51875,0.80697,0.91781,1.00000"
+  },
+  "groups" : [
+    {
+      "blur-material" : 0.5,
+      "hidden-specializations" : [
+        {
+          "value" : false
+        },
+        {
+          "idiom" : "square",
+          "value" : false
+        }
+      ],
+      "layers" : [
+        {
+          "blend-mode" : "normal",
+          "fill" : {
+            "solid" : "display-p3:1.00000,1.00000,1.00000,1.00000"
+          },
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "Head.png",
+          "name" : "Head",
+          "opacity" : 1,
+          "position-specializations" : [
+            {
+              "value" : {
+                "scale" : 0.35,
+                "translation-in-points" : [
+                  0,
+                  30
+                ]
+              }
+            },
+            {
+              "idiom" : "watchOS",
+              "value" : {
+                "scale" : 0.3,
+                "translation-in-points" : [
+                  0,
+                  30
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "lighting" : "individual",
+      "name" : "Group",
+      "opacity" : 1,
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 1
+      },
+      "specular" : true,
+      "translucency" : {
+        "enabled" : false,
+        "value" : 0.5
+      }
+    },
+    {
+      "blur-material" : 0.29,
+      "hidden-specializations" : [
+        {
+          "idiom" : "square",
+          "value" : false
+        }
+      ],
+      "layers" : [
+        {
+          "fill" : "automatic",
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "White_Circle.svg.png",
+          "name" : "White_Circle.svg",
+          "opacity" : 1,
+          "position" : {
+            "scale" : 2.12,
+            "translation-in-points" : [
+              -222.91328917059604,
+              398.87950416515537
+            ]
+          }
+        }
+      ],
+      "lighting" : "individual",
+      "name" : "Group",
+      "opacity" : 0.4,
+      "position" : {
+        "scale" : 1,
+        "translation-in-points" : [
+          0,
+          0
+        ]
+      },
+      "shadow" : {
+        "kind" : "none",
+        "opacity" : 0.5
+      },
+      "specular" : true,
+      "translucency" : {
+        "enabled" : true,
+        "value" : 1
+      }
+    },
+    {
+      "blur-material" : 0.5,
+      "layers" : [
+        {
+          "fill" : "automatic",
+          "glass" : true,
+          "image-name" : "White_Circle.svg.png",
+          "name" : "White_Circle.svg",
+          "opacity" : 1,
+          "position" : {
+            "scale" : 1.9,
+            "translation-in-points" : [
+              371.9957768743199,
+              -281.5686941687825
+            ]
+          }
+        }
+      ],
+      "opacity" : 0.4,
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}
