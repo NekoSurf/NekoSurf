@@ -62,7 +62,7 @@
       }
     },
     {
-      "blur-material" : 0.29,
+      "blur-material" : null,
       "hidden-specializations" : [
         {
           "idiom" : "square",
@@ -107,7 +107,7 @@
       }
     },
     {
-      "blur-material" : 0.5,
+      "blur-material" : null,
       "layers" : [
         {
           "fill" : "automatic",
