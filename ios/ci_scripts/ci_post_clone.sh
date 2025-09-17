@@ -6,13 +6,13 @@ set -e
 # The default execution directory of this script is the ci_scripts directory.
 cd $CI_PRIMARY_REPOSITORY_PATH # change working directory to the root of your cloned repo.
 
-FLUTTER_TAG="3.29.0"
+FLUTTER_TAG="3.35.4"
 
 # Install Flutter using git.
-# git clone https://github.com/flutter/flutter.git --depth 1 -b $FLUTTER_TAG $HOME/flutter
-git clone https://github.com/flutter/flutter.git -b stable $HOME/flutter
-cd $HOME/flutter
-git checkout f73bfc4522dd0bc87bbcdb4bb3088082755c5e87
+git clone https://github.com/flutter/flutter.git --depth 1 -b $FLUTTER_TAG $HOME/flutter
+# git clone https://github.com/flutter/flutter.git -b stable $HOME/flutter
+# cd $HOME/flutter
+# git checkout f73bfc4522dd0bc87bbcdb4bb3088082755c5e87
 cd $CI_PRIMARY_REPOSITORY_PATH
 export PATH="$PATH:$HOME/flutter/bin"
 
