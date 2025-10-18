@@ -8,7 +8,7 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_chan/API/save_videos.dart';
 import 'package:flutter_chan/blocs/gallery_model.dart';
 import 'package:flutter_chan/blocs/saved_attachments_model.dart';
-import 'package:flutter_vlc_player/flutter_vlc_player.dart';
+import 'package:flutter_vlc_player_16kb/flutter_vlc_player.dart';
 import 'package:provider/provider.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
