@@ -2,9 +2,9 @@ import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
-import 'package:ffmpeg_kit_flutter_full_gpl/ffmpeg_kit.dart';
-import 'package:ffmpeg_kit_flutter_full_gpl/ffmpeg_session.dart';
-import 'package:ffmpeg_kit_flutter_full_gpl/return_code.dart';
+import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter_new/ffmpeg_session.dart';
+import 'package:ffmpeg_kit_flutter_new/return_code.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
@@ -32,8 +32,11 @@ Future<bool> _requestPermission(Permission permission) async {
   return false;
 }
 
-Future<Directory> requestDirectory(Directory directory, BuildContext context,
-    {bool showErrorDialog = true}) async {
+Future<Directory> requestDirectory(
+  Directory directory,
+  BuildContext context, {
+  bool showErrorDialog = true,
+}) async {
   if (Platform.isAndroid) {
     final int sdkVersion =
         (await DeviceInfoPlugin().androidInfo).version.sdkInt;
@@ -113,36 +116,44 @@ Future<void> saveVideo(
 
     if (Platform.isIOS) {
       await ImageGallerySaverPlus.saveFile(
-        '${directory.path}/savedAttachments/$fileName'
-            .replaceAll('.webm', '.mp4'),
+        '${directory.path}/savedAttachments/$fileName'.replaceAll(
+          '.webm',
+          '.mp4',
+        ),
         isReturnPathOfIOS: true,
-      ).then((value) => {
-            if (showSnackBar)
-              showCupertinoSnackbar(
-                const Duration(milliseconds: 1800),
-                true,
-                context,
-                'File saved!',
-              )
-            else
-              null,
-          });
+      ).then(
+        (value) => {
+          if (showSnackBar)
+            showCupertinoSnackbar(
+              const Duration(milliseconds: 1800),
+              true,
+              context,
+              'File saved!',
+            )
+          else
+            null,
+        },
+      );
     } else {
       await ImageGallerySaverPlus.saveFile(
-        '${directory.path}/savedAttachments/$fileName'
-            .replaceAll('.webm', '.mp4'),
+        '${directory.path}/savedAttachments/$fileName'.replaceAll(
+          '.webm',
+          '.mp4',
+        ),
         isReturnPathOfIOS: true,
-      ).then((value) => {
-            if (showSnackBar)
-              showCupertinoSnackbar(
-                const Duration(milliseconds: 1800),
-                true,
-                context,
-                'File saved!',
-              )
-            else
-              null,
-          });
+      ).then(
+        (value) => {
+          if (showSnackBar)
+            showCupertinoSnackbar(
+              const Duration(milliseconds: 1800),
+              true,
+              context,
+              'File saved!',
+            )
+          else
+            null,
+        },
+      );
     }
   } else {
     try {
@@ -152,12 +163,7 @@ Future<void> saveVideo(
       return;
     }
 
-    showCupertinoSnackbar(
-      null,
-      false,
-      context,
-      'Downloading...',
-    );
+    showCupertinoSnackbar(null, false, context, 'Downloading...');
 
     final String ext = '.${fileName.split('.').last}';
 
@@ -169,32 +175,31 @@ Future<void> saveVideo(
         if (Platform.isIOS) {
           if (ext == '.webm') {
             Navigator.pop(context);
-            showCupertinoSnackbar(
-              null,
-              false,
-              context,
-              'File converting...',
-            );
+            showCupertinoSnackbar(null, false, context, 'File converting...');
 
-            final ReturnCode? returnCode =
-                await convertWebMToMP4(videoCache, fileDownloadPath);
+            final ReturnCode? returnCode = await convertWebMToMP4(
+              videoCache,
+              fileDownloadPath,
+            );
 
             if (ReturnCode.isSuccess(returnCode)) {
               await ImageGallerySaverPlus.saveFile(
                 fileDownloadPath.path.replaceAll('.webm', '.mp4'),
                 isReturnPathOfIOS: true,
-              ).then((value) => {
-                    if (showSnackBar) Navigator.pop(context),
-                    if (showSnackBar)
-                      showCupertinoSnackbar(
-                        const Duration(milliseconds: 1800),
-                        true,
-                        context,
-                        'File downloaded!',
-                      )
-                    else
-                      null,
-                  });
+              ).then(
+                (value) => {
+                  if (showSnackBar) Navigator.pop(context),
+                  if (showSnackBar)
+                    showCupertinoSnackbar(
+                      const Duration(milliseconds: 1800),
+                      true,
+                      context,
+                      'File downloaded!',
+                    )
+                  else
+                    null,
+                },
+              );
             } else {
               Navigator.pop(context);
               showCupertinoSnackbar(
@@ -205,25 +210,11 @@ Future<void> saveVideo(
               );
             }
           } else {
-            await ImageGallerySaverPlus.saveFile(videoCache.path,
-                    isReturnPathOfIOS: true)
-                .then((value) => {
-                      if (showSnackBar) Navigator.pop(context),
-                      if (showSnackBar)
-                        showCupertinoSnackbar(
-                          const Duration(milliseconds: 1800),
-                          true,
-                          context,
-                          'File downloaded!',
-                        )
-                      else
-                        null,
-                    });
-          }
-        } else {
-          await ImageGallerySaverPlus.saveFile(
-            videoCache.path,
-          ).then((value) => {
+            await ImageGallerySaverPlus.saveFile(
+              videoCache.path,
+              isReturnPathOfIOS: true,
+            ).then(
+              (value) => {
                 if (showSnackBar) Navigator.pop(context),
                 if (showSnackBar)
                   showCupertinoSnackbar(
@@ -234,7 +225,24 @@ Future<void> saveVideo(
                   )
                 else
                   null,
-              });
+              },
+            );
+          }
+        } else {
+          await ImageGallerySaverPlus.saveFile(videoCache.path).then(
+            (value) => {
+              if (showSnackBar) Navigator.pop(context),
+              if (showSnackBar)
+                showCupertinoSnackbar(
+                  const Duration(milliseconds: 1800),
+                  true,
+                  context,
+                  'File downloaded!',
+                )
+              else
+                null,
+            },
+          );
         }
       }
     } catch (e) {
@@ -274,9 +282,11 @@ Future<void> shareMedia(
 
     Share.shareXFiles([
       XFile(
-        '${directory.path}/savedAttachments/$fileName'
-            .replaceAll('.webm', '.mp4'),
-      )
+        '${directory.path}/savedAttachments/$fileName'.replaceAll(
+          '.webm',
+          '.mp4',
+        ),
+      ),
     ]);
   } else {
     try {
@@ -286,12 +296,7 @@ Future<void> shareMedia(
       return;
     }
 
-    showCupertinoSnackbar(
-      null,
-      false,
-      context,
-      'Downloading...',
-    );
+    showCupertinoSnackbar(null, false, context, 'Downloading...');
 
     try {
       if (await directory.exists()) {
@@ -303,15 +308,12 @@ Future<void> shareMedia(
         if (Platform.isIOS) {
           if (ext == '.webm') {
             Navigator.pop(context);
-            showCupertinoSnackbar(
-              null,
-              false,
-              context,
-              'File converting...',
-            );
+            showCupertinoSnackbar(null, false, context, 'File converting...');
 
-            final ReturnCode? returnCode =
-                await convertWebMToMP4(videoCache, fileDownloadPath);
+            final ReturnCode? returnCode = await convertWebMToMP4(
+              videoCache,
+              fileDownloadPath,
+            );
 
             if (ReturnCode.isSuccess(returnCode)) {
               Navigator.pop(context);
@@ -320,13 +322,13 @@ Future<void> shareMedia(
                 true,
                 context,
                 'File downloaded!',
-              ).then((value) => {
-                    Share.shareXFiles([
-                      XFile(
-                        fileDownloadPath.path.replaceAll('.webm', '.mp4'),
-                      )
-                    ]),
-                  });
+              ).then(
+                (value) => {
+                  Share.shareXFiles([
+                    XFile(fileDownloadPath.path.replaceAll('.webm', '.mp4')),
+                  ]),
+                },
+              );
             } else {
               Navigator.pop(context);
               showCupertinoSnackbar(
@@ -343,17 +345,15 @@ Future<void> shareMedia(
               true,
               context,
               'File downloaded!',
-            ).then((value) => {
-                  Share.shareXFiles([
-                    XFile(videoCache.path),
-                  ])
-                });
+            ).then(
+              (value) => {
+                Share.shareXFiles([XFile(videoCache.path)]),
+              },
+            );
           }
         } else {
           Navigator.pop(context);
-          Share.shareXFiles([
-            XFile(videoCache.path),
-          ]);
+          Share.shareXFiles([XFile(videoCache.path)]);
         }
       }
     } catch (e) {
@@ -386,21 +386,18 @@ Future<SavedAttachment?> saveAttachment(
     return null;
   }
 
-  showCupertinoSnackbar(
-    null,
-    false,
-    context,
-    'Downloading...',
-  );
+  showCupertinoSnackbar(null, false, context, 'Downloading...');
 
   try {
     if (await directory.exists()) {
-      final File fileDownloadPath =
-          File('${directory.path}/savedAttachments/$fileName');
+      final File fileDownloadPath = File(
+        '${directory.path}/savedAttachments/$fileName',
+      );
       final File videoCache = await DefaultCacheManager().getSingleFile(url);
 
-      final Directory savedAttachmentsDirectory =
-          Directory('${directory.path}/savedAttachments');
+      final Directory savedAttachmentsDirectory = Directory(
+        '${directory.path}/savedAttachments',
+      );
 
       if (!await savedAttachmentsDirectory.exists()) {
         await savedAttachmentsDirectory.create(recursive: true);
@@ -411,15 +408,12 @@ Future<SavedAttachment?> saveAttachment(
       if (Platform.isIOS) {
         Navigator.pop(context);
         if (ext == '.webm') {
-          showCupertinoSnackbar(
-            null,
-            false,
-            context,
-            'File converting...',
-          );
+          showCupertinoSnackbar(null, false, context, 'File converting...');
 
-          final ReturnCode? returnCode =
-              await convertWebMToMP4(videoCache, fileDownloadPath);
+          final ReturnCode? returnCode = await convertWebMToMP4(
+            videoCache,
+            fileDownloadPath,
+          );
 
           if (ReturnCode.isSuccess(returnCode)) {
             final String thumbnailPath = await downloadThumbnail(
@@ -558,10 +552,7 @@ Future<String> downloadThumbnail(
 ) async {
   final String nameWithoutExtension = getNameWithoutExtension(fileName);
 
-  await dio.download(
-    thumbnailUrl,
-    '$path$nameWithoutExtension.jpg',
-  );
+  await dio.download(thumbnailUrl, '$path$nameWithoutExtension.jpg');
 
   return '$nameWithoutExtension.jpg';
 }
