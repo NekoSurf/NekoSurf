@@ -18,13 +18,14 @@ class SavedAttachmentsProvider with ChangeNotifier {
   Future<void> loadPreferences() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
 
-    List<String>? savedAttachmentsPrefs = prefs.getStringList(
-      'savedAttachments',
-    );
+    final List<String> savedAttachmentsPrefs =
+        prefs.getStringList('savedAttachments') ?? [];
 
-    savedAttachmentsPrefs ??= [];
+    list = _normalizeSavedEntries(savedAttachmentsPrefs);
 
-    list = savedAttachmentsPrefs;
+    if (!_listsEqual(savedAttachmentsPrefs, list)) {
+      await prefs.setStringList('savedAttachments', list);
+    }
 
     notifyListeners();
   }
@@ -44,13 +45,14 @@ class SavedAttachmentsProvider with ChangeNotifier {
   }
 
   List<SavedAttachment> getSavedAttachments() {
-    final Iterable<String> savedList = list;
     final List<SavedAttachment> savedAttachmentList = [];
 
-    for (final element in savedList) {
-      savedAttachmentList.add(
-        SavedAttachment.fromJson(json.decode(element) as Map<String, dynamic>),
-      );
+    for (final element in list) {
+      final SavedAttachment? attachment = _decodeSavedAttachment(element);
+
+      if (attachment != null) {
+        savedAttachmentList.add(attachment);
+      }
     }
 
     return savedAttachmentList;
@@ -66,7 +68,7 @@ class SavedAttachmentsProvider with ChangeNotifier {
       fileName.lastIndexOf('.'),
     );
 
-    if (!list.contains(fileName)) {
+    if (!_containsFileName(fileName)) {
       final SavedAttachment? savedAttachment = await saveAttachment(
         'https://i.4cdn.org/$board/$fileName',
         'https://i.4cdn.org/$board/${nameWithoutExtension}s.jpg',
@@ -181,5 +183,85 @@ class SavedAttachmentsProvider with ChangeNotifier {
 
   bool getPlaying() {
     return playing;
+  }
+
+  List<String> _normalizeSavedEntries(List<String> entries) {
+    final List<String> normalized = [];
+
+    for (final entry in entries) {
+      final SavedAttachment? attachment = _decodeSavedAttachment(entry);
+
+      if (attachment != null) {
+        normalized.add(json.encode(attachment));
+      }
+    }
+
+    return normalized;
+  }
+
+  SavedAttachment? _decodeSavedAttachment(String raw) {
+    final String value = raw.trim();
+
+    if (value.isEmpty) {
+      return null;
+    }
+
+    // Older versions stored just the filename. Build a minimal valid object.
+    if (!value.startsWith('{')) {
+      return _legacyAttachmentFromFileName(value);
+    }
+
+    try {
+      final dynamic decoded = json.decode(value);
+
+      if (decoded is! Map<String, dynamic>) {
+        return null;
+      }
+
+      return SavedAttachment.fromJson(decoded);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  SavedAttachment _legacyAttachmentFromFileName(String fileName) {
+    final String lower = fileName.toLowerCase();
+    final bool isVideo =
+        lower.endsWith('.mp4') ||
+        lower.endsWith('.webm') ||
+        lower.endsWith('.gif');
+    final String baseName = getNameWithoutExtension(fileName);
+
+    return SavedAttachment(
+      savedAttachmentType: isVideo
+          ? SavedAttachmentType.Video
+          : SavedAttachmentType.Image,
+      fileName: fileName,
+      thumbnail: isVideo ? '$baseName.jpg' : fileName,
+    );
+  }
+
+  bool _containsFileName(String fileName) {
+    for (final attachment in getSavedAttachments()) {
+      if (attachment.fileName == fileName) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  bool _listsEqual(List<String> first, List<String> second) {
+    if (first.length != second.length) {
+      return false;
+    }
+
+    for (int i = 0; i < first.length; i++) {
+      if (first[i] != second[i]) {
+        return false;
+      }
+    }
+
+    return true;
   }
 }
