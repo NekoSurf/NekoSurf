@@ -54,8 +54,10 @@ class _MediaPageState extends State<MediaPage> {
 
     // Mark media as watched when viewed
     if (!widget.isAsset && widget.thread != null) {
-      final watchedMediaProvider =
-          Provider.of<WatchedMediaProvider>(context, listen: false);
+      final watchedMediaProvider = Provider.of<WatchedMediaProvider>(
+        context,
+        listen: false,
+      );
       final currentMedia = media[i];
       watchedMediaProvider.markAsWatched(
         mediaId: currentMedia.videoId,
@@ -87,7 +89,8 @@ class _MediaPageState extends State<MediaPage> {
           maxScale: 5,
           child: Image.file(
             File(
-                '${widget.directory!.path}/savedAttachments/${media[i].fileName}'),
+              '${widget.directory!.path}/savedAttachments/${media[i].fileName}',
+            ),
           ),
         );
       }
@@ -124,9 +127,7 @@ class _MediaPageState extends State<MediaPage> {
       }
     }
 
-    index = media.indexWhere(
-      (element) => element.videoName == widget.video,
-    );
+    index = media.indexWhere((element) => element.videoName == widget.video);
 
     if (index < 0) {
       Navigator.of(context).pop();
@@ -135,8 +136,10 @@ class _MediaPageState extends State<MediaPage> {
 
     // Mark initial media as watched when opened
     if (!widget.isAsset && widget.thread != null) {
-      final watchedMediaProvider =
-          Provider.of<WatchedMediaProvider>(context, listen: false);
+      final watchedMediaProvider = Provider.of<WatchedMediaProvider>(
+        context,
+        listen: false,
+      );
       final initialMedia = media[index];
       watchedMediaProvider.markAsWatched(
         mediaId: initialMedia.videoId,
@@ -146,10 +149,7 @@ class _MediaPageState extends State<MediaPage> {
       );
     }
 
-    controller = PageController(
-      initialPage: index,
-      keepPage: false,
-    );
+    controller = PageController(initialPage: index, keepPage: false);
   }
 
   @override
@@ -182,12 +182,16 @@ class _MediaPageState extends State<MediaPage> {
       appBar: gallery.getControlsVisible()
           ? CupertinoNavigationBar(
               backgroundColor: theme.getTheme() == ThemeData.light()
-                  ? CupertinoColors.systemGroupedBackground.withOpacity(0.7)
+                  ? CupertinoColors.systemGroupedBackground.withValues(
+                      alpha: 0.7,
+                    )
                   : CupertinoColors.black.withOpacity(0.7),
               border: Border.all(color: Colors.transparent),
               leading: MediaQuery(
                 data: MediaQueryData(
-                  textScaleFactor: MediaQuery.textScaleFactorOf(context),
+                  textScaler: TextScaler.linear(
+                    MediaQuery.textScaleFactorOf(context),
+                  ),
                 ),
                 child: Transform.translate(
                   offset: const Offset(-16, 0),
@@ -198,7 +202,9 @@ class _MediaPageState extends State<MediaPage> {
               ),
               middle: MediaQuery(
                 data: MediaQueryData(
-                  textScaleFactor: MediaQuery.textScaleFactorOf(context),
+                  textScaler: TextScaler.linear(
+                    MediaQuery.textScaleFactorOf(context),
+                  ),
                 ),
                 child: Column(
                   children: [
@@ -235,7 +241,7 @@ class _MediaPageState extends State<MediaPage> {
                           _scaffoldKey.currentContext ?? context,
                           widget.board ?? '',
                           media[index].videoName,
-                        )
+                        ),
                       },
                     )
                   else
@@ -259,9 +265,7 @@ class _MediaPageState extends State<MediaPage> {
                                           color: CupertinoColors.activeBlue,
                                         ),
                                       ),
-                                      onPressed: () => {
-                                        Navigator.pop(context),
-                                      },
+                                      onPressed: () => {Navigator.pop(context)},
                                     ),
                                     CupertinoDialogAction(
                                       child: const Text(
@@ -273,7 +277,9 @@ class _MediaPageState extends State<MediaPage> {
                                       onPressed: () => {
                                         savedAttachments
                                             .removeSavedAttachments(
-                                                media[index].videoName, context)
+                                              media[index].videoName,
+                                              context,
+                                            )
                                             .then(
                                               (value) => {
                                                 Navigator.pop(context),
@@ -296,8 +302,7 @@ class _MediaPageState extends State<MediaPage> {
                       onPressed: () {
                         showCupertinoModalPopup(
                           context: context,
-                          builder: (BuildContext context) =>
-                              CupertinoActionSheet(
+                          builder: (BuildContext context) => CupertinoActionSheet(
                             actions: [
                               if (!isSaved)
                                 CupertinoActionSheetAction(
@@ -355,12 +360,9 @@ class _MediaPageState extends State<MediaPage> {
         controller: controller,
         onPageChanged: (pageIndex) =>
             onPageChanged(pageIndex, media[pageIndex].videoName, gallery),
-        childrenDelegate: SliverChildBuilderDelegate(
-          (context, i) {
-            return getMediaWidget(i);
-          },
-          childCount: media.length,
-        ),
+        childrenDelegate: SliverChildBuilderDelegate((context, i) {
+          return getMediaWidget(i);
+        }, childCount: media.length),
         scrollDirection: Axis.vertical,
         physics: const ClampingScrollPhysics(),
       ),

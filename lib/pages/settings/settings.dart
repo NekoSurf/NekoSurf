@@ -44,11 +44,13 @@ class _SettingsState extends State<Settings> {
         slivers: [
           CupertinoSliverNavigationBar(
             backgroundColor: theme.getTheme() == ThemeData.light()
-                ? CupertinoColors.systemGroupedBackground.withOpacity(0.5)
+                ? CupertinoColors.systemGroupedBackground.withValues(alpha: 0.5)
                 : CupertinoColors.black.withOpacity(0.7),
             leading: MediaQuery(
               data: MediaQueryData(
-                textScaleFactor: MediaQuery.textScaleFactorOf(context),
+                textScaler: TextScaler.linear(
+                  MediaQuery.textScaleFactorOf(context),
+                ),
               ),
               child: Transform.translate(
                 offset: const Offset(-16, 0),
@@ -62,19 +64,21 @@ class _SettingsState extends State<Settings> {
             border: Border.all(color: Colors.transparent),
             largeTitle: MediaQuery(
               data: MediaQueryData(
-                textScaleFactor: MediaQuery.textScaleFactorOf(context),
+                textScaler: TextScaler.linear(
+                  MediaQuery.textScaleFactorOf(context),
+                ),
               ),
-              child: const Text(
-                'Settings',
-              ),
+              child: const Text('Settings'),
             ),
           ),
           SliverToBoxAdapter(
             child: CupertinoListSection.insetGrouped(
               children: [
                 CupertinoListTile(
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 16,
+                  ),
                   leadingSize: 60,
                   leading: Image.asset('assets/icons/icon-round.png'),
                   title: Column(
@@ -82,17 +86,18 @@ class _SettingsState extends State<Settings> {
                     children: [
                       const Text('NekoSurf'),
                       FutureBuilder<PackageInfo>(
-                          future: _getVersionNumber,
-                          builder:
-                              (context, AsyncSnapshot<PackageInfo> snapshot) {
-                            return Text(
-                              snapshot.hasData ? snapshot.data!.version : '',
-                              style: const TextStyle(
-                                color: CupertinoColors.systemGrey,
-                                fontSize: 15,
-                              ),
-                            );
-                          }),
+                        future: _getVersionNumber,
+                        builder:
+                            (context, AsyncSnapshot<PackageInfo> snapshot) {
+                              return Text(
+                                snapshot.hasData ? snapshot.data!.version : '',
+                                style: const TextStyle(
+                                  color: CupertinoColors.systemGrey,
+                                  fontSize: 15,
+                                ),
+                              );
+                            },
+                      ),
                     ],
                   ),
                   trailing: const CupertinoListTileChevron(),

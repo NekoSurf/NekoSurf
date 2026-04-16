@@ -27,10 +27,12 @@ class DataSettingsState extends State<DataSettings> {
     try {
       applicationDocumentsDirectory = await getApplicationDocumentsDirectory();
       temporaryDirectory = Directory(
-          '${(await getTemporaryDirectory()).path}/libCachedImageData');
+        '${(await getTemporaryDirectory()).path}/libCachedImageData',
+      );
 
-      final List<FileSystemEntity> entitiesTemp =
-          await temporaryDirectory.list().toList();
+      final List<FileSystemEntity> entitiesTemp = await temporaryDirectory
+          .list()
+          .toList();
       for (final entity in entitiesTemp) {
         if (entity is File) {
           setState(() {
@@ -67,10 +69,12 @@ class DataSettingsState extends State<DataSettings> {
     try {
       applicationDocumentsDirectory = await getApplicationDocumentsDirectory();
       temporaryDirectory = Directory(
-          '${(await getTemporaryDirectory()).path}/libCachedImageData');
+        '${(await getTemporaryDirectory()).path}/libCachedImageData',
+      );
 
-      final List<FileSystemEntity> entitiesTemp =
-          await temporaryDirectory.list().toList();
+      final List<FileSystemEntity> entitiesTemp = await temporaryDirectory
+          .list()
+          .toList();
       for (final entity in entitiesTemp) {
         if (entity is File) {
           await entity.delete();
@@ -118,14 +122,16 @@ class DataSettingsState extends State<DataSettings> {
           : CupertinoColors.systemGroupedBackground,
       navigationBar: CupertinoNavigationBar(
         backgroundColor: theme.getTheme() == ThemeData.light()
-            ? CupertinoColors.systemGroupedBackground.withOpacity(0.7)
+            ? CupertinoColors.systemGroupedBackground.withValues(alpha: 0.7)
             : CupertinoColors.black.withOpacity(0.7),
         brightness: theme.getTheme() == ThemeData.dark()
             ? Brightness.dark
             : Brightness.light,
         leading: MediaQuery(
           data: MediaQueryData(
-            textScaleFactor: MediaQuery.textScaleFactorOf(context),
+            textScaler: TextScaler.linear(
+              MediaQuery.textScaleFactorOf(context),
+            ),
           ),
           child: Transform.translate(
             offset: const Offset(-16, 0),
@@ -139,7 +145,9 @@ class DataSettingsState extends State<DataSettings> {
         previousPageTitle: 'Settings',
         middle: MediaQuery(
           data: MediaQueryData(
-            textScaleFactor: MediaQuery.textScaleFactorOf(context),
+            textScaler: TextScaler.linear(
+              MediaQuery.textScaleFactorOf(context),
+            ),
           ),
           child: Text(
             'Data',
@@ -152,138 +160,143 @@ class DataSettingsState extends State<DataSettings> {
         ),
       ),
       child: SafeArea(
-          child: Column(
-        children: [
-          CupertinoListSection.insetGrouped(
-            children: [
-              CupertinoListTile(
-                leading: const CupertinoSettingsIcon(
-                  icon: CupertinoIcons.doc,
-                  color: CupertinoColors.systemYellow,
-                ),
-                title: const Text(
-                  'Use caching on videos (Experimental)',
-                ),
-                trailing: CupertinoSwitch(
-                  onChanged: (value) => {
-                    settings.setUseCachingOnVideos(value),
-                  },
-                  value: settings.getUseCachingOnVideos(),
-                ),
-              ),
-              CupertinoListTile(
-                leading: const CupertinoSettingsIcon(
-                  icon: CupertinoIcons.arrow_down_circle,
-                  color: CupertinoColors.systemBlue,
-                ),
-                title: const Text(
-                  'Auto-scroll to last seen media',
-                ),
-                subtitle: const Text(
-                  'Automatically scroll to the last media you viewed',
-                ),
-                trailing: CupertinoSwitch(
-                  onChanged: (value) => {
-                    settings.setAutoScrollToLastSeen(value),
-                  },
-                  value: settings.getAutoScrollToLastSeen(),
-                ),
-              ),
-            ],
-          ),
-          CupertinoListSection.insetGrouped(
-            children: [
-              CupertinoListTile(
-                title: const Text('Cache Size'),
-                trailing: Text(
-                  '${_cacheSize.toStringAsFixed(2)} MB',
-                  style: const TextStyle(
-                    color: CupertinoColors.systemGrey,
+        child: Column(
+          children: [
+            CupertinoListSection.insetGrouped(
+              children: [
+                CupertinoListTile(
+                  leading: const CupertinoSettingsIcon(
+                    icon: CupertinoIcons.doc,
+                    color: CupertinoColors.systemYellow,
+                  ),
+                  title: const Text('Use caching on videos (Experimental)'),
+                  trailing: CupertinoSwitch(
+                    onChanged: (value) => {
+                      settings.setUseCachingOnVideos(value),
+                    },
+                    value: settings.getUseCachingOnVideos(),
                   ),
                 ),
-              ),
-            ],
-          ),
-          CupertinoListSection.insetGrouped(children: [
-            CupertinoListTile(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              leading: const CupertinoSettingsIcon(
-                color: CupertinoColors.systemRed,
-                icon: CupertinoIcons.trash,
-              ),
-              title: const Text('Delete Cache'),
-              trailing: const CupertinoListTileChevron(),
-              onTap: () => deleteCache(),
-            )
-          ]),
-          CupertinoListSection.insetGrouped(
-            children: [
-              CupertinoListTile(
-                title: const Text('Watched Media Retention Period'),
-                subtitle: const Text(
-                  'The number of days watched status of all media will be kept.',
+                CupertinoListTile(
+                  leading: const CupertinoSettingsIcon(
+                    icon: CupertinoIcons.arrow_down_circle,
+                    color: CupertinoColors.systemBlue,
+                  ),
+                  title: const Text('Auto-scroll to last seen media'),
+                  subtitle: const Text(
+                    'Automatically scroll to the last media you viewed',
+                  ),
+                  trailing: CupertinoSwitch(
+                    onChanged: (value) => {
+                      settings.setAutoScrollToLastSeen(value),
+                    },
+                    value: settings.getAutoScrollToLastSeen(),
+                  ),
                 ),
-                trailing: CupertinoButton(
-                  padding: EdgeInsets.zero,
-                  child: Text(
-                    '${settings.getWatchedMediaRetentionDays()} days',
+              ],
+            ),
+            CupertinoListSection.insetGrouped(
+              children: [
+                CupertinoListTile(
+                  title: const Text('Cache Size'),
+                  trailing: Text(
+                    '${_cacheSize.toStringAsFixed(2)} MB',
                     style: const TextStyle(color: CupertinoColors.systemGrey),
                   ),
-                  onPressed: () async {
-                    final int? selected = await showCupertinoModalPopup<int>(
-                      context: context,
-                      builder: (context) {
-                        return CupertinoActionSheet(
-                          title: const Text('Select retention period'),
-                          actions: [
-                            for (final days in [3, 7, 14, 30])
-                              CupertinoActionSheetAction(
-                                onPressed: () {
-                                  Navigator.pop(context, days);
-                                },
-                                child: Text('$days days'),
-                              ),
-                          ],
-                          cancelButton: CupertinoActionSheetAction(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('Cancel'),
-                          ),
+                ),
+              ],
+            ),
+            CupertinoListSection.insetGrouped(
+              children: [
+                CupertinoListTile(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 16,
+                  ),
+                  leading: const CupertinoSettingsIcon(
+                    color: CupertinoColors.systemRed,
+                    icon: CupertinoIcons.trash,
+                  ),
+                  title: const Text('Delete Cache'),
+                  trailing: const CupertinoListTileChevron(),
+                  onTap: () => deleteCache(),
+                ),
+              ],
+            ),
+            CupertinoListSection.insetGrouped(
+              children: [
+                CupertinoListTile(
+                  title: const Text('Watched Media Retention Period'),
+                  subtitle: const Text(
+                    'The number of days watched status of all media will be kept.',
+                  ),
+                  trailing: CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    child: Text(
+                      '${settings.getWatchedMediaRetentionDays()} days',
+                      style: const TextStyle(color: CupertinoColors.systemGrey),
+                    ),
+                    onPressed: () async {
+                      final int? selected = await showCupertinoModalPopup<int>(
+                        context: context,
+                        builder: (context) {
+                          return CupertinoActionSheet(
+                            title: const Text('Select retention period'),
+                            actions: [
+                              for (final days in [3, 7, 14, 30])
+                                CupertinoActionSheetAction(
+                                  onPressed: () {
+                                    Navigator.pop(context, days);
+                                  },
+                                  child: Text('$days days'),
+                                ),
+                            ],
+                            cancelButton: CupertinoActionSheetAction(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Cancel'),
+                            ),
+                          );
+                        },
+                      );
+                      if (selected != null) {
+                        await settings.setWatchedMediaRetentionDays(selected);
+                      }
+                    },
+                  ),
+                ),
+                CupertinoListTile(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 16,
+                  ),
+                  leading: const CupertinoSettingsIcon(
+                    color: CupertinoColors.systemRed,
+                    icon: CupertinoIcons.eye_slash,
+                  ),
+                  title: const Text('Clear Watched Media History'),
+                  trailing: const CupertinoListTileChevron(),
+                  onTap: () async {
+                    final watchedMediaProvider =
+                        Provider.of<WatchedMediaProvider>(
+                          context,
+                          listen: false,
                         );
-                      },
-                    );
-                    if (selected != null) {
-                      await settings.setWatchedMediaRetentionDays(selected);
+                    await watchedMediaProvider.clearAllWatchedMedia();
+                    if (mounted) {
+                      showCupertinoSnackbar(
+                        const Duration(milliseconds: 1800),
+                        true,
+                        context,
+                        'Watched media history cleared!',
+                      );
                     }
                   },
                 ),
-              ),
-              CupertinoListTile(
-                padding:
-                    const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                leading: const CupertinoSettingsIcon(
-                  color: CupertinoColors.systemRed,
-                  icon: CupertinoIcons.eye_slash,
-                ),
-                title: const Text('Clear Watched Media History'),
-                trailing: const CupertinoListTileChevron(),
-                onTap: () async {
-                  final watchedMediaProvider =
-                      Provider.of<WatchedMediaProvider>(context, listen: false);
-                  await watchedMediaProvider.clearAllWatchedMedia();
-                  if (mounted) {
-                    showCupertinoSnackbar(
-                      const Duration(milliseconds: 1800),
-                      true,
-                      context,
-                      'Watched media history cleared!',
-                    );
-                  }
-                },
-              ),
-            ],
-          ),
-        ],
-      )),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

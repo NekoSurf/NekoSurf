@@ -10,9 +10,7 @@ import 'package:provider/provider.dart';
 import '../cupertino_settings_icon.dart';
 
 class ThreadsSettings extends StatefulWidget {
-  const ThreadsSettings({
-    Key? key,
-  }) : super(key: key);
+  const ThreadsSettings({Key? key}) : super(key: key);
 
   @override
   State<ThreadsSettings> createState() => ThreadsSettingsState();
@@ -30,14 +28,16 @@ class ThreadsSettingsState extends State<ThreadsSettings> {
           : CupertinoColors.systemGroupedBackground,
       navigationBar: CupertinoNavigationBar(
         backgroundColor: theme.getTheme() == ThemeData.light()
-            ? CupertinoColors.systemGroupedBackground.withOpacity(0.7)
+            ? CupertinoColors.systemGroupedBackground.withValues(alpha: 0.7)
             : CupertinoColors.black.withOpacity(0.7),
         brightness: theme.getTheme() == ThemeData.dark()
             ? Brightness.dark
             : Brightness.light,
         leading: MediaQuery(
           data: MediaQueryData(
-            textScaleFactor: MediaQuery.textScaleFactorOf(context),
+            textScaler: TextScaler.linear(
+              MediaQuery.textScaleFactorOf(context),
+            ),
           ),
           child: Transform.translate(
             offset: const Offset(-16, 0),
@@ -51,7 +51,9 @@ class ThreadsSettingsState extends State<ThreadsSettings> {
         previousPageTitle: 'Settings',
         middle: MediaQuery(
           data: MediaQueryData(
-            textScaleFactor: MediaQuery.textScaleFactorOf(context),
+            textScaler: TextScaler.linear(
+              MediaQuery.textScaleFactorOf(context),
+            ),
           ),
           child: Text(
             'Threads',
@@ -71,9 +73,7 @@ class ThreadsSettingsState extends State<ThreadsSettings> {
                 icon: CupertinoIcons.viewfinder,
                 color: CupertinoColors.systemTeal,
               ),
-              title: const Text(
-                'Thread View',
-              ),
+              title: const Text('Thread View'),
               trailing: Text(
                 getBoardViewName(settings.getBoardView()),
                 style: const TextStyle(color: CupertinoColors.inactiveGray),
@@ -91,9 +91,7 @@ class ThreadsSettingsState extends State<ThreadsSettings> {
                 icon: CupertinoIcons.sort_down,
                 color: CupertinoColors.systemOrange,
               ),
-              title: const Text(
-                'Default board sort',
-              ),
+              title: const Text('Default board sort'),
               trailing: Text(
                 getSortByName(settings.getBoardSort()),
                 style: const TextStyle(color: CupertinoColors.inactiveGray),

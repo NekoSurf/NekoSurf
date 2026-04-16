@@ -72,7 +72,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
           border: Border(
             bottom: BorderSide(
               color: theme.getTheme() == ThemeData.dark()
-                  ? CupertinoColors.systemGrey.withOpacity(0.5)
+                  ? CupertinoColors.systemGrey.withValues(alpha: 0.5)
                   : const Color(0x1F000000),
               width: .25,
             ),
@@ -96,17 +96,15 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                             context,
                             MaterialPageRoute(
                               builder: (context) => MediaPage(
-                                  video: widget.post.tim.toString() +
-                                      widget.post.ext.toString(),
-                                  board: widget.board,
-                                  thread: widget.thread,
-                                  allPosts: widget.replies ?? widget.allPosts),
+                                video:
+                                    widget.post.tim.toString() +
+                                    widget.post.ext.toString(),
+                                board: widget.board,
+                                thread: widget.thread,
+                                allPosts: widget.replies ?? widget.allPosts,
+                              ),
                             ),
-                          ).then(
-                            (value) => {
-                              widget.onDismiss(value),
-                            },
-                          )
+                          ).then((value) => {widget.onDismiss(value)}),
                         },
                         child: AspectRatio(
                           aspectRatio: 1,
@@ -114,7 +112,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                             children: [
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(10),
-                                child: Container(
+                                child: SizedBox(
                                   width: double.infinity,
                                   height: double.infinity,
                                   child: Image.network(
@@ -126,29 +124,30 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                               Consumer<WatchedMediaProvider>(
                                 builder:
                                     (context, watchedMediaProvider, child) {
-                                  final isWatched =
-                                      watchedMediaProvider.isWatched(
-                                    widget.post.tim ?? 0,
-                                    widget.thread,
-                                  );
-                                  return isWatched
-                                      ? Container(
-                                          decoration: BoxDecoration(
-                                            color:
-                                                Colors.black.withOpacity(0.5),
-                                            borderRadius:
-                                                BorderRadius.circular(10),
-                                          ),
-                                          child: const Center(
-                                            child: Icon(
-                                              Icons.visibility,
-                                              color: Colors.white,
-                                              size: 32,
-                                            ),
-                                          ),
-                                        )
-                                      : const SizedBox.shrink();
-                                },
+                                      final isWatched = watchedMediaProvider
+                                          .isWatched(
+                                            widget.post.tim ?? 0,
+                                            widget.thread,
+                                          );
+                                      return isWatched
+                                          ? Container(
+                                              decoration: BoxDecoration(
+                                                color: Colors.black.withOpacity(
+                                                  0.5,
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                              ),
+                                              child: const Center(
+                                                child: Icon(
+                                                  Icons.visibility,
+                                                  color: Colors.white,
+                                                  size: 32,
+                                                ),
+                                              ),
+                                            )
+                                          : const SizedBox.shrink();
+                                    },
                               ),
                             ],
                           ),
@@ -162,10 +161,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                     children: [
                       if (widget.post.filename != null)
                         Text(
-                          '${widget.post.ext} (${ThreadPagePost.formatBytes(
-                            widget.post.fsize ?? 0,
-                            0,
-                          )})',
+                          '${widget.post.ext} (${ThreadPagePost.formatBytes(widget.post.fsize ?? 0, 0)})',
                           style: const TextStyle(
                             fontSize: 12,
                             color: CupertinoColors.activeBlue,
@@ -213,7 +209,8 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                           ),
                           if (widget.post.country != null &&
                               CountryFlag.fromCountryCode(
-                                      widget.post.country!) !=
+                                    widget.post.country!,
+                                  ) !=
                                   null)
                             Padding(
                               padding: const EdgeInsets.only(left: 4),
@@ -221,7 +218,8 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                                 width: 16,
                                 height: 11,
                                 child: CountryFlag.fromCountryCode(
-                                    widget.post.country!),
+                                  widget.post.country!,
+                                ),
                               ),
                             ),
                         ],
@@ -238,13 +236,11 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                               ? Colors.white
                               : Colors.black,
                         ),
-                      )
+                      ),
                     ],
                   ),
                 ),
-                const Divider(
-                  height: 20,
-                ),
+                const Divider(height: 20),
               ],
             ),
             if (widget.post.com != null)
@@ -258,35 +254,33 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                 ),
               ),
             FutureBuilder<List<Post>>(
-                future: _fetchAllRepliesToPost,
-                builder: (context, AsyncSnapshot<List<Post>> snapshot) {
-                  if (snapshot.data != null && snapshot.data!.isNotEmpty)
-                    return GestureDetector(
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => ThreadReplies(
-                              replies: snapshot.data ?? [],
-                              post: widget.post,
-                              thread: widget.thread,
-                              board: widget.board,
-                              allPosts: widget.allPosts,
-                            ),
+              future: _fetchAllRepliesToPost,
+              builder: (context, AsyncSnapshot<List<Post>> snapshot) {
+                if (snapshot.data != null && snapshot.data!.isNotEmpty)
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => ThreadReplies(
+                            replies: snapshot.data ?? [],
+                            post: widget.post,
+                            thread: widget.thread,
+                            board: widget.board,
+                            allPosts: widget.allPosts,
                           ),
-                        );
-                      },
-                      child: RepliesRow(
-                        replies: snapshot.data!.length,
-                        showImageReplies: false,
-                      ),
-                    );
-                  else
-                    return Container();
-                }),
-            const Divider(
-              height: 20,
-              color: Colors.transparent,
-            )
+                        ),
+                      );
+                    },
+                    child: RepliesRow(
+                      replies: snapshot.data!.length,
+                      showImageReplies: false,
+                    ),
+                  );
+                else
+                  return Container();
+              },
+            ),
+            const Divider(height: 20, color: Colors.transparent),
           ],
         ),
       ),

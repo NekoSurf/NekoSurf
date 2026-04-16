@@ -18,8 +18,9 @@ class SavedAttachmentsProvider with ChangeNotifier {
   Future<void> loadPreferences() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
 
-    List<String>? savedAttachmentsPrefs =
-        prefs.getStringList('savedAttachments');
+    List<String>? savedAttachmentsPrefs = prefs.getStringList(
+      'savedAttachments',
+    );
 
     savedAttachmentsPrefs ??= [];
 
@@ -47,18 +48,23 @@ class SavedAttachmentsProvider with ChangeNotifier {
     final List<SavedAttachment> savedAttachmentList = [];
 
     for (final element in savedList) {
-      savedAttachmentList.add(SavedAttachment.fromJson(
-        json.decode(element) as Map<String, dynamic>,
-      ));
+      savedAttachmentList.add(
+        SavedAttachment.fromJson(json.decode(element) as Map<String, dynamic>),
+      );
     }
 
     return savedAttachmentList;
   }
 
   Future<void> addSavedAttachments(
-      BuildContext context, String board, String fileName) async {
-    final String nameWithoutExtension =
-        fileName.substring(0, fileName.lastIndexOf('.'));
+    BuildContext context,
+    String board,
+    String fileName,
+  ) async {
+    final String nameWithoutExtension = fileName.substring(
+      0,
+      fileName.lastIndexOf('.'),
+    );
 
     if (!list.contains(fileName)) {
       final SavedAttachment? savedAttachment = await saveAttachment(
@@ -83,16 +89,14 @@ class SavedAttachmentsProvider with ChangeNotifier {
     }
   }
 
-  Future<void> removeSavedAttachments(
-    String path,
-    BuildContext context,
-  ) async {
+  Future<void> removeSavedAttachments(String path, BuildContext context) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
 
     final List<SavedAttachment> savedAttachmentList = getSavedAttachments();
 
-    final List<SavedAttachment> newList =
-        List<SavedAttachment>.from(savedAttachmentList);
+    final List<SavedAttachment> newList = List<SavedAttachment>.from(
+      savedAttachmentList,
+    );
 
     list = [];
 
@@ -116,7 +120,7 @@ class SavedAttachmentsProvider with ChangeNotifier {
       try {
         directory = await requestDirectory(directory, context);
       } catch (e) {
-        return null;
+        return;
       }
 
       directory = Directory('${directory.path}/savedAttachments');
@@ -134,9 +138,7 @@ class SavedAttachmentsProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> clearSavedAttachments(
-    BuildContext context,
-  ) async {
+  Future<void> clearSavedAttachments(BuildContext context) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
 
     list = [];
@@ -151,7 +153,7 @@ class SavedAttachmentsProvider with ChangeNotifier {
       try {
         directory = await requestDirectory(directory, context);
       } catch (e) {
-        return null;
+        return;
       }
 
       directory = Directory('${directory.path}/savedAttachments');

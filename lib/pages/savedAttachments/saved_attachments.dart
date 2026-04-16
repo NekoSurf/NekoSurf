@@ -31,10 +31,12 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
 
   void convertLegacySavedAttachments() {
     if (Platform.isIOS) {
-      final savedAttachments =
-          Provider.of<SavedAttachmentsProvider>(context, listen: false);
-      final List<SavedAttachment> savedAttachmentList =
-          savedAttachments.getSavedAttachments();
+      final savedAttachments = Provider.of<SavedAttachmentsProvider>(
+        context,
+        listen: false,
+      );
+      final List<SavedAttachment> savedAttachmentList = savedAttachments
+          .getSavedAttachments();
 
       if (savedAttachmentList.isEmpty) {
         return;
@@ -42,7 +44,7 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
 
       final List<SavedAttachment> newSavedAttachmentList = [];
 
-      savedAttachmentList.forEach((element) {
+      for (final element in savedAttachmentList) {
         if (element.fileName!.split('.').length >= 2) {
           String ext = element.fileName!.split('.').last;
           final String name = element.fileName!.split('.').first;
@@ -57,7 +59,7 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
 
           newSavedAttachmentList.add(element);
         }
-      });
+      }
 
       savedAttachments.setList(newSavedAttachmentList);
     }
@@ -66,18 +68,24 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
   Directory directory = Directory('');
 
   Future<List<SavedAttachment>> getSavedAttachments(
-      BuildContext context) async {
+    BuildContext context,
+  ) async {
     try {
-      directory =
-          await requestDirectory(directory, context, showErrorDialog: false);
+      directory = await requestDirectory(
+        directory,
+        context,
+        showErrorDialog: false,
+      );
     } catch (e) {
       return Future.error(e.toString());
     }
 
-    final savedAttachments =
-        Provider.of<SavedAttachmentsProvider>(context, listen: false);
-    final List<SavedAttachment> savedAttachmentList =
-        savedAttachments.getSavedAttachments();
+    final savedAttachments = Provider.of<SavedAttachmentsProvider>(
+      context,
+      listen: false,
+    );
+    final List<SavedAttachment> savedAttachmentList = savedAttachments
+        .getSavedAttachments();
 
     return Future.value(savedAttachmentList);
   }
@@ -118,7 +126,9 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
             CupertinoSliverNavigationBar(
               leading: MediaQuery(
                 data: MediaQueryData(
-                  textScaleFactor: MediaQuery.textScaleFactorOf(context),
+                  textScaler: TextScaler.linear(
+                    MediaQuery.textScaleFactorOf(context),
+                  ),
                 ),
                 child: Transform.translate(
                   offset: const Offset(-16, 0),
@@ -132,7 +142,9 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
               border: Border.all(color: Colors.transparent),
               largeTitle: MediaQuery(
                 data: MediaQueryData(
-                  textScaleFactor: MediaQuery.textScaleFactorOf(context),
+                  textScaler: TextScaler.linear(
+                    MediaQuery.textScaleFactorOf(context),
+                  ),
                 ),
                 child: Text(
                   'Saved Attachments',
@@ -155,23 +167,24 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
                           context: context,
                           builder: (BuildContext context) =>
                               CupertinoActionSheet(
-                            actions: [
-                              CupertinoActionSheetAction(
-                                child: const Text('Clear bookmarks'),
-                                onPressed: () {
-                                  savedAttachments
-                                      .clearSavedAttachments(context);
-                                  Navigator.pop(context);
-                                },
+                                actions: [
+                                  CupertinoActionSheetAction(
+                                    child: const Text('Clear bookmarks'),
+                                    onPressed: () {
+                                      savedAttachments.clearSavedAttachments(
+                                        context,
+                                      );
+                                      Navigator.pop(context);
+                                    },
+                                  ),
+                                ],
+                                cancelButton: CupertinoActionSheetAction(
+                                  child: const Text('Cancel'),
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                  },
+                                ),
                               ),
-                            ],
-                            cancelButton: CupertinoActionSheetAction(
-                              child: const Text('Cancel'),
-                              onPressed: () {
-                                Navigator.pop(context);
-                              },
-                            ),
-                          ),
                         );
                       },
                       child: const Icon(Icons.more_vert),
@@ -180,16 +193,20 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
                 ],
               ),
               backgroundColor: theme.getTheme() == ThemeData.light()
-                  ? CupertinoColors.systemGroupedBackground.withOpacity(0.7)
+                  ? CupertinoColors.systemGroupedBackground.withValues(
+                      alpha: 0.7,
+                    )
                   : CupertinoColors.black.withOpacity(0.7),
             ),
             SliverList(
-              delegate: SliverChildListDelegate(
-                [
-                  FutureBuilder<List<SavedAttachment>>(
-                      future: getSavedAttachments(context),
-                      builder: (BuildContext context,
-                          AsyncSnapshot<List<SavedAttachment>> snapshot) {
+              delegate: SliverChildListDelegate([
+                FutureBuilder<List<SavedAttachment>>(
+                  future: getSavedAttachments(context),
+                  builder:
+                      (
+                        BuildContext context,
+                        AsyncSnapshot<List<SavedAttachment>> snapshot,
+                      ) {
                         switch (snapshot.connectionState) {
                           case ConnectionState.waiting:
                             return Container();
@@ -201,17 +218,15 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
                                 .isEmpty)
                               return Column(
                                 children: [
-                                  const SizedBox(
-                                    height: 30,
-                                  ),
+                                  const SizedBox(height: 30),
                                   Text(
                                     'Save Attachments first!',
                                     style: TextStyle(
                                       fontSize: 26,
                                       color:
                                           theme.getTheme() == ThemeData.dark()
-                                              ? Colors.white
-                                              : Colors.black,
+                                          ? Colors.white
+                                          : Colors.black,
                                     ),
                                   ),
                                 ],
@@ -234,14 +249,16 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
                                                 MaterialPageRoute(
                                                   builder: (context) =>
                                                       MediaPage(
-                                                    video:
-                                                        attachment.fileName ??
+                                                        video:
+                                                            attachment
+                                                                .fileName ??
                                                             '',
-                                                    allPosts:
-                                                        getList(snapshot.data),
-                                                    isAsset: true,
-                                                    directory: directory,
-                                                  ),
+                                                        allPosts: getList(
+                                                          snapshot.data,
+                                                        ),
+                                                        isAsset: true,
+                                                        directory: directory,
+                                                      ),
                                                 ),
                                               );
                                             },
@@ -251,11 +268,13 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
                                                   fit: BoxFit.cover,
                                                   image: FileImage(
                                                     File(
-                                                        '${directory.path}/savedAttachments/${attachment.thumbnail}'),
+                                                      '${directory.path}/savedAttachments/${attachment.thumbnail}',
+                                                    ),
                                                   ),
                                                 ),
                                               ),
-                                              child: attachment
+                                              child:
+                                                  attachment
                                                           .savedAttachmentType ==
                                                       SavedAttachmentType.Video
                                                   ? Center(
@@ -268,24 +287,25 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
                                                             blurRadius: 10,
                                                             color: Colors.black
                                                                 .withOpacity(
-                                                                    .6),
+                                                                  .6,
+                                                                ),
                                                           ),
                                                         ],
                                                       ),
                                                     )
                                                   : Container(),
                                             ),
-                                          )
+                                          ),
                                       ],
                                     ),
                                   ),
                                 ],
                               );
                         }
-                      }),
-                ],
-              ),
-            )
+                      },
+                ),
+              ]),
+            ),
           ],
         ),
       ),

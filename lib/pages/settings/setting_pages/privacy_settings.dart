@@ -6,9 +6,7 @@ import 'package:flutter_chan/pages/settings/cupertino_settings_icon.dart';
 import 'package:provider/provider.dart';
 
 class PrivacySettings extends StatefulWidget {
-  const PrivacySettings({
-    Key? key,
-  }) : super(key: key);
+  const PrivacySettings({Key? key}) : super(key: key);
 
   @override
   State<PrivacySettings> createState() => PrivacySettingsState();
@@ -26,14 +24,16 @@ class PrivacySettingsState extends State<PrivacySettings> {
           : CupertinoColors.systemGroupedBackground,
       navigationBar: CupertinoNavigationBar(
         backgroundColor: theme.getTheme() == ThemeData.light()
-            ? CupertinoColors.systemGroupedBackground.withOpacity(0.7)
+            ? CupertinoColors.systemGroupedBackground.withValues(alpha: 0.7)
             : CupertinoColors.black.withOpacity(0.7),
         brightness: theme.getTheme() == ThemeData.dark()
             ? Brightness.dark
             : Brightness.light,
         leading: MediaQuery(
           data: MediaQueryData(
-            textScaleFactor: MediaQuery.textScaleFactorOf(context),
+            textScaler: TextScaler.linear(
+              MediaQuery.textScaleFactorOf(context),
+            ),
           ),
           child: Transform.translate(
             offset: const Offset(-16, 0),
@@ -47,7 +47,9 @@ class PrivacySettingsState extends State<PrivacySettings> {
         previousPageTitle: 'Settings',
         middle: MediaQuery(
           data: MediaQueryData(
-            textScaleFactor: MediaQuery.textScaleFactorOf(context),
+            textScaler: TextScaler.linear(
+              MediaQuery.textScaleFactorOf(context),
+            ),
           ),
           child: Text(
             'Privacy',
@@ -69,13 +71,9 @@ class PrivacySettingsState extends State<PrivacySettings> {
                     icon: CupertinoIcons.exclamationmark_triangle,
                     color: CupertinoColors.systemRed,
                   ),
-                  title: const Text(
-                    'Allow NSFW-Boards',
-                  ),
+                  title: const Text('Allow NSFW-Boards'),
                   trailing: CupertinoSwitch(
-                    onChanged: (value) => {
-                      settings.setNSFW(value),
-                    },
+                    onChanged: (value) => {settings.setNSFW(value)},
                     value: settings.getNSFW(),
                   ),
                 ),

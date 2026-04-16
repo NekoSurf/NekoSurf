@@ -49,16 +49,18 @@ class _ThreadRepliesState extends State<ThreadReplies> {
         final String video = post.tim.toString() + post.ext.toString();
 
         fileNames.add(post.tim.toString() + post.ext.toString());
-        media.add((post.ext == '.webm' || post.ext == '.mp4')
-            ? VLCPlayer(
-                board: widget.board,
-                video: video,
-                fileName: post.filename ?? '',
-              )
-            : ImageViewer(
-                url: 'https://i.4cdn.org/${widget.board}/$video',
-                interactiveViewer: true,
-              ));
+        media.add(
+          (post.ext == '.webm' || post.ext == '.mp4')
+              ? VLCPlayer(
+                  board: widget.board,
+                  video: video,
+                  fileName: post.filename ?? '',
+                )
+              : ImageViewer(
+                  url: 'https://i.4cdn.org/${widget.board}/$video',
+                  interactiveViewer: true,
+                ),
+        );
       }
     }
 
@@ -74,9 +76,7 @@ class _ThreadRepliesState extends State<ThreadReplies> {
       builder: (context, AsyncSnapshot<List<String>> snapshot) {
         switch (snapshot.connectionState) {
           case ConnectionState.waiting:
-            return const Center(
-              child: CupertinoActivityIndicator(),
-            );
+            return const Center(child: CupertinoActivityIndicator());
           default:
             return Scaffold(
               backgroundColor: theme.getTheme() == ThemeData.light()
@@ -86,11 +86,15 @@ class _ThreadRepliesState extends State<ThreadReplies> {
               appBar: CupertinoNavigationBar(
                 border: Border.all(color: Colors.transparent),
                 backgroundColor: theme.getTheme() == ThemeData.light()
-                    ? CupertinoColors.systemGroupedBackground.withOpacity(0.5)
+                    ? CupertinoColors.systemGroupedBackground.withValues(
+                        alpha: 0.5,
+                      )
                     : CupertinoColors.black.withOpacity(0.7),
                 leading: MediaQuery(
                   data: MediaQueryData(
-                    textScaleFactor: MediaQuery.textScaleFactorOf(context),
+                    textScaler: TextScaler.linear(
+                      MediaQuery.textScaleFactorOf(context),
+                    ),
                   ),
                   child: Transform.translate(
                     offset: const Offset(-16, 0),
@@ -102,7 +106,9 @@ class _ThreadRepliesState extends State<ThreadReplies> {
                 ),
                 middle: MediaQuery(
                   data: MediaQueryData(
-                    textScaleFactor: MediaQuery.textScaleFactorOf(context),
+                    textScaler: TextScaler.linear(
+                      MediaQuery.textScaleFactorOf(context),
+                    ),
                   ),
                   child: const Text('Replies'),
                 ),

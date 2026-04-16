@@ -67,26 +67,32 @@ class ThreadPageState extends State<ThreadPage> {
 
   void loadThread() {
     setState(() {
-      _fetchAllPostsFromThread =
-          fetchAllPostsFromThread(widget.board, widget.thread);
+      _fetchAllPostsFromThread = fetchAllPostsFromThread(
+        widget.board,
+        widget.thread,
+      );
     });
   }
 
   void scrollToLastWatchedMedia(List<Post> allPosts) {
     final settings = Provider.of<SettingsProvider>(context, listen: false);
-    final watchedMedia =
-        Provider.of<WatchedMediaProvider>(context, listen: false);
+    final watchedMedia = Provider.of<WatchedMediaProvider>(
+      context,
+      listen: false,
+    );
 
     if (!settings.getAutoScrollToLastSeen()) {
       return;
     }
 
-    final latestWatchedMedia =
-        watchedMedia.getLatestWatchedMedia(widget.thread);
+    final latestWatchedMedia = watchedMedia.getLatestWatchedMedia(
+      widget.thread,
+    );
 
     if (latestWatchedMedia != null) {
-      final index =
-          allPosts.indexWhere((post) => post.tim == latestWatchedMedia.mediaId);
+      final index = allPosts.indexWhere(
+        (post) => post.tim == latestWatchedMedia.mediaId,
+      );
 
       if (index != -1) {
         Future.delayed(const Duration(milliseconds: 250), () {
@@ -115,25 +121,30 @@ class ThreadPageState extends State<ThreadPage> {
       extendBodyBehindAppBar: true,
       appBar: CupertinoNavigationBar(
         backgroundColor: theme.getTheme() == ThemeData.light()
-            ? CupertinoColors.systemGroupedBackground.withOpacity(0.7)
+            ? CupertinoColors.systemGroupedBackground.withValues(alpha: 0.7)
             : CupertinoColors.black.withOpacity(0.7),
         border: Border.all(color: Colors.transparent),
         leading: MediaQuery(
           data: MediaQueryData(
-            textScaleFactor: MediaQuery.textScaleFactorOf(context),
+            textScaler: TextScaler.linear(
+              MediaQuery.textScaleFactorOf(context),
+            ),
           ),
           child: Transform.translate(
             offset: const Offset(-16, 0),
             child: CupertinoNavigationBarBackButton(
-              previousPageTitle:
-                  widget.fromFavorites ? 'bookmarks' : '/${widget.board}/',
+              previousPageTitle: widget.fromFavorites
+                  ? 'bookmarks'
+                  : '/${widget.board}/',
               onPressed: () => Navigator.of(context).pop(),
             ),
           ),
         ),
         middle: MediaQuery(
           data: MediaQueryData(
-            textScaleFactor: MediaQuery.textScaleFactorOf(context),
+            textScaler: TextScaler.linear(
+              MediaQuery.textScaleFactorOf(context),
+            ),
           ),
           child: Text(
             unescape(cleanTags(widget.threadName)),
@@ -144,9 +155,7 @@ class ThreadPageState extends State<ThreadPage> {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            BookmarkButton(
-              favorite: favorite,
-            ),
+            BookmarkButton(favorite: favorite),
             SizedBox(
               width: 20,
               child: CupertinoButton(
@@ -160,17 +169,17 @@ class ThreadPageState extends State<ThreadPage> {
                           child: const Text('Share'),
                           onPressed: () {
                             Share.share(
-                                'https://boards.4chan.org/${widget.board}/thread/${widget.thread}');
+                              'https://boards.4chan.org/${widget.board}/thread/${widget.thread}',
+                            );
                             Navigator.pop(context);
                           },
                         ),
                         CupertinoActionSheetAction(
-                          child: const Text(
-                            'Open in Browser',
-                          ),
+                          child: const Text('Open in Browser'),
                           onPressed: () {
                             launchURL(
-                                'https://boards.4chan.org/${widget.board}/thread/${widget.thread}');
+                              'https://boards.4chan.org/${widget.board}/thread/${widget.thread}',
+                            );
                             Navigator.pop(context);
                           },
                         ),
@@ -214,14 +223,10 @@ class ThreadPageState extends State<ThreadPage> {
         builder: (BuildContext context, AsyncSnapshot<List<Post>> snapshot) {
           switch (snapshot.connectionState) {
             case ConnectionState.waiting:
-              return const Center(
-                child: CupertinoActivityIndicator(),
-              );
+              return const Center(child: CupertinoActivityIndicator());
             default:
               if (snapshot.hasError) {
-                return ReloadWidget(
-                  onReload: () => loadThread(),
-                );
+                return ReloadWidget(onReload: () => loadThread());
               } else {
                 allPosts = snapshot.data ?? [];
 

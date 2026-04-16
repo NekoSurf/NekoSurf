@@ -13,8 +13,9 @@ Future<List<Post>> fetchAllThreadsFromBoard(
   String? searchValue,
 }) async {
   try {
-    final Response response =
-        await get(Uri.parse('https://a.4cdn.org/$board/catalog.json'));
+    final Response response = await get(
+      Uri.parse('https://a.4cdn.org/$board/catalog.json'),
+    );
 
     List<Post> ops = List.empty(growable: true);
     // ignore: strict_raw_type
@@ -62,17 +63,20 @@ Future<List<Post>> fetchAllThreadsFromBoard(
 
       if (searchValue != null) {
         ops = ops
-            .where((element) => element.sub != null
-                ? element.sub!.toLowerCase().contains(searchValue.toLowerCase())
-                : false || element.name != null
-                    ? element.name!
-                        .toLowerCase()
-                        .contains(searchValue.toLowerCase())
-                    : false || element.com != null
-                        ? element.com!
-                            .toLowerCase()
-                            .contains(searchValue.toLowerCase())
-                        : false)
+            .where(
+              (element) => element.sub != null
+                  ? element.sub!.toLowerCase().contains(
+                      searchValue.toLowerCase(),
+                    )
+                  : false || element.name != null
+                  ? element.name!.toLowerCase().contains(
+                      searchValue.toLowerCase(),
+                    )
+                  : (false || element.com != null) &&
+                        element.com!.toLowerCase().contains(
+                          searchValue.toLowerCase(),
+                        ),
+            )
             .toList();
       }
 
@@ -86,8 +90,9 @@ Future<List<Post>> fetchAllThreadsFromBoard(
 }
 
 Future<List<Post>> fetchAllPostsFromThread(String board, int thread) async {
-  final Response response =
-      await get(Uri.parse('https://a.4cdn.org/$board/thread/$thread.json'));
+  final Response response = await get(
+    Uri.parse('https://a.4cdn.org/$board/thread/$thread.json'),
+  );
 
   if (response.statusCode == 200) {
     final List<Post> posts = (jsonDecode(response.body)['posts'] as List)
@@ -122,8 +127,9 @@ Future<List<Post>> fetchAllRepliesToPost(
 }
 
 Future<List<Board>> fetchAllBoards() async {
-  final Response response =
-      await get(Uri.parse('https://a.4cdn.org/boards.json'));
+  final Response response = await get(
+    Uri.parse('https://a.4cdn.org/boards.json'),
+  );
 
   if (response.statusCode == 200) {
     final List<Board> boards = (jsonDecode(response.body)['boards'] as List)

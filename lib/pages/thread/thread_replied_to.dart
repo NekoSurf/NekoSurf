@@ -40,16 +40,18 @@ class _ThreadRepliesToState extends State<ThreadRepliesTo> {
       final String video = post.tim.toString() + post.ext.toString();
 
       fileName.add(post.tim.toString() + post.ext.toString());
-      media.add((post.ext == '.webm' || post.ext == '.mp4')
-          ? VLCPlayer(
-              board: widget.board,
-              video: video,
-              fileName: post.filename ?? '',
-            )
-          : ImageViewer(
-              url: 'https://i.4cdn.org/${widget.board}/$video',
-              interactiveViewer: true,
-            ));
+      media.add(
+        (post.ext == '.webm' || post.ext == '.mp4')
+            ? VLCPlayer(
+                board: widget.board,
+                video: video,
+                fileName: post.filename ?? '',
+              )
+            : ImageViewer(
+                url: 'https://i.4cdn.org/${widget.board}/$video',
+                interactiveViewer: true,
+              ),
+      );
     }
   }
 
@@ -78,11 +80,13 @@ class _ThreadRepliesToState extends State<ThreadRepliesTo> {
       appBar: CupertinoNavigationBar(
         border: Border.all(color: Colors.transparent),
         backgroundColor: theme.getTheme() == ThemeData.light()
-            ? CupertinoColors.systemGroupedBackground.withOpacity(0.7)
+            ? CupertinoColors.systemGroupedBackground.withValues(alpha: 0.7)
             : CupertinoColors.black.withOpacity(0.7),
         leading: MediaQuery(
           data: MediaQueryData(
-            textScaleFactor: MediaQuery.textScaleFactorOf(context),
+            textScaler: TextScaler.linear(
+              MediaQuery.textScaleFactorOf(context),
+            ),
           ),
           child: Transform.translate(
             offset: const Offset(-16, 0),
@@ -94,7 +98,9 @@ class _ThreadRepliesToState extends State<ThreadRepliesTo> {
         ),
         middle: MediaQuery(
           data: MediaQueryData(
-            textScaleFactor: MediaQuery.textScaleFactorOf(context),
+            textScaler: TextScaler.linear(
+              MediaQuery.textScaleFactorOf(context),
+            ),
           ),
           child: const Text('Replies'),
         ),
@@ -104,14 +110,14 @@ class _ThreadRepliesToState extends State<ThreadRepliesTo> {
         builder: (BuildContext context, snapshot) {
           switch (snapshot.connectionState) {
             case ConnectionState.waiting:
-              return const Center(
-                child: CupertinoActivityIndicator(),
-              );
+              return const Center(child: CupertinoActivityIndicator());
             default:
               if (snapshot.hasError) {
-                return ReloadWidget(onReload: () {
-                  loadPost();
-                });
+                return ReloadWidget(
+                  onReload: () {
+                    loadPost();
+                  },
+                );
               } else {
                 getMedia(snapshot.data ?? Post());
                 return ListView(

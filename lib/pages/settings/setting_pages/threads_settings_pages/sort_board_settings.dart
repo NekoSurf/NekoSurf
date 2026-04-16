@@ -6,9 +6,7 @@ import 'package:flutter_chan/enums/enums.dart';
 import 'package:provider/provider.dart';
 
 class SortBoardSettings extends StatefulWidget {
-  const SortBoardSettings({
-    Key? key,
-  }) : super(key: key);
+  const SortBoardSettings({Key? key}) : super(key: key);
 
   @override
   State<SortBoardSettings> createState() => SortBoardSettingsState();
@@ -26,7 +24,7 @@ class SortBoardSettingsState extends State<SortBoardSettings> {
           : CupertinoColors.systemGroupedBackground,
       navigationBar: CupertinoNavigationBar(
         backgroundColor: theme.getTheme() == ThemeData.light()
-            ? CupertinoColors.systemGroupedBackground.withOpacity(0.7)
+            ? CupertinoColors.systemGroupedBackground.withValues(alpha: 0.7)
             : CupertinoColors.black.withOpacity(0.7),
         brightness: theme.getTheme() == ThemeData.dark()
             ? Brightness.dark
@@ -34,7 +32,9 @@ class SortBoardSettingsState extends State<SortBoardSettings> {
         border: Border.all(color: Colors.transparent),
         leading: MediaQuery(
           data: MediaQueryData(
-            textScaleFactor: MediaQuery.textScaleFactorOf(context),
+            textScaler: TextScaler.linear(
+              MediaQuery.textScaleFactorOf(context),
+            ),
           ),
           child: Transform.translate(
             offset: const Offset(-16, 0),
@@ -46,7 +46,9 @@ class SortBoardSettingsState extends State<SortBoardSettings> {
         ),
         middle: MediaQuery(
           data: MediaQueryData(
-            textScaleFactor: MediaQuery.textScaleFactorOf(context),
+            textScaler: TextScaler.linear(
+              MediaQuery.textScaleFactorOf(context),
+            ),
           ),
           child: Text(
             'Default board sort',
@@ -62,57 +64,37 @@ class SortBoardSettingsState extends State<SortBoardSettings> {
         child: CupertinoListSection.insetGrouped(
           children: [
             CupertinoListTile(
-              title: const Text(
-                'Images Count',
-              ),
+              title: const Text('Images Count'),
               trailing: settings.getBoardSort().name == 'byImagesCount'
-                  ? const Icon(
-                      CupertinoIcons.check_mark,
-                    )
+                  ? const Icon(CupertinoIcons.check_mark)
                   : Container(),
               onTap: () => {settings.setBoardSort(Sort.byImagesCount)},
             ),
             CupertinoListTile(
-              title: const Text(
-                'Reply Count',
-              ),
+              title: const Text('Reply Count'),
               trailing: settings.getBoardSort().name == 'byReplyCount'
-                  ? const Icon(
-                      CupertinoIcons.check_mark,
-                    )
+                  ? const Icon(CupertinoIcons.check_mark)
                   : Container(),
               onTap: () => {settings.setBoardSort(Sort.byReplyCount)},
             ),
             CupertinoListTile(
-              title: const Text(
-                'Bump Order',
-              ),
+              title: const Text('Bump Order'),
               trailing: settings.getBoardSort().name == 'byBumpOrder'
-                  ? const Icon(
-                      CupertinoIcons.check_mark,
-                    )
+                  ? const Icon(CupertinoIcons.check_mark)
                   : Container(),
               onTap: () => {settings.setBoardSort(Sort.byBumpOrder)},
             ),
             CupertinoListTile(
-              title: const Text(
-                'Newest',
-              ),
+              title: const Text('Newest'),
               trailing: settings.getBoardSort().name == 'byNewest'
-                  ? const Icon(
-                      CupertinoIcons.check_mark,
-                    )
+                  ? const Icon(CupertinoIcons.check_mark)
                   : Container(),
               onTap: () => {settings.setBoardSort(Sort.byNewest)},
             ),
             CupertinoListTile(
-              title: const Text(
-                'Oldest',
-              ),
+              title: const Text('Oldest'),
               trailing: settings.getBoardSort().name == 'byOldest'
-                  ? const Icon(
-                      CupertinoIcons.check_mark,
-                    )
+                  ? const Icon(CupertinoIcons.check_mark)
                   : Container(),
               onTap: () => {settings.setBoardSort(Sort.byOldest)},
             ),
