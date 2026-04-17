@@ -8,22 +8,12 @@ class SettingsProvider with ChangeNotifier {
   }
 
   bool allowNSFW = false;
-  ViewType boardView = ViewType.gridView;
   Sort boardSort = Sort.byImagesCount;
-  bool useCachingOnVideos = false;
   int watchedMediaRetentionDays = 7;
   bool autoScrollToLastSeen = false;
 
   Future<void> loadPreferences() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    if (prefs.getString('boardView') != null) {
-      final ViewType boardViewPrefs = ViewType.values.firstWhere(
-        (element) => element.name == prefs.getString('boardView'),
-      );
-
-      boardView = boardViewPrefs;
-    }
 
     if (prefs.getString('boardSort') != null) {
       final Sort boardSortPrefs = Sort.values.firstWhere(
@@ -38,11 +28,7 @@ class SettingsProvider with ChangeNotifier {
       allowNSFW = allowNSFWPrefs!;
     }
 
-    if (prefs.getBool('useCachingOnVideos') != null) {
-      final bool? useCachingOnVideosPrefs = prefs.getBool('useCachingOnVideos');
-
-      useCachingOnVideos = useCachingOnVideosPrefs!;
-    }
+    await prefs.remove('useCachingOnVideos');
 
     if (prefs.getInt('watchedMediaRetentionDays') != null) {
       watchedMediaRetentionDays = prefs.getInt('watchedMediaRetentionDays')!;
@@ -52,18 +38,7 @@ class SettingsProvider with ChangeNotifier {
       autoScrollToLastSeen = prefs.getBool('autoScrollToLastSeen')!;
     }
 
-    notifyListeners();
-  }
-
-  bool getUseCachingOnVideos() {
-    return useCachingOnVideos;
-  }
-
-  Future<void> setUseCachingOnVideos(bool boolean) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    useCachingOnVideos = boolean;
-    prefs.setBool('useCachingOnVideos', boolean);
+    await prefs.remove('inlineMediaInThreadFeed');
 
     notifyListeners();
   }
@@ -77,19 +52,6 @@ class SettingsProvider with ChangeNotifier {
 
     allowNSFW = boolean;
     prefs.setBool('allowNSFW', boolean);
-
-    notifyListeners();
-  }
-
-  ViewType getBoardView() {
-    return boardView;
-  }
-
-  Future<void> setBoardView(ViewType view) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    boardView = view;
-    prefs.setString('boardView', view.name);
 
     notifyListeners();
   }

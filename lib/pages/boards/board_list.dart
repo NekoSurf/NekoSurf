@@ -6,6 +6,7 @@ import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/favorite_model.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
+import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/pages/boards/board_tile.dart';
 import 'package:flutter_chan/pages/bookmarks/bookmarks.dart';
 import 'package:flutter_chan/pages/savedAttachments/saved_attachments.dart';
@@ -50,6 +51,8 @@ class BoardListState extends State<BoardList> {
     final theme = Provider.of<ThemeChanger>(context);
     final favorites = Provider.of<FavoriteProvider>(context);
     final settings = Provider.of<SettingsProvider>(context);
+    final bool isDark = theme.getTheme() == ThemeData.dark();
+    final Color pageBackground = AppColors.pageBackground(isDark);
 
     Future<bool> openURL() async {
       if (controller.text.isEmpty) {
@@ -64,8 +67,9 @@ class BoardListState extends State<BoardList> {
 
       try {
         controller.text = controller.text.trim();
-        final regExDomains =
-            RegExp(r'^(?:https?:\/\/)?(?:[^@\n]+@)?(?:www.)?([^:\/\n?]+)');
+        final regExDomains = RegExp(
+          r'^(?:https?:\/\/)?(?:[^@\n]+@)?(?:www.)?([^:\/\n?]+)',
+        );
         final matchDomain = regExDomains.firstMatch(controller.text);
         final domain = matchDomain?.group(1);
 
@@ -79,7 +83,9 @@ class BoardListState extends State<BoardList> {
 
           try {
             response = await fetchAllPostsFromThread(
-                splitted!.first, int.parse(splitted.last));
+              splitted!.first,
+              int.parse(splitted.last),
+            );
           } catch (e) {
             showWarning = true;
             warningText = e.toString();
@@ -120,15 +126,17 @@ class BoardListState extends State<BoardList> {
 
       if (value.isNotEmpty) {
         filterdBoards = data
-            .where((element) =>
-                element.board!.toLowerCase().contains(value.toLowerCase()) ||
-                element.metaDescription!
-                    .toLowerCase()
-                    .contains(value.toLowerCase()) ||
-                element.metaDescription!
-                    .toLowerCase()
-                    .contains(value.toLowerCase()) ||
-                element.title!.toLowerCase().contains(value.toLowerCase()))
+            .where(
+              (element) =>
+                  element.board!.toLowerCase().contains(value.toLowerCase()) ||
+                  element.metaDescription!.toLowerCase().contains(
+                    value.toLowerCase(),
+                  ) ||
+                  element.metaDescription!.toLowerCase().contains(
+                    value.toLowerCase(),
+                  ) ||
+                  element.title!.toLowerCase().contains(value.toLowerCase()),
+            )
             .toList();
       } else {
         _searchBarController.clear();
@@ -139,20 +147,18 @@ class BoardListState extends State<BoardList> {
     }
 
     return CupertinoPageScaffold(
-      backgroundColor: theme.getTheme() == ThemeData.light()
-          ? CupertinoColors.systemGroupedBackground
-          : Colors.black,
+      backgroundColor: pageBackground,
       child: Scrollbar(
         child: CustomScrollView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           slivers: [
             CupertinoSliverNavigationBar(
-              backgroundColor: theme.getTheme() == ThemeData.light()
-                  ? CupertinoColors.systemGroupedBackground.withOpacity(0.7)
-                  : CupertinoColors.black.withOpacity(0.7),
+              backgroundColor: AppColors.navigationBackground(isDark),
               largeTitle: MediaQuery(
                 data: MediaQueryData(
-                  textScaleFactor: MediaQuery.textScaleFactorOf(context),
+                  textScaler: TextScaler.linear(
+                    MediaQuery.textScaleFactorOf(context),
+                  ),
                 ),
                 child: Text(
                   'NekoSurf',
@@ -167,7 +173,9 @@ class BoardListState extends State<BoardList> {
                 padding: EdgeInsets.zero,
                 child: MediaQuery(
                   data: MediaQueryData(
-                    textScaleFactor: MediaQuery.textScaleFactorOf(context),
+                    textScaler: TextScaler.linear(
+                      MediaQuery.textScaleFactorOf(context),
+                    ),
                   ),
                   child: const Text(
                     'Open Link',
@@ -186,9 +194,7 @@ class BoardListState extends State<BoardList> {
                             title: const Text('Open Link'),
                             content: Column(
                               children: [
-                                const SizedBox(
-                                  height: 10,
-                                ),
+                                const SizedBox(height: 10),
                                 Visibility(
                                   visible: showWarning,
                                   child: Column(
@@ -199,9 +205,7 @@ class BoardListState extends State<BoardList> {
                                           color: Colors.red,
                                         ),
                                       ),
-                                      const SizedBox(
-                                        height: 5,
-                                      ),
+                                      const SizedBox(height: 5),
                                     ],
                                   ),
                                 ),
@@ -213,7 +217,7 @@ class BoardListState extends State<BoardList> {
                                       CupertinoTextField(
                                         controller: controller,
                                         placeholder: 'Insert Thread URL',
-                                      )
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -249,7 +253,7 @@ class BoardListState extends State<BoardList> {
                                           }),
                                         },
                                     },
-                                  )
+                                  ),
                                 },
                               ),
                             ],
@@ -304,120 +308,124 @@ class BoardListState extends State<BoardList> {
               stretch: true,
             ),
             SliverList(
-              delegate: SliverChildListDelegate(
-                [
-                  FutureBuilder(
-                    future: _fetchAllBoards,
-                    builder: (BuildContext context,
-                        AsyncSnapshot<List<Board>> snapshot) {
-                      switch (snapshot.connectionState) {
-                        case ConnectionState.waiting:
-                          return const Column(
-                            children: [
-                              SizedBox(
-                                height: 100,
-                              ),
-                              CupertinoActivityIndicator(),
-                            ],
-                          );
-                        default:
-                          if (snapshot.hasError) {
-                            return ReloadWidget(
-                              onReload: () => loadBoards(),
-                            );
-                          } else {
-                            return Column(
+              delegate: SliverChildListDelegate([
+                FutureBuilder(
+                  future: _fetchAllBoards,
+                  builder:
+                      (
+                        BuildContext context,
+                        AsyncSnapshot<List<Board>> snapshot,
+                      ) {
+                        switch (snapshot.connectionState) {
+                          case ConnectionState.waiting:
+                            return const Column(
                               children: [
-                                Padding(
-                                  padding: const EdgeInsets.only(
-                                    bottom: 8.0,
-                                    left: 16.0,
-                                    right: 16.0,
-                                  ),
-                                  child: ClipRect(
-                                    child: CupertinoSearchTextField(
-                                      controller: _searchBarController,
-                                      onChanged: (value) {
-                                        _updateUserList(value, snapshot.data);
-                                      },
-                                      onSubmitted: (value) {
-                                        _updateUserList(value, snapshot.data);
-                                      },
-                                      onSuffixTap: () {
-                                        _updateUserList('', snapshot.data);
-                                      },
+                                SizedBox(height: 100),
+                                CupertinoActivityIndicator(),
+                              ],
+                            );
+                          default:
+                            if (snapshot.hasError) {
+                              return ReloadWidget(onReload: () => loadBoards());
+                            } else {
+                              return Column(
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.only(
+                                      bottom: 8.0,
+                                      left: 16.0,
+                                      right: 16.0,
+                                    ),
+                                    child: ClipRect(
+                                      child: CupertinoSearchTextField(
+                                        controller: _searchBarController,
+                                        onChanged: (value) {
+                                          _updateUserList(value, snapshot.data);
+                                        },
+                                        onSubmitted: (value) {
+                                          _updateUserList(value, snapshot.data);
+                                        },
+                                        onSuffixTap: () {
+                                          _updateUserList('', snapshot.data);
+                                        },
+                                      ),
                                     ),
                                   ),
-                                ),
-                                if (favorites.getFavorites().isNotEmpty)
+                                  if (favorites.getFavorites().isNotEmpty)
+                                    CupertinoListSection.insetGrouped(
+                                      backgroundColor: pageBackground,
+                                      header: Text(
+                                        'Favorites',
+                                        style: TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                          color:
+                                              theme.getTheme() ==
+                                                  ThemeData.dark()
+                                              ? CupertinoColors.white
+                                              : CupertinoColors.black,
+                                        ),
+                                      ),
+                                      children: [
+                                        for (final Board board in filterdBoards)
+                                          if (favorites.getFavorites().contains(
+                                            board.board,
+                                          ))
+                                            if (settings.getNSFW())
+                                              BoardTile(
+                                                board: board,
+                                                favorites: favorites
+                                                    .getFavorites()
+                                                    .contains(board.board),
+                                              )
+                                            else if (board.wsBoard != 0)
+                                              BoardTile(
+                                                board: board,
+                                                favorites: favorites
+                                                    .getFavorites()
+                                                    .contains(board.board),
+                                              ),
+                                      ],
+                                    ),
                                   CupertinoListSection.insetGrouped(
+                                    backgroundColor: pageBackground,
                                     header: Text(
-                                      'Favorites',
+                                      'Boards',
                                       style: TextStyle(
                                         fontSize: 20,
                                         fontWeight: FontWeight.bold,
                                         color:
                                             theme.getTheme() == ThemeData.dark()
-                                                ? CupertinoColors.white
-                                                : CupertinoColors.black,
+                                            ? CupertinoColors.white
+                                            : CupertinoColors.black,
                                       ),
                                     ),
                                     children: [
                                       for (final Board board in filterdBoards)
-                                        if (favorites
-                                            .getFavorites()
-                                            .contains(board.board))
-                                          if (settings.getNSFW())
-                                            BoardTile(
-                                                board: board,
-                                                favorites: favorites
-                                                    .getFavorites()
-                                                    .contains(board.board))
-                                          else if (board.wsBoard != 0)
-                                            BoardTile(
-                                                board: board,
-                                                favorites: favorites
-                                                    .getFavorites()
-                                                    .contains(board.board))
+                                        if (settings.getNSFW())
+                                          BoardTile(
+                                            board: board,
+                                            favorites: favorites
+                                                .getFavorites()
+                                                .contains(board.board),
+                                          )
+                                        else if (board.wsBoard != 0)
+                                          BoardTile(
+                                            board: board,
+                                            favorites: favorites
+                                                .getFavorites()
+                                                .contains(board.board),
+                                          ),
                                     ],
                                   ),
-                                CupertinoListSection.insetGrouped(
-                                  header: Text(
-                                    'Boards',
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                      color:
-                                          theme.getTheme() == ThemeData.dark()
-                                              ? CupertinoColors.white
-                                              : CupertinoColors.black,
-                                    ),
-                                  ),
-                                  children: [
-                                    for (final Board board in filterdBoards)
-                                      if (settings.getNSFW())
-                                        BoardTile(
-                                            board: board,
-                                            favorites: favorites
-                                                .getFavorites()
-                                                .contains(board.board))
-                                      else if (board.wsBoard != 0)
-                                        BoardTile(
-                                            board: board,
-                                            favorites: favorites
-                                                .getFavorites()
-                                                .contains(board.board))
-                                  ],
-                                ),
-                              ],
-                            );
-                          }
-                      }
-                    },
-                  ),
-                ],
-              ),
-            )
+                                ],
+                              );
+                            }
+                        }
+                      },
+                ),
+              ]),
+            ),
           ],
         ),
       ),

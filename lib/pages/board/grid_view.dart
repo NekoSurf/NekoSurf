@@ -19,17 +19,20 @@ class BoardGridView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final crossCount = (MediaQuery.sizeOf(context).width / 250).floor();
+    final crossCount = (MediaQuery.sizeOf(context).width / 230).floor();
 
     return Scrollbar(
       controller: scrollController,
       child: GridView.builder(
         itemCount: threads.length,
-        padding: const EdgeInsets.only(top: 10),
+        padding: const EdgeInsets.fromLTRB(10, 6, 10, 18),
         controller: scrollController,
         shrinkWrap: true,
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: max(2, crossCount),
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
+          childAspectRatio: 0.82,
         ),
         itemBuilder: (BuildContext context, int index) {
           return GridPost(board: board, post: threads[index]);

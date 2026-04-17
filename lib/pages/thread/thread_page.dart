@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/Models/bookmark.dart';
 import 'package:flutter_chan/Models/post.dart';
-import 'package:flutter_chan/blocs/gallery_model.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/blocs/watched_media_model.dart';
+import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/pages/bookmark_button.dart';
 import 'package:flutter_chan/pages/thread/thread_page_post.dart';
 import 'package:flutter_chan/services/string.dart';
@@ -48,7 +48,51 @@ class ThreadPageState extends State<ThreadPage> {
   bool _hasScrolledToLastWatched = false;
 
   late Bookmark favorite;
-  late Post currentPage;
+  void _markVisiblePostsAsWatched() {
+    if (allPosts.isEmpty) {
+      return;
+    }
+
+    final watchedMedia = Provider.of<WatchedMediaProvider>(
+      context,
+      listen: false,
+    );
+
+    final positions = itemPositionsListener.itemPositions.value;
+
+    for (final position in positions) {
+      final double trailing = position.itemTrailingEdge < 0
+          ? 0
+          : (position.itemTrailingEdge > 1 ? 1 : position.itemTrailingEdge);
+      final double leading = position.itemLeadingEdge < 0
+          ? 0
+          : (position.itemLeadingEdge > 1 ? 1 : position.itemLeadingEdge);
+      final double visiblePortion = trailing - leading;
+
+      if (visiblePortion < 0.55) {
+        continue;
+      }
+
+      final int index = position.index;
+      if (index < 0 || index >= allPosts.length) {
+        continue;
+      }
+
+      final Post post = allPosts[index];
+      final int? watchedId = post.tim ?? post.no;
+
+      if (watchedId == null) {
+        continue;
+      }
+
+      watchedMedia.markAsWatched(
+        mediaId: watchedId,
+        thread: widget.thread,
+        fileName: post.filename ?? '',
+        ext: post.ext ?? '',
+      );
+    }
+  }
 
   @override
   void initState() {
@@ -63,30 +107,49 @@ class ThreadPageState extends State<ThreadPage> {
       imageUrl: '${widget.post.tim}s.jpg',
       board: widget.board,
     );
+
+    itemPositionsListener.itemPositions.addListener(_markVisiblePostsAsWatched);
+  }
+
+  @override
+  void dispose() {
+    itemPositionsListener.itemPositions.removeListener(
+      _markVisiblePostsAsWatched,
+    );
+    scrollController.dispose();
+    super.dispose();
   }
 
   void loadThread() {
     setState(() {
-      _fetchAllPostsFromThread =
-          fetchAllPostsFromThread(widget.board, widget.thread);
+      _fetchAllPostsFromThread = fetchAllPostsFromThread(
+        widget.board,
+        widget.thread,
+      );
     });
   }
 
   void scrollToLastWatchedMedia(List<Post> allPosts) {
     final settings = Provider.of<SettingsProvider>(context, listen: false);
-    final watchedMedia =
-        Provider.of<WatchedMediaProvider>(context, listen: false);
+    final watchedMedia = Provider.of<WatchedMediaProvider>(
+      context,
+      listen: false,
+    );
 
     if (!settings.getAutoScrollToLastSeen()) {
       return;
     }
 
-    final latestWatchedMedia =
-        watchedMedia.getLatestWatchedMedia(widget.thread);
+    final latestWatchedMedia = watchedMedia.getLatestWatchedMedia(
+      widget.thread,
+    );
 
     if (latestWatchedMedia != null) {
-      final index =
-          allPosts.indexWhere((post) => post.tim == latestWatchedMedia.mediaId);
+      final index = allPosts.indexWhere(
+        (post) =>
+            post.tim == latestWatchedMedia.mediaId ||
+            post.no == latestWatchedMedia.mediaId,
+      );
 
       if (index != -1) {
         Future.delayed(const Duration(milliseconds: 250), () {
@@ -106,34 +169,35 @@ class ThreadPageState extends State<ThreadPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeChanger>(context);
-    final gallery = Provider.of<GalleryProvider>(context);
+    final bool isDark = theme.getTheme() == ThemeData.dark();
 
     return Scaffold(
-      backgroundColor: theme.getTheme() == ThemeData.light()
-          ? CupertinoColors.systemGroupedBackground
-          : Colors.black,
+      backgroundColor: AppColors.pageBackground(isDark),
       extendBodyBehindAppBar: true,
       appBar: CupertinoNavigationBar(
-        backgroundColor: theme.getTheme() == ThemeData.light()
-            ? CupertinoColors.systemGroupedBackground.withOpacity(0.7)
-            : CupertinoColors.black.withOpacity(0.7),
+        backgroundColor: AppColors.navigationBackground(isDark),
         border: Border.all(color: Colors.transparent),
         leading: MediaQuery(
           data: MediaQueryData(
-            textScaleFactor: MediaQuery.textScaleFactorOf(context),
+            textScaler: TextScaler.linear(
+              MediaQuery.textScaleFactorOf(context),
+            ),
           ),
           child: Transform.translate(
             offset: const Offset(-16, 0),
             child: CupertinoNavigationBarBackButton(
-              previousPageTitle:
-                  widget.fromFavorites ? 'bookmarks' : '/${widget.board}/',
+              previousPageTitle: widget.fromFavorites
+                  ? 'bookmarks'
+                  : '/${widget.board}/',
               onPressed: () => Navigator.of(context).pop(),
             ),
           ),
         ),
         middle: MediaQuery(
           data: MediaQueryData(
-            textScaleFactor: MediaQuery.textScaleFactorOf(context),
+            textScaler: TextScaler.linear(
+              MediaQuery.textScaleFactorOf(context),
+            ),
           ),
           child: Text(
             unescape(cleanTags(widget.threadName)),
@@ -144,9 +208,7 @@ class ThreadPageState extends State<ThreadPage> {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            BookmarkButton(
-              favorite: favorite,
-            ),
+            BookmarkButton(favorite: favorite),
             SizedBox(
               width: 20,
               child: CupertinoButton(
@@ -160,17 +222,17 @@ class ThreadPageState extends State<ThreadPage> {
                           child: const Text('Share'),
                           onPressed: () {
                             Share.share(
-                                'https://boards.4chan.org/${widget.board}/thread/${widget.thread}');
+                              'https://boards.4chan.org/${widget.board}/thread/${widget.thread}',
+                            );
                             Navigator.pop(context);
                           },
                         ),
                         CupertinoActionSheetAction(
-                          child: const Text(
-                            'Open in Browser',
-                          ),
+                          child: const Text('Open in Browser'),
                           onPressed: () {
                             launchURL(
-                                'https://boards.4chan.org/${widget.board}/thread/${widget.thread}');
+                              'https://boards.4chan.org/${widget.board}/thread/${widget.thread}',
+                            );
                             Navigator.pop(context);
                           },
                         ),
@@ -214,14 +276,10 @@ class ThreadPageState extends State<ThreadPage> {
         builder: (BuildContext context, AsyncSnapshot<List<Post>> snapshot) {
           switch (snapshot.connectionState) {
             case ConnectionState.waiting:
-              return const Center(
-                child: CupertinoActivityIndicator(),
-              );
+              return const Center(child: CupertinoActivityIndicator());
             default:
               if (snapshot.hasError) {
-                return ReloadWidget(
-                  onReload: () => loadThread(),
-                );
+                return ReloadWidget(onReload: () => loadThread());
               } else {
                 allPosts = snapshot.data ?? [];
 
@@ -246,25 +304,23 @@ class ThreadPageState extends State<ThreadPage> {
                       thread: widget.thread,
                       post: allPosts[index],
                       allPosts: allPosts,
-                      onDismiss: (i) => {
-                        if (gallery.getCurrentMedia() != '')
-                          {
-                            currentPage = allPosts
-                                .where(
-                                  (element) =>
-                                      element.tim.toString() ==
-                                      gallery.getCurrentMedia(),
-                                )
-                                .toList()[0],
-                            itemScrollController.scrollTo(
-                              index: allPosts.indexOf(currentPage),
-                              alignment: 0,
-                              duration: const Duration(milliseconds: 500),
-                              curve: Curves.easeInOutCubic,
-                            ),
-                          },
-                        gallery.setCurrentMedia(''),
-                        gallery.setCurrentPage(0),
+                      onDismiss: (postId) {
+                        if (postId == null ||
+                            !itemScrollController.isAttached) {
+                          return;
+                        }
+                        final targetIndex = allPosts.indexWhere(
+                          (post) => post.no == postId || post.tim == postId,
+                        );
+                        if (targetIndex < 0) {
+                          return;
+                        }
+                        itemScrollController.scrollTo(
+                          index: targetIndex,
+                          alignment: 0,
+                          duration: const Duration(milliseconds: 350),
+                          curve: Curves.easeInOutCubic,
+                        );
                       },
                     ),
                   ),

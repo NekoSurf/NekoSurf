@@ -61,7 +61,7 @@ Future<Directory> requestDirectory(
       directory = Directory(newPath);
     }
   } else {
-    if (await _requestPermission(Permission.photos)) {
+    if (await _requestPermission(Permission.photosAddOnly)) {
       directory = await getApplicationDocumentsDirectory();
     } else {
       if (showErrorDialog) {
@@ -96,7 +96,6 @@ Future<void> saveVideo(
   String url,
   String fileName,
   BuildContext context, {
-  bool showSnackBar = false,
   bool isSaved = true,
 }) async {
   final SavedAttachmentsProvider savedAttachmentsProvider =
@@ -121,18 +120,6 @@ Future<void> saveVideo(
           '.mp4',
         ),
         isReturnPathOfIOS: true,
-      ).then(
-        (value) => {
-          if (showSnackBar)
-            showCupertinoSnackbar(
-              const Duration(milliseconds: 1800),
-              true,
-              context,
-              'File saved!',
-            )
-          else
-            null,
-        },
       );
     } else {
       await ImageGallerySaverPlus.saveFile(
@@ -141,18 +128,6 @@ Future<void> saveVideo(
           '.mp4',
         ),
         isReturnPathOfIOS: true,
-      ).then(
-        (value) => {
-          if (showSnackBar)
-            showCupertinoSnackbar(
-              const Duration(milliseconds: 1800),
-              true,
-              context,
-              'File saved!',
-            )
-          else
-            null,
-        },
       );
     }
   } else {
@@ -163,8 +138,6 @@ Future<void> saveVideo(
       return;
     }
 
-    showCupertinoSnackbar(null, false, context, 'Downloading...');
-
     final String ext = '.${fileName.split('.').last}';
 
     try {
@@ -174,9 +147,6 @@ Future<void> saveVideo(
 
         if (Platform.isIOS) {
           if (ext == '.webm') {
-            Navigator.pop(context);
-            showCupertinoSnackbar(null, false, context, 'File converting...');
-
             final ReturnCode? returnCode = await convertWebMToMP4(
               videoCache,
               fileDownloadPath,
@@ -186,22 +156,8 @@ Future<void> saveVideo(
               await ImageGallerySaverPlus.saveFile(
                 fileDownloadPath.path.replaceAll('.webm', '.mp4'),
                 isReturnPathOfIOS: true,
-              ).then(
-                (value) => {
-                  if (showSnackBar) Navigator.pop(context),
-                  if (showSnackBar)
-                    showCupertinoSnackbar(
-                      const Duration(milliseconds: 1800),
-                      true,
-                      context,
-                      'File downloaded!',
-                    )
-                  else
-                    null,
-                },
               );
             } else {
-              Navigator.pop(context);
               showCupertinoSnackbar(
                 const Duration(milliseconds: 1800),
                 true,
@@ -213,36 +169,10 @@ Future<void> saveVideo(
             await ImageGallerySaverPlus.saveFile(
               videoCache.path,
               isReturnPathOfIOS: true,
-            ).then(
-              (value) => {
-                if (showSnackBar) Navigator.pop(context),
-                if (showSnackBar)
-                  showCupertinoSnackbar(
-                    const Duration(milliseconds: 1800),
-                    true,
-                    context,
-                    'File downloaded!',
-                  )
-                else
-                  null,
-              },
             );
           }
         } else {
-          await ImageGallerySaverPlus.saveFile(videoCache.path).then(
-            (value) => {
-              if (showSnackBar) Navigator.pop(context),
-              if (showSnackBar)
-                showCupertinoSnackbar(
-                  const Duration(milliseconds: 1800),
-                  true,
-                  context,
-                  'File downloaded!',
-                )
-              else
-                null,
-            },
-          );
+          await ImageGallerySaverPlus.saveFile(videoCache.path);
         }
       }
     } catch (e) {
@@ -296,8 +226,6 @@ Future<void> shareMedia(
       return;
     }
 
-    showCupertinoSnackbar(null, false, context, 'Downloading...');
-
     try {
       if (await directory.exists()) {
         final File fileDownloadPath = File('${directory.path}/$fileName');
@@ -307,30 +235,16 @@ Future<void> shareMedia(
 
         if (Platform.isIOS) {
           if (ext == '.webm') {
-            Navigator.pop(context);
-            showCupertinoSnackbar(null, false, context, 'File converting...');
-
             final ReturnCode? returnCode = await convertWebMToMP4(
               videoCache,
               fileDownloadPath,
             );
 
             if (ReturnCode.isSuccess(returnCode)) {
-              Navigator.pop(context);
-              showCupertinoSnackbar(
-                const Duration(milliseconds: 1000),
-                true,
-                context,
-                'File downloaded!',
-              ).then(
-                (value) => {
-                  Share.shareXFiles([
-                    XFile(fileDownloadPath.path.replaceAll('.webm', '.mp4')),
-                  ]),
-                },
-              );
+              Share.shareXFiles([
+                XFile(fileDownloadPath.path.replaceAll('.webm', '.mp4')),
+              ]);
             } else {
-              Navigator.pop(context);
               showCupertinoSnackbar(
                 const Duration(milliseconds: 1800),
                 true,
@@ -339,20 +253,9 @@ Future<void> shareMedia(
               );
             }
           } else {
-            Navigator.pop(context);
-            showCupertinoSnackbar(
-              const Duration(milliseconds: 1000),
-              true,
-              context,
-              'File downloaded!',
-            ).then(
-              (value) => {
-                Share.shareXFiles([XFile(videoCache.path)]),
-              },
-            );
+            Share.shareXFiles([XFile(videoCache.path)]);
           }
         } else {
-          Navigator.pop(context);
           Share.shareXFiles([XFile(videoCache.path)]);
         }
       }
@@ -386,8 +289,6 @@ Future<SavedAttachment?> saveAttachment(
     return null;
   }
 
-  showCupertinoSnackbar(null, false, context, 'Downloading...');
-
   try {
     if (await directory.exists()) {
       final File fileDownloadPath = File(
@@ -406,10 +307,7 @@ Future<SavedAttachment?> saveAttachment(
       final String ext = '.${fileName.split('.').last}';
 
       if (Platform.isIOS) {
-        Navigator.pop(context);
         if (ext == '.webm') {
-          showCupertinoSnackbar(null, false, context, 'File converting...');
-
           final ReturnCode? returnCode = await convertWebMToMP4(
             videoCache,
             fileDownloadPath,
@@ -423,15 +321,6 @@ Future<SavedAttachment?> saveAttachment(
               dio,
             );
 
-            Navigator.pop(context);
-
-            showCupertinoSnackbar(
-              const Duration(milliseconds: 1800),
-              true,
-              context,
-              'File downloaded!',
-            );
-
             savedAttachmentsProvider.startVideo();
 
             return SavedAttachment(
@@ -441,13 +330,6 @@ Future<SavedAttachment?> saveAttachment(
             );
           } else {
             savedAttachmentsProvider.startVideo();
-
-            showCupertinoSnackbar(
-              const Duration(milliseconds: 1800),
-              true,
-              context,
-              'Download failed :(',
-            );
 
             return null;
           }
@@ -462,15 +344,6 @@ Future<SavedAttachment?> saveAttachment(
               dio,
             );
 
-            Navigator.pop(context);
-
-            showCupertinoSnackbar(
-              const Duration(milliseconds: 1800),
-              true,
-              context,
-              'File downloaded!',
-            );
-
             savedAttachmentsProvider.startVideo();
 
             return SavedAttachment(
@@ -479,13 +352,6 @@ Future<SavedAttachment?> saveAttachment(
               thumbnail: thumbnailPath,
             );
           } else {
-            showCupertinoSnackbar(
-              const Duration(milliseconds: 1800),
-              true,
-              context,
-              'File downloaded!',
-            );
-
             savedAttachmentsProvider.startVideo();
 
             return SavedAttachment(
@@ -510,15 +376,6 @@ Future<SavedAttachment?> saveAttachment(
             dio,
           );
         }
-
-        Navigator.pop(context);
-
-        showCupertinoSnackbar(
-          const Duration(milliseconds: 1800),
-          true,
-          context,
-          'File downloaded!',
-        );
 
         savedAttachmentsProvider.startVideo();
 

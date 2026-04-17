@@ -8,11 +8,14 @@ import 'package:http/http.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Future<BookmarkStatus> fetchBookmarkStatus(
-    String? board, String? thread) async {
-  BookmarkStatus bookmarkStatus = BookmarkStatus();
+  String? board,
+  String? thread,
+) async {
+  final BookmarkStatus bookmarkStatus = BookmarkStatus();
 
-  final Response response =
-      await get(Uri.parse('https://a.4cdn.org/$board/thread/$thread.json'));
+  final Response response = await get(
+    Uri.parse('https://a.4cdn.org/$board/thread/$thread.json'),
+  );
 
   if (response.statusCode == 200) {
     final List<Post> posts = (jsonDecode(response.body)['posts'] as List)
@@ -29,7 +32,7 @@ Future<BookmarkStatus> fetchBookmarkStatus(
       bookmarkStatus.status = ThreadStatus.online;
     }
 
-    ThreadReplyCount list = ThreadReplyCount();
+    final ThreadReplyCount list = ThreadReplyCount();
 
     list.replies = posts[0].replies ?? 0;
     list.images = posts[0].images ?? 0;
@@ -47,8 +50,9 @@ Future<BookmarkStatus> fetchBookmarkStatus(
 Future<void> removeFavorite(Bookmark favorite) async {
   final SharedPreferences prefs = await SharedPreferences.getInstance();
 
-  final List<String>? favoriteThreadsPrefs =
-      prefs.getStringList('favoriteThreads');
+  final List<String>? favoriteThreadsPrefs = prefs.getStringList(
+    'favoriteThreads',
+  );
 
   favoriteThreadsPrefs?.remove(json.encode(favorite));
 

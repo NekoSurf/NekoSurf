@@ -1,5 +1,7 @@
+import 'dart:math';
 import 'dart:convert';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/Models/bookmark.dart';
 import 'package:flutter_chan/Models/post.dart';
@@ -9,17 +11,13 @@ import 'package:flutter_chan/pages/replies_row.dart';
 import 'package:flutter_chan/pages/thread/thread_page.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/image_viewer.dart';
-import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 class ListPost extends StatefulWidget {
-  const ListPost({
-    Key? key,
-    required this.board,
-    required this.post,
-  }) : super(key: key);
+  const ListPost({Key? key, required this.board, required this.post})
+    : super(key: key);
 
   final String board;
   final Post post;
@@ -32,6 +30,16 @@ class _ListPostState extends State<ListPost> {
   late Bookmark favorite;
   bool isFavorite = false;
   late String favoriteString;
+
+  String _formatBytes(int bytes, int decimals) {
+    if (bytes <= 0) {
+      return '0 B';
+    }
+
+    const suffixes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+    final i = (log(bytes) / log(1024)).floor();
+    return '${(bytes / pow(1024, i)).toStringAsFixed(decimals)} ${suffixes[i]}';
+  }
 
   @override
   void initState() {
@@ -52,6 +60,18 @@ class _ListPostState extends State<ListPost> {
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeChanger>(context);
     final bookmarks = Provider.of<BookmarksProvider>(context);
+    final bool isDark = theme.getTheme() == ThemeData.dark();
+    final Color cardColor = isDark
+        ? const Color(0xFF13161B)
+        : const Color(0xFFFFFFFF);
+    final Color primaryText = isDark ? Colors.white : const Color(0xFF121417);
+    final Color secondaryText = isDark
+        ? CupertinoColors.systemGrey
+        : const Color(0xFF5B6470);
+    final String excerpt = unescape(cleanTags(widget.post.com ?? '')).trim();
+    final String headline = unescape(
+      cleanTags(widget.post.sub ?? widget.post.com ?? ''),
+    ).trim();
 
     isFavorite = bookmarks.getBookmarks().contains(favoriteString);
 
@@ -65,10 +85,8 @@ class _ListPostState extends State<ListPost> {
                   label: 'Remove',
                   backgroundColor: Colors.red,
                   icon: Icons.delete,
-                  onPressed: (context) => {
-                    bookmarks.removeBookmarks(favorite),
-                  },
-                )
+                  onPressed: (context) => {bookmarks.removeBookmarks(favorite)},
+                ),
               ],
             )
           : ActionPane(
@@ -79,10 +97,8 @@ class _ListPostState extends State<ListPost> {
                   label: 'Add',
                   backgroundColor: Colors.green,
                   icon: Icons.add,
-                  onPressed: (context) => {
-                    bookmarks.addBookmarks(favorite),
-                  },
-                )
+                  onPressed: (context) => {bookmarks.addBookmarks(favorite)},
+                ),
               ],
             ),
       child: InkWell(
@@ -96,107 +112,199 @@ class _ListPostState extends State<ListPost> {
                 board: widget.board,
               ),
             ),
-          )
+          ),
         },
         child: Container(
-          padding: const EdgeInsets.fromLTRB(0, 20, 0, 20),
-          decoration: const BoxDecoration(
-            border: Border(
-              bottom: BorderSide(
-                color: Colors.grey,
-                width: 0.15,
-              ),
+          margin: const EdgeInsets.fromLTRB(10, 6, 10, 6),
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark
+                  ? CupertinoColors.systemGrey.withValues(alpha: 0.25)
+                  : const Color(0x14000000),
+              width: 1,
             ),
+            boxShadow: isDark
+                ? []
+                : const [
+                    BoxShadow(
+                      color: Color(0x12000000),
+                      blurRadius: 12,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
           ),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (widget.post.tim != null)
-                    SizedBox(
-                      width: 125,
-                      height: 125,
-                      child: Padding(
-                        padding: const EdgeInsets.all(10),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: ImageViewer(
-                            url:
-                                'https://i.4cdn.org/${widget.board}/${widget.post.tim}s.jpg',
-                            fit: BoxFit.cover,
-                          ),
-                        ),
+                  CircleAvatar(
+                    radius: 14,
+                    backgroundColor: CupertinoColors.activeBlue.withValues(
+                      alpha: 0.18,
+                    ),
+                    child: Text(
+                      widget.board.toUpperCase(),
+                      style: const TextStyle(
+                        color: CupertinoColors.activeBlue,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
                       ),
-                    )
-                  else
-                    Container(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'No.${widget.post.no}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: theme.getTheme() == ThemeData.dark()
-                                  ? Colors.white
-                                  : Colors.black,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          if (widget.post.sub != null)
-                            Text(
-                              unescape(cleanTags(widget.post.sub ?? '')),
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: theme.getTheme() == ThemeData.dark()
-                                    ? Colors.white
-                                    : Colors.black,
-                              ),
-                            )
-                          else
-                            Container(),
-                          RepliesRow(
-                            replies: widget.post.replies,
-                            imageReplies: widget.post.images,
-                          ),
-                          Text(
-                            DateFormat('kk:mm - dd.MM.y').format(
-                              DateTime.fromMillisecondsSinceEpoch(
-                                widget.post.time! * 1000,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'No.${widget.post.no}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: secondaryText,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: theme.getTheme() == ThemeData.dark()
-                                  ? Colors.white
-                                  : Colors.black,
+                            if (widget.post.sticky == 1)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: CupertinoColors.systemOrange
+                                      .withValues(alpha: 0.16),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: const Text(
+                                  'Sticky',
+                                  style: TextStyle(
+                                    color: CupertinoColors.systemOrange,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          DateFormat('kk:mm - dd.MM.y').format(
+                            DateTime.fromMillisecondsSinceEpoch(
+                              widget.post.time! * 1000,
                             ),
-                          )
-                        ],
-                      ),
+                          ),
+                          style: TextStyle(fontSize: 11, color: secondaryText),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
-              if (widget.post.com != null)
-                Html(
-                  data: widget.post.com,
-                  style: {
-                    'body': Style(
-                      color: theme.getTheme() == ThemeData.dark()
-                          ? Colors.white
-                          : Colors.black,
+              const SizedBox(height: 10),
+              if (headline.isNotEmpty)
+                Text(
+                  headline,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: primaryText,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              if (widget.post.tim != null) ...[
+                const SizedBox(height: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        ImageViewer(
+                          url:
+                              'https://i.4cdn.org/${widget.board}/${widget.post.tim}s.jpg',
+                          fit: BoxFit.cover,
+                        ),
+                        if (widget.post.ext == '.webm' ||
+                            widget.post.ext == '.mp4')
+                          const Center(
+                            child: Icon(
+                              CupertinoIcons.play_circle_fill,
+                              color: Colors.white,
+                              size: 44,
+                            ),
+                          ),
+                        Align(
+                          alignment: Alignment.bottomLeft,
+                          child: Container(
+                            margin: const EdgeInsets.all(10),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.45),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              '${widget.post.ext ?? ''} ${_formatBytes(widget.post.fsize ?? 0, 0)}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  },
-                )
-              else
-                Container(),
+                  ),
+                ),
+              ],
+              if (excerpt.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Text(
+                  excerpt,
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.35,
+                    color: secondaryText,
+                  ),
+                  maxLines: widget.post.tim != null ? 3 : 5,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  RepliesRow(
+                    replies: widget.post.replies,
+                    imageReplies: widget.post.images,
+                  ),
+                  const Spacer(),
+                  Icon(
+                    isFavorite
+                        ? CupertinoIcons.bookmark_fill
+                        : CupertinoIcons.bookmark,
+                    size: 18,
+                    color: isFavorite
+                        ? CupertinoColors.activeBlue
+                        : secondaryText,
+                  ),
+                ],
+              ),
             ],
           ),
         ),

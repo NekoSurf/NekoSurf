@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chan/Models/bookmark.dart';
 import 'package:flutter_chan/blocs/bookmarks_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
+import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/enums/enums.dart';
 import 'package:flutter_chan/pages/bookmarks/bookmarks_post.dart';
 import 'package:provider/provider.dart';
@@ -23,19 +24,20 @@ class _BookmarksState extends State<Bookmarks> {
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeChanger>(context);
     final bookmarks = Provider.of<BookmarksProvider>(context);
+    final bool isDark = theme.getTheme() == ThemeData.dark();
 
     return Scaffold(
       body: CupertinoPageScaffold(
-        backgroundColor: theme.getTheme() == ThemeData.light()
-            ? CupertinoColors.systemGroupedBackground
-            : CupertinoColors.black,
+        backgroundColor: AppColors.pageBackground(isDark),
         child: Scrollbar(
           child: CustomScrollView(
             slivers: [
               CupertinoSliverNavigationBar(
                 leading: MediaQuery(
                   data: MediaQueryData(
-                    textScaleFactor: MediaQuery.textScaleFactorOf(context),
+                    textScaler: TextScaler.linear(
+                      MediaQuery.textScaleFactorOf(context),
+                    ),
                   ),
                   child: Transform.translate(
                     offset: const Offset(-16, 0),
@@ -49,7 +51,9 @@ class _BookmarksState extends State<Bookmarks> {
                 border: Border.all(color: Colors.transparent),
                 largeTitle: MediaQuery(
                   data: MediaQueryData(
-                    textScaleFactor: MediaQuery.textScaleFactorOf(context),
+                    textScaler: TextScaler.linear(
+                      MediaQuery.textScaleFactorOf(context),
+                    ),
                   ),
                   child: Text(
                     'Bookmarks',
@@ -61,8 +65,8 @@ class _BookmarksState extends State<Bookmarks> {
                   ),
                 ),
                 backgroundColor: theme.getTheme() == ThemeData.light()
-                    ? CupertinoColors.systemGroupedBackground.withOpacity(0.7)
-                    : CupertinoColors.black.withOpacity(0.7),
+                    ? AppColors.navigationBackground(false)
+                    : AppColors.navigationBackground(true),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -73,32 +77,30 @@ class _BookmarksState extends State<Bookmarks> {
                           context: context,
                           builder: (BuildContext context) =>
                               CupertinoActionSheet(
-                            message: const Text(
-                              'Sort by',
-                            ),
-                            actions: [
-                              CupertinoActionSheetAction(
-                                child: const Text('Newest'),
-                                onPressed: () {
-                                  bookmarks.setSort(Sort.byNewest);
-                                  Navigator.pop(context);
-                                },
+                                message: const Text('Sort by'),
+                                actions: [
+                                  CupertinoActionSheetAction(
+                                    child: const Text('Newest'),
+                                    onPressed: () {
+                                      bookmarks.setSort(Sort.byNewest);
+                                      Navigator.pop(context);
+                                    },
+                                  ),
+                                  CupertinoActionSheetAction(
+                                    child: const Text('Oldest'),
+                                    onPressed: () {
+                                      bookmarks.setSort(Sort.byOldest);
+                                      Navigator.pop(context);
+                                    },
+                                  ),
+                                ],
+                                cancelButton: CupertinoActionSheetAction(
+                                  child: const Text('Cancel'),
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                  },
+                                ),
                               ),
-                              CupertinoActionSheetAction(
-                                child: const Text('Oldest'),
-                                onPressed: () {
-                                  bookmarks.setSort(Sort.byOldest);
-                                  Navigator.pop(context);
-                                },
-                              ),
-                            ],
-                            cancelButton: CupertinoActionSheetAction(
-                              child: const Text('Cancel'),
-                              onPressed: () {
-                                Navigator.pop(context);
-                              },
-                            ),
-                          ),
                         );
                       },
                       child: const Icon(Icons.sort),
@@ -112,22 +114,22 @@ class _BookmarksState extends State<Bookmarks> {
                             context: context,
                             builder: (BuildContext context) =>
                                 CupertinoActionSheet(
-                              actions: [
-                                CupertinoActionSheetAction(
-                                  child: const Text('Clear bookmarks'),
-                                  onPressed: () {
-                                    bookmarks.clearBookmarks();
-                                    Navigator.pop(context);
-                                  },
+                                  actions: [
+                                    CupertinoActionSheetAction(
+                                      child: const Text('Clear bookmarks'),
+                                      onPressed: () {
+                                        bookmarks.clearBookmarks();
+                                        Navigator.pop(context);
+                                      },
+                                    ),
+                                  ],
+                                  cancelButton: CupertinoActionSheetAction(
+                                    child: const Text('Cancel'),
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                    },
+                                  ),
                                 ),
-                              ],
-                              cancelButton: CupertinoActionSheetAction(
-                                child: const Text('Cancel'),
-                                onPressed: () {
-                                  Navigator.pop(context);
-                                },
-                              ),
-                            ),
                           );
                         },
                         child: const Icon(Icons.more_vert),
@@ -137,39 +139,35 @@ class _BookmarksState extends State<Bookmarks> {
                 ),
               ),
               SliverList(
-                delegate: SliverChildListDelegate(
-                  [
-                    if (bookmarks.getBookmarks().isEmpty)
-                      Column(
-                        children: [
-                          const SizedBox(
-                            height: 30,
+                delegate: SliverChildListDelegate([
+                  if (bookmarks.getBookmarks().isEmpty)
+                    Column(
+                      children: [
+                        const SizedBox(height: 30),
+                        Text(
+                          'Add bookmarks first!',
+                          style: TextStyle(
+                            fontSize: 26,
+                            color: theme.getTheme() == ThemeData.dark()
+                                ? Colors.white
+                                : Colors.black,
                           ),
-                          Text(
-                            'Add bookmarks first!',
-                            style: TextStyle(
-                              fontSize: 26,
-                              color: theme.getTheme() == ThemeData.dark()
-                                  ? Colors.white
-                                  : Colors.black,
+                        ),
+                      ],
+                    )
+                  else
+                    Column(
+                      children: [
+                        for (final String string in bookmarks.getBookmarks())
+                          BookmarksPost(
+                            favorite: Bookmark.fromJson(
+                              json.decode(string) as Map<String, dynamic>,
                             ),
                           ),
-                        ],
-                      )
-                    else
-                      Column(
-                        children: [
-                          for (final String string in bookmarks.getBookmarks())
-                            BookmarksPost(
-                              favorite: Bookmark.fromJson(
-                                json.decode(string) as Map<String, dynamic>,
-                              ),
-                            )
-                        ],
-                      ),
-                  ],
-                ),
-              )
+                      ],
+                    ),
+                ]),
+              ),
             ],
           ),
         ),
