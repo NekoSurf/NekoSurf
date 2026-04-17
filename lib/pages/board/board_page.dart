@@ -4,9 +4,9 @@ import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
+import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/enums/enums.dart';
 import 'package:flutter_chan/pages/board/grid_view.dart';
-import 'package:flutter_chan/pages/board/list_view.dart';
 import 'package:flutter_chan/pages/favorite_button.dart';
 import 'package:flutter_chan/widgets/reload.dart';
 import 'package:provider/provider.dart';
@@ -67,23 +67,12 @@ class BoardPageState extends State<BoardPage> {
     });
   }
 
-  Widget getBoardView(SettingsProvider settings, List<Post> threads) {
-    switch (settings.getBoardView()) {
-      case ViewType.listView:
-        return BoardListView(
-          scrollController: scrollController,
-          board: widget.board,
-          threads: threads,
-        );
-
-      case ViewType.gridView:
-      default:
-        return BoardGridView(
-          scrollController: scrollController,
-          board: widget.board,
-          threads: threads,
-        );
-    }
+  Widget getBoardView(List<Post> threads) {
+    return BoardGridView(
+      scrollController: scrollController,
+      board: widget.board,
+      threads: threads,
+    );
   }
 
   void _updateThreadsList(String value) {
@@ -100,23 +89,18 @@ class BoardPageState extends State<BoardPage> {
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeChanger>(context);
     final settings = Provider.of<SettingsProvider>(context);
+    final bool isDark = theme.getTheme() == ThemeData.dark();
 
     return Scaffold(
       extendBodyBehindAppBar: true,
       body: CupertinoPageScaffold(
-        backgroundColor: theme.getTheme() == ThemeData.light()
-            ? CupertinoColors.systemGroupedBackground
-            : Colors.black,
+        backgroundColor: AppColors.pageBackground(isDark),
         child: Scrollbar(
           child: CustomScrollView(
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             slivers: [
               CupertinoSliverNavigationBar(
-                backgroundColor: theme.getTheme() == ThemeData.light()
-                    ? CupertinoColors.systemGroupedBackground.withValues(
-                        alpha: 0.7,
-                      )
-                    : CupertinoColors.black.withOpacity(0.7),
+                backgroundColor: AppColors.navigationBackground(isDark),
                 largeTitle: MediaQuery(
                   data: MediaQueryData(
                     textScaler: TextScaler.linear(
@@ -265,23 +249,41 @@ class BoardPageState extends State<BoardPage> {
                 delegate: SliverChildListDelegate([
                   Padding(
                     padding: const EdgeInsets.only(
-                      bottom: 8.0,
-                      left: 8.0,
-                      right: 8.0,
+                      bottom: 10,
+                      left: 10,
+                      right: 10,
                     ),
                     child: ClipRect(
-                      child: CupertinoSearchTextField(
-                        controller: _searchBarController,
-                        onChanged: (value) {
-                          _updateThreadsList(value);
-                        },
-                        onSubmitted: (value) {
-                          _updateThreadsList(value);
-                        },
-                        onSuffixTap: () {
-                          _updateThreadsList('');
-                          _searchBarController.clear();
-                        },
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: theme.getTheme() == ThemeData.light()
+                              ? Colors.white
+                              : const Color(0xFF13161B),
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: theme.getTheme() == ThemeData.light()
+                              ? const [
+                                  BoxShadow(
+                                    color: Color(0x12000000),
+                                    blurRadius: 10,
+                                    offset: Offset(0, 3),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: CupertinoSearchTextField(
+                          controller: _searchBarController,
+                          backgroundColor: Colors.transparent,
+                          onChanged: (value) {
+                            _updateThreadsList(value);
+                          },
+                          onSubmitted: (value) {
+                            _updateThreadsList(value);
+                          },
+                          onSuffixTap: () {
+                            _updateThreadsList('');
+                            _searchBarController.clear();
+                          },
+                        ),
                       ),
                     ),
                   ),
@@ -306,7 +308,7 @@ class BoardPageState extends State<BoardPage> {
                                   onReload: () => {loadBoard()},
                                 );
                               } else {
-                                return getBoardView(settings, filteredBoards);
+                                return getBoardView(filteredBoards);
                               }
                           }
                         },

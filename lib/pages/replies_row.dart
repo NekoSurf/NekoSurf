@@ -20,53 +20,48 @@ class RepliesRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeChanger>(context);
+    final bool isDark = theme.getTheme() == ThemeData.dark();
+    final Color fg = invertTextColor
+        ? (isDark ? CupertinoColors.black : CupertinoColors.white)
+        : (isDark ? CupertinoColors.white : CupertinoColors.black);
+    final Color chipBg = isDark
+        ? CupertinoColors.systemGrey.withValues(alpha: 0.2)
+        : CupertinoColors.systemGrey6;
 
-    final darkColor = invertTextColor
-        ? theme.getTheme() == ThemeData.dark()
-        : theme.getTheme() != ThemeData.dark();
+    Widget buildChip(IconData icon, dynamic value) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: chipBg,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: fg, size: 12),
+            const SizedBox(width: 4),
+            Text(
+              '$value',
+              style: TextStyle(
+                color: fg,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      );
+    }
 
     return Row(
       children: [
-        Icon(
-          CupertinoIcons.reply,
-          color: darkColor ? CupertinoColors.black : CupertinoColors.white,
-          size: 13,
-        ),
-        Text(
-          ' $replies',
-          style: TextStyle(
-            color: darkColor ? CupertinoColors.black : CupertinoColors.white,
-            fontSize: 13,
-          ),
-          maxLines: 1,
-          textAlign: TextAlign.center,
-          overflow: TextOverflow.ellipsis,
-        ),
-        if (showImageReplies)
-          Row(
-            children: [
-              const SizedBox(
-                width: 10,
-              ),
-              Icon(
-                CupertinoIcons.camera,
-                color:
-                    darkColor ? CupertinoColors.black : CupertinoColors.white,
-                size: 13,
-              ),
-              Text(
-                ' $imageReplies',
-                style: TextStyle(
-                  color:
-                      darkColor ? CupertinoColors.black : CupertinoColors.white,
-                  fontSize: 13,
-                ),
-                maxLines: 1,
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
+        buildChip(CupertinoIcons.reply, replies),
+        if (showImageReplies) ...[
+          const SizedBox(width: 8),
+          buildChip(CupertinoIcons.camera, imageReplies),
+        ],
       ],
     );
   }

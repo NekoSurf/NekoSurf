@@ -72,7 +72,8 @@ class ThreadPostComment extends StatelessWidget {
             text,
             style: const TextStyle(
               color: Color(0xFF789922),
-              fontFamily: 'Arial',
+              fontSize: 14,
+              height: 1.35,
             ),
           ),
         );
@@ -86,7 +87,8 @@ class ThreadPostComment extends StatelessWidget {
           // Add non-spoiler text before the match
           if (match.start > lastEnd) {
             final normalText = unescape(
-                cleanTags(remainingText.substring(lastEnd, match.start)));
+              cleanTags(remainingText.substring(lastEnd, match.start)),
+            );
             spans.add(
               TextSpan(
                 text: normalText,
@@ -101,19 +103,16 @@ class ThreadPostComment extends StatelessWidget {
 
           // Add spoiler text
           final spoilerText = unescape(cleanTags(match.group(1) ?? ''));
-          spans.add(
-            WidgetSpan(
-              child: SpoilerText(text: spoilerText),
-            ),
-          );
+          spans.add(WidgetSpan(child: SpoilerText(text: spoilerText)));
 
           lastEnd = match.end;
         }
 
         // Add remaining non-spoiler text after the last match
         if (lastEnd < line.length) {
-          final normalText =
-              unescape(cleanTags(remainingText.substring(lastEnd)));
+          final normalText = unescape(
+            cleanTags(remainingText.substring(lastEnd)),
+          );
           spans.add(
             TextSpan(
               text: normalText,
@@ -129,7 +128,7 @@ class ThreadPostComment extends StatelessWidget {
         formattedCom.add(
           SelectableText.rich(
             TextSpan(children: spans),
-            style: const TextStyle(fontFamily: 'Arial'),
+            style: const TextStyle(fontSize: 14, height: 1.35),
           ),
         );
       } else if (line.isEmpty) {
@@ -151,7 +150,8 @@ class ThreadPostComment extends StatelessWidget {
                 color: theme.getTheme() == ThemeData.dark()
                     ? Colors.white
                     : Colors.black,
-                fontFamily: 'Arial',
+                fontSize: 14,
+                height: 1.35,
               ),
             ),
           );
@@ -208,7 +208,7 @@ class ThreadPostComment extends StatelessWidget {
           formattedCom.add(
             Text.rich(
               TextSpan(children: spans),
-              style: const TextStyle(fontFamily: 'Arial'),
+              style: const TextStyle(fontSize: 14, height: 1.35),
             ),
           );
         }
@@ -226,9 +226,7 @@ class ThreadPostComment extends StatelessWidget {
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (final Widget comments in listCom) comments,
-      ],
+      children: [for (final Widget comments in listCom) comments],
     );
   }
 }

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chan/Models/bookmark.dart';
 import 'package:flutter_chan/blocs/bookmarks_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
+import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/enums/enums.dart';
 import 'package:flutter_chan/pages/bookmarks/bookmarks_post.dart';
 import 'package:provider/provider.dart';
@@ -23,12 +24,11 @@ class _BookmarksState extends State<Bookmarks> {
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeChanger>(context);
     final bookmarks = Provider.of<BookmarksProvider>(context);
+    final bool isDark = theme.getTheme() == ThemeData.dark();
 
     return Scaffold(
       body: CupertinoPageScaffold(
-        backgroundColor: theme.getTheme() == ThemeData.light()
-            ? CupertinoColors.systemGroupedBackground
-            : CupertinoColors.black,
+        backgroundColor: AppColors.pageBackground(isDark),
         child: Scrollbar(
           child: CustomScrollView(
             slivers: [
@@ -65,10 +65,8 @@ class _BookmarksState extends State<Bookmarks> {
                   ),
                 ),
                 backgroundColor: theme.getTheme() == ThemeData.light()
-                    ? CupertinoColors.systemGroupedBackground.withValues(
-                        alpha: 0.7,
-                      )
-                    : CupertinoColors.black.withOpacity(0.7),
+                    ? AppColors.navigationBackground(false)
+                    : AppColors.navigationBackground(true),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [

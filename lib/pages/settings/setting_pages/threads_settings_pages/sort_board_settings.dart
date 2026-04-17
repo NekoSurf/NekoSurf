@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/enums/enums.dart';
@@ -17,15 +18,12 @@ class SortBoardSettingsState extends State<SortBoardSettings> {
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeChanger>(context);
     final settings = Provider.of<SettingsProvider>(context);
+    final bool isDark = theme.getTheme() == ThemeData.dark();
 
     return CupertinoPageScaffold(
-      backgroundColor: theme.getTheme() == ThemeData.dark()
-          ? CupertinoColors.black
-          : CupertinoColors.systemGroupedBackground,
+      backgroundColor: AppColors.pageBackground(isDark),
       navigationBar: CupertinoNavigationBar(
-        backgroundColor: theme.getTheme() == ThemeData.light()
-            ? CupertinoColors.systemGroupedBackground.withValues(alpha: 0.7)
-            : CupertinoColors.black.withOpacity(0.7),
+        backgroundColor: AppColors.navigationBackground(isDark),
         brightness: theme.getTheme() == ThemeData.dark()
             ? Brightness.dark
             : Brightness.light,
@@ -62,6 +60,7 @@ class SortBoardSettingsState extends State<SortBoardSettings> {
       ),
       child: SafeArea(
         child: CupertinoListSection.insetGrouped(
+          backgroundColor: AppColors.pageBackground(isDark),
           children: [
             CupertinoListTile(
               title: const Text('Images Count'),

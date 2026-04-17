@@ -6,6 +6,7 @@ import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/favorite_model.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
+import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/pages/boards/board_tile.dart';
 import 'package:flutter_chan/pages/bookmarks/bookmarks.dart';
 import 'package:flutter_chan/pages/savedAttachments/saved_attachments.dart';
@@ -50,6 +51,8 @@ class BoardListState extends State<BoardList> {
     final theme = Provider.of<ThemeChanger>(context);
     final favorites = Provider.of<FavoriteProvider>(context);
     final settings = Provider.of<SettingsProvider>(context);
+    final bool isDark = theme.getTheme() == ThemeData.dark();
+    final Color pageBackground = AppColors.pageBackground(isDark);
 
     Future<bool> openURL() async {
       if (controller.text.isEmpty) {
@@ -144,19 +147,13 @@ class BoardListState extends State<BoardList> {
     }
 
     return CupertinoPageScaffold(
-      backgroundColor: theme.getTheme() == ThemeData.light()
-          ? CupertinoColors.systemGroupedBackground
-          : Colors.black,
+      backgroundColor: pageBackground,
       child: Scrollbar(
         child: CustomScrollView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           slivers: [
             CupertinoSliverNavigationBar(
-              backgroundColor: theme.getTheme() == ThemeData.light()
-                  ? CupertinoColors.systemGroupedBackground.withValues(
-                      alpha: 0.7,
-                    )
-                  : CupertinoColors.black.withOpacity(0.7),
+              backgroundColor: AppColors.navigationBackground(isDark),
               largeTitle: MediaQuery(
                 data: MediaQueryData(
                   textScaler: TextScaler.linear(
@@ -356,6 +353,7 @@ class BoardListState extends State<BoardList> {
                                   ),
                                   if (favorites.getFavorites().isNotEmpty)
                                     CupertinoListSection.insetGrouped(
+                                      backgroundColor: pageBackground,
                                       header: Text(
                                         'Favorites',
                                         style: TextStyle(
@@ -390,6 +388,7 @@ class BoardListState extends State<BoardList> {
                                       ],
                                     ),
                                   CupertinoListSection.insetGrouped(
+                                    backgroundColor: pageBackground,
                                     header: Text(
                                       'Boards',
                                       style: TextStyle(

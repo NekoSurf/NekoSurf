@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/blocs/theme.dart';
+import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/pages/settings/setting_pages/data_settings.dart';
 import 'package:flutter_chan/pages/settings/setting_pages/privacy_settings.dart';
 import 'package:flutter_chan/pages/settings/setting_pages/threads_settings.dart';
@@ -35,17 +36,14 @@ class _SettingsState extends State<Settings> {
   @override
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeChanger>(context);
+    final bool isDark = theme.getTheme() == ThemeData.dark();
 
     return CupertinoPageScaffold(
-      backgroundColor: theme.getTheme() == ThemeData.dark()
-          ? CupertinoColors.black
-          : CupertinoColors.systemGroupedBackground,
+      backgroundColor: AppColors.pageBackground(isDark),
       child: CustomScrollView(
         slivers: [
           CupertinoSliverNavigationBar(
-            backgroundColor: theme.getTheme() == ThemeData.light()
-                ? CupertinoColors.systemGroupedBackground.withValues(alpha: 0.5)
-                : CupertinoColors.black.withOpacity(0.7),
+            backgroundColor: AppColors.navigationBackground(isDark),
             leading: MediaQuery(
               data: MediaQueryData(
                 textScaler: TextScaler.linear(
@@ -73,6 +71,7 @@ class _SettingsState extends State<Settings> {
           ),
           SliverToBoxAdapter(
             child: CupertinoListSection.insetGrouped(
+              backgroundColor: AppColors.pageBackground(isDark),
               children: [
                 CupertinoListTile(
                   padding: const EdgeInsets.symmetric(

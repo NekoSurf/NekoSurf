@@ -8,8 +8,9 @@ import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/Models/saved_attachment.dart';
 import 'package:flutter_chan/blocs/saved_attachments_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
-import 'package:flutter_chan/pages/media_page.dart';
+import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/pages/savedAttachments/permission_denied.dart';
+import 'package:flutter_chan/pages/savedAttachments/saved_media_viewer_page.dart';
 import 'package:provider/provider.dart';
 
 class SavedAttachments extends StatefulWidget {
@@ -21,6 +22,68 @@ class SavedAttachments extends StatefulWidget {
 
 class _SavedAttachmentsState extends State<SavedAttachments> {
   final ScrollController scrollController = ScrollController();
+
+  String _attachmentThumbnailPath(SavedAttachment attachment) {
+    return '${directory.path}/savedAttachments/${attachment.thumbnail}';
+  }
+
+  Future<void> _openSavedMediaViewer(
+    List<SavedAttachment> attachments,
+    int initialIndex,
+  ) async {
+    if (attachments.isEmpty) {
+      return;
+    }
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => SavedMediaViewerPage(
+          attachments: attachments,
+          initialIndex: initialIndex,
+          directoryPath: directory.path,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAttachmentTile(
+    SavedAttachment attachment,
+    List<SavedAttachment> attachments,
+    int index,
+  ) {
+    final bool isVideo =
+        attachment.savedAttachmentType == SavedAttachmentType.Video;
+
+    final tile = Container(
+      decoration: BoxDecoration(
+        image: DecorationImage(
+          fit: BoxFit.cover,
+          image: FileImage(File(_attachmentThumbnailPath(attachment))),
+        ),
+      ),
+      child: isVideo
+          ? Center(
+              child: Icon(
+                CupertinoIcons.play,
+                color: Colors.white,
+                size: 50,
+                shadows: [
+                  Shadow(
+                    blurRadius: 10,
+                    color: Colors.black.withValues(alpha: 0.6),
+                  ),
+                ],
+              ),
+            )
+          : Container(),
+    );
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _openSavedMediaViewer(attachments, index),
+      child: tile,
+    );
+  }
 
   @override
   void initState() {
@@ -115,20 +178,17 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeChanger>(context);
     final savedAttachments = Provider.of<SavedAttachmentsProvider>(context);
+    final bool isDark = theme.getTheme() == ThemeData.dark();
 
     return Scaffold(
       body: CupertinoPageScaffold(
-        backgroundColor: theme.getTheme() == ThemeData.light()
-            ? CupertinoColors.systemGroupedBackground
-            : CupertinoColors.black,
+        backgroundColor: AppColors.pageBackground(isDark),
         child: CustomScrollView(
           slivers: [
             CupertinoSliverNavigationBar(
               leading: MediaQuery(
                 data: MediaQueryData(
-                  textScaler: TextScaler.linear(
-                    MediaQuery.textScaleFactorOf(context),
-                  ),
+                  textScaler: MediaQuery.textScalerOf(context),
                 ),
                 child: Transform.translate(
                   offset: const Offset(-16, 0),
@@ -142,9 +202,7 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
               border: Border.all(color: Colors.transparent),
               largeTitle: MediaQuery(
                 data: MediaQueryData(
-                  textScaler: TextScaler.linear(
-                    MediaQuery.textScaleFactorOf(context),
-                  ),
+                  textScaler: MediaQuery.textScalerOf(context),
                 ),
                 child: Text(
                   'Saved Attachments',
@@ -193,10 +251,8 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
                 ],
               ),
               backgroundColor: theme.getTheme() == ThemeData.light()
-                  ? CupertinoColors.systemGroupedBackground.withValues(
-                      alpha: 0.7,
-                    )
-                  : CupertinoColors.black.withOpacity(0.7),
+                  ? AppColors.navigationBackground(false)
+                  : AppColors.navigationBackground(true),
             ),
             SliverList(
               delegate: SliverChildListDelegate([
@@ -241,60 +297,15 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
                                       padding: EdgeInsets.zero,
                                       crossAxisCount: 3,
                                       children: [
-                                        for (final SavedAttachment attachment
-                                            in snapshot.data ?? [])
-                                          GestureDetector(
-                                            onTap: () {
-                                              Navigator.of(context).push(
-                                                MaterialPageRoute(
-                                                  builder: (context) =>
-                                                      MediaPage(
-                                                        video:
-                                                            attachment
-                                                                .fileName ??
-                                                            '',
-                                                        allPosts: getList(
-                                                          snapshot.data,
-                                                        ),
-                                                        isAsset: true,
-                                                        directory: directory,
-                                                      ),
-                                                ),
-                                              );
-                                            },
-                                            child: Container(
-                                              decoration: BoxDecoration(
-                                                image: DecorationImage(
-                                                  fit: BoxFit.cover,
-                                                  image: FileImage(
-                                                    File(
-                                                      '${directory.path}/savedAttachments/${attachment.thumbnail}',
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              child:
-                                                  attachment
-                                                          .savedAttachmentType ==
-                                                      SavedAttachmentType.Video
-                                                  ? Center(
-                                                      child: Icon(
-                                                        CupertinoIcons.play,
-                                                        color: Colors.white,
-                                                        size: 50,
-                                                        shadows: [
-                                                          Shadow(
-                                                            blurRadius: 10,
-                                                            color: Colors.black
-                                                                .withOpacity(
-                                                                  .6,
-                                                                ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    )
-                                                  : Container(),
-                                            ),
+                                        for (
+                                          int index = 0;
+                                          index < (snapshot.data ?? []).length;
+                                          index++
+                                        )
+                                          _buildAttachmentTile(
+                                            (snapshot.data ?? [])[index],
+                                            snapshot.data ?? [],
+                                            index,
                                           ),
                                       ],
                                     ),

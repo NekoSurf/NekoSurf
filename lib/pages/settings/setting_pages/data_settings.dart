@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/blocs/watched_media_model.dart';
+import 'package:flutter_chan/constants.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
@@ -115,24 +116,17 @@ class DataSettingsState extends State<DataSettings> {
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeChanger>(context);
     final settings = Provider.of<SettingsProvider>(context);
+    final bool isDark = theme.getTheme() == ThemeData.dark();
 
     return CupertinoPageScaffold(
-      backgroundColor: theme.getTheme() == ThemeData.dark()
-          ? CupertinoColors.black
-          : CupertinoColors.systemGroupedBackground,
+      backgroundColor: AppColors.pageBackground(isDark),
       navigationBar: CupertinoNavigationBar(
-        backgroundColor: theme.getTheme() == ThemeData.light()
-            ? CupertinoColors.systemGroupedBackground.withValues(alpha: 0.7)
-            : CupertinoColors.black.withOpacity(0.7),
+        backgroundColor: AppColors.navigationBackground(isDark),
         brightness: theme.getTheme() == ThemeData.dark()
             ? Brightness.dark
             : Brightness.light,
         leading: MediaQuery(
-          data: MediaQueryData(
-            textScaler: TextScaler.linear(
-              MediaQuery.textScaleFactorOf(context),
-            ),
-          ),
+          data: MediaQueryData(textScaler: MediaQuery.textScalerOf(context)),
           child: Transform.translate(
             offset: const Offset(-16, 0),
             child: CupertinoNavigationBarBackButton(
@@ -144,11 +138,7 @@ class DataSettingsState extends State<DataSettings> {
         border: Border.all(color: Colors.transparent),
         previousPageTitle: 'Settings',
         middle: MediaQuery(
-          data: MediaQueryData(
-            textScaler: TextScaler.linear(
-              MediaQuery.textScaleFactorOf(context),
-            ),
-          ),
+          data: MediaQueryData(textScaler: MediaQuery.textScalerOf(context)),
           child: Text(
             'Data',
             style: TextStyle(
@@ -160,23 +150,15 @@ class DataSettingsState extends State<DataSettings> {
         ),
       ),
       child: SafeArea(
-        child: Column(
+        child: ListView(
+          padding: EdgeInsets.only(
+            top: 8,
+            bottom: MediaQuery.of(context).padding.bottom + 16,
+          ),
           children: [
             CupertinoListSection.insetGrouped(
+              backgroundColor: AppColors.pageBackground(isDark),
               children: [
-                CupertinoListTile(
-                  leading: const CupertinoSettingsIcon(
-                    icon: CupertinoIcons.doc,
-                    color: CupertinoColors.systemYellow,
-                  ),
-                  title: const Text('Use caching on videos (Experimental)'),
-                  trailing: CupertinoSwitch(
-                    onChanged: (value) => {
-                      settings.setUseCachingOnVideos(value),
-                    },
-                    value: settings.getUseCachingOnVideos(),
-                  ),
-                ),
                 CupertinoListTile(
                   leading: const CupertinoSettingsIcon(
                     icon: CupertinoIcons.arrow_down_circle,
@@ -196,6 +178,7 @@ class DataSettingsState extends State<DataSettings> {
               ],
             ),
             CupertinoListSection.insetGrouped(
+              backgroundColor: AppColors.pageBackground(isDark),
               children: [
                 CupertinoListTile(
                   title: const Text('Cache Size'),
@@ -207,6 +190,7 @@ class DataSettingsState extends State<DataSettings> {
               ],
             ),
             CupertinoListSection.insetGrouped(
+              backgroundColor: AppColors.pageBackground(isDark),
               children: [
                 CupertinoListTile(
                   padding: const EdgeInsets.symmetric(
@@ -224,6 +208,7 @@ class DataSettingsState extends State<DataSettings> {
               ],
             ),
             CupertinoListSection.insetGrouped(
+              backgroundColor: AppColors.pageBackground(isDark),
               children: [
                 CupertinoListTile(
                   title: const Text('Watched Media Retention Period'),

@@ -41,11 +41,11 @@ class BoardListView extends StatelessWidget {
     return Scrollbar(
       controller: scrollController,
       child: ListView(
-        padding: EdgeInsets.zero,
+        padding: const EdgeInsets.only(top: 6, bottom: 16),
         controller: scrollController,
         shrinkWrap: true,
         children: [
-          for (final Post post in threads) ListPost(board: board, post: post)
+          for (final Post post in threads) ListPost(board: board, post: post),
         ],
       ),
     );

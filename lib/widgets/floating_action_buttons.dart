@@ -39,22 +39,22 @@ class FloatingActionButtons extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         FloatingActionButton(
-          child: const Icon(Icons.expand_less, size: 35),
+          child: const Icon(Icons.keyboard_arrow_up_rounded, size: 28),
           elevation: 0,
           backgroundColor: theme.getTheme() == ThemeData.light()
-              ? CupertinoColors.systemGroupedBackground.withValues(alpha: 0.7)
-              : CupertinoColors.black.withOpacity(0.7),
+              ? Colors.white.withValues(alpha: 0.92)
+              : const Color(0xFF171A20).withValues(alpha: 0.92),
           foregroundColor: CupertinoColors.activeBlue,
           onPressed: () => {if (goUp == null) animateToTop() else goUp!()},
           heroTag: null,
         ),
-        const SizedBox(height: 40),
+        const SizedBox(height: 14),
         FloatingActionButton(
-          child: const Icon(Icons.expand_more, size: 35),
+          child: const Icon(Icons.keyboard_arrow_down_rounded, size: 28),
           elevation: 0,
           backgroundColor: theme.getTheme() == ThemeData.light()
-              ? CupertinoColors.systemGroupedBackground.withValues(alpha: 0.7)
-              : CupertinoColors.black.withOpacity(0.7),
+              ? Colors.white.withValues(alpha: 0.92)
+              : const Color(0xFF171A20).withValues(alpha: 0.92),
           foregroundColor: CupertinoColors.activeBlue,
           onPressed: () => {
             if (goDown == null) animateToBottom() else goDown!(),

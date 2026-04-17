@@ -2,8 +2,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
+import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/enums/enums.dart';
-import 'package:flutter_chan/pages/settings/setting_pages/threads_settings_pages/grid_view_setting.dart';
 import 'package:flutter_chan/pages/settings/setting_pages/threads_settings_pages/sort_board_settings.dart';
 import 'package:provider/provider.dart';
 
@@ -21,15 +21,12 @@ class ThreadsSettingsState extends State<ThreadsSettings> {
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeChanger>(context);
     final settings = Provider.of<SettingsProvider>(context);
+    final bool isDark = theme.getTheme() == ThemeData.dark();
 
     return CupertinoPageScaffold(
-      backgroundColor: theme.getTheme() == ThemeData.dark()
-          ? CupertinoColors.black
-          : CupertinoColors.systemGroupedBackground,
+      backgroundColor: AppColors.pageBackground(isDark),
       navigationBar: CupertinoNavigationBar(
-        backgroundColor: theme.getTheme() == ThemeData.light()
-            ? CupertinoColors.systemGroupedBackground.withValues(alpha: 0.7)
-            : CupertinoColors.black.withOpacity(0.7),
+        backgroundColor: AppColors.navigationBackground(isDark),
         brightness: theme.getTheme() == ThemeData.dark()
             ? Brightness.dark
             : Brightness.light,
@@ -66,59 +63,39 @@ class ThreadsSettingsState extends State<ThreadsSettings> {
         ),
       ),
       child: SafeArea(
-        child: CupertinoListSection.insetGrouped(
+        child: ListView(
+          padding: EdgeInsets.only(
+            top: 8,
+            bottom: MediaQuery.of(context).padding.bottom + 16,
+          ),
           children: [
-            CupertinoListTile(
-              leading: const CupertinoSettingsIcon(
-                icon: CupertinoIcons.viewfinder,
-                color: CupertinoColors.systemTeal,
-              ),
-              title: const Text('Thread View'),
-              trailing: Text(
-                getBoardViewName(settings.getBoardView()),
-                style: const TextStyle(color: CupertinoColors.inactiveGray),
-              ),
-              onTap: () => {
-                Navigator.of(context).push(
-                  CupertinoPageRoute(
-                    builder: (context) => const GridViewSettings(),
+            CupertinoListSection.insetGrouped(
+              backgroundColor: AppColors.pageBackground(isDark),
+              children: [
+                CupertinoListTile(
+                  leading: const CupertinoSettingsIcon(
+                    icon: CupertinoIcons.sort_down,
+                    color: CupertinoColors.systemOrange,
                   ),
-                ),
-              },
-            ),
-            CupertinoListTile(
-              leading: const CupertinoSettingsIcon(
-                icon: CupertinoIcons.sort_down,
-                color: CupertinoColors.systemOrange,
-              ),
-              title: const Text('Default board sort'),
-              trailing: Text(
-                getSortByName(settings.getBoardSort()),
-                style: const TextStyle(color: CupertinoColors.inactiveGray),
-              ),
-              onTap: () => {
-                Navigator.of(context).push(
-                  CupertinoPageRoute(
-                    builder: (context) => const SortBoardSettings(),
+                  title: const Text('Default board sort'),
+                  trailing: Text(
+                    getSortByName(settings.getBoardSort()),
+                    style: const TextStyle(color: CupertinoColors.inactiveGray),
                   ),
+                  onTap: () => {
+                    Navigator.of(context).push(
+                      CupertinoPageRoute(
+                        builder: (context) => const SortBoardSettings(),
+                      ),
+                    ),
+                  },
                 ),
-              },
+              ],
             ),
           ],
         ),
       ),
     );
-  }
-
-  String getBoardViewName(ViewType view) {
-    switch (view) {
-      case ViewType.gridView:
-        return 'Grid View';
-      case ViewType.listView:
-        return 'List View';
-      default:
-        return '';
-    }
   }
 
   String getSortByName(Sort sort) {
@@ -133,8 +110,6 @@ class ThreadsSettingsState extends State<ThreadsSettings> {
         return 'Newest';
       case Sort.byOldest:
         return 'Oldest';
-      default:
-        return '';
     }
   }
 }
