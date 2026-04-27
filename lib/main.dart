@@ -11,6 +11,7 @@ import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/blocs/watched_media_model.dart';
 import 'package:flutter_chan/pages/boards/board_list.dart';
+import 'package:flutter_chan/services/feed_player_pool.dart';
 import 'package:provider/provider.dart';
 
 Future<void> main() async {
@@ -80,6 +81,7 @@ class _AppWithThemeState extends State<AppWithTheme>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    FeedPlayerPool.instance.dispose();
     super.dispose();
   }
 
