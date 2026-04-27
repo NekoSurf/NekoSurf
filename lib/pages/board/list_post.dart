@@ -150,7 +150,7 @@ class _ListPostState extends State<ListPost> {
                       alpha: 0.2,
                     ),
                     child: Text(
-                      posterName.characters.first.toUpperCase(),
+                      posterName.isEmpty ? 'A' : posterName.characters.first.toUpperCase(),
                       style: const TextStyle(
                         color: CupertinoColors.activeBlue,
                         fontSize: 12,
@@ -279,7 +279,7 @@ class _ListPostState extends State<ListPost> {
               if (widget.post.tim != null) ...[
                 const SizedBox(height: 10),
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(14),
                   child: AspectRatio(
                     aspectRatio: 16 / 9,
                     child: Stack(
