@@ -7,6 +7,7 @@ import 'package:flutter_chan/API/save_videos.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/saved_attachments_model.dart';
 import 'package:flutter_chan/services/cached_video.dart';
+import 'package:flutter_chan/services/feed_player_pool.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:provider/provider.dart';
@@ -40,6 +41,13 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
   late int _currentIndex;
   bool _isVideoScrubbing = false;
 
+  // A single long-lived Player + VideoController reused across all video pages
+  // in the PageView.  Creating a new Player on every swipe triggers AVAudioSession
+  // reconfiguration on iOS (media-kit #964), which causes a ~1 s playback pause.
+  // Reusing one player avoids that initialisation overhead entirely.
+  late final Player _viewerPlayer;
+  late final VideoController _viewerController;
+
   bool _isSaving = false;
   bool _isRemoving = false;
   bool _didSaveAttachment = false;
@@ -55,6 +63,17 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
     super.initState();
     _currentIndex = widget.initialIndex;
     _pageController = PageController(initialPage: widget.initialIndex);
+
+    _viewerPlayer = Player();
+    _viewerController = VideoController(_viewerPlayer);
+    // PlaylistMode is a player-level property; set it once here.
+    _viewerPlayer.setPlaylistMode(PlaylistMode.loop).ignore();
+    // Pause any pool-managed feed players only when the viewer opens on a video
+    // page, so they don't compete for the AVAudioSession while the viewer
+    // player is starting up.
+    if (_isVideo(widget.mediaPosts[widget.initialIndex])) {
+      FeedPlayerPool.instance.pauseAll();
+    }
   }
 
   @override
@@ -62,6 +81,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
     _saveSuccessTimer?.cancel();
     _downloadSuccessTimer?.cancel();
     _pageController.dispose();
+    _viewerPlayer.dispose();
     super.dispose();
   }
 
@@ -249,6 +269,8 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
                   return _ThreadMediaVideoPage(
                     key: ValueKey('thread-video-$index-${post.tim}'),
                     videoUrl: _mediaUrl(post),
+                    player: _viewerPlayer,
+                    controller: _viewerController,
                     isActive: _currentIndex == index,
                     onScrubStateChanged: (isScrubbing) {
                       if (!mounted || _isVideoScrubbing == isScrubbing) {
@@ -368,17 +390,25 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
 
 // ---------------------------------------------------------------------------
 // Per-page video player — handles only playback and seek controls.
+// The Player + VideoController are owned by the parent and passed in so that
+// a single native player instance is reused across all video pages.  This
+// avoids the AVAudioSession re-initialisation on iOS (media-kit #964) that
+// caused a ~1 s pause every time the user swiped to a new video.
 // ---------------------------------------------------------------------------
 class _ThreadMediaVideoPage extends StatefulWidget {
   const _ThreadMediaVideoPage({
     Key? key,
     required this.videoUrl,
+    required this.player,
+    required this.controller,
     required this.isActive,
     required this.onScrubStateChanged,
     this.startPosition = Duration.zero,
   }) : super(key: key);
 
   final String videoUrl;
+  final Player player;
+  final VideoController controller;
   final bool isActive;
   final ValueChanged<bool> onScrubStateChanged;
   final Duration startPosition;
@@ -390,9 +420,7 @@ class _ThreadMediaVideoPage extends StatefulWidget {
 class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
   static const double _backSwipeEdgeInset = 24;
 
-  late final Player _player;
-  late final VideoController _videoController;
-
+  // Stream subscriptions — attached only while this page is active.
   StreamSubscription<String>? _errorSub;
   StreamSubscription<bool>? _playingSub;
   StreamSubscription<Duration>? _positionSub;
@@ -411,63 +439,90 @@ class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
   @override
   void initState() {
     super.initState();
-    _player = Player();
-    _videoController = VideoController(_player);
-
-    _errorSub = _player.stream.error.listen((error) {
-      if (!mounted) return;
-      setState(() => _errorMessage = error);
-    });
-    _playingSub = _player.stream.playing.listen((playing) {
-      if (!mounted) return;
-      setState(() => _isPlaying = playing);
-    });
-    _positionSub = _player.stream.position.listen((p) {
-      if (!mounted) return;
-      setState(() => _position = p);
-    });
-    _durationSub = _player.stream.duration.listen((d) {
-      if (!mounted) return;
-      setState(() => _duration = d);
-    });
-    _bufferingSub = _player.stream.buffering.listen((buffering) {
-      if (!mounted) return;
-      setState(() => _isBuffering = buffering);
-    });
-
-    if (widget.isActive) _openAndPlay();
+    if (widget.isActive) {
+      _attachSubscriptions();
+      _openAndPlay();
+    }
   }
 
   @override
   void didUpdateWidget(covariant _ThreadMediaVideoPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!oldWidget.isActive && widget.isActive) {
+      _attachSubscriptions();
       _openAndPlay();
     } else if (oldWidget.isActive && !widget.isActive) {
-      _player.pause().ignore();
+      widget.player.pause().ignore();
+      _cancelSubscriptions();
+      _resetPlaybackState();
     }
   }
 
   @override
   void dispose() {
+    _cancelSubscriptions();
+    // Do NOT dispose the player — it is owned by _ThreadMediaViewerPageState.
+    super.dispose();
+  }
+
+  void _attachSubscriptions() {
+    _cancelSubscriptions();
+
+    _errorSub = widget.player.stream.error.listen((error) {
+      if (!mounted) return;
+      setState(() => _errorMessage = error);
+    });
+    _playingSub = widget.player.stream.playing.listen((playing) {
+      if (!mounted) return;
+      setState(() => _isPlaying = playing);
+    });
+    _positionSub = widget.player.stream.position.listen((p) {
+      if (!mounted) return;
+      setState(() => _position = p);
+    });
+    _durationSub = widget.player.stream.duration.listen((d) {
+      if (!mounted) return;
+      setState(() => _duration = d);
+    });
+    _bufferingSub = widget.player.stream.buffering.listen((buffering) {
+      if (!mounted) return;
+      setState(() => _isBuffering = buffering);
+    });
+  }
+
+  void _cancelSubscriptions() {
     _errorSub?.cancel();
     _playingSub?.cancel();
     _positionSub?.cancel();
     _durationSub?.cancel();
     _bufferingSub?.cancel();
-    _player.dispose();
-    super.dispose();
+    _errorSub = null;
+    _playingSub = null;
+    _positionSub = null;
+    _durationSub = null;
+    _bufferingSub = null;
   }
 
-  /// Mirrors the feed-player fix for media-kit #964: on iOS, explicitly
-  /// selecting AudioTrack.auto() before play() prevents the player from doing a
-  /// lazy AVAudioSession reconfiguration ~1 second into playback.
+  void _resetPlaybackState() {
+    setState(() {
+      _isPlaying = false;
+      _isBuffering = false;
+      _position = Duration.zero;
+      _duration = Duration.zero;
+      _errorMessage = null;
+      _isHorizontalSeeking = false;
+    });
+  }
+
+  /// Fixes media-kit issue #964: on iOS, explicitly selecting AudioTrack.auto()
+  /// before play() prevents the player from doing a lazy AVAudioSession
+  /// reconfiguration ~1 second into playback.
   Future<void> _applyAudioMode() async {
     try {
       if (Platform.isIOS && !_isMuted) {
-        await _player.setAudioTrack(AudioTrack.auto());
+        await widget.player.setAudioTrack(AudioTrack.auto());
       }
-      await _player.setVolume(_isMuted ? 0 : 100);
+      await widget.player.setVolume(_isMuted ? 0 : 100);
     } catch (_) {
       // Ignore transient volume races.
     }
@@ -479,21 +534,25 @@ class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
   }
 
   Future<void> _openAndPlay() async {
+    // Snapshot the URL so we can detect if the page deactivated or the URL
+    // changed while the async resolve / open calls were in flight.
+    final snapshotUrl = widget.videoUrl;
     try {
-      final resolved = await resolveCachedVideoSource(widget.videoUrl);
-      if (!mounted) return;
-      await _player.setPlaylistMode(PlaylistMode.loop);
-      await _player.open(Media(resolved), play: false);
+      final resolved = await resolveCachedVideoSource(snapshotUrl);
+      if (!mounted || !widget.isActive || widget.videoUrl != snapshotUrl) {
+        return;
+      }
+      await widget.player.open(Media(resolved), play: false);
       if (widget.startPosition > Duration.zero) {
         try {
-          await _player.seek(widget.startPosition);
+          await widget.player.seek(widget.startPosition);
         } catch (_) {
           // Ignore seek races on open.
         }
       }
-      if (!mounted) return;
+      if (!mounted || !widget.isActive) return;
       await _applyAudioMode();
-      await _player.play();
+      await widget.player.play();
     } catch (error) {
       if (!mounted) return;
       setState(() => _errorMessage = error.toString());
@@ -502,7 +561,9 @@ class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
 
   Future<void> _seekTo(double ms) async {
     try {
-      await _player.seek(_clampDuration(Duration(milliseconds: ms.round())));
+      await widget.player.seek(
+        _clampDuration(Duration(milliseconds: ms.round())),
+      );
     } catch (_) {}
   }
 
@@ -577,7 +638,7 @@ class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        Video(controller: _videoController, controls: NoVideoControls),
+        Video(controller: widget.controller, controls: NoVideoControls),
         if (_isBuffering && !_isHorizontalSeeking)
           const Center(child: CupertinoActivityIndicator(radius: 14)),
         if (_isHorizontalSeeking)
@@ -659,7 +720,7 @@ class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
                     CupertinoButton(
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       minimumSize: const Size(28, 28),
-                      onPressed: () => _player.playOrPause().ignore(),
+                      onPressed: () => widget.player.playOrPause().ignore(),
                       child: Icon(
                         _isPlaying
                             ? CupertinoIcons.pause_fill
