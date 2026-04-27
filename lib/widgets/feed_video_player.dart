@@ -72,6 +72,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
   Duration _lastObservedPosition = Duration.zero;
   DateTime _lastProgressAt = DateTime.fromMillisecondsSinceEpoch(0);
+  DateTime _lastPositionUiUpdate = DateTime.fromMillisecondsSinceEpoch(0);
   int _stallRecoveries = 0;
   String? _resolvedVideoSource;
 
@@ -86,7 +87,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     }
 
     final holder = _DeferredPlayerDispose(player);
-    holder.timer = Timer(const Duration(seconds: 8), () async {
+    holder.timer = Timer(const Duration(seconds: 3), () async {
       try {
         await player.pause();
       } catch (_) {
@@ -111,7 +112,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _deferredDisposals.add(holder);
 
     // Hard cap deferred players to avoid FD growth when scrolling for long periods.
-    if (_deferredDisposals.length > 18) {
+    if (_deferredDisposals.length > 5) {
       final oldest = _deferredDisposals.removeAt(0);
       oldest.timer?.cancel();
       try {
@@ -196,6 +197,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _stallRecoveries = 0;
     _lastObservedPosition = Duration.zero;
     _lastProgressAt = DateTime.fromMillisecondsSinceEpoch(0);
+    _lastPositionUiUpdate = DateTime.fromMillisecondsSinceEpoch(0);
     _visibilityRecheckAttempts = 0;
     _resolvedVideoSource = null;
 
@@ -288,6 +290,15 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
           _hasFirstFrame = true;
           _reopenAttempts = 0;
         });
+        return;
+      }
+      // Throttle progress-bar redraws to ~4 fps to avoid per-frame rebuilds.
+      if (mounted && _hasFirstFrame) {
+        final now = DateTime.now();
+        if (now.difference(_lastPositionUiUpdate).inMilliseconds >= 250) {
+          _lastPositionUiUpdate = now;
+          setState(() {});
+        }
       }
     });
 
@@ -624,6 +635,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _visibilityRecheckAttempts = 0;
     _lastObservedPosition = Duration.zero;
     _lastProgressAt = DateTime.fromMillisecondsSinceEpoch(0);
+    _lastPositionUiUpdate = DateTime.fromMillisecondsSinceEpoch(0);
     if (player != null) {
       _disposePlayerSafely(player);
     }

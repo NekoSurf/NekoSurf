@@ -16,7 +16,8 @@ import 'package:provider/provider.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
-  VisibilityDetectorController.instance.updateInterval = Duration.zero;
+  VisibilityDetectorController.instance.updateInterval =
+      const Duration(milliseconds: 100);
   FlutterError.onError = (FlutterErrorDetails details) {
     print('Error From INSIDE FRAME_WORK');
     print('----------------------');
