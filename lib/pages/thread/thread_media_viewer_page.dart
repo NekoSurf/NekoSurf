@@ -50,7 +50,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
 
   // Persists the playback position for each video (keyed by post.tim) so that
   // scrolling back to a video resumes where the user left off.
-  final Map<int, Duration> _savedPositions = {};
+  final Map<int?, Duration> _savedPositions = {};
 
   bool _isSaving = false;
   bool _isRemoving = false;
@@ -289,7 +289,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
                             ? widget.startPosition
                             : Duration.zero),
                     onPositionSave: (pos) {
-                      _savedPositions[post.tim!] = pos;
+                      _savedPositions[post.tim] = pos;
                     },
                   );
                 }
