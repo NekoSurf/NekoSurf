@@ -325,6 +325,31 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _acquiredPlayerKey = snapshotKey;
     _resolvedVideoSource = resolvedSource;
 
+    // Open the media on the acquired player if it isn't already loaded.
+    // This used to happen inside pool.acquire(), but moving it here prevents
+    // the iOS AVAudioSession reconfiguration triggered by open() from
+    // interrupting the other already-playing pool players (media-kit #964).
+    if (!FeedPlayerPool.instance.isMediaLoaded(snapshotKey, resolvedSource)) {
+      try {
+        await _player!.open(Media(resolvedSource), play: false);
+      } catch (_) {
+        // Open failed; release the slot so the retry machinery can recover.
+        FeedPlayerPool.instance.release(snapshotKey);
+        _acquiredPlayerKey = null;
+        _player = null;
+        _videoController = null;
+        _resolvedVideoSource = null;
+        _schedulePlayRetry();
+        return;
+      }
+      if (!mounted ||
+          widget.playerKey != snapshotKey ||
+          widget.videoUrl != snapshotUrl) {
+        return;
+      }
+      FeedPlayerPool.instance.markMediaLoaded(snapshotKey, resolvedSource);
+    }
+
     _attachSubscriptions(slot.player);
 
     if (!mounted || _player != slot.player) return;
