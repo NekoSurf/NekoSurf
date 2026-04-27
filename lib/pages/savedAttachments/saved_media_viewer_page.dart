@@ -371,6 +371,10 @@ class _SavedMediaVideoPageState extends State<SavedMediaVideoPage> {
   double _dragSeekPreviewMs = 0;
   bool _isHorizontalSeeking = false;
 
+  // Incremented on every _open() call so a superseded async open does not
+  // start playback after a newer one has already taken over.
+  int _openGeneration = 0;
+
   @override
   void initState() {
     super.initState();
@@ -405,13 +409,22 @@ class _SavedMediaVideoPageState extends State<SavedMediaVideoPage> {
       });
     });
 
-    _open();
+    // Only open immediately when this page starts out as the active one.
+    // For adjacent (pre-built) pages _open() is called from didUpdateWidget
+    // the moment they become active, which avoids a race where open(play:false)
+    // completes *after* the activation play() call and leaves the player paused.
+    if (widget.isActive) {
+      _open();
+    }
   }
 
   Future<void> _open() async {
+    final generation = ++_openGeneration;
     final media = Media(Uri.file(widget.filePath).toString());
     await _player.setPlaylistMode(PlaylistMode.loop);
+    if (_openGeneration != generation) return;
     await _player.open(media, play: false);
+    if (!mounted || _openGeneration != generation) return;
     if (widget.isActive) {
       await _player.play();
     }
@@ -426,12 +439,13 @@ class _SavedMediaVideoPageState extends State<SavedMediaVideoPage> {
       return;
     }
 
-    if (oldWidget.isActive != widget.isActive) {
-      if (widget.isActive) {
-        _player.play();
-      } else {
-        _player.pause();
-      }
+    if (!oldWidget.isActive && widget.isActive) {
+      // Open (or re-open) and play in a single sequential async chain so that
+      // play() is always called *after* open() completes, eliminating the
+      // brief pause caused by calling play() on a not-yet-opened player.
+      _open();
+    } else if (oldWidget.isActive && !widget.isActive) {
+      _player.pause();
     }
   }
 
