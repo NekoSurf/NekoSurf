@@ -46,12 +46,15 @@ class FeedPlayerPool {
     }
   }
 
-  /// Acquires a pool slot for [key] with [resolvedUrl] opened on the player.
+  /// Acquires a pool slot for [key].
   ///
   /// * If a slot already owns [key] with the same URL it is returned
   ///   immediately (no open() call needed).
-  /// * Otherwise the LRU inactive slot is evicted, [resolvedUrl] is opened on
-  ///   it, and it is returned.
+  /// * Otherwise the LRU inactive slot is evicted (player paused) and returned
+  ///   with `loadedUrl == null`.  The caller is responsible for calling
+  ///   [player.open()] on the returned slot — keeping open() outside of the
+  ///   pool's internal lock prevents iOS AVAudioSession reconfiguration from
+  ///   interrupting the other already-playing pool players (media-kit #964).
   /// * Returns `null` when the pool is exhausted (all slots actively in use by
   ///   different widgets — very rare when pool size ≥ number of visible posts).
   Future<_PoolSlot?> acquire(String key, String resolvedUrl) async {
@@ -64,12 +67,13 @@ class FeedPlayerPool {
         slot.isActive = true;
         slot.lastUsedAt = DateTime.now();
         if (slot.loadedUrl != resolvedUrl) {
+          // URL changed; pause the player so the caller can safely open the
+          // new source.  We don't call open() here — that is the caller's job.
           try {
             await slot.player.pause();
-            await slot.player.open(Media(resolvedUrl), play: false);
-            slot.loadedUrl = resolvedUrl;
+            slot.loadedUrl = null;
           } catch (_) {
-            // Ignore open races on URL change.
+            // Ignore pause races.
           }
         }
         return slot;
@@ -90,15 +94,19 @@ class FeedPlayerPool {
     if (candidate == null) return null; // pool exhausted
 
     // Reserve the slot immediately to prevent a concurrent acquire from
-    // choosing the same one before our open() completes.
+    // choosing the same one.
     candidate.ownerKey = key;
     candidate.isPendingAcquire = true;
     candidate.lastUsedAt = DateTime.now();
 
     try {
+      // Pause the previous video but do NOT call open() here.  Opening media
+      // inside acquire() was the original design but it triggers an iOS
+      // AVAudioSession reconfiguration even with play:false, which briefly
+      // interrupts all other active pool players.  The caller opens the media
+      // on the returned slot right before play(), outside this critical section.
       await candidate.player.pause();
-      await candidate.player.open(Media(resolvedUrl), play: false);
-      candidate.loadedUrl = resolvedUrl;
+      candidate.loadedUrl = null;
       candidate.isActive = true;
     } catch (_) {
       // Revert reservation so the slot becomes eligible again.
@@ -111,6 +119,30 @@ class FeedPlayerPool {
 
     candidate.isPendingAcquire = false;
     return candidate;
+  }
+
+  /// Returns whether the slot for [key] currently has [url] opened on its
+  /// player.  Used by [FeedVideoPlayer] to skip a redundant [Player.open]
+  /// call when the slot already has the correct media loaded.
+  bool isMediaLoaded(String key, String url) {
+    for (final slot in _slots) {
+      if (slot.ownerKey == key) {
+        return slot.loadedUrl == url;
+      }
+    }
+    return false;
+  }
+
+  /// Records that [url] has been successfully opened on the slot for [key].
+  /// Called by [FeedVideoPlayer] after a successful [Player.open] so the pool
+  /// can skip the open on fast-path re-acquisitions.
+  void markMediaLoaded(String key, String url) {
+    for (final slot in _slots) {
+      if (slot.ownerKey == key) {
+        slot.loadedUrl = url;
+        return;
+      }
+    }
   }
 
   /// Marks the slot owned by [key] as inactive.
