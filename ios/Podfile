@@ -103,18 +103,4 @@ post_install do |installer|
 
     end 
   end
-
-  # Patch device_info_plus: `isiOSAppOnVision` on NSProcessInfo was added to the
-  # iOS SDK headers only in Xcode 15.3+ targeting visionOS.  Older SDK builds
-  # fail with "No visible @interface … declares the selector 'isiOSAppOnVision'".
-  # Comment out every line that references the selector so the project compiles
-  # on standard iOS CI runners without requiring visionOS SDK headers.
-  Dir.glob(File.join(installer.sandbox.root, '**', 'FPPDeviceInfoPlusPlugin.m')).each do |file|
-    content = File.read(file)
-    if content.include?('isiOSAppOnVision')
-      content.gsub!(/^(.*isiOSAppOnVision.*)$/, '// [PATCHED: visionOS SDK compat] \1')
-      File.write(file, content)
-      puts "Patched #{file} (isiOSAppOnVision)"
-    end
-  end
 end
