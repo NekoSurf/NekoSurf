@@ -576,6 +576,23 @@ class _SavedMediaVideoPageState extends State<SavedMediaVideoPage> {
                 ),
               ),
             ),
+          Positioned.fill(
+            left: _backSwipeEdgeInset,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onPanStart: _handleScrubPanStart,
+              onPanUpdate: _handleScrubPanUpdate,
+              onPanEnd: _handleScrubPanEnd,
+              onPanCancel: () {
+                if (_isHorizontalSeeking) {
+                  setState(() {
+                    _isHorizontalSeeking = false;
+                  });
+                }
+              },
+              child: const SizedBox.expand(),
+            ),
+          ),
           Positioned(
             left: 0,
             right: 0,
@@ -662,23 +679,6 @@ class _SavedMediaVideoPageState extends State<SavedMediaVideoPage> {
                   ),
                 ],
               ),
-            ),
-          ),
-          Positioned.fill(
-            left: _backSwipeEdgeInset,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onPanStart: _handleScrubPanStart,
-              onPanUpdate: _handleScrubPanUpdate,
-              onPanEnd: _handleScrubPanEnd,
-              onPanCancel: () {
-                if (_isHorizontalSeeking) {
-                  setState(() {
-                    _isHorizontalSeeking = false;
-                  });
-                }
-              },
-              child: const SizedBox.expand(),
             ),
           ),
         ],

@@ -598,6 +598,24 @@ class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
               ),
             ),
           ),
+        Positioned.fill(
+          left: _backSwipeEdgeInset,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onPanStart: _handleScrubPanStart,
+            onPanUpdate: _handleScrubPanUpdate,
+            onPanEnd: _handleScrubPanEnd,
+            onPanCancel: () {
+              if (_isHorizontalSeeking) {
+                widget.onScrubStateChanged(false);
+                setState(() {
+                  _isHorizontalSeeking = false;
+                });
+              }
+            },
+            child: const SizedBox.expand(),
+          ),
+        ),
         Positioned(
           left: 0,
           right: 0,
@@ -711,24 +729,6 @@ class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
               ),
             ),
           ),
-        Positioned.fill(
-          left: _backSwipeEdgeInset,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onPanStart: _handleScrubPanStart,
-            onPanUpdate: _handleScrubPanUpdate,
-            onPanEnd: _handleScrubPanEnd,
-            onPanCancel: () {
-              if (_isHorizontalSeeking) {
-                widget.onScrubStateChanged(false);
-                setState(() {
-                  _isHorizontalSeeking = false;
-                });
-              }
-            },
-            child: const SizedBox.expand(),
-          ),
-        ),
       ],
     );
   }
