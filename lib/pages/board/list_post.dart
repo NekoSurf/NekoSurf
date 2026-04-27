@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'dart:convert';
 
 import 'package:country_flags/country_flags.dart';
@@ -31,16 +30,6 @@ class _ListPostState extends State<ListPost> {
   late Bookmark favorite;
   bool isFavorite = false;
   late String favoriteString;
-
-  String _formatBytes(int bytes, int decimals) {
-    if (bytes <= 0) {
-      return '0 B';
-    }
-
-    const suffixes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
-    final i = (log(bytes) / log(1024)).floor();
-    return '${(bytes / pow(1024, i)).toStringAsFixed(decimals)} ${suffixes[i]}';
-  }
 
   @override
   void initState() {
@@ -150,7 +139,7 @@ class _ListPostState extends State<ListPost> {
                       alpha: 0.2,
                     ),
                     child: Text(
-                      posterName.isEmpty ? 'A' : posterName.characters.first.toUpperCase(),
+                      posterName.characters.first.toUpperCase(),
                       style: const TextStyle(
                         color: CupertinoColors.activeBlue,
                         fontSize: 12,
@@ -261,6 +250,35 @@ class _ListPostState extends State<ListPost> {
                       ],
                     ),
                   ),
+                  if (widget.post.tim != null) ...[
+                    const SizedBox(width: 10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: SizedBox(
+                        width: 72,
+                        height: 72,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            ImageViewer(
+                              url:
+                                  'https://i.4cdn.org/${widget.board}/${widget.post.tim}s.jpg',
+                              fit: BoxFit.cover,
+                            ),
+                            if (widget.post.ext == '.webm' ||
+                                widget.post.ext == '.mp4')
+                              const Center(
+                                child: Icon(
+                                  CupertinoIcons.play_circle_fill,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
               if (headline.isNotEmpty) ...[
@@ -276,56 +294,6 @@ class _ListPostState extends State<ListPost> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
-              if (widget.post.tim != null) ...[
-                const SizedBox(height: 10),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
-                  child: AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        ImageViewer(
-                          url:
-                              'https://i.4cdn.org/${widget.board}/${widget.post.tim}s.jpg',
-                          fit: BoxFit.cover,
-                        ),
-                        if (widget.post.ext == '.webm' ||
-                            widget.post.ext == '.mp4')
-                          const Center(
-                            child: Icon(
-                              CupertinoIcons.play_circle_fill,
-                              color: Colors.white,
-                              size: 44,
-                            ),
-                          ),
-                        Align(
-                          alignment: Alignment.bottomLeft,
-                          child: Container(
-                            margin: const EdgeInsets.all(10),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.45),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              '${widget.post.ext ?? ''} ${_formatBytes(widget.post.fsize ?? 0, 0)}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
               if (excerpt.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 Text(
@@ -335,7 +303,7 @@ class _ListPostState extends State<ListPost> {
                     height: 1.35,
                     color: secondaryText,
                   ),
-                  maxLines: widget.post.tim != null ? 3 : 5,
+                  maxLines: 5,
                   overflow: TextOverflow.ellipsis,
                 ),
               ],

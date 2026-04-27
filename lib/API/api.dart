@@ -11,6 +11,7 @@ Future<List<Post>> fetchAllThreadsFromBoard(
   Sort sorting,
   String board, {
   String? searchValue,
+  SortDirection direction = SortDirection.desc,
 }) async {
   try {
     final Response response = await get(
@@ -30,34 +31,38 @@ Future<List<Post>> fetchAllThreadsFromBoard(
         }
       }
 
-      // Thread sorting
+      // Thread sorting — always sort ascending first, then reverse for desc
       if (sorting != null) {
         switch (sorting) {
           case Sort.byBumpOrder:
             ops.sort((a, b) {
-              return a.lastModified!.compareTo(b.lastModified ?? 0);
+              return (a.lastModified ?? 0).compareTo(b.lastModified ?? 0);
             });
             break;
           case Sort.byReplyCount:
             ops.sort((a, b) {
-              return b.replies!.compareTo(a.replies ?? 0);
+              return (a.replies ?? 0).compareTo(b.replies ?? 0);
             });
             break;
           case Sort.byImagesCount:
             ops.sort((a, b) {
-              return b.images!.compareTo(a.images ?? 0);
+              return (a.images ?? 0).compareTo(b.images ?? 0);
             });
             break;
           case Sort.byNewest:
             ops.sort((a, b) {
-              return b.time!.compareTo(a.time ?? 0);
+              return (a.time ?? 0).compareTo(b.time ?? 0);
             });
             break;
           case Sort.byOldest:
             ops.sort((a, b) {
-              return a.time!.compareTo(b.time ?? 0);
+              return (a.time ?? 0).compareTo(b.time ?? 0);
             });
             break;
+        }
+
+        if (direction == SortDirection.desc) {
+          ops = ops.reversed.toList();
         }
       }
 

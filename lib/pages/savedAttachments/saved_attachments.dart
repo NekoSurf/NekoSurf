@@ -2,9 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:flutter_chan/API/save_videos.dart';
-import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/Models/saved_attachment.dart';
 import 'package:flutter_chan/blocs/saved_attachments_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
@@ -22,6 +20,13 @@ class SavedAttachments extends StatefulWidget {
 
 class _SavedAttachmentsState extends State<SavedAttachments> {
   final ScrollController scrollController = ScrollController();
+
+  // Placeholder; set to the real app directory in _loadAttachments().
+  Directory directory = Directory('');
+
+  List<SavedAttachment>? _loadedAttachments;
+  bool _isLoading = true;
+  bool _hasPermissionError = false;
 
   String _attachmentThumbnailPath(SavedAttachment attachment) {
     return '${directory.path}/savedAttachments/${attachment.thumbnail}';
@@ -92,6 +97,15 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
     convertLegacySavedAttachments();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (_isLoading) {
+      _loadAttachments();
+    }
+  }
+
   void convertLegacySavedAttachments() {
     if (Platform.isIOS) {
       final savedAttachments = Provider.of<SavedAttachmentsProvider>(
@@ -128,11 +142,7 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
     }
   }
 
-  Directory directory = Directory('');
-
-  Future<List<SavedAttachment>> getSavedAttachments(
-    BuildContext context,
-  ) async {
+  Future<void> _loadAttachments() async {
     try {
       directory = await requestDirectory(
         directory,
@@ -140,38 +150,26 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
         showErrorDialog: false,
       );
     } catch (e) {
-      return Future.error(e.toString());
+      if (!mounted) return;
+      setState(() {
+        _hasPermissionError = true;
+        _isLoading = false;
+      });
+      return;
     }
+
+    if (!mounted) return;
 
     final savedAttachments = Provider.of<SavedAttachmentsProvider>(
       context,
       listen: false,
     );
-    final List<SavedAttachment> savedAttachmentList = savedAttachments
-        .getSavedAttachments();
+    final attachments = savedAttachments.getSavedAttachments();
 
-    return Future.value(savedAttachmentList);
-  }
-
-  List<Post> getList(List<SavedAttachment>? savedAttachments) {
-    final List<Post> postList = [];
-
-    for (final SavedAttachment savedAttachment in savedAttachments ?? []) {
-      final String video = savedAttachment.fileName!.split('/').last;
-
-      final String ext =
-          '.${savedAttachment.fileName!.split('/').last.split('.').last}';
-
-      final Post post = Post(
-        tim: int.parse(video.split('.').first),
-        ext: ext,
-        filename: video,
-      );
-
-      postList.add(post);
-    }
-
-    return postList;
+    setState(() {
+      _loadedAttachments = attachments;
+      _isLoading = false;
+    });
   }
 
   @override
@@ -179,6 +177,11 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
     final theme = Provider.of<ThemeChanger>(context);
     final savedAttachments = Provider.of<SavedAttachmentsProvider>(context);
     final bool isDark = theme.getTheme() == ThemeData.dark();
+
+    final attachments = _loadedAttachments ?? [];
+    final bool isEmpty = !_isLoading &&
+        !_hasPermissionError &&
+        savedAttachments.getSavedAttachments().isEmpty;
 
     return Scaffold(
       body: CupertinoPageScaffold(
@@ -254,72 +257,50 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
                   ? AppColors.navigationBackground(false)
                   : AppColors.navigationBackground(true),
             ),
-            SliverList(
-              delegate: SliverChildListDelegate([
-                FutureBuilder<List<SavedAttachment>>(
-                  future: getSavedAttachments(context),
-                  builder:
-                      (
-                        BuildContext context,
-                        AsyncSnapshot<List<SavedAttachment>> snapshot,
-                      ) {
-                        switch (snapshot.connectionState) {
-                          case ConnectionState.waiting:
-                            return Container();
-                          default:
-                            if (snapshot.hasError)
-                              return const PermissionDenied();
-                            else if (savedAttachments
-                                .getSavedAttachments()
-                                .isEmpty)
-                              return Column(
-                                children: [
-                                  const SizedBox(height: 30),
-                                  Text(
-                                    'Save Attachments first!',
-                                    style: TextStyle(
-                                      fontSize: 26,
-                                      color:
-                                          theme.getTheme() == ThemeData.dark()
-                                          ? Colors.white
-                                          : Colors.black,
-                                    ),
-                                  ),
-                                ],
-                              );
-                            else
-                              return Column(
-                                children: [
-                                  SizedBox(
-                                    child: GridView.count(
-                                      physics: const ScrollPhysics(),
-                                      shrinkWrap: true,
-                                      padding: EdgeInsets.zero,
-                                      crossAxisCount: 3,
-                                      children: [
-                                        for (
-                                          int index = 0;
-                                          index < (snapshot.data ?? []).length;
-                                          index++
-                                        )
-                                          _buildAttachmentTile(
-                                            (snapshot.data ?? [])[index],
-                                            snapshot.data ?? [],
-                                            index,
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              );
-                        }
-                      },
+            if (_isLoading)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: SizedBox.shrink(),
+              )
+            else if (_hasPermissionError)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: PermissionDenied(),
+              )
+            else if (isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Column(
+                  children: [
+                    const SizedBox(height: 30),
+                    Text(
+                      'Save Attachments first!',
+                      style: TextStyle(
+                        fontSize: 26,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                  ],
                 ),
-              ]),
-            ),
+              )
+            else
+              SliverGrid(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => _buildAttachmentTile(
+                    attachments[index],
+                    attachments,
+                    index,
+                  ),
+                  childCount: attachments.length,
+                ),
+              ),
           ],
         ),
       ),
     );
   }
 }
+

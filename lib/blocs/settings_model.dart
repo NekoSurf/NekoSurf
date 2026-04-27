@@ -9,6 +9,7 @@ class SettingsProvider with ChangeNotifier {
 
   bool allowNSFW = false;
   Sort boardSort = Sort.byImagesCount;
+  SortDirection boardSortDirection = SortDirection.desc;
   ViewMode boardViewMode = ViewMode.grid;
   int watchedMediaRetentionDays = 7;
   bool autoScrollToLastSeen = false;
@@ -21,6 +22,12 @@ class SettingsProvider with ChangeNotifier {
         (element) => element.name == prefs.getString('boardSort'),
       );
       boardSort = boardSortPrefs;
+    }
+
+    if (prefs.getString('boardSortDirection') != null) {
+      boardSortDirection = SortDirection.values.firstWhere(
+        (element) => element.name == prefs.getString('boardSortDirection'),
+      );
     }
 
     if (prefs.getBool('allowNSFW') != null) {
@@ -73,6 +80,19 @@ class SettingsProvider with ChangeNotifier {
 
     boardSort = sort;
     prefs.setString('boardSort', sort.name);
+
+    notifyListeners();
+  }
+
+  SortDirection getBoardSortDirection() {
+    return boardSortDirection;
+  }
+
+  Future<void> setBoardSortDirection(SortDirection direction) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    boardSortDirection = direction;
+    prefs.setString('boardSortDirection', direction.name);
 
     notifyListeners();
   }

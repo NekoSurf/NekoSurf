@@ -92,6 +92,65 @@ class ThreadsSettingsState extends State<ThreadsSettings> {
                 ),
                 CupertinoListTile(
                   leading: const CupertinoSettingsIcon(
+                    icon: CupertinoIcons.arrow_up_arrow_down,
+                    color: CupertinoColors.systemGreen,
+                  ),
+                  title: const Text('Default sort direction'),
+                  trailing: Text(
+                    settings.getBoardSortDirection() == SortDirection.desc
+                        ? 'Descending'
+                        : 'Ascending',
+                    style: const TextStyle(color: CupertinoColors.inactiveGray),
+                  ),
+                  onTap: () {
+                    showCupertinoModalPopup(
+                      context: context,
+                      builder: (BuildContext context) => CupertinoActionSheet(
+                        message: const Text('Default sort direction'),
+                        actions: [
+                          CupertinoActionSheetAction(
+                            child: Text(
+                              'Descending',
+                              style: settings.getBoardSortDirection() ==
+                                      SortDirection.desc
+                                  ? const TextStyle(fontWeight: FontWeight.w700)
+                                  : const TextStyle(
+                                      fontWeight: FontWeight.normal,
+                                    ),
+                            ),
+                            onPressed: () {
+                              settings.setBoardSortDirection(SortDirection.desc);
+                              Navigator.pop(context);
+                            },
+                          ),
+                          CupertinoActionSheetAction(
+                            child: Text(
+                              'Ascending',
+                              style: settings.getBoardSortDirection() ==
+                                      SortDirection.asc
+                                  ? const TextStyle(fontWeight: FontWeight.w700)
+                                  : const TextStyle(
+                                      fontWeight: FontWeight.normal,
+                                    ),
+                            ),
+                            onPressed: () {
+                              settings.setBoardSortDirection(SortDirection.asc);
+                              Navigator.pop(context);
+                            },
+                          ),
+                        ],
+                        cancelButton: CupertinoActionSheetAction(
+                          child: const Text('Cancel'),
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                CupertinoListTile(
+                  leading: const CupertinoSettingsIcon(
                     icon: CupertinoIcons.square_grid_2x2,
                     color: CupertinoColors.activeBlue,
                   ),
