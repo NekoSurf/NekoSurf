@@ -48,6 +48,10 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
   late final Player _viewerPlayer;
   late final VideoController _viewerController;
 
+  // Persists the playback position for each video (keyed by post.tim) so that
+  // scrolling back to a video resumes where the user left off.
+  final Map<int, Duration> _savedPositions = {};
+
   bool _isSaving = false;
   bool _isRemoving = false;
   bool _didSaveAttachment = false;
@@ -280,9 +284,13 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
                         _isVideoScrubbing = isScrubbing;
                       });
                     },
-                    startPosition: index == widget.initialIndex
-                        ? widget.startPosition
-                        : Duration.zero,
+                    startPosition: _savedPositions[post.tim] ??
+                        (index == widget.initialIndex
+                            ? widget.startPosition
+                            : Duration.zero),
+                    onPositionSave: (pos) {
+                      _savedPositions[post.tim!] = pos;
+                    },
                   );
                 }
                 return _ThreadMediaImagePage(
@@ -403,6 +411,7 @@ class _ThreadMediaVideoPage extends StatefulWidget {
     required this.controller,
     required this.isActive,
     required this.onScrubStateChanged,
+    required this.onPositionSave,
     this.startPosition = Duration.zero,
   }) : super(key: key);
 
@@ -412,6 +421,7 @@ class _ThreadMediaVideoPage extends StatefulWidget {
   final bool isActive;
   final ValueChanged<bool> onScrubStateChanged;
   final Duration startPosition;
+  final ValueChanged<Duration> onPositionSave;
 
   @override
   State<_ThreadMediaVideoPage> createState() => _ThreadMediaVideoPageState();
@@ -431,6 +441,10 @@ class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
   bool _isPlaying = false;
   bool _isBuffering = false;
   bool _isMuted = false;
+  // True from the moment a page becomes active until the first playing=true
+  // event fires for the new media.  The black overlay shown during this window
+  // hides the last decoded frame of the previous video.
+  bool _isTransitioning = true;
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
   double _dragSeekPreviewMs = 0;
@@ -452,6 +466,7 @@ class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
       _attachSubscriptions();
       _openAndPlay();
     } else if (oldWidget.isActive && !widget.isActive) {
+      widget.onPositionSave(_position);
       widget.player.pause().ignore();
       _cancelSubscriptions();
       _resetPlaybackState();
@@ -474,7 +489,10 @@ class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
     });
     _playingSub = widget.player.stream.playing.listen((playing) {
       if (!mounted) return;
-      setState(() => _isPlaying = playing);
+      setState(() {
+        _isPlaying = playing;
+        if (playing) _isTransitioning = false;
+      });
     });
     _positionSub = widget.player.stream.position.listen((p) {
       if (!mounted) return;
@@ -507,6 +525,7 @@ class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
     setState(() {
       _isPlaying = false;
       _isBuffering = false;
+      _isTransitioning = true;
       _position = Duration.zero;
       _duration = Duration.zero;
       _errorMessage = null;
@@ -639,7 +658,11 @@ class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
       fit: StackFit.expand,
       children: [
         Video(controller: widget.controller, controls: NoVideoControls),
-        if (_isBuffering && !_isHorizontalSeeking)
+        // Black overlay hides the last decoded frame of the previous video while
+        // the new media is opening.  Cleared once playing=true fires.
+        if (_isTransitioning)
+          const ColoredBox(color: Colors.black),
+        if ((_isBuffering || _isTransitioning) && !_isHorizontalSeeking)
           const Center(child: CupertinoActivityIndicator(radius: 14)),
         if (_isHorizontalSeeking)
           Center(
