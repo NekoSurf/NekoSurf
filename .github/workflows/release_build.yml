@@ -20,10 +20,15 @@ jobs:
           ruby-version: "3.3"
           bundler-cache: true
 
+      - name: "🍎 Select Xcode"
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "26.1"
+
       - name: "🦋 Setup Flutter"
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.35.6"
+          flutter-version: "3.38.1"
           channel: "stable"
 
       - name: "❓ Verify Flutter"
@@ -36,12 +41,10 @@ jobs:
         run: |
           gem install cocoapods
           cd ios && pod install && cd ..
-        continue-on-error: true
 
       - name: "🏗️ Build iOS app"
         run: |
           flutter build ios --release --no-codesign --verbose
-        continue-on-error: true
 
       - name: "🔨 Create IPA"
         run: |
@@ -82,7 +85,7 @@ jobs:
       - name: "🦋 Setup Flutter"
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.35.6"
+          flutter-version: "3.38.1"
           channel: "stable"
 
       - name: "❓ Verify Flutter"

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -21,12 +22,14 @@ class ThreadMediaViewerPage extends StatefulWidget {
     required this.initialIndex,
     required this.board,
     required this.thread,
+    this.startPosition = Duration.zero,
   }) : super(key: key);
 
   final List<Post> mediaPosts;
   final int initialIndex;
   final String board;
   final int thread;
+  final Duration startPosition;
 
   @override
   State<ThreadMediaViewerPage> createState() => _ThreadMediaViewerPageState();
@@ -65,7 +68,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
   Post get _currentPost => widget.mediaPosts[_currentIndex];
 
   bool _isVideo(Post post) =>
-      post.ext == '.webm' || post.ext == '.mp4' || post.ext == '.gif';
+      post.ext == '.webm' || post.ext == '.mp4';
 
   String _mediaUrl(Post post) =>
       'https://i.4cdn.org/${widget.board}/${post.tim}${post.ext}';
@@ -216,6 +219,11 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
 
     return PopScope<int>(
       canPop: true,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          _closeViewer();
+        }
+      },
       child: Scaffold(
         backgroundColor: Colors.black,
         body: Stack(
@@ -250,6 +258,9 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
                         _isVideoScrubbing = isScrubbing;
                       });
                     },
+                    startPosition: index == widget.initialIndex
+                        ? widget.startPosition
+                        : Duration.zero,
                   );
                 }
                 return _ThreadMediaImagePage(
@@ -364,11 +375,13 @@ class _ThreadMediaVideoPage extends StatefulWidget {
     required this.videoUrl,
     required this.isActive,
     required this.onScrubStateChanged,
+    this.startPosition = Duration.zero,
   }) : super(key: key);
 
   final String videoUrl;
   final bool isActive;
   final ValueChanged<bool> onScrubStateChanged;
+  final Duration startPosition;
 
   @override
   State<_ThreadMediaVideoPage> createState() => _ThreadMediaVideoPageState();
@@ -392,8 +405,6 @@ class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
   bool _isMuted = false;
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
-  bool _showControls = true;
-  Timer? _controlsHideTimer;
   double _dragSeekPreviewMs = 0;
   bool _isHorizontalSeeking = false;
 
@@ -425,7 +436,6 @@ class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
     });
 
     if (widget.isActive) _openAndPlay();
-    _startControlsAutoHide();
   }
 
   @override
@@ -440,7 +450,6 @@ class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
 
   @override
   void dispose() {
-    _controlsHideTimer?.cancel();
     _errorSub?.cancel();
     _playingSub?.cancel();
     _positionSub?.cancel();
@@ -450,8 +459,14 @@ class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
     super.dispose();
   }
 
+  /// Mirrors the feed-player fix for media-kit #964: on iOS, explicitly
+  /// selecting AudioTrack.auto() before play() prevents the player from doing a
+  /// lazy AVAudioSession reconfiguration ~1 second into playback.
   Future<void> _applyAudioMode() async {
     try {
+      if (Platform.isIOS && !_isMuted) {
+        await _player.setAudioTrack(AudioTrack.auto());
+      }
       await _player.setVolume(_isMuted ? 0 : 100);
     } catch (_) {
       // Ignore transient volume races.
@@ -467,21 +482,28 @@ class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
     try {
       final resolved = await resolveCachedVideoSource(widget.videoUrl);
       if (!mounted) return;
-      await _applyAudioMode();
       await _player.setPlaylistMode(PlaylistMode.loop);
-      await _player.open(Media(resolved), play: true);
+      await _player.open(Media(resolved), play: false);
+      if (widget.startPosition > Duration.zero) {
+        try {
+          await _player.seek(widget.startPosition);
+        } catch (_) {
+          // Ignore seek races on open.
+        }
+      }
+      if (!mounted) return;
+      await _applyAudioMode();
+      await _player.play();
     } catch (error) {
       if (!mounted) return;
       setState(() => _errorMessage = error.toString());
     }
   }
 
-  void _startControlsAutoHide() {
-    _controlsHideTimer?.cancel();
-    _controlsHideTimer = Timer(const Duration(seconds: 3), () {
-      if (!mounted || !_isPlaying) return;
-      setState(() => _showControls = false);
-    });
+  Future<void> _seekTo(double ms) async {
+    try {
+      await _player.seek(_clampDuration(Duration(milliseconds: ms.round())));
+    } catch (_) {}
   }
 
   String _formatDuration(Duration v) {
@@ -497,14 +519,6 @@ class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
     if (v < Duration.zero) return Duration.zero;
     if (v > _duration) return _duration;
     return v;
-  }
-
-  Future<void> _seekTo(double ms) async {
-    try {
-      await _player.seek(_clampDuration(Duration(milliseconds: ms.round())));
-    } catch (_) {}
-    setState(() => _showControls = true);
-    _startControlsAutoHide();
   }
 
   void _handleScrubPanStart(DragStartDetails details) {
@@ -560,181 +574,169 @@ class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () {
-        setState(() => _showControls = !_showControls);
-        if (_showControls) _startControlsAutoHide();
-      },
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Video(controller: _videoController, controls: NoVideoControls),
-          if (_isBuffering && !_isHorizontalSeeking)
-            const Center(child: CupertinoActivityIndicator(radius: 14)),
-          if (_isHorizontalSeeking)
-            Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.58),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Text(
-                  _formatDuration(
-                    _clampDuration(
-                      Duration(milliseconds: _dragSeekPreviewMs.round()),
-                    ),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Video(controller: _videoController, controls: NoVideoControls),
+        if (_isBuffering && !_isHorizontalSeeking)
+          const Center(child: CupertinoActivityIndicator(radius: 14)),
+        if (_isHorizontalSeeking)
+          Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 10,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.58),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Text(
+                _formatDuration(
+                  _clampDuration(
+                    Duration(milliseconds: _dragSeekPreviewMs.round()),
                   ),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
+                ),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
-          if (_showControls)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 14),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.65),
-                      Colors.black.withValues(alpha: 0.12),
-                    ],
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+          ),
+        Positioned.fill(
+          left: _backSwipeEdgeInset,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onPanStart: _handleScrubPanStart,
+            onPanUpdate: _handleScrubPanUpdate,
+            onPanEnd: _handleScrubPanEnd,
+            onPanCancel: () {
+              if (_isHorizontalSeeking) {
+                widget.onScrubStateChanged(false);
+                setState(() {
+                  _isHorizontalSeeking = false;
+                });
+              }
+            },
+            child: const SizedBox.expand(),
+          ),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 14),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.65),
+                  Colors.black.withValues(alpha: 0.12),
+                ],
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        CupertinoButton(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          minimumSize: const Size(28, 28),
-                          onPressed: _toggleMuted,
-                          child: Icon(
-                            _isMuted
-                                ? CupertinoIcons.speaker_slash_fill
-                                : CupertinoIcons.speaker_2_fill,
-                            color: Colors.white,
-                            size: 18,
-                          ),
-                        ),
-                        CupertinoButton(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          minimumSize: const Size(28, 28),
-                          onPressed: () {
-                            _player.playOrPause().ignore();
-                            setState(() => _showControls = true);
-                            _startControlsAutoHide();
-                          },
-                          child: Icon(
-                            _isPlaying
-                                ? CupertinoIcons.pause_fill
-                                : CupertinoIcons.play_fill,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                        Expanded(
-                          child: Slider(
-                            value: _position.inMilliseconds.toDouble().clamp(
-                              0,
-                              (_duration.inMilliseconds <= 0
-                                      ? 1
-                                      : _duration.inMilliseconds)
-                                  .toDouble(),
-                            ),
-                            min: 0,
-                            max:
-                                (_duration.inMilliseconds <= 0
-                                        ? 1
-                                        : _duration.inMilliseconds)
-                                    .toDouble(),
-                            onChanged: _duration.inMilliseconds > 0
-                                ? _seekTo
-                                : null,
-                            activeColor: Colors.white,
-                            inactiveColor: Colors.white.withValues(alpha: 0.25),
-                          ),
-                        ),
-                      ],
-                    ),
-                    Padding(
+                    CupertinoButton(
                       padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            _formatDuration(_position),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                            ),
-                          ),
-                          Text(
-                            _formatDuration(_duration),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
+                      minimumSize: const Size(28, 28),
+                      onPressed: _toggleMuted,
+                      child: Icon(
+                        _isMuted
+                            ? CupertinoIcons.speaker_slash_fill
+                            : CupertinoIcons.speaker_2_fill,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                    CupertinoButton(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: const Size(28, 28),
+                      onPressed: () => _player.playOrPause().ignore(),
+                      child: Icon(
+                        _isPlaying
+                            ? CupertinoIcons.pause_fill
+                            : CupertinoIcons.play_fill,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                    Expanded(
+                      child: Slider(
+                        value: _position.inMilliseconds.toDouble().clamp(
+                          0,
+                          (_duration.inMilliseconds <= 0
+                                  ? 1
+                                  : _duration.inMilliseconds)
+                              .toDouble(),
+                        ),
+                        min: 0,
+                        max:
+                            (_duration.inMilliseconds <= 0
+                                    ? 1
+                                    : _duration.inMilliseconds)
+                                .toDouble(),
+                        onChanged: _duration.inMilliseconds > 0
+                            ? _seekTo
+                            : null,
+                        activeColor: Colors.white,
+                        inactiveColor: Colors.white.withValues(alpha: 0.25),
                       ),
                     ),
                   ],
                 ),
-              ),
-            ),
-          if (_errorMessage != null)
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 24,
-              child: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.22),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.red.withValues(alpha: 0.55)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        _formatDuration(_position),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
+                      ),
+                      Text(
+                        _formatDuration(_duration),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                child: Text(
-                  _errorMessage!,
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
-                ),
-              ),
-            ),
-          Positioned.fill(
-            left: _backSwipeEdgeInset,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onPanStart: _handleScrubPanStart,
-              onPanUpdate: _handleScrubPanUpdate,
-              onPanEnd: _handleScrubPanEnd,
-              onPanCancel: () {
-                if (_isHorizontalSeeking) {
-                  widget.onScrubStateChanged(false);
-                  setState(() {
-                    _isHorizontalSeeking = false;
-                  });
-                }
-              },
-              child: const SizedBox.expand(),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+        if (_errorMessage != null)
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 24,
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.22),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.red.withValues(alpha: 0.55)),
+              ),
+              child: Text(
+                _errorMessage!,
+                style: const TextStyle(color: Colors.white, fontSize: 12),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

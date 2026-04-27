@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/save_videos.dart';
 import 'package:flutter_chan/blocs/saved_attachments_model.dart';
 import 'package:flutter_chan/services/cached_video.dart';
+import 'package:flutter_chan/services/feed_player_pool.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:provider/provider.dart';
@@ -16,12 +18,14 @@ class ThreadVideoPlayerPage extends StatefulWidget {
     this.title,
     this.board,
     this.fileName,
+    this.startPosition = Duration.zero,
   }) : super(key: key);
 
   final String videoUrl;
   final String? title;
   final String? board;
   final String? fileName;
+  final Duration startPosition;
 
   @override
   State<ThreadVideoPlayerPage> createState() => _ThreadVideoPlayerPageState();
@@ -110,6 +114,9 @@ class _ThreadVideoPlayerPageState extends State<ThreadVideoPlayerPage> {
     });
 
     _openAndPlay();
+    // Pause any pool-managed feed players immediately so they don't hold the
+    // AVAudioSession while the fullscreen player is starting up.
+    FeedPlayerPool.instance.pauseAll();
     _startControlsAutoHide();
   }
 
@@ -120,7 +127,19 @@ class _ThreadVideoPlayerPageState extends State<ThreadVideoPlayerPage> {
         return;
       }
       await _player.setPlaylistMode(PlaylistMode.loop);
-      await _player.open(Media(resolvedSource), play: true);
+      await _player.open(Media(resolvedSource), play: false);
+      if (widget.startPosition > Duration.zero) {
+        try {
+          await _player.seek(widget.startPosition);
+        } catch (_) {
+          // Ignore seek races on open.
+        }
+      }
+      if (!mounted) {
+        return;
+      }
+      await _applyAudioMode();
+      await _player.play();
     } catch (error) {
       if (!mounted) {
         return;
@@ -145,8 +164,14 @@ class _ThreadVideoPlayerPageState extends State<ThreadVideoPlayerPage> {
     super.dispose();
   }
 
+  /// Mirrors the feed-player fix for media-kit #964: on iOS, explicitly
+  /// selecting AudioTrack.auto() before play() prevents the player from doing a
+  /// lazy AVAudioSession reconfiguration ~1 second into playback.
   Future<void> _applyAudioMode() async {
     try {
+      if (Platform.isIOS && !_isMuted) {
+        await _player.setAudioTrack(AudioTrack.auto());
+      }
       await _player.setVolume(_isMuted ? 0 : 100);
     } catch (_) {
       // Ignore transient volume races.

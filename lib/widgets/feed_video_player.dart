@@ -5,6 +5,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/pages/thread/thread_video_player_page.dart';
 import 'package:flutter_chan/services/cached_video.dart';
+import 'package:flutter_chan/services/feed_player_pool.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:visibility_detector/visibility_detector.dart';
@@ -19,6 +20,7 @@ class FeedVideoPlayer extends StatefulWidget {
     this.playWhenVisibleFraction = 0.05,
     this.pauseWhenVisibleFraction = 0.0,
     this.showMuteButton = true,
+    this.positionNotifier,
   }) : super(key: key);
 
   final String playerKey;
@@ -28,16 +30,20 @@ class FeedVideoPlayer extends StatefulWidget {
   final double playWhenVisibleFraction;
   final double pauseWhenVisibleFraction;
   final bool showMuteButton;
+  final ValueNotifier<Duration>? positionNotifier;
 
   @override
   State<FeedVideoPlayer> createState() => _FeedVideoPlayerState();
 }
 
 class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
-  static final List<_DeferredPlayerDispose> _deferredDisposals = [];
-
   Player? _player;
   VideoController? _videoController;
+  // Tracks the playerKey under which the current pool slot was acquired so
+  // that release() is always called with the correct key even when
+  // didUpdateWidget changes widget.playerKey before the slot is released.
+  String? _acquiredPlayerKey;
+
   StreamSubscription<bool>? _playingSub;
   StreamSubscription<Duration>? _positionSub;
   StreamSubscription<Duration>? _durationSub;
@@ -70,101 +76,35 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
   Duration _lastObservedPosition = Duration.zero;
   DateTime _lastProgressAt = DateTime.fromMillisecondsSinceEpoch(0);
+  DateTime _lastPositionUiUpdate = DateTime.fromMillisecondsSinceEpoch(0);
   int _stallRecoveries = 0;
   String? _resolvedVideoSource;
 
-  static Future<void> _disposePlayerSafely(Player player) async {
-    if (!Platform.isIOS) {
-      try {
-        await player.dispose();
-      } catch (_) {
-        // Ignore transient dispose races.
-      }
-      return;
-    }
+  // ---------------------------------------------------------------------------
+  // Audio mode
+  // ---------------------------------------------------------------------------
 
-    final holder = _DeferredPlayerDispose(player);
-    holder.timer = Timer(const Duration(seconds: 8), () async {
-      try {
-        await player.pause();
-      } catch (_) {
-        // Ignore pause races.
-      }
-
-      try {
-        await player.stop();
-      } catch (_) {
-        // Ignore stop races.
-      }
-
-      try {
-        await player.dispose();
-      } catch (_) {
-        // Ignore dispose races.
-      }
-
-      _deferredDisposals.remove(holder);
-    });
-
-    _deferredDisposals.add(holder);
-
-    // Hard cap deferred players to avoid FD growth when scrolling for long periods.
-    if (_deferredDisposals.length > 18) {
-      final oldest = _deferredDisposals.removeAt(0);
-      oldest.timer?.cancel();
-      try {
-        await oldest.player.pause();
-      } catch (_) {
-        // Ignore pause races.
-      }
-      try {
-        await oldest.player.stop();
-      } catch (_) {
-        // Ignore stop races.
-      }
-      try {
-        await oldest.player.dispose();
-      } catch (_) {
-        // Ignore dispose races.
-      }
-    }
-  }
-
+  /// Fixes media-kit issue #964: on iOS, calling AudioTrack.no() triggers an
+  /// AVAudioSession re-configuration inside libmpv which momentarily halts
+  /// decoding even after play() has been called.  Muting is therefore done
+  /// purely via setVolume(0); AudioTrack.auto() is only applied when the user
+  /// explicitly unmutes.
   Future<void> _applyAudioMode(Player player) async {
     try {
-      if (Platform.isIOS) {
-        await player.setAudioTrack(
-          _isMuted ? AudioTrack.no() : AudioTrack.auto(),
-        );
+      if (Platform.isIOS && !_isMuted) {
+        await player.setAudioTrack(AudioTrack.auto());
       }
-
       await player.setVolume(_isMuted ? 0 : 100);
     } catch (_) {
       // Ignore transient track/volume races.
     }
   }
 
-  @override
-  void initState() {
-    super.initState();
-  }
+  // ---------------------------------------------------------------------------
+  // Stream subscriptions
+  // ---------------------------------------------------------------------------
 
-  @override
-  void didUpdateWidget(covariant FeedVideoPlayer oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    if (oldWidget.videoUrl != widget.videoUrl ||
-        oldWidget.playerKey != widget.playerKey) {
-      _resetForNewSource();
-    }
-  }
-
-  Future<void> _resetForNewSource() async {
-    _cancelPlayRetry();
-    _recoveryTimer?.cancel();
-    _pauseDebounceTimer?.cancel();
-    _stallWatchdogTimer?.cancel();
-    _visibilityRecheckTimer?.cancel();
+  void _cancelSubscriptions() {
     _playingSub?.cancel();
     _positionSub?.cancel();
     _durationSub?.cancel();
@@ -179,81 +119,13 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _heightSub = null;
     _bufferingSub = null;
     _errorSub = null;
-
-    final currentPlayer = _player;
-    _isInitialized = false;
-    _isPlaying = false;
-    _isBuffering = false;
-    _hasFatalError = false;
-    _hasFirstFrame = false;
-    _position = Duration.zero;
-    _duration = Duration.zero;
-    _videoWidth = 0;
-    _videoHeight = 0;
-    _reopenAttempts = 0;
-    _stallRecoveries = 0;
-    _lastObservedPosition = Duration.zero;
-    _lastProgressAt = DateTime.fromMillisecondsSinceEpoch(0);
-    _visibilityRecheckAttempts = 0;
-    _resolvedVideoSource = null;
-
-    if (currentPlayer != null) {
-      try {
-        final resolvedSource = await resolveCachedVideoSource(widget.videoUrl);
-        if (!mounted) {
-          return;
-        }
-        _resolvedVideoSource = resolvedSource;
-        await currentPlayer.pause();
-        await currentPlayer.open(Media(resolvedSource), play: false);
-      } catch (_) {
-        // Fallback: recreate only if source switch on existing player fails.
-        final old = _player;
-        _player = null;
-        _videoController = null;
-        if (old != null) {
-          await _disposePlayerSafely(old);
-        }
-      }
-    } else {
-      _player = null;
-      _videoController = null;
-    }
-
-    if (!mounted) {
-      return;
-    }
-
-    if (_isVisibleEnough && _hasRenderableSize) {
-      await _ensureInitialized();
-      await _playIfNeeded();
-    } else {
-      setState(() {});
-    }
   }
 
-  Future<void> _ensureInitialized() async {
-    if (_isInitialized || _player != null) {
-      return;
-    }
-
-    final player = Player();
-    final controller = VideoController(player);
-    final resolvedSource = await resolveCachedVideoSource(widget.videoUrl);
-
-    if (!mounted) {
-      await _disposePlayerSafely(player);
-      return;
-    }
-
-    _player = player;
-    _videoController = controller;
-    _resolvedVideoSource = resolvedSource;
+  void _attachSubscriptions(Player player) {
+    _cancelSubscriptions();
 
     _playingSub = player.stream.playing.listen((playing) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() {
         _isPlaying = playing;
         if (playing) {
@@ -273,6 +145,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
     _positionSub = player.stream.position.listen((value) {
       _position = value;
+      widget.positionNotifier?.value = value;
       if (value > _lastObservedPosition) {
         _lastObservedPosition = value;
         _lastProgressAt = DateTime.now();
@@ -285,6 +158,15 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
           _hasFirstFrame = true;
           _reopenAttempts = 0;
         });
+        return;
+      }
+      // Throttle progress-bar redraws to ~4 fps to avoid per-frame rebuilds.
+      if (mounted && _hasFirstFrame) {
+        final now = DateTime.now();
+        if (now.difference(_lastPositionUiUpdate).inMilliseconds >= 250) {
+          _lastPositionUiUpdate = now;
+          setState(() {});
+        }
       }
     });
 
@@ -309,28 +191,21 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     });
 
     _bufferingSub = player.stream.buffering.listen((value) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() {
         _isBuffering = value;
       });
     });
 
     _durationSub = player.stream.duration.listen((value) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() {
         _duration = value;
       });
     });
 
     _errorSub = player.stream.error.listen((message) {
-      if (!mounted) {
-        return;
-      }
-
+      if (!mounted) return;
       // These errors are usually unrecoverable for this source instance.
       if (message.contains('moov atom not found') ||
           message.contains('Invalid data found when processing input') ||
@@ -340,14 +215,119 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
         });
       }
     });
+  }
 
-    await _applyAudioMode(player);
-    await player.open(Media(resolvedSource), play: false);
-    await player.setPlaylistMode(PlaylistMode.loop);
+  // ---------------------------------------------------------------------------
+  // Lifecycle
+  // ---------------------------------------------------------------------------
 
-    if (!mounted || _player != player) {
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
+  void didUpdateWidget(covariant FeedVideoPlayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.videoUrl != widget.videoUrl ||
+        oldWidget.playerKey != widget.playerKey) {
+      _resetForNewSource(oldKey: oldWidget.playerKey);
+    }
+  }
+
+  Future<void> _resetForNewSource({String? oldKey}) async {
+    _cancelPlayRetry();
+    _recoveryTimer?.cancel();
+    _pauseDebounceTimer?.cancel();
+    _stallWatchdogTimer?.cancel();
+    _visibilityRecheckTimer?.cancel();
+    _cancelSubscriptions();
+
+    // Release the old pool slot using whichever key actually acquired it.
+    final keyToRelease = oldKey ?? _acquiredPlayerKey;
+    if (keyToRelease != null) {
+      FeedPlayerPool.instance.release(keyToRelease);
+    }
+    _acquiredPlayerKey = null;
+    _player = null;
+    _videoController = null;
+
+    _isInitialized = false;
+    _isPlaying = false;
+    _isBuffering = false;
+    _hasFatalError = false;
+    _hasFirstFrame = false;
+    _position = Duration.zero;
+    _duration = Duration.zero;
+    _videoWidth = 0;
+    _videoHeight = 0;
+    _reopenAttempts = 0;
+    _stallRecoveries = 0;
+    _playRetryAttempts = 0;
+    _lastObservedPosition = Duration.zero;
+    _lastProgressAt = DateTime.fromMillisecondsSinceEpoch(0);
+    _lastPositionUiUpdate = DateTime.fromMillisecondsSinceEpoch(0);
+    _visibilityRecheckAttempts = 0;
+    _resolvedVideoSource = null;
+
+    if (!mounted) return;
+
+    if (_isVisibleEnough && _hasRenderableSize) {
+      await _ensureInitialized();
+      await _playIfNeeded();
+    } else {
+      setState(() {});
+    }
+  }
+
+  Future<void> _ensureInitialized() async {
+    if (_isInitialized || _player != null) return;
+
+    // Snapshot key + URL so we can detect a source change that happens while
+    // the two awaits below are in flight.
+    final snapshotKey = widget.playerKey;
+    final snapshotUrl = widget.videoUrl;
+
+    final resolvedSource = await resolveCachedVideoSource(snapshotUrl);
+    if (!mounted) return;
+
+    // Bail if the widget's source changed while we were resolving.
+    if (widget.playerKey != snapshotKey || widget.videoUrl != snapshotUrl) {
       return;
     }
+
+    final slot = await FeedPlayerPool.instance.acquire(
+      snapshotKey,
+      resolvedSource,
+    );
+
+    if (!mounted) {
+      // Widget disposed while waiting for pool; release any claim we made.
+      FeedPlayerPool.instance.release(snapshotKey);
+      return;
+    }
+
+    // Bail again if the source changed during pool.acquire().
+    if (widget.playerKey != snapshotKey || widget.videoUrl != snapshotUrl) {
+      FeedPlayerPool.instance.release(snapshotKey);
+      return;
+    }
+
+    if (slot == null) {
+      // Pool exhausted; retry — slots are typically freed within milliseconds.
+      _schedulePlayRetry();
+      return;
+    }
+
+    _player = slot.player;
+    _videoController = slot.controller;
+    _acquiredPlayerKey = snapshotKey;
+    _resolvedVideoSource = resolvedSource;
+
+    _attachSubscriptions(slot.player);
+
+    if (!mounted || _player != slot.player) return;
 
     setState(() {
       _isInitialized = true;
@@ -356,13 +336,8 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
   Future<void> _playIfNeeded() async {
     final player = _player;
-    if (!_isVisibleEnough || !mounted) {
-      return;
-    }
-
-    if (_hasFatalError) {
-      return;
-    }
+    if (!_isVisibleEnough || !mounted) return;
+    if (_hasFatalError) return;
 
     if (player == null || !_isInitialized) {
       _schedulePlayRetry();
@@ -370,24 +345,14 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     }
 
     try {
+      // _applyAudioMode is called exactly once, immediately before play().
+      // The 90 ms delayed re-call that existed previously was itself the
+      // stutter trigger on iOS (media-kit #964).
       await _applyAudioMode(player);
       await player.play();
       _startStallWatchdog();
       _cancelPlayRetry();
       _playRetryAttempts = 0;
-
-      if (_isMuted) {
-        Future<void>.delayed(const Duration(milliseconds: 90), () async {
-          if (!mounted || _player != player || !_isMuted) {
-            return;
-          }
-          try {
-            await _applyAudioMode(player);
-          } catch (_) {
-            // Ignore transient volume races.
-          }
-        });
-      }
     } catch (_) {
       _schedulePlayRetry();
     }
@@ -395,9 +360,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
   Future<void> _pause() async {
     final player = _player;
-    if (player == null) {
-      return;
-    }
+    if (player == null) return;
 
     try {
       await player.pause();
@@ -406,6 +369,40 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     }
 
     _stallWatchdogTimer?.cancel();
+  }
+
+  /// Releases the pool slot and clears playback state after the widget has
+  /// scrolled off-screen.  Called from the pause-debounce timer.
+  void _releasePoolSlot() {
+    _cancelPlayRetry();
+    _recoveryTimer?.cancel();
+    _stallWatchdogTimer?.cancel();
+    _cancelSubscriptions();
+
+    if (_acquiredPlayerKey != null) {
+      FeedPlayerPool.instance.release(_acquiredPlayerKey!);
+      _acquiredPlayerKey = null;
+    }
+
+    _player = null;
+    _videoController = null;
+    _isInitialized = false;
+    _isPlaying = false;
+    _isBuffering = false;
+    _hasFirstFrame = false;
+    _position = Duration.zero;
+    _duration = Duration.zero;
+    _videoWidth = 0;
+    _videoHeight = 0;
+    _reopenAttempts = 0;
+    _stallRecoveries = 0;
+    _playRetryAttempts = 0;
+    _lastObservedPosition = Duration.zero;
+    _lastProgressAt = DateTime.fromMillisecondsSinceEpoch(0);
+    _lastPositionUiUpdate = DateTime.fromMillisecondsSinceEpoch(0);
+    _resolvedVideoSource = null;
+
+    if (mounted) setState(() {});
   }
 
   void _startPlaybackPipeline() {
@@ -423,7 +420,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     }
 
     _visibilityRecheckAttempts += 1;
-    _visibilityRecheckTimer = Timer(const Duration(milliseconds: 110), () {
+    _visibilityRecheckTimer = Timer(const Duration(milliseconds: 50), () {
       if (!mounted || !_isVisibleEnough) {
         return;
       }
@@ -464,7 +461,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       return;
     }
 
-    // Second attempt: recreate player surface.
+    // Second attempt: reopen the media on the same pool player.
     if (_stallRecoveries == 1) {
       _stallRecoveries = 2;
       await _reopenAndPlay();
@@ -537,8 +534,14 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     }
 
     _playRetryAttempts += 1;
-    _playRetryTimer = Timer(const Duration(milliseconds: 100), () {
-      _playIfNeeded();
+    // Use 200 ms to give pool slots time to be freed after fast-scroll.
+    _playRetryTimer = Timer(const Duration(milliseconds: 200), () {
+      if (_player == null) {
+        // Pool was exhausted; retry the full acquire.
+        _startPlaybackPipeline();
+      } else {
+        _playIfNeeded();
+      }
     });
   }
 
@@ -554,7 +557,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       return;
     }
 
-    _recoveryTimer = Timer(const Duration(milliseconds: 700), () {
+    _recoveryTimer = Timer(const Duration(milliseconds: 350), () {
       if (!mounted || !_isVisibleEnough || !_isInitialized) {
         return;
       }
@@ -601,29 +604,15 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _visibilityRecheckTimer?.cancel();
     _recoveryTimer?.cancel();
     _stallWatchdogTimer?.cancel();
-    _playingSub?.cancel();
-    _positionSub?.cancel();
-    _durationSub?.cancel();
-    _widthSub?.cancel();
-    _heightSub?.cancel();
-    _bufferingSub?.cancel();
-    _errorSub?.cancel();
+    _cancelSubscriptions();
 
-    final player = _player;
+    if (_acquiredPlayerKey != null) {
+      FeedPlayerPool.instance.release(_acquiredPlayerKey!);
+      _acquiredPlayerKey = null;
+    }
+
     _player = null;
     _videoController = null;
-    _isBuffering = false;
-    _hasFatalError = false;
-    _hasFirstFrame = false;
-    _videoWidth = 0;
-    _videoHeight = 0;
-    _stallRecoveries = 0;
-    _visibilityRecheckAttempts = 0;
-    _lastObservedPosition = Duration.zero;
-    _lastProgressAt = DateTime.fromMillisecondsSinceEpoch(0);
-    if (player != null) {
-      _disposePlayerSafely(player);
-    }
 
     super.dispose();
   }
@@ -654,10 +643,11 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
           _visibilityRecheckTimer?.cancel();
           _pauseDebounceTimer?.cancel();
           _pauseDebounceTimer = Timer(const Duration(milliseconds: 420), () {
-            if (!mounted || _isVisibleEnough) {
-              return;
-            }
-            _pause();
+            if (!mounted || _isVisibleEnough) return;
+            _pause().then((_) {
+              if (!mounted || _isVisibleEnough) return;
+              _releasePoolSlot();
+            });
           });
           return;
         }
@@ -737,11 +727,14 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                     padding: const EdgeInsets.all(5),
                     color: Colors.black.withValues(alpha: 0.35),
                     borderRadius: BorderRadius.circular(999),
-                    onPressed: () {
+                    onPressed: () async {
+                      await FeedPlayerPool.instance.pauseAll();
+                      if (!context.mounted) return;
                       Navigator.of(context).push(
-                        MaterialPageRoute(
+                        CupertinoPageRoute<void>(
                           builder: (_) => ThreadVideoPlayerPage(
                             videoUrl: widget.videoUrl,
+                            startPosition: _position,
                           ),
                         ),
                       );
@@ -777,11 +770,4 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       ),
     );
   }
-}
-
-class _DeferredPlayerDispose {
-  _DeferredPlayerDispose(this.player);
-
-  final Player player;
-  Timer? timer;
 }

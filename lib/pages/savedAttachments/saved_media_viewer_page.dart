@@ -371,6 +371,10 @@ class _SavedMediaVideoPageState extends State<SavedMediaVideoPage> {
   double _dragSeekPreviewMs = 0;
   bool _isHorizontalSeeking = false;
 
+  // Incremented on every _open() call so a superseded async open does not
+  // start playback after a newer one has already taken over.
+  int _openGeneration = 0;
+
   @override
   void initState() {
     super.initState();
@@ -405,13 +409,39 @@ class _SavedMediaVideoPageState extends State<SavedMediaVideoPage> {
       });
     });
 
-    _open();
+    // Only open immediately when this page starts out as the active one.
+    // For adjacent (pre-built) pages _open() is called from didUpdateWidget
+    // the moment they become active, which avoids a race where open(play:false)
+    // completes *after* the activation play() call and leaves the player paused.
+    if (widget.isActive) {
+      _open();
+    }
+  }
+
+  /// Mirrors the feed-player fix for media-kit #964: on iOS, explicitly
+  /// selecting AudioTrack.auto() before play() prevents the player from doing a
+  /// lazy AVAudioSession reconfiguration ~1 second into playback.
+  Future<void> _applyAudioMode() async {
+    try {
+      if (Platform.isIOS) {
+        await _player.setAudioTrack(AudioTrack.auto());
+      }
+    } catch (_) {
+      // Ignore transient audio track races.
+    }
   }
 
   Future<void> _open() async {
+    final generation = ++_openGeneration;
     final media = Media(Uri.file(widget.filePath).toString());
     await _player.setPlaylistMode(PlaylistMode.loop);
-    await _player.open(media, play: widget.isActive);
+    if (_openGeneration != generation) return;
+    await _player.open(media, play: false);
+    if (!mounted || _openGeneration != generation) return;
+    if (widget.isActive) {
+      await _applyAudioMode();
+      await _player.play();
+    }
   }
 
   @override
@@ -423,12 +453,13 @@ class _SavedMediaVideoPageState extends State<SavedMediaVideoPage> {
       return;
     }
 
-    if (oldWidget.isActive != widget.isActive) {
-      if (widget.isActive) {
-        _player.play();
-      } else {
-        _player.pause();
-      }
+    if (!oldWidget.isActive && widget.isActive) {
+      // Open (or re-open) and play in a single sequential async chain so that
+      // play() is always called *after* open() completes, eliminating the
+      // brief pause caused by calling play() on a not-yet-opened player.
+      _open();
+    } else if (oldWidget.isActive && !widget.isActive) {
+      _player.pause();
     }
   }
 
@@ -559,6 +590,23 @@ class _SavedMediaVideoPageState extends State<SavedMediaVideoPage> {
                 ),
               ),
             ),
+          Positioned.fill(
+            left: _backSwipeEdgeInset,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onPanStart: _handleScrubPanStart,
+              onPanUpdate: _handleScrubPanUpdate,
+              onPanEnd: _handleScrubPanEnd,
+              onPanCancel: () {
+                if (_isHorizontalSeeking) {
+                  setState(() {
+                    _isHorizontalSeeking = false;
+                  });
+                }
+              },
+              child: const SizedBox.expand(),
+            ),
+          ),
           Positioned(
             left: 0,
             right: 0,
@@ -645,23 +693,6 @@ class _SavedMediaVideoPageState extends State<SavedMediaVideoPage> {
                   ),
                 ],
               ),
-            ),
-          ),
-          Positioned.fill(
-            left: _backSwipeEdgeInset,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onPanStart: _handleScrubPanStart,
-              onPanUpdate: _handleScrubPanUpdate,
-              onPanEnd: _handleScrubPanEnd,
-              onPanCancel: () {
-                if (_isHorizontalSeeking) {
-                  setState(() {
-                    _isHorizontalSeeking = false;
-                  });
-                }
-              },
-              child: const SizedBox.expand(),
             ),
           ),
         ],
