@@ -727,8 +727,9 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                     padding: const EdgeInsets.all(5),
                     color: Colors.black.withValues(alpha: 0.35),
                     borderRadius: BorderRadius.circular(999),
-                    onPressed: () {
-                      FeedPlayerPool.instance.pauseAll();
+                    onPressed: () async {
+                      await FeedPlayerPool.instance.pauseAll();
+                      if (!context.mounted) return;
                       Navigator.of(context).push(
                         CupertinoPageRoute<void>(
                           builder: (_) => ThreadVideoPlayerPage(
