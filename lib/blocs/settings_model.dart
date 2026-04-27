@@ -9,6 +9,8 @@ class SettingsProvider with ChangeNotifier {
 
   bool allowNSFW = false;
   Sort boardSort = Sort.byImagesCount;
+  SortDirection boardSortDirection = SortDirection.desc;
+  ViewMode boardViewMode = ViewMode.grid;
   int watchedMediaRetentionDays = 7;
   bool autoScrollToLastSeen = false;
 
@@ -20,6 +22,12 @@ class SettingsProvider with ChangeNotifier {
         (element) => element.name == prefs.getString('boardSort'),
       );
       boardSort = boardSortPrefs;
+    }
+
+    if (prefs.getString('boardSortDirection') != null) {
+      boardSortDirection = SortDirection.values.firstWhere(
+        (element) => element.name == prefs.getString('boardSortDirection'),
+      );
     }
 
     if (prefs.getBool('allowNSFW') != null) {
@@ -36,6 +44,13 @@ class SettingsProvider with ChangeNotifier {
 
     if (prefs.getBool('autoScrollToLastSeen') != null) {
       autoScrollToLastSeen = prefs.getBool('autoScrollToLastSeen')!;
+    }
+
+    if (prefs.getString('boardViewMode') != null) {
+      boardViewMode = ViewMode.values.firstWhere(
+        (element) => element.name == prefs.getString('boardViewMode'),
+        orElse: () => ViewMode.grid,
+      );
     }
 
     await prefs.remove('inlineMediaInThreadFeed');
@@ -69,6 +84,19 @@ class SettingsProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  SortDirection getBoardSortDirection() {
+    return boardSortDirection;
+  }
+
+  Future<void> setBoardSortDirection(SortDirection direction) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    boardSortDirection = direction;
+    prefs.setString('boardSortDirection', direction.name);
+
+    notifyListeners();
+  }
+
   bool getAutoScrollToLastSeen() {
     return autoScrollToLastSeen;
   }
@@ -90,6 +118,17 @@ class SettingsProvider with ChangeNotifier {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     watchedMediaRetentionDays = days;
     prefs.setInt('watchedMediaRetentionDays', days);
+    notifyListeners();
+  }
+
+  ViewMode getBoardViewMode() {
+    return boardViewMode;
+  }
+
+  Future<void> setBoardViewMode(ViewMode mode) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    boardViewMode = mode;
+    prefs.setString('boardViewMode', mode.name);
     notifyListeners();
   }
 }

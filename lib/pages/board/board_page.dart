@@ -7,6 +7,7 @@ import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/enums/enums.dart';
 import 'package:flutter_chan/pages/board/grid_view.dart';
+import 'package:flutter_chan/pages/board/list_view.dart';
 import 'package:flutter_chan/pages/favorite_button.dart';
 import 'package:flutter_chan/widgets/reload.dart';
 import 'package:provider/provider.dart';
@@ -32,6 +33,7 @@ class BoardPageState extends State<BoardPage> {
 
   bool isFavorite = false;
   late Sort sort;
+  late SortDirection sortDirection;
 
   @override
   void initState() {
@@ -39,6 +41,7 @@ class BoardPageState extends State<BoardPage> {
 
     final settings = Provider.of<SettingsProvider>(context, listen: false);
     sort = settings.getBoardSort();
+    sortDirection = settings.getBoardSortDirection();
 
     loadBoard();
   }
@@ -50,6 +53,7 @@ class BoardPageState extends State<BoardPage> {
       _fetchAllThreadsFromBoard = fetchAllThreadsFromBoard(
         settings.getBoardSort(),
         widget.board,
+        direction: settings.getBoardSortDirection(),
       ).then((value) => filteredBoards = value);
     });
   }
@@ -61,13 +65,38 @@ class BoardPageState extends State<BoardPage> {
       _fetchAllThreadsFromBoard = fetchAllThreadsFromBoard(
         sortBy,
         widget.board,
+        direction: sortDirection,
       ).then((value) => filteredBoards = value);
 
       sort = sortBy;
     });
   }
 
-  Widget getBoardView(List<Post> threads) {
+  void toggleSortDirection(SettingsProvider settings) {
+    final newDirection = sortDirection == SortDirection.asc
+        ? SortDirection.desc
+        : SortDirection.asc;
+    settings.setBoardSortDirection(newDirection);
+    setState(() {
+      sortDirection = newDirection;
+      _searchBarController.clear();
+
+      _fetchAllThreadsFromBoard = fetchAllThreadsFromBoard(
+        sort,
+        widget.board,
+        direction: newDirection,
+      ).then((value) => filteredBoards = value);
+    });
+  }
+
+  Widget getBoardView(List<Post> threads, SettingsProvider settings) {
+    if (settings.getBoardViewMode() == ViewMode.list) {
+      return BoardListView(
+        scrollController: scrollController,
+        board: widget.board,
+        threads: threads,
+      );
+    }
     return BoardGridView(
       scrollController: scrollController,
       board: widget.board,
@@ -80,6 +109,7 @@ class BoardPageState extends State<BoardPage> {
       sort,
       widget.board,
       searchValue: value,
+      direction: sortDirection,
     ).then((value) => filteredBoards = value);
 
     setState(() {});
@@ -136,109 +166,130 @@ class BoardPageState extends State<BoardPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     FavoriteButton(board: widget.board),
-                    SizedBox(
-                      width: 20,
-                      child: CupertinoButton(
-                        padding: EdgeInsets.zero,
-                        onPressed: () {
-                          showCupertinoModalPopup(
-                            context: context,
-                            builder: (BuildContext context) =>
-                                CupertinoActionSheet(
-                                  message: const Text('Sort by'),
-                                  actions: [
-                                    CupertinoActionSheetAction(
-                                      child: Text(
-                                        'Image Count',
-                                        style: sort == Sort.byImagesCount
-                                            ? const TextStyle(
-                                                fontWeight: FontWeight.w700,
-                                              )
-                                            : const TextStyle(
-                                                fontWeight: FontWeight.normal,
-                                              ),
-                                      ),
-                                      onPressed: () {
-                                        setSort(Sort.byImagesCount, settings);
-                                        Navigator.pop(context);
-                                      },
+                    CupertinoButton(
+                      padding: const EdgeInsets.only(left: 8),
+                      onPressed: () {
+                        final nextMode =
+                            settings.getBoardViewMode() == ViewMode.grid
+                                ? ViewMode.list
+                                : ViewMode.grid;
+                        settings.setBoardViewMode(nextMode);
+                      },
+                      child: Icon(
+                        settings.getBoardViewMode() == ViewMode.grid
+                            ? Icons.view_list
+                            : Icons.grid_view,
+                      ),
+                    ),
+                    CupertinoButton(
+                      padding: const EdgeInsets.only(left: 8),
+                      onPressed: () => toggleSortDirection(settings),
+                      child: Icon(
+                        sortDirection == SortDirection.asc
+                            ? Icons.arrow_upward
+                            : Icons.arrow_downward,
+                      ),
+                    ),
+                    CupertinoButton(
+                      padding: const EdgeInsets.only(left: 8),
+                      onPressed: () {
+                        showCupertinoModalPopup(
+                          context: context,
+                          builder: (BuildContext context) =>
+                              CupertinoActionSheet(
+                                message: const Text('Sort by'),
+                                actions: [
+                                  CupertinoActionSheetAction(
+                                    child: Text(
+                                      'Image Count',
+                                      style: sort == Sort.byImagesCount
+                                          ? const TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                            )
+                                          : const TextStyle(
+                                              fontWeight: FontWeight.normal,
+                                            ),
                                     ),
-                                    CupertinoActionSheetAction(
-                                      child: Text(
-                                        'Reply Count',
-                                        style: sort == Sort.byReplyCount
-                                            ? const TextStyle(
-                                                fontWeight: FontWeight.w700,
-                                              )
-                                            : const TextStyle(
-                                                fontWeight: FontWeight.normal,
-                                              ),
-                                      ),
-                                      onPressed: () {
-                                        setSort(Sort.byReplyCount, settings);
-                                        Navigator.pop(context);
-                                      },
-                                    ),
-                                    CupertinoActionSheetAction(
-                                      child: Text(
-                                        'Bump Order',
-                                        style: sort == Sort.byBumpOrder
-                                            ? const TextStyle(
-                                                fontWeight: FontWeight.w700,
-                                              )
-                                            : const TextStyle(
-                                                fontWeight: FontWeight.normal,
-                                              ),
-                                      ),
-                                      onPressed: () {
-                                        setSort(Sort.byBumpOrder, settings);
-                                        Navigator.pop(context);
-                                      },
-                                    ),
-                                    CupertinoActionSheetAction(
-                                      child: Text(
-                                        'Newest',
-                                        style: sort == Sort.byNewest
-                                            ? const TextStyle(
-                                                fontWeight: FontWeight.w700,
-                                              )
-                                            : const TextStyle(
-                                                fontWeight: FontWeight.normal,
-                                              ),
-                                      ),
-                                      onPressed: () {
-                                        setSort(Sort.byNewest, settings);
-                                        Navigator.pop(context);
-                                      },
-                                    ),
-                                    CupertinoActionSheetAction(
-                                      child: Text(
-                                        'Oldest',
-                                        style: sort == Sort.byOldest
-                                            ? const TextStyle(
-                                                fontWeight: FontWeight.w700,
-                                              )
-                                            : const TextStyle(
-                                                fontWeight: FontWeight.normal,
-                                              ),
-                                      ),
-                                      onPressed: () {
-                                        setSort(Sort.byOldest, settings);
-                                        Navigator.pop(context);
-                                      },
-                                    ),
-                                  ],
-                                  cancelButton: CupertinoActionSheetAction(
-                                    child: const Text('Cancel'),
                                     onPressed: () {
+                                      setSort(Sort.byImagesCount, settings);
                                       Navigator.pop(context);
                                     },
                                   ),
+                                  CupertinoActionSheetAction(
+                                    child: Text(
+                                      'Reply Count',
+                                      style: sort == Sort.byReplyCount
+                                          ? const TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                            )
+                                          : const TextStyle(
+                                              fontWeight: FontWeight.normal,
+                                            ),
+                                    ),
+                                    onPressed: () {
+                                      setSort(Sort.byReplyCount, settings);
+                                      Navigator.pop(context);
+                                    },
+                                  ),
+                                  CupertinoActionSheetAction(
+                                    child: Text(
+                                      'Bump Order',
+                                      style: sort == Sort.byBumpOrder
+                                          ? const TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                            )
+                                          : const TextStyle(
+                                              fontWeight: FontWeight.normal,
+                                            ),
+                                    ),
+                                    onPressed: () {
+                                      setSort(Sort.byBumpOrder, settings);
+                                      Navigator.pop(context);
+                                    },
+                                  ),
+                                  CupertinoActionSheetAction(
+                                    child: Text(
+                                      'Newest',
+                                      style: sort == Sort.byNewest
+                                          ? const TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                            )
+                                          : const TextStyle(
+                                              fontWeight: FontWeight.normal,
+                                            ),
+                                    ),
+                                    onPressed: () {
+                                      setSort(Sort.byNewest, settings);
+                                      Navigator.pop(context);
+                                    },
+                                  ),
+                                  CupertinoActionSheetAction(
+                                    child: Text(
+                                      'Oldest',
+                                      style: sort == Sort.byOldest
+                                          ? const TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                            )
+                                          : const TextStyle(
+                                              fontWeight: FontWeight.normal,
+                                            ),
+                                    ),
+                                    onPressed: () {
+                                      setSort(Sort.byOldest, settings);
+                                      Navigator.pop(context);
+                                    },
+                                  ),
+                                ],
+                                cancelButton: CupertinoActionSheetAction(
+                                  child: const Text('Cancel'),
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                  },
                                 ),
-                          );
-                        },
-                        child: const Icon(Icons.sort),
-                      ),
+                              ),
+                        );
+                      },
+                      child: const Icon(Icons.sort),
                     ),
                   ],
                 ),
@@ -308,7 +359,7 @@ class BoardPageState extends State<BoardPage> {
                                   onReload: () => {loadBoard()},
                                 );
                               } else {
-                                return getBoardView(filteredBoards);
+                                return getBoardView(filteredBoards, settings);
                               }
                           }
                         },

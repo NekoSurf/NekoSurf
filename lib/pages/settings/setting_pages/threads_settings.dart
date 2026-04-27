@@ -90,6 +90,122 @@ class ThreadsSettingsState extends State<ThreadsSettings> {
                     ),
                   },
                 ),
+                CupertinoListTile(
+                  leading: const CupertinoSettingsIcon(
+                    icon: CupertinoIcons.arrow_up_arrow_down,
+                    color: CupertinoColors.systemGreen,
+                  ),
+                  title: const Text('Default sort direction'),
+                  trailing: Text(
+                    settings.getBoardSortDirection() == SortDirection.desc
+                        ? 'Descending'
+                        : 'Ascending',
+                    style: const TextStyle(color: CupertinoColors.inactiveGray),
+                  ),
+                  onTap: () {
+                    showCupertinoModalPopup(
+                      context: context,
+                      builder: (BuildContext context) => CupertinoActionSheet(
+                        message: const Text('Default sort direction'),
+                        actions: [
+                          CupertinoActionSheetAction(
+                            child: Text(
+                              'Descending',
+                              style: settings.getBoardSortDirection() ==
+                                      SortDirection.desc
+                                  ? const TextStyle(fontWeight: FontWeight.w700)
+                                  : const TextStyle(
+                                      fontWeight: FontWeight.normal,
+                                    ),
+                            ),
+                            onPressed: () {
+                              settings.setBoardSortDirection(SortDirection.desc);
+                              Navigator.pop(context);
+                            },
+                          ),
+                          CupertinoActionSheetAction(
+                            child: Text(
+                              'Ascending',
+                              style: settings.getBoardSortDirection() ==
+                                      SortDirection.asc
+                                  ? const TextStyle(fontWeight: FontWeight.w700)
+                                  : const TextStyle(
+                                      fontWeight: FontWeight.normal,
+                                    ),
+                            ),
+                            onPressed: () {
+                              settings.setBoardSortDirection(SortDirection.asc);
+                              Navigator.pop(context);
+                            },
+                          ),
+                        ],
+                        cancelButton: CupertinoActionSheetAction(
+                          child: const Text('Cancel'),
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                CupertinoListTile(
+                  leading: const CupertinoSettingsIcon(
+                    icon: CupertinoIcons.square_grid_2x2,
+                    color: CupertinoColors.activeBlue,
+                  ),
+                  title: const Text('Default board view'),
+                  trailing: Text(
+                    settings.getBoardViewMode() == ViewMode.grid
+                        ? 'Grid'
+                        : 'List',
+                    style: const TextStyle(color: CupertinoColors.inactiveGray),
+                  ),
+                  onTap: () {
+                    showCupertinoModalPopup(
+                      context: context,
+                      builder: (BuildContext context) => CupertinoActionSheet(
+                        message: const Text('Default board view'),
+                        actions: [
+                          CupertinoActionSheetAction(
+                            child: Text(
+                              'Grid',
+                              style: settings.getBoardViewMode() == ViewMode.grid
+                                  ? const TextStyle(fontWeight: FontWeight.w700)
+                                  : const TextStyle(
+                                      fontWeight: FontWeight.normal,
+                                    ),
+                            ),
+                            onPressed: () {
+                              settings.setBoardViewMode(ViewMode.grid);
+                              Navigator.pop(context);
+                            },
+                          ),
+                          CupertinoActionSheetAction(
+                            child: Text(
+                              'List',
+                              style: settings.getBoardViewMode() == ViewMode.list
+                                  ? const TextStyle(fontWeight: FontWeight.w700)
+                                  : const TextStyle(
+                                      fontWeight: FontWeight.normal,
+                                    ),
+                            ),
+                            onPressed: () {
+                              settings.setBoardViewMode(ViewMode.list);
+                              Navigator.pop(context);
+                            },
+                          ),
+                        ],
+                        cancelButton: CupertinoActionSheetAction(
+                          child: const Text('Cancel'),
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ],
             ),
           ],

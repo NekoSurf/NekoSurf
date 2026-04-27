@@ -61,6 +61,7 @@ class SortBoardSettingsState extends State<SortBoardSettings> {
       child: SafeArea(
         child: CupertinoListSection.insetGrouped(
           backgroundColor: AppColors.pageBackground(isDark),
+          header: const Text('Sort by'),
           children: [
             CupertinoListTile(
               title: const Text('Images Count'),

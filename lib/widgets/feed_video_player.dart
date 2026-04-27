@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_chan/pages/thread/thread_video_player_page.dart';
 import 'package:flutter_chan/services/cached_video.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -39,6 +40,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   VideoController? _videoController;
   StreamSubscription<bool>? _playingSub;
   StreamSubscription<Duration>? _positionSub;
+  StreamSubscription<Duration>? _durationSub;
   StreamSubscription<int?>? _widthSub;
   StreamSubscription<int?>? _heightSub;
   StreamSubscription<bool>? _bufferingSub;
@@ -53,6 +55,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   bool _hasFatalError = false;
   bool _hasFirstFrame = false;
   Duration _position = Duration.zero;
+  Duration _duration = Duration.zero;
   int _videoWidth = 0;
   int _videoHeight = 0;
   int _reopenAttempts = 0;
@@ -164,12 +167,14 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _visibilityRecheckTimer?.cancel();
     _playingSub?.cancel();
     _positionSub?.cancel();
+    _durationSub?.cancel();
     _widthSub?.cancel();
     _heightSub?.cancel();
     _bufferingSub?.cancel();
     _errorSub?.cancel();
     _playingSub = null;
     _positionSub = null;
+    _durationSub = null;
     _widthSub = null;
     _heightSub = null;
     _bufferingSub = null;
@@ -182,6 +187,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _hasFatalError = false;
     _hasFirstFrame = false;
     _position = Duration.zero;
+    _duration = Duration.zero;
     _videoWidth = 0;
     _videoHeight = 0;
     _reopenAttempts = 0;
@@ -308,6 +314,15 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       }
       setState(() {
         _isBuffering = value;
+      });
+    });
+
+    _durationSub = player.stream.duration.listen((value) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _duration = value;
       });
     });
 
@@ -588,6 +603,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _stallWatchdogTimer?.cancel();
     _playingSub?.cancel();
     _positionSub?.cancel();
+    _durationSub?.cancel();
     _widthSub?.cancel();
     _heightSub?.cancel();
     _bufferingSub?.cancel();
@@ -710,6 +726,49 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                       color: Colors.white,
                       size: 15,
                     ),
+                  ),
+                ),
+              if (_videoController != null)
+                Positioned(
+                  bottom: 8,
+                  right: 8,
+                  child: CupertinoButton(
+                    minimumSize: const Size(28, 28),
+                    padding: const EdgeInsets.all(5),
+                    color: Colors.black.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(999),
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => ThreadVideoPlayerPage(
+                            videoUrl: widget.videoUrl,
+                          ),
+                        ),
+                      );
+                    },
+                    child: const Icon(
+                      Icons.fullscreen,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                ),
+              if (_isPlaying && _hasFirstFrame && _duration > Duration.zero)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: LinearProgressIndicator(
+                    value: _duration.inMicroseconds > 0
+                        ? (_position.inMicroseconds /
+                                _duration.inMicroseconds)
+                            .clamp(0.0, 1.0)
+                        : 0.0,
+                    backgroundColor: Colors.white.withValues(alpha: 0.25),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      Colors.white,
+                    ),
+                    minHeight: 3,
                   ),
                 ),
             ],

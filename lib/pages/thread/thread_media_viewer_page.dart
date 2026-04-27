@@ -384,9 +384,12 @@ class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
   StreamSubscription<bool>? _playingSub;
   StreamSubscription<Duration>? _positionSub;
   StreamSubscription<Duration>? _durationSub;
+  StreamSubscription<bool>? _bufferingSub;
 
   String? _errorMessage;
   bool _isPlaying = false;
+  bool _isBuffering = false;
+  bool _isMuted = false;
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
   bool _showControls = true;
@@ -416,6 +419,10 @@ class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
       if (!mounted) return;
       setState(() => _duration = d);
     });
+    _bufferingSub = _player.stream.buffering.listen((buffering) {
+      if (!mounted) return;
+      setState(() => _isBuffering = buffering);
+    });
 
     if (widget.isActive) _openAndPlay();
     _startControlsAutoHide();
@@ -438,14 +445,29 @@ class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
     _playingSub?.cancel();
     _positionSub?.cancel();
     _durationSub?.cancel();
+    _bufferingSub?.cancel();
     _player.dispose();
     super.dispose();
+  }
+
+  Future<void> _applyAudioMode() async {
+    try {
+      await _player.setVolume(_isMuted ? 0 : 100);
+    } catch (_) {
+      // Ignore transient volume races.
+    }
+  }
+
+  Future<void> _toggleMuted() async {
+    setState(() => _isMuted = !_isMuted);
+    await _applyAudioMode();
   }
 
   Future<void> _openAndPlay() async {
     try {
       final resolved = await resolveCachedVideoSource(widget.videoUrl);
       if (!mounted) return;
+      await _applyAudioMode();
       await _player.setPlaylistMode(PlaylistMode.loop);
       await _player.open(Media(resolved), play: true);
     } catch (error) {
@@ -548,6 +570,8 @@ class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
         fit: StackFit.expand,
         children: [
           Video(controller: _videoController, controls: NoVideoControls),
+          if (_isBuffering && !_isHorizontalSeeking)
+            const Center(child: CupertinoActivityIndicator(radius: 14)),
           if (_isHorizontalSeeking)
             Center(
               child: Container(
@@ -595,6 +619,18 @@ class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
                   children: [
                     Row(
                       children: [
+                        CupertinoButton(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: const Size(28, 28),
+                          onPressed: _toggleMuted,
+                          child: Icon(
+                            _isMuted
+                                ? CupertinoIcons.speaker_slash_fill
+                                : CupertinoIcons.speaker_2_fill,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                        ),
                         CupertinoButton(
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                           minimumSize: const Size(28, 28),
