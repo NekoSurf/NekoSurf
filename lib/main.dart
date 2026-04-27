@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 import 'package:flutter_chan/blocs/bookmarks_model.dart';
 import 'package:flutter_chan/blocs/favorite_model.dart';
 import 'package:flutter_chan/blocs/gallery_model.dart';
@@ -15,6 +16,7 @@ import 'package:provider/provider.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
+  VisibilityDetectorController.instance.updateInterval = Duration.zero;
   FlutterError.onError = (FlutterErrorDetails details) {
     print('Error From INSIDE FRAME_WORK');
     print('----------------------');

@@ -423,7 +423,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     }
 
     _visibilityRecheckAttempts += 1;
-    _visibilityRecheckTimer = Timer(const Duration(milliseconds: 110), () {
+    _visibilityRecheckTimer = Timer(const Duration(milliseconds: 50), () {
       if (!mounted || !_isVisibleEnough) {
         return;
       }
@@ -554,7 +554,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       return;
     }
 
-    _recoveryTimer = Timer(const Duration(milliseconds: 700), () {
+    _recoveryTimer = Timer(const Duration(milliseconds: 350), () {
       if (!mounted || !_isVisibleEnough || !_isInitialized) {
         return;
       }
