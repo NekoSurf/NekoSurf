@@ -21,12 +21,14 @@ class ThreadMediaViewerPage extends StatefulWidget {
     required this.initialIndex,
     required this.board,
     required this.thread,
+    this.startPosition = Duration.zero,
   }) : super(key: key);
 
   final List<Post> mediaPosts;
   final int initialIndex;
   final String board;
   final int thread;
+  final Duration startPosition;
 
   @override
   State<ThreadMediaViewerPage> createState() => _ThreadMediaViewerPageState();
@@ -215,7 +217,12 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
     final topInset = MediaQuery.of(context).padding.top;
 
     return PopScope<int>(
-      canPop: true,
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          _closeViewer();
+        }
+      },
       child: Scaffold(
         backgroundColor: Colors.black,
         body: Stack(
@@ -250,6 +257,9 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
                         _isVideoScrubbing = isScrubbing;
                       });
                     },
+                    startPosition: index == widget.initialIndex
+                        ? widget.startPosition
+                        : Duration.zero,
                   );
                 }
                 return _ThreadMediaImagePage(
@@ -364,11 +374,13 @@ class _ThreadMediaVideoPage extends StatefulWidget {
     required this.videoUrl,
     required this.isActive,
     required this.onScrubStateChanged,
+    this.startPosition = Duration.zero,
   }) : super(key: key);
 
   final String videoUrl;
   final bool isActive;
   final ValueChanged<bool> onScrubStateChanged;
+  final Duration startPosition;
 
   @override
   State<_ThreadMediaVideoPage> createState() => _ThreadMediaVideoPageState();
@@ -470,6 +482,13 @@ class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
       await _applyAudioMode();
       await _player.open(Media(resolved), play: false);
       await _player.setPlaylistMode(PlaylistMode.loop);
+      if (widget.startPosition > Duration.zero) {
+        try {
+          await _player.seek(widget.startPosition);
+        } catch (_) {
+          // Ignore seek races on open.
+        }
+      }
       if (!mounted) return;
       await _player.play();
     } catch (error) {

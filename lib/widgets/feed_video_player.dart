@@ -19,6 +19,7 @@ class FeedVideoPlayer extends StatefulWidget {
     this.playWhenVisibleFraction = 0.05,
     this.pauseWhenVisibleFraction = 0.0,
     this.showMuteButton = true,
+    this.positionNotifier,
   }) : super(key: key);
 
   final String playerKey;
@@ -28,6 +29,7 @@ class FeedVideoPlayer extends StatefulWidget {
   final double playWhenVisibleFraction;
   final double pauseWhenVisibleFraction;
   final bool showMuteButton;
+  final ValueNotifier<Duration>? positionNotifier;
 
   @override
   State<FeedVideoPlayer> createState() => _FeedVideoPlayerState();
@@ -273,6 +275,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
     _positionSub = player.stream.position.listen((value) {
       _position = value;
+      widget.positionNotifier?.value = value;
       if (value > _lastObservedPosition) {
         _lastObservedPosition = value;
         _lastProgressAt = DateTime.now();
@@ -742,6 +745,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                         MaterialPageRoute(
                           builder: (_) => ThreadVideoPlayerPage(
                             videoUrl: widget.videoUrl,
+                            startPosition: _position,
                           ),
                         ),
                       );

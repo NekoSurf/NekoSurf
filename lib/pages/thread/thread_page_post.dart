@@ -49,6 +49,8 @@ class ThreadPagePost extends StatefulWidget {
 
 class _ThreadPagePostState extends State<ThreadPagePost> {
   late Future<List<Post>> _fetchAllRepliesToPost;
+  final ValueNotifier<Duration> _feedVideoPosition =
+      ValueNotifier(Duration.zero);
 
   String _thumbnailUrl() {
     return 'https://i.4cdn.org/${widget.board}/${widget.post.tim}s.jpg';
@@ -75,6 +77,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     if (index < 0) {
       return;
     }
+    final startPosition = _isVideoPost() ? _feedVideoPosition.value : Duration.zero;
     final focusedPostId = await Navigator.of(context).push<int>(
       MaterialPageRoute(
         builder: (context) => ThreadMediaViewerPage(
@@ -82,6 +85,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
           initialIndex: index,
           board: widget.board,
           thread: widget.thread,
+          startPosition: startPosition,
         ),
       ),
     );
@@ -201,6 +205,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
           videoUrl: mediaUrl,
           thumbnailUrl: _thumbnailUrl(),
           aspectRatio: _mediaAspectRatio(),
+          positionNotifier: _feedVideoPosition,
         ),
       );
     } catch (_) {
@@ -218,6 +223,12 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
       widget.thread,
       widget.allPosts,
     );
+  }
+
+  @override
+  void dispose() {
+    _feedVideoPosition.dispose();
+    super.dispose();
   }
 
   @override

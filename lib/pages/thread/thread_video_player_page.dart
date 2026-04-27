@@ -16,12 +16,14 @@ class ThreadVideoPlayerPage extends StatefulWidget {
     this.title,
     this.board,
     this.fileName,
+    this.startPosition = Duration.zero,
   }) : super(key: key);
 
   final String videoUrl;
   final String? title;
   final String? board;
   final String? fileName;
+  final Duration startPosition;
 
   @override
   State<ThreadVideoPlayerPage> createState() => _ThreadVideoPlayerPageState();
@@ -121,6 +123,13 @@ class _ThreadVideoPlayerPageState extends State<ThreadVideoPlayerPage> {
       }
       await _player.open(Media(resolvedSource), play: false);
       await _player.setPlaylistMode(PlaylistMode.loop);
+      if (widget.startPosition > Duration.zero) {
+        try {
+          await _player.seek(widget.startPosition);
+        } catch (_) {
+          // Ignore seek races on open.
+        }
+      }
       if (!mounted) {
         return;
       }
