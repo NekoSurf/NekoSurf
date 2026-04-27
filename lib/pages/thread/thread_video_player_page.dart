@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/save_videos.dart';
 import 'package:flutter_chan/blocs/saved_attachments_model.dart';
 import 'package:flutter_chan/services/cached_video.dart';
+import 'package:flutter_chan/services/feed_player_pool.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:provider/provider.dart';
@@ -112,6 +113,9 @@ class _ThreadVideoPlayerPageState extends State<ThreadVideoPlayerPage> {
     });
 
     _openAndPlay();
+    // Pause any pool-managed feed players immediately so they don't hold the
+    // AVAudioSession while the fullscreen player is starting up.
+    FeedPlayerPool.instance.pauseAll();
     _startControlsAutoHide();
   }
 

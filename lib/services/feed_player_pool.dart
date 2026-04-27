@@ -28,7 +28,7 @@ class FeedPlayerPool {
 
   static final FeedPlayerPool instance = FeedPlayerPool._();
 
-  static int get _poolSize => Platform.isIOS ? 2 : 3;
+  static int get _poolSize => Platform.isIOS ? 3 : 4;
 
   final List<_PoolSlot> _slots = [];
   bool _initialized = false;

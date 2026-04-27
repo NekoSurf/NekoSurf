@@ -728,8 +728,9 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                     color: Colors.black.withValues(alpha: 0.35),
                     borderRadius: BorderRadius.circular(999),
                     onPressed: () {
+                      FeedPlayerPool.instance.pauseAll();
                       Navigator.of(context).push(
-                        MaterialPageRoute(
+                        CupertinoPageRoute<void>(
                           builder: (_) => ThreadVideoPlayerPage(
                             videoUrl: widget.videoUrl,
                             startPosition: _position,
