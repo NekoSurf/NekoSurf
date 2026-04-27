@@ -119,8 +119,12 @@ class _ThreadVideoPlayerPageState extends State<ThreadVideoPlayerPage> {
       if (!mounted) {
         return;
       }
+      await _player.open(Media(resolvedSource), play: false);
       await _player.setPlaylistMode(PlaylistMode.loop);
-      await _player.open(Media(resolvedSource), play: true);
+      if (!mounted) {
+        return;
+      }
+      await _player.play();
     } catch (error) {
       if (!mounted) {
         return;

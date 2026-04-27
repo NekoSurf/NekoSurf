@@ -65,7 +65,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
   Post get _currentPost => widget.mediaPosts[_currentIndex];
 
   bool _isVideo(Post post) =>
-      post.ext == '.webm' || post.ext == '.mp4' || post.ext == '.gif';
+      post.ext == '.webm' || post.ext == '.mp4';
 
   String _mediaUrl(Post post) =>
       'https://i.4cdn.org/${widget.board}/${post.tim}${post.ext}';
@@ -468,8 +468,10 @@ class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
       final resolved = await resolveCachedVideoSource(widget.videoUrl);
       if (!mounted) return;
       await _applyAudioMode();
+      await _player.open(Media(resolved), play: false);
       await _player.setPlaylistMode(PlaylistMode.loop);
-      await _player.open(Media(resolved), play: true);
+      if (!mounted) return;
+      await _player.play();
     } catch (error) {
       if (!mounted) return;
       setState(() => _errorMessage = error.toString());
