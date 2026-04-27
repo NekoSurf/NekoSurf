@@ -9,6 +9,7 @@ class SettingsProvider with ChangeNotifier {
 
   bool allowNSFW = false;
   Sort boardSort = Sort.byImagesCount;
+  ViewMode boardViewMode = ViewMode.grid;
   int watchedMediaRetentionDays = 7;
   bool autoScrollToLastSeen = false;
 
@@ -36,6 +37,13 @@ class SettingsProvider with ChangeNotifier {
 
     if (prefs.getBool('autoScrollToLastSeen') != null) {
       autoScrollToLastSeen = prefs.getBool('autoScrollToLastSeen')!;
+    }
+
+    if (prefs.getString('boardViewMode') != null) {
+      boardViewMode = ViewMode.values.firstWhere(
+        (element) => element.name == prefs.getString('boardViewMode'),
+        orElse: () => ViewMode.grid,
+      );
     }
 
     await prefs.remove('inlineMediaInThreadFeed');
@@ -90,6 +98,17 @@ class SettingsProvider with ChangeNotifier {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     watchedMediaRetentionDays = days;
     prefs.setInt('watchedMediaRetentionDays', days);
+    notifyListeners();
+  }
+
+  ViewMode getBoardViewMode() {
+    return boardViewMode;
+  }
+
+  Future<void> setBoardViewMode(ViewMode mode) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    boardViewMode = mode;
+    prefs.setString('boardViewMode', mode.name);
     notifyListeners();
   }
 }

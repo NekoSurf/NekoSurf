@@ -90,6 +90,63 @@ class ThreadsSettingsState extends State<ThreadsSettings> {
                     ),
                   },
                 ),
+                CupertinoListTile(
+                  leading: const CupertinoSettingsIcon(
+                    icon: CupertinoIcons.square_grid_2x2,
+                    color: CupertinoColors.activeBlue,
+                  ),
+                  title: const Text('Default board view'),
+                  trailing: Text(
+                    settings.getBoardViewMode() == ViewMode.grid
+                        ? 'Grid'
+                        : 'List',
+                    style: const TextStyle(color: CupertinoColors.inactiveGray),
+                  ),
+                  onTap: () {
+                    showCupertinoModalPopup(
+                      context: context,
+                      builder: (BuildContext context) => CupertinoActionSheet(
+                        message: const Text('Default board view'),
+                        actions: [
+                          CupertinoActionSheetAction(
+                            child: Text(
+                              'Grid',
+                              style: settings.getBoardViewMode() == ViewMode.grid
+                                  ? const TextStyle(fontWeight: FontWeight.w700)
+                                  : const TextStyle(
+                                      fontWeight: FontWeight.normal,
+                                    ),
+                            ),
+                            onPressed: () {
+                              settings.setBoardViewMode(ViewMode.grid);
+                              Navigator.pop(context);
+                            },
+                          ),
+                          CupertinoActionSheetAction(
+                            child: Text(
+                              'List',
+                              style: settings.getBoardViewMode() == ViewMode.list
+                                  ? const TextStyle(fontWeight: FontWeight.w700)
+                                  : const TextStyle(
+                                      fontWeight: FontWeight.normal,
+                                    ),
+                            ),
+                            onPressed: () {
+                              settings.setBoardViewMode(ViewMode.list);
+                              Navigator.pop(context);
+                            },
+                          ),
+                        ],
+                        cancelButton: CupertinoActionSheetAction(
+                          child: const Text('Cancel'),
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ],
             ),
           ],

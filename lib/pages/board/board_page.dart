@@ -7,6 +7,7 @@ import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/enums/enums.dart';
 import 'package:flutter_chan/pages/board/grid_view.dart';
+import 'package:flutter_chan/pages/board/list_view.dart';
 import 'package:flutter_chan/pages/favorite_button.dart';
 import 'package:flutter_chan/widgets/reload.dart';
 import 'package:provider/provider.dart';
@@ -67,7 +68,14 @@ class BoardPageState extends State<BoardPage> {
     });
   }
 
-  Widget getBoardView(List<Post> threads) {
+  Widget getBoardView(List<Post> threads, SettingsProvider settings) {
+    if (settings.getBoardViewMode() == ViewMode.list) {
+      return BoardListView(
+        scrollController: scrollController,
+        board: widget.board,
+        threads: threads,
+      );
+    }
     return BoardGridView(
       scrollController: scrollController,
       board: widget.board,
@@ -136,6 +144,24 @@ class BoardPageState extends State<BoardPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     FavoriteButton(board: widget.board),
+                    SizedBox(
+                      width: 20,
+                      child: CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        onPressed: () {
+                          final nextMode =
+                              settings.getBoardViewMode() == ViewMode.grid
+                                  ? ViewMode.list
+                                  : ViewMode.grid;
+                          settings.setBoardViewMode(nextMode);
+                        },
+                        child: Icon(
+                          settings.getBoardViewMode() == ViewMode.grid
+                              ? Icons.view_list
+                              : Icons.grid_view,
+                        ),
+                      ),
+                    ),
                     SizedBox(
                       width: 20,
                       child: CupertinoButton(
@@ -308,7 +334,7 @@ class BoardPageState extends State<BoardPage> {
                                   onReload: () => {loadBoard()},
                                 );
                               } else {
-                                return getBoardView(filteredBoards);
+                                return getBoardView(filteredBoards, settings);
                               }
                           }
                         },
