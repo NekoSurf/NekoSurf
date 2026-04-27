@@ -480,8 +480,8 @@ class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
       final resolved = await resolveCachedVideoSource(widget.videoUrl);
       if (!mounted) return;
       await _applyAudioMode();
-      await _player.open(Media(resolved), play: false);
       await _player.setPlaylistMode(PlaylistMode.loop);
+      await _player.open(Media(resolved), play: false);
       if (widget.startPosition > Duration.zero) {
         try {
           await _player.seek(widget.startPosition);

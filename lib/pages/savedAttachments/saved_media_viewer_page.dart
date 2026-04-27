@@ -410,8 +410,8 @@ class _SavedMediaVideoPageState extends State<SavedMediaVideoPage> {
 
   Future<void> _open() async {
     final media = Media(Uri.file(widget.filePath).toString());
-    await _player.open(media, play: false);
     await _player.setPlaylistMode(PlaylistMode.loop);
+    await _player.open(media, play: false);
     if (widget.isActive) {
       await _player.play();
     }
