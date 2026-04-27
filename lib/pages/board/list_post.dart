@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'dart:convert';
 
+import 'package:country_flags/country_flags.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/Models/bookmark.dart';
@@ -72,6 +73,7 @@ class _ListPostState extends State<ListPost> {
     final String headline = unescape(
       cleanTags(widget.post.sub ?? widget.post.com ?? ''),
     ).trim();
+    final String posterName = (widget.post.name ?? 'Anonymous').trim();
 
     isFavorite = bookmarks.getBookmarks().contains(favoriteString);
 
@@ -119,7 +121,7 @@ class _ListPostState extends State<ListPost> {
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
           decoration: BoxDecoration(
             color: cardColor,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: isDark
                   ? CupertinoColors.systemGrey.withValues(alpha: 0.25)
@@ -145,13 +147,13 @@ class _ListPostState extends State<ListPost> {
                   CircleAvatar(
                     radius: 14,
                     backgroundColor: CupertinoColors.activeBlue.withValues(
-                      alpha: 0.18,
+                      alpha: 0.2,
                     ),
                     child: Text(
-                      widget.board.toUpperCase(),
+                      posterName.characters.first.toUpperCase(),
                       style: const TextStyle(
                         color: CupertinoColors.activeBlue,
-                        fontSize: 9,
+                        fontSize: 12,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -165,21 +167,37 @@ class _ListPostState extends State<ListPost> {
                           children: [
                             Expanded(
                               child: Text(
-                                'No.${widget.post.no}',
+                                posterName,
                                 style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: secondaryText,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: primaryText,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
+                            if (widget.post.country != null &&
+                                CountryFlag.fromCountryCode(
+                                      widget.post.country!,
+                                    ) !=
+                                    null)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 6),
+                                child: SizedBox(
+                                  width: 16,
+                                  height: 11,
+                                  child: CountryFlag.fromCountryCode(
+                                    widget.post.country!,
+                                  ),
+                                ),
+                              ),
                             if (widget.post.sticky == 1)
                               Container(
+                                margin: const EdgeInsets.only(left: 6),
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 8,
-                                  vertical: 3,
+                                  vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
                                   color: CupertinoColors.systemOrange
@@ -197,22 +215,56 @@ class _ListPostState extends State<ListPost> {
                               ),
                           ],
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          DateFormat('kk:mm - dd.MM.y').format(
-                            DateTime.fromMillisecondsSinceEpoch(
-                              widget.post.time! * 1000,
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? CupertinoColors.systemGrey.withValues(
+                                        alpha: 0.18,
+                                      )
+                                    : const Color(0x11000000),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                'No.${widget.post.no}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: secondaryText,
+                                ),
+                              ),
                             ),
-                          ),
-                          style: TextStyle(fontSize: 11, color: secondaryText),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                DateFormat('kk:mm - dd.MM.y').format(
+                                  DateTime.fromMillisecondsSinceEpoch(
+                                    widget.post.time! * 1000,
+                                  ),
+                                ),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: secondaryText,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-              if (headline.isNotEmpty)
+              if (headline.isNotEmpty) ...[
+                const SizedBox(height: 10),
                 Text(
                   headline,
                   style: TextStyle(
@@ -223,10 +275,11 @@ class _ListPostState extends State<ListPost> {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
+              ],
               if (widget.post.tim != null) ...[
                 const SizedBox(height: 10),
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(10),
                   child: AspectRatio(
                     aspectRatio: 16 / 9,
                     child: Stack(
