@@ -418,6 +418,19 @@ class _SavedMediaVideoPageState extends State<SavedMediaVideoPage> {
     }
   }
 
+  /// Mirrors the feed-player fix for media-kit #964: on iOS, explicitly
+  /// selecting AudioTrack.auto() before play() prevents the player from doing a
+  /// lazy AVAudioSession reconfiguration ~1 second into playback.
+  Future<void> _applyAudioMode() async {
+    try {
+      if (Platform.isIOS) {
+        await _player.setAudioTrack(AudioTrack.auto());
+      }
+    } catch (_) {
+      // Ignore transient audio track races.
+    }
+  }
+
   Future<void> _open() async {
     final generation = ++_openGeneration;
     final media = Media(Uri.file(widget.filePath).toString());
@@ -426,6 +439,7 @@ class _SavedMediaVideoPageState extends State<SavedMediaVideoPage> {
     await _player.open(media, play: false);
     if (!mounted || _openGeneration != generation) return;
     if (widget.isActive) {
+      await _applyAudioMode();
       await _player.play();
     }
   }

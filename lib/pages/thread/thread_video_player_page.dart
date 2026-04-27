@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -137,6 +138,7 @@ class _ThreadVideoPlayerPageState extends State<ThreadVideoPlayerPage> {
       if (!mounted) {
         return;
       }
+      await _applyAudioMode();
       await _player.play();
     } catch (error) {
       if (!mounted) {
@@ -162,8 +164,14 @@ class _ThreadVideoPlayerPageState extends State<ThreadVideoPlayerPage> {
     super.dispose();
   }
 
+  /// Mirrors the feed-player fix for media-kit #964: on iOS, explicitly
+  /// selecting AudioTrack.auto() before play() prevents the player from doing a
+  /// lazy AVAudioSession reconfiguration ~1 second into playback.
   Future<void> _applyAudioMode() async {
     try {
+      if (Platform.isIOS && !_isMuted) {
+        await _player.setAudioTrack(AudioTrack.auto());
+      }
       await _player.setVolume(_isMuted ? 0 : 100);
     } catch (_) {
       // Ignore transient volume races.
