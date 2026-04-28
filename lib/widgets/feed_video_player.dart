@@ -748,6 +748,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                     padding: const EdgeInsets.all(5),
                     color: Colors.black.withValues(alpha: 0.35),
                     borderRadius: BorderRadius.circular(999),
+                    onPressed: () async {
                       final player = _player;
                       if (player == null) {
                         return;
