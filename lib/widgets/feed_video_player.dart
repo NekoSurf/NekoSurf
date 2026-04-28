@@ -208,6 +208,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _isBuffering = false;
     _hasFatalError = false;
     _hasFirstFrame = false;
+    _isMuted = true;
     _position = Duration.zero;
     _duration = Duration.zero;
     _reopenAttempts = 0;
@@ -437,6 +438,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _isPlaying = false;
     _isBuffering = false;
     _hasFirstFrame = false;
+    _isMuted = true;
     _position = Duration.zero;
     _duration = Duration.zero;
     _reopenAttempts = 0;
