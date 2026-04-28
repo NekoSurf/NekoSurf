@@ -758,26 +758,27 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                     padding: const EdgeInsets.all(5),
                     color: Colors.black.withValues(alpha: 0.35),
                     borderRadius: BorderRadius.circular(999),
-                    onPressed: () async {
-                      Future<void> toggleMute() async {
-                        final player = _player;
-                        if (player == null) {
-                          return;
-                        }
-                        try {
-                          if (_isMuted) {
-                            await player.setAudioTrack(AudioTrack.auto());
-                            _isMuted = false;
-                          } else {
-                            await player.setAudioTrack(AudioTrack.no());
-                            _isMuted = true;
-                          }
-                        } catch (_) {
-                          // Ignore toggle failures.
-                        }
+                      final player = _player;
+                      if (player == null) {
+                        return;
                       }
 
-                      toggleMute();
+                      final nextMuted = !_isMuted;
+                      try {
+                        if (nextMuted) {
+                          await player.setAudioTrack(AudioTrack.no());
+                        } else {
+                          await player.setAudioTrack(AudioTrack.auto());
+                        }
+                        if (!mounted) {
+                          return;
+                        }
+                        setState(() {
+                          _isMuted = nextMuted;
+                        });
+                      } catch (_) {
+                        // Ignore toggle failures.
+                      }
                     },
                     child: Icon(
                       _isMuted ? Icons.volume_off : Icons.volume_up,
