@@ -764,7 +764,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                         if (player == null) {
                           return;
                         }
-                        print(player.state.audioParams.channelCount);
                         try {
                           if (_isMuted) {
                             await player.setAudioTrack(AudioTrack.auto());
