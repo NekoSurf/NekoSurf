@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
 Future<String> resolveCachedVideoSource(String source) async {
@@ -11,6 +9,12 @@ Future<String> resolveCachedVideoSource(String source) async {
     return source;
   }
 
-  final File cachedFile = await DefaultCacheManager().getSingleFile(source);
-  return Uri.file(cachedFile.path).toString();
+  final cacheManager = DefaultCacheManager();
+  final cached = await cacheManager.getFileFromCache(source);
+  if (cached != null) {
+    return Uri.file(cached.file.path).toString();
+  }
+
+  // Do not block playback on a full download.
+  return source;
 }

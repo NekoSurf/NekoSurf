@@ -78,6 +78,8 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   DateTime _lastPositionUiUpdate = DateTime.fromMillisecondsSinceEpoch(0);
   int _stallRecoveries = 0;
   String? _resolvedVideoSource;
+  Future<String>? _resolvedSourceFuture;
+  String? _resolvedSourceFutureUrl;
 
   // ---------------------------------------------------------------------------
   // Stream subscriptions
@@ -250,6 +252,8 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _lastProgressAt = DateTime.fromMillisecondsSinceEpoch(0);
     _lastPositionUiUpdate = DateTime.fromMillisecondsSinceEpoch(0);
     _resolvedVideoSource = null;
+    _resolvedSourceFuture = null;
+    _resolvedSourceFutureUrl = null;
 
     if (!mounted) return;
 
@@ -271,7 +275,14 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     final snapshotKey = widget.playerKey;
     final snapshotUrl = widget.videoUrl;
 
-    final resolvedSource = await resolveCachedVideoSource(snapshotUrl);
+    String resolvedSource;
+    try {
+      resolvedSource = await _resolveSourceFor(snapshotUrl);
+    } catch (_) {
+      _isInitializing = false;
+      _schedulePlayRetry();
+      return;
+    }
     if (!mounted) {
       _isInitializing = false;
       return;
@@ -366,6 +377,36 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     setState(() {
       _isInitialized = true;
     });
+  }
+
+  void _primeResolvedSource() {
+    final url = widget.videoUrl;
+    if (_resolvedSourceFuture != null && _resolvedSourceFutureUrl == url) {
+      return;
+    }
+
+    _resolvedSourceFutureUrl = url;
+    _resolvedSourceFuture = _resolveAndCacheSource(url);
+  }
+
+  Future<String> _resolveSourceFor(String url) {
+    if (_resolvedSourceFuture != null && _resolvedSourceFutureUrl == url) {
+      return _resolvedSourceFuture!;
+    }
+
+    _resolvedSourceFutureUrl = url;
+    _resolvedSourceFuture = _resolveAndCacheSource(url);
+    return _resolvedSourceFuture!;
+  }
+
+  Future<String> _resolveAndCacheSource(String url) async {
+    try {
+      return await resolveCachedVideoSource(url);
+    } catch (_) {
+      _resolvedSourceFuture = null;
+      _resolvedSourceFutureUrl = null;
+      rethrow;
+    }
   }
 
   Future<void> _playIfNeeded() async {
@@ -618,11 +659,27 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
         final fraction = info.visibleFraction;
         final playThreshold = widget.playWhenVisibleFraction;
+        final prewarmThreshold = playThreshold > 0 ? playThreshold * 0.5 : 0.01;
         // Pause only when truly off-screen (fraction == 0) unless the caller
         // explicitly set a non-zero pause threshold.
         final pauseThreshold = widget.pauseWhenVisibleFraction > 0
             ? widget.pauseWhenVisibleFraction
             : 0.0;
+
+        // Start resolving slightly before playback so open() has less work
+        // left once the item crosses the play threshold.
+        if (fraction >= 0.01) {
+          _primeResolvedSource();
+        }
+
+        // Start acquiring/opening slightly before the play threshold so
+        // playback can begin faster once the item is sufficiently visible.
+        if (fraction >= prewarmThreshold &&
+            !_isInitialized &&
+            !_isInitializing) {
+          _primeResolvedSource();
+          _ensureInitialized();
+        }
 
         if (fraction >= playThreshold && !_isVisibleEnough) {
           // Widget has entered view — start playback.
