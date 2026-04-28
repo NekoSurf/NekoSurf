@@ -44,8 +44,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   StreamSubscription<bool>? _playingSub;
   StreamSubscription<Duration>? _positionSub;
   StreamSubscription<Duration>? _durationSub;
-  StreamSubscription<int?>? _widthSub;
-  StreamSubscription<int?>? _heightSub;
   StreamSubscription<bool>? _bufferingSub;
   StreamSubscription<String>? _errorSub;
 
@@ -58,8 +56,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   bool _hasFirstFrame = false;
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
-  int _videoWidth = 0;
-  int _videoHeight = 0;
   int _reopenAttempts = 0;
 
   Timer? _playRetryTimer;
@@ -89,15 +85,11 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _playingSub?.cancel();
     _positionSub?.cancel();
     _durationSub?.cancel();
-    _widthSub?.cancel();
-    _heightSub?.cancel();
     _bufferingSub?.cancel();
     _errorSub?.cancel();
     _playingSub = null;
     _positionSub = null;
     _durationSub = null;
-    _widthSub = null;
-    _heightSub = null;
     _bufferingSub = null;
     _errorSub = null;
   }
@@ -110,7 +102,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       setState(() {
         _isPlaying = playing;
         if (playing) {
-          _hasFirstFrame = true;
           _reopenAttempts = 0;
         }
       });
@@ -148,26 +139,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
           _lastPositionUiUpdate = now;
           setState(() {});
         }
-      }
-    });
-
-    _widthSub = player.stream.width.listen((value) {
-      _videoWidth = value ?? 0;
-      if (mounted && !_hasFirstFrame && _videoWidth > 0 && _videoHeight > 0) {
-        setState(() {
-          _hasFirstFrame = true;
-          _reopenAttempts = 0;
-        });
-      }
-    });
-
-    _heightSub = player.stream.height.listen((value) {
-      _videoHeight = value ?? 0;
-      if (mounted && !_hasFirstFrame && _videoWidth > 0 && _videoHeight > 0) {
-        setState(() {
-          _hasFirstFrame = true;
-          _reopenAttempts = 0;
-        });
       }
     });
 
@@ -243,8 +214,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _hasFirstFrame = false;
     _position = Duration.zero;
     _duration = Duration.zero;
-    _videoWidth = 0;
-    _videoHeight = 0;
     _reopenAttempts = 0;
     _stallRecoveries = 0;
     _playRetryAttempts = 0;
@@ -321,6 +290,16 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     }
 
     final player = slot.player;
+    // A reused player can retain a stale last frame from previous media.
+    // Hide the video surface until fresh frame progress is observed.
+    final hadFirstFrame = _hasFirstFrame;
+    _hasFirstFrame = false;
+    _isPlaying = false;
+    _position = Duration.zero;
+    if (hadFirstFrame && mounted) {
+      setState(() {});
+    }
+
     _player = player;
     _videoController = slot.controller;
     _acquiredPlayerKey = snapshotKey;
@@ -466,8 +445,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _hasFirstFrame = false;
     _position = Duration.zero;
     _duration = Duration.zero;
-    _videoWidth = 0;
-    _videoHeight = 0;
     _reopenAttempts = 0;
     _stallRecoveries = 0;
     _playRetryAttempts = 0;
@@ -545,8 +522,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _isPlaying = false;
     _hasFirstFrame = false;
     _position = Duration.zero;
-    _videoWidth = 0;
-    _videoHeight = 0;
 
     try {
       final resolvedSource =
