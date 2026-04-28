@@ -334,8 +334,8 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       FeedPlayerPool.instance.markMediaLoaded(snapshotKey, resolvedSource);
     }
 
-    // Disable audio entirely for inline feed videos — no AudioTrack switching
-    // ever occurs, which prevents AVAudioSession churn (media-kit #964).
+    // Start inline feed videos with audio disabled to reduce AVAudioSession
+    // churn during initialization/open on iOS (media-kit #964).
     try {
       await player.setAudioTrack(AudioTrack.no());
     } catch (_) {}
