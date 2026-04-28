@@ -59,8 +59,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   int _reopenAttempts = 0;
 
   Timer? _playRetryTimer;
-  Timer? _playDebounceTimer;
-  Timer? _releaseDebounceTimer;
   Timer? _recoveryTimer;
   Timer? _pauseDebounceTimer;
   Timer? _stallWatchdogTimer;
@@ -190,8 +188,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
   Future<void> _resetForNewSource({String? oldKey}) async {
     _cancelPlayRetry();
-    _playDebounceTimer?.cancel();
-    _releaseDebounceTimer?.cancel();
     _recoveryTimer?.cancel();
     _pauseDebounceTimer?.cancel();
     _stallWatchdogTimer?.cancel();
@@ -425,8 +421,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   /// scrolled off-screen.  Called from the pause-debounce timer.
   void _releasePoolSlot() {
     _cancelPlayRetry();
-    _playDebounceTimer?.cancel();
-    _releaseDebounceTimer?.cancel();
     _recoveryTimer?.cancel();
     _stallWatchdogTimer?.cancel();
     _cancelSubscriptions();
@@ -604,8 +598,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   @override
   void dispose() {
     _cancelPlayRetry();
-    _playDebounceTimer?.cancel();
-    _releaseDebounceTimer?.cancel();
     _pauseDebounceTimer?.cancel();
     _recoveryTimer?.cancel();
     _stallWatchdogTimer?.cancel();
@@ -661,15 +653,11 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
           _isVisibleEnough = true;
           _playRetryAttempts = 0; // fresh entry always gets full retry budget
           _pauseDebounceTimer?.cancel();
-          _releaseDebounceTimer?.cancel();
-          _playDebounceTimer?.cancel();
           _startPlaybackPipeline();
         } else if (fraction <= pauseThreshold && _isVisibleEnough) {
           // Widget has left view — pause then release.
           _isVisibleEnough = false;
-          _playDebounceTimer?.cancel();
           _pauseDebounceTimer?.cancel();
-          _releaseDebounceTimer?.cancel();
           _pauseDebounceTimer = Timer(const Duration(milliseconds: 300), () {
             if (!mounted || _isVisibleEnough) return;
             _pause().then((_) {
