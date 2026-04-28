@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -74,18 +73,10 @@ class FeedPlayerPool {
   ///   interrupting the other already-playing pool players (media-kit #964).
   /// * Returns `null` when the pool is exhausted (all slots actively in use by
   ///   different widgets — very rare when pool size ≥ number of visible posts).
-  Future<_PoolSlot?> acquire(
-    String key,
-    String resolvedUrl, {
-    bool blockIfOtherActive = false,
-  }) async {
+  Future<_PoolSlot?> acquire(String key, String resolvedUrl) async {
     return _withAcquireLock(() async {
       _ensureInitialized();
       if (_disposed) return null;
-
-      if (blockIfOtherActive && hasActiveSlotOwnedByOther(key)) {
-        return null;
-      }
 
       // Fast path: this key already owns a slot.
       for (final slot in _slots) {
@@ -185,20 +176,6 @@ class FeedPlayerPool {
         return;
       }
     }
-  }
-
-  /// Returns true when a different key currently owns an active slot.
-  ///
-  /// On iOS this is used to avoid opening a new media source while another
-  /// feed video is active, mitigating global playback hiccups caused by
-  /// AVAudioSession churn in media-kit issue #964.
-  bool hasActiveSlotOwnedByOther(String key) {
-    for (final slot in _slots) {
-      if (slot.isActive && slot.ownerKey != null && slot.ownerKey != key) {
-        return true;
-      }
-    }
-    return false;
   }
 
   /// Pauses all pool players (e.g. when the fullscreen player opens).

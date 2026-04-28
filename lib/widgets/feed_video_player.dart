@@ -309,7 +309,8 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       return;
     }
 
-    _player = slot.player;
+    final player = slot.player;
+    _player = player;
     _videoController = slot.controller;
     _acquiredPlayerKey = snapshotKey;
     _resolvedVideoSource = resolvedSource;
@@ -320,7 +321,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     // interrupting the other already-playing pool players (media-kit #964).
     if (!FeedPlayerPool.instance.isMediaLoaded(snapshotKey, resolvedSource)) {
       try {
-        await _player!.open(Media(resolvedSource), play: false);
+        await player.open(Media(resolvedSource), play: false);
       } catch (_) {
         // Open failed; release the slot so the retry machinery can recover.
         FeedPlayerPool.instance.release(snapshotKey);
@@ -333,6 +334,8 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
         return;
       }
       if (!mounted ||
+          _player != player ||
+          _acquiredPlayerKey != snapshotKey ||
           widget.playerKey != snapshotKey ||
           widget.videoUrl != snapshotUrl) {
         _isInitializing = false;
@@ -344,12 +347,17 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     // Disable audio entirely for inline feed videos — no AudioTrack switching
     // ever occurs, which prevents AVAudioSession churn (media-kit #964).
     try {
-      await _player!.setAudioTrack(AudioTrack.no());
+      await player.setAudioTrack(AudioTrack.no());
     } catch (_) {}
 
-    _attachSubscriptions(slot.player);
+    if (!mounted || _player != player || _acquiredPlayerKey != snapshotKey) {
+      _isInitializing = false;
+      return;
+    }
 
-    if (!mounted || _player != slot.player) {
+    _attachSubscriptions(player);
+
+    if (!mounted || _player != player) {
       _isInitializing = false;
       return;
     }
