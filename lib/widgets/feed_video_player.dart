@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -19,7 +18,6 @@ class FeedVideoPlayer extends StatefulWidget {
     required this.aspectRatio,
     this.playWhenVisibleFraction = 0.05,
     this.pauseWhenVisibleFraction = 0.0,
-    this.showMuteButton = true,
     this.positionNotifier,
   }) : super(key: key);
 
@@ -29,7 +27,6 @@ class FeedVideoPlayer extends StatefulWidget {
   final double aspectRatio;
   final double playWhenVisibleFraction;
   final double pauseWhenVisibleFraction;
-  final bool showMuteButton;
   final ValueNotifier<Duration>? positionNotifier;
 
   @override
@@ -55,7 +52,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   bool _isVisibleEnough = false;
   bool _hasRenderableSize = false;
   bool _isInitialized = false;
-  bool _isMuted = true;
   bool _isPlaying = false;
   bool _isBuffering = false;
   bool _hasFatalError = false;
@@ -67,38 +63,21 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   int _reopenAttempts = 0;
 
   Timer? _playRetryTimer;
+  Timer? _playDebounceTimer;
+  Timer? _releaseDebounceTimer;
   Timer? _recoveryTimer;
   Timer? _pauseDebounceTimer;
   Timer? _stallWatchdogTimer;
-  Timer? _visibilityRecheckTimer;
+  bool _isInitializing = false;
   int _playRetryAttempts = 0;
-  int _visibilityRecheckAttempts = 0;
+
+  bool _isMuted = true;
 
   Duration _lastObservedPosition = Duration.zero;
   DateTime _lastProgressAt = DateTime.fromMillisecondsSinceEpoch(0);
   DateTime _lastPositionUiUpdate = DateTime.fromMillisecondsSinceEpoch(0);
   int _stallRecoveries = 0;
   String? _resolvedVideoSource;
-
-  // ---------------------------------------------------------------------------
-  // Audio mode
-  // ---------------------------------------------------------------------------
-
-  /// Fixes media-kit issue #964: on iOS, calling AudioTrack.no() triggers an
-  /// AVAudioSession re-configuration inside libmpv which momentarily halts
-  /// decoding even after play() has been called.  Muting is therefore done
-  /// purely via setVolume(0); AudioTrack.auto() is only applied when the user
-  /// explicitly unmutes.
-  Future<void> _applyAudioMode(Player player) async {
-    try {
-      if (Platform.isIOS && !_isMuted) {
-        await player.setAudioTrack(AudioTrack.auto());
-      }
-      await player.setVolume(_isMuted ? 0 : 100);
-    } catch (_) {
-      // Ignore transient track/volume races.
-    }
-  }
 
   // ---------------------------------------------------------------------------
   // Stream subscriptions
@@ -238,11 +217,13 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
   Future<void> _resetForNewSource({String? oldKey}) async {
     _cancelPlayRetry();
+    _playDebounceTimer?.cancel();
+    _releaseDebounceTimer?.cancel();
     _recoveryTimer?.cancel();
     _pauseDebounceTimer?.cancel();
     _stallWatchdogTimer?.cancel();
-    _visibilityRecheckTimer?.cancel();
     _cancelSubscriptions();
+    _isInitializing = false;
 
     // Release the old pool slot using whichever key actually acquired it.
     final keyToRelease = oldKey ?? _acquiredPlayerKey;
@@ -268,7 +249,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _lastObservedPosition = Duration.zero;
     _lastProgressAt = DateTime.fromMillisecondsSinceEpoch(0);
     _lastPositionUiUpdate = DateTime.fromMillisecondsSinceEpoch(0);
-    _visibilityRecheckAttempts = 0;
     _resolvedVideoSource = null;
 
     if (!mounted) return;
@@ -282,7 +262,9 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   }
 
   Future<void> _ensureInitialized() async {
-    if (_isInitialized || _player != null) return;
+    // Guard against concurrent initializations.
+    if (_isInitialized || _player != null || _isInitializing) return;
+    _isInitializing = true;
 
     // Snapshot key + URL so we can detect a source change that happens while
     // the two awaits below are in flight.
@@ -290,10 +272,14 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     final snapshotUrl = widget.videoUrl;
 
     final resolvedSource = await resolveCachedVideoSource(snapshotUrl);
-    if (!mounted) return;
+    if (!mounted) {
+      _isInitializing = false;
+      return;
+    }
 
     // Bail if the widget's source changed while we were resolving.
     if (widget.playerKey != snapshotKey || widget.videoUrl != snapshotUrl) {
+      _isInitializing = false;
       return;
     }
 
@@ -305,17 +291,20 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     if (!mounted) {
       // Widget disposed while waiting for pool; release any claim we made.
       FeedPlayerPool.instance.release(snapshotKey);
+      _isInitializing = false;
       return;
     }
 
     // Bail again if the source changed during pool.acquire().
     if (widget.playerKey != snapshotKey || widget.videoUrl != snapshotUrl) {
       FeedPlayerPool.instance.release(snapshotKey);
+      _isInitializing = false;
       return;
     }
 
     if (slot == null) {
       // Pool exhausted; retry — slots are typically freed within milliseconds.
+      _isInitializing = false;
       _schedulePlayRetry();
       return;
     }
@@ -339,21 +328,33 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
         _player = null;
         _videoController = null;
         _resolvedVideoSource = null;
+        _isInitializing = false;
         _schedulePlayRetry();
         return;
       }
       if (!mounted ||
           widget.playerKey != snapshotKey ||
           widget.videoUrl != snapshotUrl) {
+        _isInitializing = false;
         return;
       }
       FeedPlayerPool.instance.markMediaLoaded(snapshotKey, resolvedSource);
     }
 
+    // Disable audio entirely for inline feed videos — no AudioTrack switching
+    // ever occurs, which prevents AVAudioSession churn (media-kit #964).
+    try {
+      await _player!.setAudioTrack(AudioTrack.no());
+    } catch (_) {}
+
     _attachSubscriptions(slot.player);
 
-    if (!mounted || _player != slot.player) return;
+    if (!mounted || _player != slot.player) {
+      _isInitializing = false;
+      return;
+    }
 
+    _isInitializing = false;
     setState(() {
       _isInitialized = true;
     });
@@ -370,10 +371,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     }
 
     try {
-      // _applyAudioMode is called exactly once, immediately before play().
-      // The 90 ms delayed re-call that existed previously was itself the
-      // stutter trigger on iOS (media-kit #964).
-      await _applyAudioMode(player);
       await player.play();
       _startStallWatchdog();
       _cancelPlayRetry();
@@ -400,9 +397,12 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   /// scrolled off-screen.  Called from the pause-debounce timer.
   void _releasePoolSlot() {
     _cancelPlayRetry();
+    _playDebounceTimer?.cancel();
+    _releaseDebounceTimer?.cancel();
     _recoveryTimer?.cancel();
     _stallWatchdogTimer?.cancel();
     _cancelSubscriptions();
+    _isInitializing = false;
 
     if (_acquiredPlayerKey != null) {
       FeedPlayerPool.instance.release(_acquiredPlayerKey!);
@@ -434,36 +434,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _ensureInitialized().then((_) {
       _playIfNeeded();
       _scheduleRecoveryCheck();
-    });
-  }
-
-  void _scheduleVisibilityRecheck() {
-    _visibilityRecheckTimer?.cancel();
-
-    if (!mounted || !_isVisibleEnough || _visibilityRecheckAttempts >= 8) {
-      return;
-    }
-
-    _visibilityRecheckAttempts += 1;
-    _visibilityRecheckTimer = Timer(const Duration(milliseconds: 50), () {
-      if (!mounted || !_isVisibleEnough) {
-        return;
-      }
-
-      final renderObject = context.findRenderObject();
-      final hasStableSize =
-          renderObject is RenderBox &&
-          renderObject.hasSize &&
-          renderObject.size.width > 1 &&
-          renderObject.size.height > 1;
-
-      if (hasStableSize) {
-        _hasRenderableSize = true;
-        _visibilityRecheckAttempts = 0;
-        _startPlaybackPipeline();
-      } else {
-        _scheduleVisibilityRecheck();
-      }
     });
   }
 
@@ -554,15 +524,14 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   void _schedulePlayRetry() {
     _playRetryTimer?.cancel();
 
-    if (!mounted || !_isVisibleEnough || _playRetryAttempts >= 18) {
+    if (!mounted || !_isVisibleEnough || _playRetryAttempts >= 30) {
       return;
     }
 
     _playRetryAttempts += 1;
-    // Use 200 ms to give pool slots time to be freed after fast-scroll.
-    _playRetryTimer = Timer(const Duration(milliseconds: 200), () {
+    _playRetryTimer = Timer(const Duration(milliseconds: 150), () {
+      if (!mounted || !_isVisibleEnough) return;
       if (_player == null) {
-        // Pool was exhausted; retry the full acquire.
         _startPlaybackPipeline();
       } else {
         _playIfNeeded();
@@ -608,25 +577,12 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     });
   }
 
-  Future<void> _toggleMuted() async {
-    final player = _player;
-
-    setState(() {
-      _isMuted = !_isMuted;
-    });
-
-    if (player == null) {
-      return;
-    }
-
-    await _applyAudioMode(player);
-  }
-
   @override
   void dispose() {
     _cancelPlayRetry();
+    _playDebounceTimer?.cancel();
+    _releaseDebounceTimer?.cancel();
     _pauseDebounceTimer?.cancel();
-    _visibilityRecheckTimer?.cancel();
     _recoveryTimer?.cancel();
     _stallWatchdogTimer?.cancel();
     _cancelSubscriptions();
@@ -647,49 +603,43 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     return VisibilityDetector(
       key: ValueKey('feed-video-${widget.playerKey}'),
       onVisibilityChanged: (info) {
+        // Ignore 0x0 callbacks that arrive during layout churn.
         final hasSize = info.size.width > 1 && info.size.height > 1;
-        _hasRenderableSize = hasSize;
+        if (!hasSize) return;
+        _hasRenderableSize = true;
 
-        if (!hasSize) {
-          // During fast scroll/layout churn, some callbacks report 0x0 briefly.
-          // Ignore those to avoid pausing all currently visible videos.
-          return;
-        }
+        final fraction = info.visibleFraction;
+        final playThreshold = widget.playWhenVisibleFraction;
+        // Pause only when truly off-screen (fraction == 0) unless the caller
+        // explicitly set a non-zero pause threshold.
+        final pauseThreshold = widget.pauseWhenVisibleFraction > 0
+            ? widget.pauseWhenVisibleFraction
+            : 0.0;
 
-        final visible = info.visibleFraction >= widget.playWhenVisibleFraction;
-        final hiddenThreshold = widget.pauseWhenVisibleFraction <= 0
-            ? 0.0001
-            : widget.pauseWhenVisibleFraction;
-        final hidden = info.visibleFraction <= hiddenThreshold;
-
-        if (hidden && _isVisibleEnough) {
-          _isVisibleEnough = false;
-          _visibilityRecheckAttempts = 0;
-          _visibilityRecheckTimer?.cancel();
+        if (fraction >= playThreshold && !_isVisibleEnough) {
+          // Widget has entered view — start playback.
+          _isVisibleEnough = true;
+          _playRetryAttempts = 0; // fresh entry always gets full retry budget
           _pauseDebounceTimer?.cancel();
-          _pauseDebounceTimer = Timer(const Duration(milliseconds: 420), () {
+          _releaseDebounceTimer?.cancel();
+          _playDebounceTimer?.cancel();
+          _playDebounceTimer = Timer(const Duration(milliseconds: 80), () {
+            if (!mounted || !_isVisibleEnough) return;
+            _startPlaybackPipeline();
+          });
+        } else if (fraction <= pauseThreshold && _isVisibleEnough) {
+          // Widget has left view — pause then release.
+          _isVisibleEnough = false;
+          _playDebounceTimer?.cancel();
+          _pauseDebounceTimer?.cancel();
+          _releaseDebounceTimer?.cancel();
+          _pauseDebounceTimer = Timer(const Duration(milliseconds: 300), () {
             if (!mounted || _isVisibleEnough) return;
             _pause().then((_) {
               if (!mounted || _isVisibleEnough) return;
               _releasePoolSlot();
             });
           });
-          return;
-        }
-
-        if (visible && _hasRenderableSize) {
-          _pauseDebounceTimer?.cancel();
-          _isVisibleEnough = true;
-          _visibilityRecheckAttempts = 0;
-          _visibilityRecheckTimer?.cancel();
-          _startPlaybackPipeline();
-          return;
-        }
-
-        if (visible) {
-          _pauseDebounceTimer?.cancel();
-          _isVisibleEnough = true;
-          _scheduleVisibilityRecheck();
         }
       },
       child: AspectRatio(
@@ -724,25 +674,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                           ),
                   ),
                 ),
-              if (widget.showMuteButton && _videoController != null)
-                Positioned(
-                  top: 10,
-                  left: 10,
-                  child: CupertinoButton(
-                    minimumSize: const Size(30, 30),
-                    padding: const EdgeInsets.all(6),
-                    color: Colors.black.withValues(alpha: 0.35),
-                    borderRadius: BorderRadius.circular(999),
-                    onPressed: _toggleMuted,
-                    child: Icon(
-                      _isMuted
-                          ? CupertinoIcons.speaker_slash_fill
-                          : CupertinoIcons.speaker_2_fill,
-                      color: Colors.white,
-                      size: 15,
-                    ),
-                  ),
-                ),
+              // mute button removed — feed videos always use AudioTrack.no()
               if (_videoController != null)
                 Positioned(
                   bottom: 8,
@@ -771,6 +703,44 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                     ),
                   ),
                 ),
+              if (_videoController != null)
+                Positioned(
+                  bottom: 8,
+                  left: 8,
+                  child: CupertinoButton(
+                    minimumSize: const Size(28, 28),
+                    padding: const EdgeInsets.all(5),
+                    color: Colors.black.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(999),
+                    onPressed: () async {
+                      Future<void> toggleMute() async {
+                        final player = _player;
+                        if (player == null) {
+                          return;
+                        }
+                        print(player.state.audioParams.channelCount);
+                        try {
+                          if (_isMuted) {
+                            await player.setAudioTrack(AudioTrack.auto());
+                            _isMuted = false;
+                          } else {
+                            await player.setAudioTrack(AudioTrack.no());
+                            _isMuted = true;
+                          }
+                        } catch (_) {
+                          // Ignore toggle failures.
+                        }
+                      }
+
+                      toggleMute();
+                    },
+                    child: Icon(
+                      _isMuted ? Icons.volume_off : Icons.volume_up,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                ),
               if (_isPlaying && _hasFirstFrame && _duration > Duration.zero)
                 Positioned(
                   left: 0,
@@ -778,9 +748,8 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                   bottom: 0,
                   child: LinearProgressIndicator(
                     value: _duration.inMicroseconds > 0
-                        ? (_position.inMicroseconds /
-                                _duration.inMicroseconds)
-                            .clamp(0.0, 1.0)
+                        ? (_position.inMicroseconds / _duration.inMicroseconds)
+                              .clamp(0.0, 1.0)
                         : 0.0,
                     backgroundColor: Colors.white.withValues(alpha: 0.25),
                     valueColor: const AlwaysStoppedAnimation<Color>(

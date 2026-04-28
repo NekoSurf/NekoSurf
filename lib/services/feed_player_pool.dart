@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:media_kit/media_kit.dart';
@@ -28,11 +29,25 @@ class FeedPlayerPool {
 
   static final FeedPlayerPool instance = FeedPlayerPool._();
 
-  static int get _poolSize => Platform.isIOS ? 3 : 4;
+  static int get _poolSize => 4;
 
   final List<_PoolSlot> _slots = [];
   bool _initialized = false;
   bool _disposed = false;
+  Future<void> _acquireLock = Future<void>.value();
+
+  Future<T> _withAcquireLock<T>(Future<T> Function() action) async {
+    final previous = _acquireLock;
+    final completer = Completer<void>();
+    _acquireLock = completer.future;
+
+    await previous;
+    try {
+      return await action();
+    } finally {
+      completer.complete();
+    }
+  }
 
   void _ensureInitialized() {
     if (_initialized || _disposed) return;
@@ -42,7 +57,9 @@ class FeedPlayerPool {
       // PlaylistMode is a player-level property that persists across open()
       // calls, so setting it once here is sufficient.
       player.setPlaylistMode(PlaylistMode.loop);
-      _slots.add(_PoolSlot(player: player, controller: VideoController(player)));
+      _slots.add(
+        _PoolSlot(player: player, controller: VideoController(player)),
+      );
     }
   }
 
@@ -57,68 +74,78 @@ class FeedPlayerPool {
   ///   interrupting the other already-playing pool players (media-kit #964).
   /// * Returns `null` when the pool is exhausted (all slots actively in use by
   ///   different widgets — very rare when pool size ≥ number of visible posts).
-  Future<_PoolSlot?> acquire(String key, String resolvedUrl) async {
-    _ensureInitialized();
-    if (_disposed) return null;
+  Future<_PoolSlot?> acquire(
+    String key,
+    String resolvedUrl, {
+    bool blockIfOtherActive = false,
+  }) async {
+    return _withAcquireLock(() async {
+      _ensureInitialized();
+      if (_disposed) return null;
 
-    // Fast path: this key already owns a slot.
-    for (final slot in _slots) {
-      if (slot.ownerKey == key) {
-        slot.isActive = true;
-        slot.lastUsedAt = DateTime.now();
-        if (slot.loadedUrl != resolvedUrl) {
-          // URL changed; pause the player so the caller can safely open the
-          // new source.  We don't call open() here — that is the caller's job.
-          try {
-            await slot.player.pause();
-            slot.loadedUrl = null;
-          } catch (_) {
-            // Ignore pause races.
+      if (blockIfOtherActive && hasActiveSlotOwnedByOther(key)) {
+        return null;
+      }
+
+      // Fast path: this key already owns a slot.
+      for (final slot in _slots) {
+        if (slot.ownerKey == key) {
+          slot.isActive = true;
+          slot.lastUsedAt = DateTime.now();
+          if (slot.loadedUrl != resolvedUrl) {
+            // URL changed; pause the player so the caller can safely open the
+            // new source.  We don't call open() here — that is the caller's job.
+            try {
+              await slot.player.pause();
+              slot.loadedUrl = null;
+            } catch (_) {
+              // Ignore pause races.
+            }
+          }
+          return slot;
+        }
+      }
+
+      // Find the least-recently-used inactive slot that is not being acquired.
+      _PoolSlot? candidate;
+      for (final slot in _slots) {
+        if (!slot.isActive && !slot.isPendingAcquire) {
+          if (candidate == null ||
+              slot.lastUsedAt.isBefore(candidate.lastUsedAt)) {
+            candidate = slot;
           }
         }
-        return slot;
       }
-    }
 
-    // Find the least-recently-used inactive slot that is not being acquired.
-    _PoolSlot? candidate;
-    for (final slot in _slots) {
-      if (!slot.isActive && !slot.isPendingAcquire) {
-        if (candidate == null ||
-            slot.lastUsedAt.isBefore(candidate.lastUsedAt)) {
-          candidate = slot;
-        }
+      if (candidate == null) return null; // pool exhausted
+
+      // Reserve the slot immediately to prevent a concurrent acquire from
+      // choosing the same one.
+      candidate.ownerKey = key;
+      candidate.isPendingAcquire = true;
+      candidate.lastUsedAt = DateTime.now();
+
+      try {
+        // Pause the previous video but do NOT call open() here.  Opening media
+        // inside acquire() was the original design but it triggers an iOS
+        // AVAudioSession reconfiguration even with play:false, which briefly
+        // interrupts all other active pool players.  The caller opens the media
+        // on the returned slot right before play(), outside this critical section.
+        await candidate.player.pause();
+        candidate.loadedUrl = null;
+        candidate.isActive = true;
+      } catch (_) {
+        // Revert reservation so the slot becomes eligible again.
+        candidate.ownerKey = null;
+        candidate.loadedUrl = null;
+        candidate.isActive = false;
+        candidate.isPendingAcquire = false;
+        return null;
       }
-    }
 
-    if (candidate == null) return null; // pool exhausted
-
-    // Reserve the slot immediately to prevent a concurrent acquire from
-    // choosing the same one.
-    candidate.ownerKey = key;
-    candidate.isPendingAcquire = true;
-    candidate.lastUsedAt = DateTime.now();
-
-    try {
-      // Pause the previous video but do NOT call open() here.  Opening media
-      // inside acquire() was the original design but it triggers an iOS
-      // AVAudioSession reconfiguration even with play:false, which briefly
-      // interrupts all other active pool players.  The caller opens the media
-      // on the returned slot right before play(), outside this critical section.
-      await candidate.player.pause();
-      candidate.loadedUrl = null;
-      candidate.isActive = true;
-    } catch (_) {
-      // Revert reservation so the slot becomes eligible again.
-      candidate.ownerKey = null;
-      candidate.loadedUrl = null;
-      candidate.isActive = false;
       candidate.isPendingAcquire = false;
-      return null;
-    }
-
-    candidate.isPendingAcquire = false;
-    return candidate;
+      return candidate;
+    });
   }
 
   /// Returns whether the slot for [key] currently has [url] opened on its
@@ -158,6 +185,20 @@ class FeedPlayerPool {
         return;
       }
     }
+  }
+
+  /// Returns true when a different key currently owns an active slot.
+  ///
+  /// On iOS this is used to avoid opening a new media source while another
+  /// feed video is active, mitigating global playback hiccups caused by
+  /// AVAudioSession churn in media-kit issue #964.
+  bool hasActiveSlotOwnedByOther(String key) {
+    for (final slot in _slots) {
+      if (slot.isActive && slot.ownerKey != null && slot.ownerKey != key) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /// Pauses all pool players (e.g. when the fullscreen player opens).
