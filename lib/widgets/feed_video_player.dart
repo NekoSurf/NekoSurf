@@ -96,7 +96,9 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _cancelSubscriptions();
 
     _playingSub = player.stream.playing.listen((playing) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _isPlaying = playing;
         if (playing) {
@@ -141,21 +143,27 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     });
 
     _bufferingSub = player.stream.buffering.listen((value) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _isBuffering = value;
       });
     });
 
     _durationSub = player.stream.duration.listen((value) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _duration = value;
       });
     });
 
     _errorSub = player.stream.error.listen((message) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       // These errors are usually unrecoverable for this source instance.
       if (message.contains('moov atom not found') ||
           message.contains('Invalid data found when processing input') ||
@@ -221,7 +229,9 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _resolvedSourceFuture = null;
     _resolvedSourceFutureUrl = null;
 
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
     if (_isVisibleEnough && _hasRenderableSize) {
       await _ensureInitialized();
@@ -233,7 +243,9 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
   Future<void> _ensureInitialized() async {
     // Guard against concurrent initializations.
-    if (_isInitialized || _player != null || _isInitializing) return;
+    if (_isInitialized || _player != null || _isInitializing) {
+      return;
+    }
     _isInitializing = true;
 
     // Snapshot key + URL so we can detect a source change that happens while
@@ -387,8 +399,12 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
   Future<void> _playIfNeeded() async {
     final player = _player;
-    if (!_isVisibleEnough || !mounted) return;
-    if (_hasFatalError) return;
+    if (!_isVisibleEnough || !mounted) {
+      return;
+    }
+    if (_hasFatalError) {
+      return;
+    }
 
     if (player == null || !_isInitialized) {
       _schedulePlayRetry();
@@ -407,7 +423,9 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
   Future<void> _pause() async {
     final player = _player;
-    if (player == null) return;
+    if (player == null) {
+      return;
+    }
 
     try {
       await player.pause();
@@ -449,7 +467,9 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _lastPositionUiUpdate = DateTime.fromMillisecondsSinceEpoch(0);
     _resolvedVideoSource = null;
 
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _startPlaybackPipeline() {
@@ -550,7 +570,9 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
     _playRetryAttempts += 1;
     _playRetryTimer = Timer(const Duration(milliseconds: 150), () {
-      if (!mounted || !_isVisibleEnough) return;
+      if (!mounted || !_isVisibleEnough) {
+        return;
+      }
       if (_player == null) {
         _startPlaybackPipeline();
       } else {
@@ -623,7 +645,9 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       onVisibilityChanged: (info) {
         // Ignore 0x0 callbacks that arrive during layout churn.
         final hasSize = info.size.width > 1 && info.size.height > 1;
-        if (!hasSize) return;
+        if (!hasSize) {
+          return;
+        }
         _hasRenderableSize = true;
 
         final fraction = info.visibleFraction;
@@ -661,9 +685,13 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
           _isVisibleEnough = false;
           _pauseDebounceTimer?.cancel();
           _pauseDebounceTimer = Timer(const Duration(milliseconds: 300), () {
-            if (!mounted || _isVisibleEnough) return;
+            if (!mounted || _isVisibleEnough) {
+              return;
+            }
             _pause().then((_) {
-              if (!mounted || _isVisibleEnough) return;
+              if (!mounted || _isVisibleEnough) {
+                return;
+              }
               _releasePoolSlot();
             });
           });
