@@ -626,8 +626,7 @@ class _SavedMediaVideoPageState extends State<SavedMediaVideoPage> {
           ),
           // Black overlay hides the last decoded frame of the previous video
           // while the new media is opening.  Cleared once playing=true fires.
-          if (_isTransitioning)
-            const ColoredBox(color: Colors.black),
+          if (_isTransitioning) const ColoredBox(color: Colors.black),
           if ((_isBuffering || _isTransitioning) && !_isHorizontalSeeking)
             const Center(child: CupertinoActivityIndicator(radius: 14)),
           if (_isHorizontalSeeking)
@@ -642,11 +641,7 @@ class _SavedMediaVideoPageState extends State<SavedMediaVideoPage> {
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Text(
-                  _formatDuration(
-                    _clampDuration(
-                      Duration(milliseconds: _dragSeekPreviewMs.round()),
-                    ),
-                  ),
+                  '${_formatDuration(_clampDuration(Duration(milliseconds: _dragSeekPreviewMs.round())))} / ${_formatDuration(_duration)}',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,

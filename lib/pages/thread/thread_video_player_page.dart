@@ -462,11 +462,7 @@ class _ThreadVideoPlayerPageState extends State<ThreadVideoPlayerPage> {
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Text(
-                    _formatDuration(
-                      _clampDuration(
-                        Duration(milliseconds: _dragSeekPreviewMs.round()),
-                      ),
-                    ),
+                    '${_formatDuration(_clampDuration(Duration(milliseconds: _dragSeekPreviewMs.round())))} / ${_formatDuration(_duration)}',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,

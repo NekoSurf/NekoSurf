@@ -91,8 +91,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
 
   Post get _currentPost => widget.mediaPosts[_currentIndex];
 
-  bool _isVideo(Post post) =>
-      post.ext == '.webm' || post.ext == '.mp4';
+  bool _isVideo(Post post) => post.ext == '.webm' || post.ext == '.mp4';
 
   String _mediaUrl(Post post) =>
       'https://i.4cdn.org/${widget.board}/${post.tim}${post.ext}';
@@ -284,7 +283,8 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
                         _isVideoScrubbing = isScrubbing;
                       });
                     },
-                    startPosition: _savedPositions[post.tim] ??
+                    startPosition:
+                        _savedPositions[post.tim] ??
                         (index == widget.initialIndex
                             ? widget.startPosition
                             : Duration.zero),
@@ -660,27 +660,19 @@ class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
         Video(controller: widget.controller, controls: NoVideoControls),
         // Black overlay hides the last decoded frame of the previous video while
         // the new media is opening.  Cleared once playing=true fires.
-        if (_isTransitioning)
-          const ColoredBox(color: Colors.black),
+        if (_isTransitioning) const ColoredBox(color: Colors.black),
         if ((_isBuffering || _isTransitioning) && !_isHorizontalSeeking)
           const Center(child: CupertinoActivityIndicator(radius: 14)),
         if (_isHorizontalSeeking)
           Center(
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 10,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: Colors.black.withValues(alpha: 0.58),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Text(
-                _formatDuration(
-                  _clampDuration(
-                    Duration(milliseconds: _dragSeekPreviewMs.round()),
-                  ),
-                ),
+                '${_formatDuration(_clampDuration(Duration(milliseconds: _dragSeekPreviewMs.round())))} / ${_formatDuration(_duration)}',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 16,
