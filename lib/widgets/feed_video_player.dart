@@ -698,11 +698,19 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                     controls: NoVideoControls,
                   ),
                 ),
-              if (!_isPlaying)
+              // Show spinner while loading (visible but no frame yet, or
+              // mid-playback buffer stall). Show play icon only when truly
+              // idle/paused and not in the middle of loading.
+              if (!_isPlaying || (_isPlaying && _isBuffering))
                 Container(
                   color: Colors.black.withValues(alpha: 0.08),
                   child: Center(
-                    child: _isBuffering
+                    child:
+                        (_isVisibleEnough &&
+                            !_hasFatalError &&
+                            (_isInitializing ||
+                                (_isInitialized && !_hasFirstFrame) ||
+                                _isBuffering))
                         ? const CupertinoActivityIndicator(radius: 14)
                         : const Icon(
                             CupertinoIcons.play_circle_fill,
