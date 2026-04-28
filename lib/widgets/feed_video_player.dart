@@ -623,10 +623,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
           _pauseDebounceTimer?.cancel();
           _releaseDebounceTimer?.cancel();
           _playDebounceTimer?.cancel();
-          _playDebounceTimer = Timer(const Duration(milliseconds: 80), () {
-            if (!mounted || !_isVisibleEnough) return;
-            _startPlaybackPipeline();
-          });
+          _startPlaybackPipeline();
         } else if (fraction <= pauseThreshold && _isVisibleEnough) {
           // Widget has left view — pause then release.
           _isVisibleEnough = false;
@@ -674,7 +671,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                           ),
                   ),
                 ),
-              // mute button removed — feed videos always use AudioTrack.no()
               if (_videoController != null)
                 Positioned(
                   bottom: 8,
@@ -686,7 +682,9 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                     borderRadius: BorderRadius.circular(999),
                     onPressed: () async {
                       await FeedPlayerPool.instance.pauseAll();
-                      if (!context.mounted) return;
+                      if (!context.mounted) {
+                        return;
+                      }
                       Navigator.of(context).push(
                         CupertinoPageRoute<void>(
                           builder: (_) => ThreadVideoPlayerPage(
