@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_chan/pages/thread/thread_video_player_page.dart';
 import 'package:flutter_chan/services/cached_video.dart';
 import 'package:flutter_chan/services/feed_player_pool.dart';
 import 'package:media_kit/media_kit.dart';
@@ -735,36 +734,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                             size: 46,
                             color: Colors.white,
                           ),
-                  ),
-                ),
-              if (_videoController != null)
-                Positioned(
-                  bottom: 8,
-                  right: 8,
-                  child: CupertinoButton(
-                    minimumSize: const Size(28, 28),
-                    padding: const EdgeInsets.all(5),
-                    color: Colors.black.withValues(alpha: 0.35),
-                    borderRadius: BorderRadius.circular(999),
-                    onPressed: () async {
-                      await FeedPlayerPool.instance.pauseAll();
-                      if (!context.mounted) {
-                        return;
-                      }
-                      Navigator.of(context).push(
-                        CupertinoPageRoute<void>(
-                          builder: (_) => ThreadVideoPlayerPage(
-                            videoUrl: widget.videoUrl,
-                            startPosition: _position,
-                          ),
-                        ),
-                      );
-                    },
-                    child: const Icon(
-                      Icons.fullscreen,
-                      color: Colors.white,
-                      size: 16,
-                    ),
                   ),
                 ),
               if (_videoController != null)
