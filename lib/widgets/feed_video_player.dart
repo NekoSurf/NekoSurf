@@ -1,9 +1,7 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_chan/pages/thread/thread_video_player_page.dart';
 import 'package:flutter_chan/services/cached_video.dart';
 import 'package:flutter_chan/services/feed_player_pool.dart';
 import 'package:media_kit/media_kit.dart';
@@ -19,7 +17,6 @@ class FeedVideoPlayer extends StatefulWidget {
     required this.aspectRatio,
     this.playWhenVisibleFraction = 0.05,
     this.pauseWhenVisibleFraction = 0.0,
-    this.showMuteButton = true,
     this.positionNotifier,
   }) : super(key: key);
 
@@ -29,7 +26,6 @@ class FeedVideoPlayer extends StatefulWidget {
   final double aspectRatio;
   final double playWhenVisibleFraction;
   final double pauseWhenVisibleFraction;
-  final bool showMuteButton;
   final ValueNotifier<Duration>? positionNotifier;
 
   @override
@@ -47,58 +43,36 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   StreamSubscription<bool>? _playingSub;
   StreamSubscription<Duration>? _positionSub;
   StreamSubscription<Duration>? _durationSub;
-  StreamSubscription<int?>? _widthSub;
-  StreamSubscription<int?>? _heightSub;
   StreamSubscription<bool>? _bufferingSub;
   StreamSubscription<String>? _errorSub;
 
   bool _isVisibleEnough = false;
   bool _hasRenderableSize = false;
   bool _isInitialized = false;
-  bool _isMuted = true;
   bool _isPlaying = false;
   bool _isBuffering = false;
   bool _hasFatalError = false;
   bool _hasFirstFrame = false;
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
-  int _videoWidth = 0;
-  int _videoHeight = 0;
   int _reopenAttempts = 0;
 
   Timer? _playRetryTimer;
   Timer? _recoveryTimer;
   Timer? _pauseDebounceTimer;
   Timer? _stallWatchdogTimer;
-  Timer? _visibilityRecheckTimer;
+  bool _isInitializing = false;
   int _playRetryAttempts = 0;
-  int _visibilityRecheckAttempts = 0;
+
+  bool _isMuted = true;
 
   Duration _lastObservedPosition = Duration.zero;
   DateTime _lastProgressAt = DateTime.fromMillisecondsSinceEpoch(0);
   DateTime _lastPositionUiUpdate = DateTime.fromMillisecondsSinceEpoch(0);
   int _stallRecoveries = 0;
   String? _resolvedVideoSource;
-
-  // ---------------------------------------------------------------------------
-  // Audio mode
-  // ---------------------------------------------------------------------------
-
-  /// Fixes media-kit issue #964: on iOS, calling AudioTrack.no() triggers an
-  /// AVAudioSession re-configuration inside libmpv which momentarily halts
-  /// decoding even after play() has been called.  Muting is therefore done
-  /// purely via setVolume(0); AudioTrack.auto() is only applied when the user
-  /// explicitly unmutes.
-  Future<void> _applyAudioMode(Player player) async {
-    try {
-      if (Platform.isIOS && !_isMuted) {
-        await player.setAudioTrack(AudioTrack.auto());
-      }
-      await player.setVolume(_isMuted ? 0 : 100);
-    } catch (_) {
-      // Ignore transient track/volume races.
-    }
-  }
+  Future<String>? _resolvedSourceFuture;
+  String? _resolvedSourceFutureUrl;
 
   // ---------------------------------------------------------------------------
   // Stream subscriptions
@@ -108,15 +82,11 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _playingSub?.cancel();
     _positionSub?.cancel();
     _durationSub?.cancel();
-    _widthSub?.cancel();
-    _heightSub?.cancel();
     _bufferingSub?.cancel();
     _errorSub?.cancel();
     _playingSub = null;
     _positionSub = null;
     _durationSub = null;
-    _widthSub = null;
-    _heightSub = null;
     _bufferingSub = null;
     _errorSub = null;
   }
@@ -125,11 +95,12 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _cancelSubscriptions();
 
     _playingSub = player.stream.playing.listen((playing) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _isPlaying = playing;
         if (playing) {
-          _hasFirstFrame = true;
           _reopenAttempts = 0;
         }
       });
@@ -170,42 +141,28 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       }
     });
 
-    _widthSub = player.stream.width.listen((value) {
-      _videoWidth = value ?? 0;
-      if (mounted && !_hasFirstFrame && _videoWidth > 0 && _videoHeight > 0) {
-        setState(() {
-          _hasFirstFrame = true;
-          _reopenAttempts = 0;
-        });
-      }
-    });
-
-    _heightSub = player.stream.height.listen((value) {
-      _videoHeight = value ?? 0;
-      if (mounted && !_hasFirstFrame && _videoWidth > 0 && _videoHeight > 0) {
-        setState(() {
-          _hasFirstFrame = true;
-          _reopenAttempts = 0;
-        });
-      }
-    });
-
     _bufferingSub = player.stream.buffering.listen((value) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _isBuffering = value;
       });
     });
 
     _durationSub = player.stream.duration.listen((value) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _duration = value;
       });
     });
 
     _errorSub = player.stream.error.listen((message) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       // These errors are usually unrecoverable for this source instance.
       if (message.contains('moov atom not found') ||
           message.contains('Invalid data found when processing input') ||
@@ -241,8 +198,8 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _recoveryTimer?.cancel();
     _pauseDebounceTimer?.cancel();
     _stallWatchdogTimer?.cancel();
-    _visibilityRecheckTimer?.cancel();
     _cancelSubscriptions();
+    _isInitializing = false;
 
     // Release the old pool slot using whichever key actually acquired it.
     final keyToRelease = oldKey ?? _acquiredPlayerKey;
@@ -258,20 +215,22 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _isBuffering = false;
     _hasFatalError = false;
     _hasFirstFrame = false;
+    _isMuted = true;
     _position = Duration.zero;
     _duration = Duration.zero;
-    _videoWidth = 0;
-    _videoHeight = 0;
     _reopenAttempts = 0;
     _stallRecoveries = 0;
     _playRetryAttempts = 0;
     _lastObservedPosition = Duration.zero;
     _lastProgressAt = DateTime.fromMillisecondsSinceEpoch(0);
     _lastPositionUiUpdate = DateTime.fromMillisecondsSinceEpoch(0);
-    _visibilityRecheckAttempts = 0;
     _resolvedVideoSource = null;
+    _resolvedSourceFuture = null;
+    _resolvedSourceFutureUrl = null;
 
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
     if (_isVisibleEnough && _hasRenderableSize) {
       await _ensureInitialized();
@@ -282,18 +241,33 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   }
 
   Future<void> _ensureInitialized() async {
-    if (_isInitialized || _player != null) return;
+    // Guard against concurrent initializations.
+    if (_isInitialized || _player != null || _isInitializing) {
+      return;
+    }
+    _isInitializing = true;
 
     // Snapshot key + URL so we can detect a source change that happens while
     // the two awaits below are in flight.
     final snapshotKey = widget.playerKey;
     final snapshotUrl = widget.videoUrl;
 
-    final resolvedSource = await resolveCachedVideoSource(snapshotUrl);
-    if (!mounted) return;
+    String resolvedSource;
+    try {
+      resolvedSource = await _resolveSourceFor(snapshotUrl);
+    } catch (_) {
+      _isInitializing = false;
+      _schedulePlayRetry();
+      return;
+    }
+    if (!mounted) {
+      _isInitializing = false;
+      return;
+    }
 
     // Bail if the widget's source changed while we were resolving.
     if (widget.playerKey != snapshotKey || widget.videoUrl != snapshotUrl) {
+      _isInitializing = false;
       return;
     }
 
@@ -305,22 +279,36 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     if (!mounted) {
       // Widget disposed while waiting for pool; release any claim we made.
       FeedPlayerPool.instance.release(snapshotKey);
+      _isInitializing = false;
       return;
     }
 
     // Bail again if the source changed during pool.acquire().
     if (widget.playerKey != snapshotKey || widget.videoUrl != snapshotUrl) {
       FeedPlayerPool.instance.release(snapshotKey);
+      _isInitializing = false;
       return;
     }
 
     if (slot == null) {
       // Pool exhausted; retry — slots are typically freed within milliseconds.
+      _isInitializing = false;
       _schedulePlayRetry();
       return;
     }
 
-    _player = slot.player;
+    final player = slot.player;
+    // A reused player can retain a stale last frame from previous media.
+    // Hide the video surface until fresh frame progress is observed.
+    final hadFirstFrame = _hasFirstFrame;
+    _hasFirstFrame = false;
+    _isPlaying = false;
+    _position = Duration.zero;
+    if (hadFirstFrame && mounted) {
+      setState(() {});
+    }
+
+    _player = player;
     _videoController = slot.controller;
     _acquiredPlayerKey = snapshotKey;
     _resolvedVideoSource = resolvedSource;
@@ -331,7 +319,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     // interrupting the other already-playing pool players (media-kit #964).
     if (!FeedPlayerPool.instance.isMediaLoaded(snapshotKey, resolvedSource)) {
       try {
-        await _player!.open(Media(resolvedSource), play: false);
+        await player.open(Media(resolvedSource), play: false);
       } catch (_) {
         // Open failed; release the slot so the retry machinery can recover.
         FeedPlayerPool.instance.release(snapshotKey);
@@ -339,30 +327,83 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
         _player = null;
         _videoController = null;
         _resolvedVideoSource = null;
+        _isInitializing = false;
         _schedulePlayRetry();
         return;
       }
       if (!mounted ||
+          _player != player ||
+          _acquiredPlayerKey != snapshotKey ||
           widget.playerKey != snapshotKey ||
           widget.videoUrl != snapshotUrl) {
+        _isInitializing = false;
         return;
       }
       FeedPlayerPool.instance.markMediaLoaded(snapshotKey, resolvedSource);
     }
 
-    _attachSubscriptions(slot.player);
+    // Start inline feed videos with audio disabled to reduce AVAudioSession
+    // churn during initialization/open on iOS (media-kit #964).
+    try {
+      await player.setAudioTrack(AudioTrack.no());
+    } catch (_) {}
 
-    if (!mounted || _player != slot.player) return;
+    if (!mounted || _player != player || _acquiredPlayerKey != snapshotKey) {
+      _isInitializing = false;
+      return;
+    }
 
+    _attachSubscriptions(player);
+
+    if (!mounted || _player != player) {
+      _isInitializing = false;
+      return;
+    }
+
+    _isInitializing = false;
     setState(() {
       _isInitialized = true;
     });
   }
 
+  void _primeResolvedSource() {
+    final url = widget.videoUrl;
+    if (_resolvedSourceFuture != null && _resolvedSourceFutureUrl == url) {
+      return;
+    }
+
+    _resolvedSourceFutureUrl = url;
+    _resolvedSourceFuture = _resolveAndCacheSource(url);
+  }
+
+  Future<String> _resolveSourceFor(String url) {
+    if (_resolvedSourceFuture != null && _resolvedSourceFutureUrl == url) {
+      return _resolvedSourceFuture!;
+    }
+
+    _resolvedSourceFutureUrl = url;
+    _resolvedSourceFuture = _resolveAndCacheSource(url);
+    return _resolvedSourceFuture!;
+  }
+
+  Future<String> _resolveAndCacheSource(String url) async {
+    try {
+      return await resolveCachedVideoSource(url);
+    } catch (_) {
+      _resolvedSourceFuture = null;
+      _resolvedSourceFutureUrl = null;
+      rethrow;
+    }
+  }
+
   Future<void> _playIfNeeded() async {
     final player = _player;
-    if (!_isVisibleEnough || !mounted) return;
-    if (_hasFatalError) return;
+    if (!_isVisibleEnough || !mounted) {
+      return;
+    }
+    if (_hasFatalError) {
+      return;
+    }
 
     if (player == null || !_isInitialized) {
       _schedulePlayRetry();
@@ -370,10 +411,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     }
 
     try {
-      // _applyAudioMode is called exactly once, immediately before play().
-      // The 90 ms delayed re-call that existed previously was itself the
-      // stutter trigger on iOS (media-kit #964).
-      await _applyAudioMode(player);
       await player.play();
       _startStallWatchdog();
       _cancelPlayRetry();
@@ -385,7 +422,9 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
   Future<void> _pause() async {
     final player = _player;
-    if (player == null) return;
+    if (player == null) {
+      return;
+    }
 
     try {
       await player.pause();
@@ -403,6 +442,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _recoveryTimer?.cancel();
     _stallWatchdogTimer?.cancel();
     _cancelSubscriptions();
+    _isInitializing = false;
 
     if (_acquiredPlayerKey != null) {
       FeedPlayerPool.instance.release(_acquiredPlayerKey!);
@@ -415,10 +455,9 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _isPlaying = false;
     _isBuffering = false;
     _hasFirstFrame = false;
+    _isMuted = true;
     _position = Duration.zero;
     _duration = Duration.zero;
-    _videoWidth = 0;
-    _videoHeight = 0;
     _reopenAttempts = 0;
     _stallRecoveries = 0;
     _playRetryAttempts = 0;
@@ -427,43 +466,15 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _lastPositionUiUpdate = DateTime.fromMillisecondsSinceEpoch(0);
     _resolvedVideoSource = null;
 
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _startPlaybackPipeline() {
     _ensureInitialized().then((_) {
       _playIfNeeded();
       _scheduleRecoveryCheck();
-    });
-  }
-
-  void _scheduleVisibilityRecheck() {
-    _visibilityRecheckTimer?.cancel();
-
-    if (!mounted || !_isVisibleEnough || _visibilityRecheckAttempts >= 8) {
-      return;
-    }
-
-    _visibilityRecheckAttempts += 1;
-    _visibilityRecheckTimer = Timer(const Duration(milliseconds: 50), () {
-      if (!mounted || !_isVisibleEnough) {
-        return;
-      }
-
-      final renderObject = context.findRenderObject();
-      final hasStableSize =
-          renderObject is RenderBox &&
-          renderObject.hasSize &&
-          renderObject.size.width > 1 &&
-          renderObject.size.height > 1;
-
-      if (hasStableSize) {
-        _hasRenderableSize = true;
-        _visibilityRecheckAttempts = 0;
-        _startPlaybackPipeline();
-      } else {
-        _scheduleVisibilityRecheck();
-      }
     });
   }
 
@@ -526,8 +537,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _isPlaying = false;
     _hasFirstFrame = false;
     _position = Duration.zero;
-    _videoWidth = 0;
-    _videoHeight = 0;
 
     try {
       final resolvedSource =
@@ -554,15 +563,16 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   void _schedulePlayRetry() {
     _playRetryTimer?.cancel();
 
-    if (!mounted || !_isVisibleEnough || _playRetryAttempts >= 18) {
+    if (!mounted || !_isVisibleEnough || _playRetryAttempts >= 30) {
       return;
     }
 
     _playRetryAttempts += 1;
-    // Use 200 ms to give pool slots time to be freed after fast-scroll.
-    _playRetryTimer = Timer(const Duration(milliseconds: 200), () {
+    _playRetryTimer = Timer(const Duration(milliseconds: 150), () {
+      if (!mounted || !_isVisibleEnough) {
+        return;
+      }
       if (_player == null) {
-        // Pool was exhausted; retry the full acquire.
         _startPlaybackPipeline();
       } else {
         _playIfNeeded();
@@ -608,25 +618,10 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     });
   }
 
-  Future<void> _toggleMuted() async {
-    final player = _player;
-
-    setState(() {
-      _isMuted = !_isMuted;
-    });
-
-    if (player == null) {
-      return;
-    }
-
-    await _applyAudioMode(player);
-  }
-
   @override
   void dispose() {
     _cancelPlayRetry();
     _pauseDebounceTimer?.cancel();
-    _visibilityRecheckTimer?.cancel();
     _recoveryTimer?.cancel();
     _stallWatchdogTimer?.cancel();
     _cancelSubscriptions();
@@ -647,49 +642,58 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     return VisibilityDetector(
       key: ValueKey('feed-video-${widget.playerKey}'),
       onVisibilityChanged: (info) {
+        // Ignore 0x0 callbacks that arrive during layout churn.
         final hasSize = info.size.width > 1 && info.size.height > 1;
-        _hasRenderableSize = hasSize;
-
         if (!hasSize) {
-          // During fast scroll/layout churn, some callbacks report 0x0 briefly.
-          // Ignore those to avoid pausing all currently visible videos.
           return;
         }
+        _hasRenderableSize = true;
 
-        final visible = info.visibleFraction >= widget.playWhenVisibleFraction;
-        final hiddenThreshold = widget.pauseWhenVisibleFraction <= 0
-            ? 0.0001
-            : widget.pauseWhenVisibleFraction;
-        final hidden = info.visibleFraction <= hiddenThreshold;
+        final fraction = info.visibleFraction;
+        final playThreshold = widget.playWhenVisibleFraction;
+        final prewarmThreshold = playThreshold > 0 ? playThreshold * 0.5 : 0.01;
+        // Pause only when truly off-screen (fraction == 0) unless the caller
+        // explicitly set a non-zero pause threshold.
+        final pauseThreshold = widget.pauseWhenVisibleFraction > 0
+            ? widget.pauseWhenVisibleFraction
+            : 0.0;
 
-        if (hidden && _isVisibleEnough) {
-          _isVisibleEnough = false;
-          _visibilityRecheckAttempts = 0;
-          _visibilityRecheckTimer?.cancel();
+        // Start resolving slightly before playback so open() has less work
+        // left once the item crosses the play threshold.
+        if (fraction >= 0.01) {
+          _primeResolvedSource();
+        }
+
+        // Start acquiring/opening slightly before the play threshold so
+        // playback can begin faster once the item is sufficiently visible.
+        if (fraction >= prewarmThreshold &&
+            !_isInitialized &&
+            !_isInitializing) {
+          _primeResolvedSource();
+          _ensureInitialized();
+        }
+
+        if (fraction >= playThreshold && !_isVisibleEnough) {
+          // Widget has entered view — start playback.
+          _isVisibleEnough = true;
+          _playRetryAttempts = 0; // fresh entry always gets full retry budget
           _pauseDebounceTimer?.cancel();
-          _pauseDebounceTimer = Timer(const Duration(milliseconds: 420), () {
-            if (!mounted || _isVisibleEnough) return;
+          _startPlaybackPipeline();
+        } else if (fraction <= pauseThreshold && _isVisibleEnough) {
+          // Widget has left view — pause then release.
+          _isVisibleEnough = false;
+          _pauseDebounceTimer?.cancel();
+          _pauseDebounceTimer = Timer(const Duration(milliseconds: 300), () {
+            if (!mounted || _isVisibleEnough) {
+              return;
+            }
             _pause().then((_) {
-              if (!mounted || _isVisibleEnough) return;
+              if (!mounted || _isVisibleEnough) {
+                return;
+              }
               _releasePoolSlot();
             });
           });
-          return;
-        }
-
-        if (visible && _hasRenderableSize) {
-          _pauseDebounceTimer?.cancel();
-          _isVisibleEnough = true;
-          _visibilityRecheckAttempts = 0;
-          _visibilityRecheckTimer?.cancel();
-          _startPlaybackPipeline();
-          return;
-        }
-
-        if (visible) {
-          _pauseDebounceTimer?.cancel();
-          _isVisibleEnough = true;
-          _scheduleVisibilityRecheck();
         }
       },
       child: AspectRatio(
@@ -711,11 +715,19 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                     controls: NoVideoControls,
                   ),
                 ),
-              if (!_isPlaying)
+              // Show spinner while loading (visible but no frame yet, or
+              // mid-playback buffer stall). Show play icon only when truly
+              // idle/paused and not in the middle of loading.
+              if (!_isPlaying || (_isPlaying && _isBuffering))
                 Container(
                   color: Colors.black.withValues(alpha: 0.08),
                   child: Center(
-                    child: _isBuffering
+                    child:
+                        (_isVisibleEnough &&
+                            !_hasFatalError &&
+                            (_isInitializing ||
+                                (_isInitialized && !_hasFirstFrame) ||
+                                _isBuffering))
                         ? const CupertinoActivityIndicator(radius: 14)
                         : const Icon(
                             CupertinoIcons.play_circle_fill,
@@ -724,48 +736,40 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                           ),
                   ),
                 ),
-              if (widget.showMuteButton && _videoController != null)
-                Positioned(
-                  top: 10,
-                  left: 10,
-                  child: CupertinoButton(
-                    minimumSize: const Size(30, 30),
-                    padding: const EdgeInsets.all(6),
-                    color: Colors.black.withValues(alpha: 0.35),
-                    borderRadius: BorderRadius.circular(999),
-                    onPressed: _toggleMuted,
-                    child: Icon(
-                      _isMuted
-                          ? CupertinoIcons.speaker_slash_fill
-                          : CupertinoIcons.speaker_2_fill,
-                      color: Colors.white,
-                      size: 15,
-                    ),
-                  ),
-                ),
               if (_videoController != null)
                 Positioned(
                   bottom: 8,
-                  right: 8,
+                  left: 8,
                   child: CupertinoButton(
                     minimumSize: const Size(28, 28),
                     padding: const EdgeInsets.all(5),
                     color: Colors.black.withValues(alpha: 0.35),
                     borderRadius: BorderRadius.circular(999),
                     onPressed: () async {
-                      await FeedPlayerPool.instance.pauseAll();
-                      if (!context.mounted) return;
-                      Navigator.of(context).push(
-                        CupertinoPageRoute<void>(
-                          builder: (_) => ThreadVideoPlayerPage(
-                            videoUrl: widget.videoUrl,
-                            startPosition: _position,
-                          ),
-                        ),
-                      );
+                      final player = _player;
+                      if (player == null) {
+                        return;
+                      }
+
+                      final nextMuted = !_isMuted;
+                      try {
+                        if (nextMuted) {
+                          await player.setAudioTrack(AudioTrack.no());
+                        } else {
+                          await player.setAudioTrack(AudioTrack.auto());
+                        }
+                        if (!mounted) {
+                          return;
+                        }
+                        setState(() {
+                          _isMuted = nextMuted;
+                        });
+                      } catch (_) {
+                        // Ignore toggle failures.
+                      }
                     },
-                    child: const Icon(
-                      Icons.fullscreen,
+                    child: Icon(
+                      _isMuted ? Icons.volume_off : Icons.volume_up,
                       color: Colors.white,
                       size: 16,
                     ),
@@ -778,9 +782,8 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                   bottom: 0,
                   child: LinearProgressIndicator(
                     value: _duration.inMicroseconds > 0
-                        ? (_position.inMicroseconds /
-                                _duration.inMicroseconds)
-                            .clamp(0.0, 1.0)
+                        ? (_position.inMicroseconds / _duration.inMicroseconds)
+                              .clamp(0.0, 1.0)
                         : 0.0,
                     backgroundColor: Colors.white.withValues(alpha: 0.25),
                     valueColor: const AlwaysStoppedAnimation<Color>(

@@ -1,8 +1,5 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:media_kit/media_kit.dart';
-import 'package:visibility_detector/visibility_detector.dart';
 import 'package:flutter_chan/blocs/bookmarks_model.dart';
 import 'package:flutter_chan/blocs/favorite_model.dart';
 import 'package:flutter_chan/blocs/gallery_model.dart';
@@ -12,13 +9,16 @@ import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/blocs/watched_media_model.dart';
 import 'package:flutter_chan/pages/boards/board_list.dart';
 import 'package:flutter_chan/services/feed_player_pool.dart';
+import 'package:media_kit/media_kit.dart';
 import 'package:provider/provider.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
-  VisibilityDetectorController.instance.updateInterval =
-      const Duration(milliseconds: 100);
+  VisibilityDetectorController.instance.updateInterval = const Duration(
+    milliseconds: 16,
+  );
   FlutterError.onError = (FlutterErrorDetails details) {
     print('Error From INSIDE FRAME_WORK');
     print('----------------------');

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -91,13 +92,35 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
 
   Post get _currentPost => widget.mediaPosts[_currentIndex];
 
-  bool _isVideo(Post post) =>
-      post.ext == '.webm' || post.ext == '.mp4';
+  bool _isVideo(Post post) => post.ext == '.webm' || post.ext == '.mp4';
 
   String _mediaUrl(Post post) =>
       'https://i.4cdn.org/${widget.board}/${post.tim}${post.ext}';
 
   String _fileName(Post post) => '${post.tim}${post.ext}';
+
+  Widget _buildBlurPill({
+    required Widget child,
+    BorderRadius? borderRadius,
+    EdgeInsetsGeometry? padding,
+  }) {
+    final radius = borderRadius ?? BorderRadius.circular(999);
+    return ClipRRect(
+      borderRadius: radius,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Container(
+          padding: padding,
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.28),
+            borderRadius: radius,
+            border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
 
   Future<void> _saveToAttachments() async {
     if (_isSaving) return;
@@ -208,32 +231,36 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
           fileName.split('.').first,
     );
     if (isSaved) {
-      return CupertinoButton(
-        minimumSize: const Size(36, 36),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        color: Colors.black.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(999),
-        onPressed: _isRemoving ? null : _removeFromAttachments,
-        child: _isRemoving
-            ? const CupertinoActivityIndicator(radius: 9)
-            : const Icon(CupertinoIcons.trash, color: Colors.white, size: 18),
+      return _buildBlurPill(
+        child: CupertinoButton(
+          minimumSize: const Size(36, 36),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(999),
+          onPressed: _isRemoving ? null : _removeFromAttachments,
+          child: _isRemoving
+              ? const CupertinoActivityIndicator(radius: 9)
+              : const Icon(CupertinoIcons.trash, color: Colors.white, size: 18),
+        ),
       );
     }
-    return CupertinoButton(
-      minimumSize: const Size(36, 36),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      color: Colors.black.withValues(alpha: 0.4),
-      borderRadius: BorderRadius.circular(999),
-      onPressed: _isSaving || _didSaveAttachment ? null : _saveToAttachments,
-      child: _isSaving
-          ? const CupertinoActivityIndicator(radius: 9)
-          : Icon(
-              _didSaveAttachment
-                  ? CupertinoIcons.check_mark_circled_solid
-                  : CupertinoIcons.add_circled,
-              color: Colors.white,
-              size: 18,
-            ),
+    return _buildBlurPill(
+      child: CupertinoButton(
+        minimumSize: const Size(36, 36),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(999),
+        onPressed: _isSaving || _didSaveAttachment ? null : _saveToAttachments,
+        child: _isSaving
+            ? const CupertinoActivityIndicator(radius: 9)
+            : Icon(
+                _didSaveAttachment
+                    ? CupertinoIcons.check_mark_circled_solid
+                    : CupertinoIcons.add_circled,
+                color: Colors.white,
+                size: 18,
+              ),
+      ),
     );
   }
 
@@ -284,7 +311,8 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
                         _isVideoScrubbing = isScrubbing;
                       });
                     },
-                    startPosition: _savedPositions[post.tim] ??
+                    startPosition:
+                        _savedPositions[post.tim] ??
                         (index == widget.initialIndex
                             ? widget.startPosition
                             : Duration.zero),
@@ -307,19 +335,21 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  CupertinoButton(
-                    minimumSize: const Size(36, 36),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    color: Colors.black.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(999),
-                    onPressed: _closeViewer,
-                    child: const Icon(
-                      CupertinoIcons.back,
-                      color: Colors.white,
-                      size: 18,
+                  _buildBlurPill(
+                    child: CupertinoButton(
+                      minimumSize: const Size(36, 36),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(999),
+                      onPressed: _closeViewer,
+                      child: const Icon(
+                        CupertinoIcons.back,
+                        color: Colors.white,
+                        size: 18,
+                      ),
                     ),
                   ),
                   Row(
@@ -327,54 +357,54 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
                     children: [
                       Builder(builder: _buildSaveButton),
                       const SizedBox(width: 8),
-                      CupertinoButton(
-                        minimumSize: const Size(36, 36),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        color: Colors.black.withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(999),
-                        onPressed: _isDownloading || _didDownload
-                            ? null
-                            : _downloadToGallery,
-                        child: _isDownloading
-                            ? const CupertinoActivityIndicator(radius: 9)
-                            : Icon(
-                                _didDownload
-                                    ? CupertinoIcons.check_mark_circled_solid
-                                    : CupertinoIcons.arrow_down_to_line,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                      ),
-                      const SizedBox(width: 8),
-                      CupertinoButton(
-                        minimumSize: const Size(36, 36),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        color: Colors.black.withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(999),
-                        onPressed: _isSharing ? null : _shareCurrentMedia,
-                        child: _isSharing
-                            ? const CupertinoActivityIndicator(radius: 9)
-                            : const Icon(
-                                CupertinoIcons.share,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.4),
+                      _buildBlurPill(
+                        child: CupertinoButton(
+                          minimumSize: const Size(36, 36),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          color: Colors.transparent,
                           borderRadius: BorderRadius.circular(999),
+                          onPressed: _isDownloading || _didDownload
+                              ? null
+                              : _downloadToGallery,
+                          child: _isDownloading
+                              ? const CupertinoActivityIndicator(radius: 9)
+                              : Icon(
+                                  _didDownload
+                                      ? CupertinoIcons.check_mark_circled_solid
+                                      : CupertinoIcons.arrow_down_to_line,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _buildBlurPill(
+                        child: CupertinoButton(
+                          minimumSize: const Size(36, 36),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(999),
+                          onPressed: _isSharing ? null : _shareCurrentMedia,
+                          child: _isSharing
+                              ? const CupertinoActivityIndicator(radius: 9)
+                              : const Icon(
+                                  CupertinoIcons.share,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _buildBlurPill(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
                         ),
                         child: Text(
                           '${_currentIndex + 1} / ${widget.mediaPosts.length}',
@@ -660,27 +690,19 @@ class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
         Video(controller: widget.controller, controls: NoVideoControls),
         // Black overlay hides the last decoded frame of the previous video while
         // the new media is opening.  Cleared once playing=true fires.
-        if (_isTransitioning)
-          const ColoredBox(color: Colors.black),
+        if (_isTransitioning) const ColoredBox(color: Colors.black),
         if ((_isBuffering || _isTransitioning) && !_isHorizontalSeeking)
           const Center(child: CupertinoActivityIndicator(radius: 14)),
         if (_isHorizontalSeeking)
           Center(
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 10,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: Colors.black.withValues(alpha: 0.58),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Text(
-                _formatDuration(
-                  _clampDuration(
-                    Duration(milliseconds: _dragSeekPreviewMs.round()),
-                  ),
-                ),
+                '${_formatDuration(_clampDuration(Duration(milliseconds: _dragSeekPreviewMs.round())))} / ${_formatDuration(_duration)}',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 16,
@@ -713,83 +735,70 @@ class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
           bottom: 0,
           child: Container(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 14),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-                colors: [
-                  Colors.black.withValues(alpha: 0.65),
-                  Colors.black.withValues(alpha: 0.12),
-                ],
-              ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    CupertinoButton(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      minimumSize: const Size(28, 28),
-                      onPressed: _toggleMuted,
-                      child: Icon(
-                        _isMuted
-                            ? CupertinoIcons.speaker_slash_fill
-                            : CupertinoIcons.speaker_2_fill,
-                        color: Colors.white,
-                        size: 18,
-                      ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.28),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.14),
+                      width: 0.5,
                     ),
-                    CupertinoButton(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      minimumSize: const Size(28, 28),
-                      onPressed: () => widget.player.playOrPause().ignore(),
-                      child: Icon(
-                        _isPlaying
-                            ? CupertinoIcons.pause_fill
-                            : CupertinoIcons.play_fill,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                    ),
-                    Expanded(
-                      child: Slider(
-                        value: _position.inMilliseconds.toDouble().clamp(
-                          0,
-                          (_duration.inMilliseconds <= 0
-                                  ? 1
-                                  : _duration.inMilliseconds)
-                              .toDouble(),
+                  ),
+                  child: Row(
+                    children: [
+                      CupertinoButton(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: const Size(28, 28),
+                        onPressed: _toggleMuted,
+                        child: Icon(
+                          _isMuted
+                              ? CupertinoIcons.speaker_slash_fill
+                              : CupertinoIcons.speaker_2_fill,
+                          color: Colors.white,
+                          size: 18,
                         ),
-                        min: 0,
-                        max:
+                      ),
+                      CupertinoButton(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: const Size(28, 28),
+                        onPressed: () => widget.player.playOrPause().ignore(),
+                        child: Icon(
+                          _isPlaying
+                              ? CupertinoIcons.pause_fill
+                              : CupertinoIcons.play_fill,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                      Expanded(
+                        child: Slider(
+                          value: _position.inMilliseconds.toDouble().clamp(
+                            0,
                             (_duration.inMilliseconds <= 0
                                     ? 1
                                     : _duration.inMilliseconds)
                                 .toDouble(),
-                        onChanged: _duration.inMilliseconds > 0
-                            ? _seekTo
-                            : null,
-                        activeColor: Colors.white,
-                        inactiveColor: Colors.white.withValues(alpha: 0.25),
-                      ),
-                    ),
-                  ],
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        _formatDuration(_position),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
+                          ),
+                          min: 0,
+                          max:
+                              (_duration.inMilliseconds <= 0
+                                      ? 1
+                                      : _duration.inMilliseconds)
+                                  .toDouble(),
+                          onChanged: _duration.inMilliseconds > 0
+                              ? _seekTo
+                              : null,
+                          activeColor: Colors.white,
+                          inactiveColor: Colors.white.withValues(alpha: 0.25),
                         ),
                       ),
                       Text(
-                        _formatDuration(_duration),
+                        '${_formatDuration(_position)} / ${_formatDuration(_duration)}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 12,
@@ -798,7 +807,7 @@ class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
                     ],
                   ),
                 ),
-              ],
+              ),
             ),
           ),
         ),
