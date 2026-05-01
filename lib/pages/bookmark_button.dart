@@ -7,10 +7,7 @@ import 'package:flutter_chan/blocs/bookmarks_model.dart';
 import 'package:provider/provider.dart';
 
 class BookmarkButton extends StatefulWidget {
-  const BookmarkButton({
-    Key? key,
-    this.favorite,
-  }) : super(key: key);
+  const BookmarkButton({Key? key, this.favorite}) : super(key: key);
 
   final Bookmark? favorite;
 
@@ -44,8 +41,8 @@ class _BookmarkButtonState extends State<BookmarkButton> {
           bookmarks.addBookmarks(widget.favorite),
       },
       child: Icon(
-        isFavorite ? Icons.favorite : Icons.favorite_border_outlined,
-        color: CupertinoColors.systemRed,
+        isFavorite ? Icons.bookmark : Icons.bookmark_border,
+        color: isFavorite ? CupertinoColors.activeBlue : Colors.white,
       ),
     );
   }
