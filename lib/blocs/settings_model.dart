@@ -11,7 +11,7 @@ class SettingsProvider with ChangeNotifier {
   Sort boardSort = Sort.byImagesCount;
   SortDirection boardSortDirection = SortDirection.desc;
   ViewMode boardViewMode = ViewMode.grid;
-  int watchedMediaRetentionDays = 7;
+  int watchedPostsRetentionDays = 7;
   bool autoScrollToLastSeen = false;
 
   Future<void> loadPreferences() async {
@@ -38,8 +38,8 @@ class SettingsProvider with ChangeNotifier {
 
     await prefs.remove('useCachingOnVideos');
 
-    if (prefs.getInt('watchedMediaRetentionDays') != null) {
-      watchedMediaRetentionDays = prefs.getInt('watchedMediaRetentionDays')!;
+    if (prefs.getInt('watchedPostsRetentionDays') != null) {
+      watchedPostsRetentionDays = prefs.getInt('watchedPostsRetentionDays')!;
     }
 
     if (prefs.getBool('autoScrollToLastSeen') != null) {
@@ -110,14 +110,14 @@ class SettingsProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  int getWatchedMediaRetentionDays() {
-    return watchedMediaRetentionDays;
+  int getWatchedPostsRetentionDays() {
+    return watchedPostsRetentionDays;
   }
 
-  Future<void> setWatchedMediaRetentionDays(int days) async {
+  Future<void> setWatchedPostsRetentionDays(int days) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    watchedMediaRetentionDays = days;
-    prefs.setInt('watchedMediaRetentionDays', days);
+    watchedPostsRetentionDays = days;
+    prefs.setInt('watchedPostsRetentionDays', days);
     notifyListeners();
   }
 

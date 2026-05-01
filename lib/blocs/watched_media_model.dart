@@ -5,9 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chan/Models/watched_media.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class WatchedMediaProvider with ChangeNotifier, WidgetsBindingObserver {
-  WatchedMediaProvider() {
-    loadWatchedMedia();
+class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
+  WatchedPostsProvider() {
+    loadWatchedPosts();
 
     WidgetsBinding.instance.addObserver(this);
 
@@ -18,7 +18,7 @@ class WatchedMediaProvider with ChangeNotifier, WidgetsBindingObserver {
 
   void _startCleanupTimer() {
     _cleanupTimer = Timer.periodic(const Duration(minutes: 10), (timer) {
-      clearOldWatchedMedia();
+      clearOldWatchedPosts();
     });
   }
 
@@ -32,106 +32,97 @@ class WatchedMediaProvider with ChangeNotifier, WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      clearOldWatchedMedia();
+      clearOldWatchedPosts();
     }
   }
 
-  final List<WatchedMedia> _watchedMedia = [];
-  List<WatchedMedia> get watchedMedia => List.unmodifiable(_watchedMedia);
+  final List<WatchedPosts> _watchedPosts = [];
+  List<WatchedPosts> get watchedPosts => List.unmodifiable(_watchedPosts);
 
-  Future<void> loadWatchedMedia() async {
+  Future<void> loadWatchedPosts() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final List<String>? watchedMediaList = prefs.getStringList('watchedMedia');
+    final List<String>? watchedPostsList = prefs.getStringList('watchedPosts');
 
-    if (watchedMediaList != null) {
-      _watchedMedia.clear();
-      for (final String mediaString in watchedMediaList) {
+    if (watchedPostsList != null) {
+      _watchedPosts.clear();
+
+      for (final String watchedPostsString in watchedPostsList) {
         try {
-          final Map<String, dynamic> mediaMap =
-              json.decode(mediaString) as Map<String, dynamic>;
-          _watchedMedia.add(WatchedMedia.fromJson(mediaMap));
+          final Map<String, dynamic> watchedPostsMap =
+              json.decode(watchedPostsString) as Map<String, dynamic>;
+          _watchedPosts.add(WatchedPosts.fromJson(watchedPostsMap));
         } catch (e) {
-          debugPrint('Error parsing watched media entry: $e');
+          debugPrint('Error parsing watched posts entry: $e');
         }
       }
       notifyListeners();
     }
 
-    clearOldWatchedMedia();
+    clearOldWatchedPosts();
   }
 
   Future<void> markAsWatched({
-    required int mediaId,
+    required int postIndex,
     required int thread,
-    required String fileName,
-    required String ext,
   }) async {
-    final WatchedMedia newWatchedMedia = WatchedMedia(
-      mediaId: mediaId,
+    final WatchedPosts newWatchedPost = WatchedPosts(
+      postIndex: postIndex,
       thread: thread,
-      fileName: fileName,
-      ext: ext,
       watchedAt: DateTime.now(),
     );
 
-    final existingMediaIndex = _watchedMedia.indexWhere(
-      (media) => media.mediaId == mediaId && media.thread == thread,
+    final existingMediaIndex = _watchedPosts.indexWhere(
+      (media) => media.postIndex == postIndex && media.thread == thread,
     );
 
     if (existingMediaIndex != -1) {
-      _watchedMedia[existingMediaIndex] = newWatchedMedia;
+      _watchedPosts[existingMediaIndex] = newWatchedPost;
     } else {
-      _watchedMedia.add(newWatchedMedia);
+      _watchedPosts.add(newWatchedPost);
     }
 
-    await _saveWatchedMedia();
+    await _saveWatchedPosts();
     notifyListeners();
   }
 
-  Future<void> removeFromWatched(int mediaId, int thread) async {
-    _watchedMedia.removeWhere(
-      (media) => media.mediaId == mediaId && media.thread == thread,
+  Future<void> removeFromWatched(int postIndex, int thread) async {
+    _watchedPosts.removeWhere(
+      (media) => media.postIndex == postIndex && media.thread == thread,
     );
-    await _saveWatchedMedia();
+    await _saveWatchedPosts();
     notifyListeners();
   }
 
-  bool isWatched(int mediaId, int thread) {
-    return _watchedMedia.any(
-      (media) => media.mediaId == mediaId && media.thread == thread,
-    );
-  }
-
-  Future<void> _saveWatchedMedia() async {
+  Future<void> _saveWatchedPosts() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final List<String> watchedMediaStrings = _watchedMedia
+    final List<String> watchedPostsStrings = _watchedPosts
         .map((media) => json.encode(media.toJson()))
         .toList();
-    await prefs.setStringList('watchedMedia', watchedMediaStrings);
+    await prefs.setStringList('watchedPosts', watchedPostsStrings);
   }
 
-  Future<void> clearAllWatchedMedia() async {
-    _watchedMedia.clear();
-    await _saveWatchedMedia();
+  Future<void> clearAllWatchedPosts() async {
+    _watchedPosts.clear();
+    await _saveWatchedPosts();
     notifyListeners();
   }
 
-  Future<void> clearOldWatchedMedia() async {
+  Future<void> clearOldWatchedPosts() async {
     final settings = await SharedPreferences.getInstance();
-    final int retentionDays = settings.getInt('watchedMediaRetentionDays') ?? 7;
+    final int retentionDays = settings.getInt('watchedPostsRetentionDays') ?? 7;
 
     final DateTime cutoffDate = DateTime.now().subtract(
       Duration(days: retentionDays),
     );
 
-    _watchedMedia.removeWhere((media) => media.watchedAt.isBefore(cutoffDate));
+    _watchedPosts.removeWhere((media) => media.watchedAt.isBefore(cutoffDate));
 
-    await _saveWatchedMedia();
+    await _saveWatchedPosts();
     notifyListeners();
   }
 
-  WatchedMedia? getLatestWatchedMedia(int thread) {
-    final threadMedia = _watchedMedia
+  WatchedPosts? getLatestWatchedPosts(int thread) {
+    final threadMedia = _watchedPosts
         .where((media) => media.thread == thread)
         .toList();
 

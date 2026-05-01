@@ -106,6 +106,7 @@ class _ThreadRepliesToState extends State<ThreadRepliesTo> {
                         thread: widget.thread,
                         post: snapshot.data ?? Post(),
                         allPosts: widget.allPosts,
+                        postIndex: 0,
                         onDismiss: (i) => {},
                       ),
                     ],

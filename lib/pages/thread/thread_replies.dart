@@ -75,6 +75,7 @@ class _ThreadRepliesState extends State<ThreadReplies> {
                 post: widget.replies[i],
                 allPosts: widget.allPosts,
                 replies: widget.replies,
+                postIndex: i,
                 onDismiss: (i) => {},
               ),
           ],

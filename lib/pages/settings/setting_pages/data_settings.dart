@@ -218,7 +218,7 @@ class DataSettingsState extends State<DataSettings> {
                   trailing: CupertinoButton(
                     padding: EdgeInsets.zero,
                     child: Text(
-                      '${settings.getWatchedMediaRetentionDays()} days',
+                      '${settings.getWatchedPostsRetentionDays()} days',
                       style: const TextStyle(color: CupertinoColors.systemGrey),
                     ),
                     onPressed: () async {
@@ -244,7 +244,7 @@ class DataSettingsState extends State<DataSettings> {
                         },
                       );
                       if (selected != null) {
-                        await settings.setWatchedMediaRetentionDays(selected);
+                        await settings.setWatchedPostsRetentionDays(selected);
                       }
                     },
                   ),
@@ -261,12 +261,12 @@ class DataSettingsState extends State<DataSettings> {
                   title: const Text('Clear Watched Media History'),
                   trailing: const CupertinoListTileChevron(),
                   onTap: () async {
-                    final watchedMediaProvider =
-                        Provider.of<WatchedMediaProvider>(
+                    final watchedPostsProvider =
+                        Provider.of<WatchedPostsProvider>(
                           context,
                           listen: false,
                         );
-                    await watchedMediaProvider.clearAllWatchedMedia();
+                    await watchedPostsProvider.clearAllWatchedPosts();
                     if (mounted) {
                       showCupertinoSnackbar(
                         const Duration(milliseconds: 1800),

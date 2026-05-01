@@ -2,7 +2,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/blocs/bookmarks_model.dart';
 import 'package:flutter_chan/blocs/favorite_model.dart';
-import 'package:flutter_chan/blocs/gallery_model.dart';
 import 'package:flutter_chan/blocs/saved_attachments_model.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
@@ -47,14 +46,11 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider<SettingsProvider>(
           create: (_) => SettingsProvider(),
         ),
-        ChangeNotifierProvider<GalleryProvider>(
-          create: (_) => GalleryProvider(),
-        ),
         ChangeNotifierProvider<SavedAttachmentsProvider>(
           create: (_) => SavedAttachmentsProvider([]),
         ),
-        ChangeNotifierProvider<WatchedMediaProvider>(
-          create: (_) => WatchedMediaProvider(),
+        ChangeNotifierProvider<WatchedPostsProvider>(
+          create: (_) => WatchedPostsProvider(),
           lazy: false,
         ),
       ],
