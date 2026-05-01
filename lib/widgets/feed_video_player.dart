@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/services/cached_video.dart';
 import 'package:flutter_chan/services/feed_player_pool.dart';
+import 'package:flutter_chan/utils/build_blur_pill.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:visibility_detector/visibility_detector.dart';
@@ -740,12 +741,8 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                 Positioned(
                   bottom: 8,
                   left: 8,
-                  child: CupertinoButton(
-                    minimumSize: const Size(28, 28),
-                    padding: const EdgeInsets.all(5),
-                    color: Colors.black.withValues(alpha: 0.35),
-                    borderRadius: BorderRadius.circular(999),
-                    onPressed: () async {
+                  child: GestureDetector(
+                    onTap: () async {
                       final player = _player;
                       if (player == null) {
                         return;
@@ -768,10 +765,15 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                         // Ignore toggle failures.
                       }
                     },
-                    child: Icon(
-                      _isMuted ? Icons.volume_off : Icons.volume_up,
-                      color: Colors.white,
-                      size: 16,
+                    child: buildBlurPill(
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        child: Icon(
+                          _isMuted ? Icons.volume_off : Icons.volume_up,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                      ),
                     ),
                   ),
                 ),

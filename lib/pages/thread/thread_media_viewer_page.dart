@@ -9,6 +9,7 @@ import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/saved_attachments_model.dart';
 import 'package:flutter_chan/services/cached_video.dart';
 import 'package:flutter_chan/services/feed_player_pool.dart';
+import 'package:flutter_chan/utils/build_blur_pill.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:provider/provider.dart';
@@ -98,29 +99,6 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
       'https://i.4cdn.org/${widget.board}/${post.tim}${post.ext}';
 
   String _fileName(Post post) => '${post.tim}${post.ext}';
-
-  Widget _buildBlurPill({
-    required Widget child,
-    BorderRadius? borderRadius,
-    EdgeInsetsGeometry? padding,
-  }) {
-    final radius = borderRadius ?? BorderRadius.circular(999);
-    return ClipRRect(
-      borderRadius: radius,
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.28),
-            borderRadius: radius,
-            border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-          ),
-          child: child,
-        ),
-      ),
-    );
-  }
 
   Future<void> _saveToAttachments() async {
     if (_isSaving) return;
@@ -231,7 +209,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
           fileName.split('.').first,
     );
     if (isSaved) {
-      return _buildBlurPill(
+      return buildBlurPill(
         child: CupertinoButton(
           minimumSize: const Size(36, 36),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -244,7 +222,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
         ),
       );
     }
-    return _buildBlurPill(
+    return buildBlurPill(
       child: CupertinoButton(
         minimumSize: const Size(36, 36),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -335,7 +313,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _buildBlurPill(
+                  buildBlurPill(
                     child: CupertinoButton(
                       minimumSize: const Size(36, 36),
                       padding: const EdgeInsets.symmetric(
@@ -357,7 +335,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
                     children: [
                       Builder(builder: _buildSaveButton),
                       const SizedBox(width: 8),
-                      _buildBlurPill(
+                      buildBlurPill(
                         child: CupertinoButton(
                           minimumSize: const Size(36, 36),
                           padding: const EdgeInsets.symmetric(
@@ -381,7 +359,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      _buildBlurPill(
+                      buildBlurPill(
                         child: CupertinoButton(
                           minimumSize: const Size(36, 36),
                           padding: const EdgeInsets.symmetric(
@@ -401,7 +379,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      _buildBlurPill(
+                      buildBlurPill(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
                           vertical: 6,
