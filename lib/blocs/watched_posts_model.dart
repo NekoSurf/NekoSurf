@@ -15,6 +15,11 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   Timer? _cleanupTimer;
+  Timer? _saveDebounceTimer;
+  bool _hasPendingSave = false;
+
+  static const String _watchedPostsStorageKey = 'watchedPosts';
+  static const Duration _saveDebounceDelay = Duration(seconds: 2);
 
   void _startCleanupTimer() {
     _cleanupTimer = Timer.periodic(const Duration(minutes: 10), (timer) {
@@ -22,9 +27,34 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
     });
   }
 
+  void _schedulePersist() {
+    _hasPendingSave = true;
+    _saveDebounceTimer?.cancel();
+    _saveDebounceTimer = Timer(_saveDebounceDelay, () {
+      _persistNow();
+    });
+  }
+
+  Future<void> _persistNow() async {
+    _saveDebounceTimer?.cancel();
+    _saveDebounceTimer = null;
+
+    if (!_hasPendingSave) {
+      return;
+    }
+
+    _hasPendingSave = false;
+    await _saveWatchedPosts();
+  }
+
   @override
   void dispose() {
     _cleanupTimer?.cancel();
+    if (_hasPendingSave) {
+      _saveWatchedPosts();
+      _hasPendingSave = false;
+    }
+    _saveDebounceTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -33,24 +63,36 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       clearOldWatchedPosts();
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached) {
+      _persistNow();
     }
   }
 
-  final List<WatchedPosts> _watchedPosts = [];
-  List<WatchedPosts> get watchedPosts => List.unmodifiable(_watchedPosts);
+  final Map<int, WatchedPosts> _watchedPostsByThread = {};
+  List<WatchedPosts> get watchedPosts =>
+      List.unmodifiable(_watchedPostsByThread.values);
 
   Future<void> loadWatchedPosts() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final List<String>? watchedPostsList = prefs.getStringList('watchedPosts');
+    final List<String>? watchedPostsList = prefs.getStringList(
+      _watchedPostsStorageKey,
+    );
 
     if (watchedPostsList != null) {
-      _watchedPosts.clear();
+      _watchedPostsByThread.clear();
 
       for (final String watchedPostsString in watchedPostsList) {
         try {
           final Map<String, dynamic> watchedPostsMap =
               json.decode(watchedPostsString) as Map<String, dynamic>;
-          _watchedPosts.add(WatchedPosts.fromJson(watchedPostsMap));
+          final parsed = WatchedPosts.fromJson(watchedPostsMap);
+          final existing = _watchedPostsByThread[parsed.thread];
+          if (existing == null ||
+              parsed.watchedAt.isAfter(existing.watchedAt)) {
+            _watchedPostsByThread[parsed.thread] = parsed;
+          }
         } catch (e) {
           debugPrint('Error parsing watched posts entry: $e');
         }
@@ -65,44 +107,46 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
     required int postIndex,
     required int thread,
   }) async {
-    final WatchedPosts newWatchedPost = WatchedPosts(
+    final existing = _watchedPostsByThread[thread];
+    if (existing != null &&
+        existing.postIndex == postIndex &&
+        DateTime.now().difference(existing.watchedAt) <
+            const Duration(seconds: 10)) {
+      return;
+    }
+
+    final WatchedPosts latestForThread = WatchedPosts(
       postIndex: postIndex,
       thread: thread,
       watchedAt: DateTime.now(),
     );
 
-    final existingMediaIndex = _watchedPosts.indexWhere(
-      (media) => media.postIndex == postIndex && media.thread == thread,
-    );
-
-    if (existingMediaIndex != -1) {
-      _watchedPosts[existingMediaIndex] = newWatchedPost;
-    } else {
-      _watchedPosts.add(newWatchedPost);
-    }
-
-    await _saveWatchedPosts();
+    _watchedPostsByThread[thread] = latestForThread;
+    _schedulePersist();
     notifyListeners();
   }
 
   Future<void> removeFromWatched(int postIndex, int thread) async {
-    _watchedPosts.removeWhere(
-      (media) => media.postIndex == postIndex && media.thread == thread,
-    );
+    final existing = _watchedPostsByThread[thread];
+    if (existing == null || existing.postIndex != postIndex) {
+      return;
+    }
+
+    _watchedPostsByThread.remove(thread);
     await _saveWatchedPosts();
     notifyListeners();
   }
 
   Future<void> _saveWatchedPosts() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final List<String> watchedPostsStrings = _watchedPosts
+    final List<String> watchedPostsStrings = _watchedPostsByThread.values
         .map((media) => json.encode(media.toJson()))
         .toList();
-    await prefs.setStringList('watchedPosts', watchedPostsStrings);
+    await prefs.setStringList(_watchedPostsStorageKey, watchedPostsStrings);
   }
 
   Future<void> clearAllWatchedPosts() async {
-    _watchedPosts.clear();
+    _watchedPostsByThread.clear();
     await _saveWatchedPosts();
     notifyListeners();
   }
@@ -115,23 +159,15 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
       Duration(days: retentionDays),
     );
 
-    _watchedPosts.removeWhere((media) => media.watchedAt.isBefore(cutoffDate));
+    _watchedPostsByThread.removeWhere(
+      (_, media) => media.watchedAt.isBefore(cutoffDate),
+    );
 
     await _saveWatchedPosts();
     notifyListeners();
   }
 
   WatchedPosts? getLatestWatchedPosts(int thread) {
-    final threadMedia = _watchedPosts
-        .where((media) => media.thread == thread)
-        .toList();
-
-    if (threadMedia.isEmpty) {
-      return null;
-    }
-
-    return threadMedia.reduce(
-      (a, b) => a.watchedAt.isAfter(b.watchedAt) ? a : b,
-    );
+    return _watchedPostsByThread[thread];
   }
 }
