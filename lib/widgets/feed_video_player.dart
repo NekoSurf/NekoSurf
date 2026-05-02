@@ -118,7 +118,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _positionSub = player.stream.position.listen((value) {
       _position = value;
       widget.positionNotifier?.value = value;
-      if (value > _lastObservedPosition) {
+      if (value != _lastObservedPosition) {
         _lastObservedPosition = value;
         _lastProgressAt = DateTime.now();
         _stallRecoveries = 0;
@@ -135,7 +135,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       // Throttle progress-bar redraws to ~4 fps to avoid per-frame rebuilds.
       if (mounted && _hasFirstFrame) {
         final now = DateTime.now();
-        if (now.difference(_lastPositionUiUpdate).inMilliseconds >= 250) {
+        if (now.difference(_lastPositionUiUpdate).inMilliseconds >= 100) {
           _lastPositionUiUpdate = now;
           setState(() {});
         }
