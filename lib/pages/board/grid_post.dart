@@ -190,6 +190,7 @@ class _GridPostState extends State<GridPost> {
                           Text(
                             headline,
                             style: const TextStyle(
+                              height: 1.1,
                               color: Colors.white,
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
@@ -198,7 +199,7 @@ class _GridPostState extends State<GridPost> {
                             overflow: TextOverflow.ellipsis,
                           ),
                           if (excerpt.isNotEmpty) ...[
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 3),
                             Text(
                               excerpt,
                               style: TextStyle(
@@ -206,7 +207,7 @@ class _GridPostState extends State<GridPost> {
                                 fontSize: 12,
                                 height: 1.3,
                               ),
-                              maxLines: 2,
+                              maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ],

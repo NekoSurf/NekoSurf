@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/theme.dart';
-import 'package:flutter_chan/blocs/watched_media_model.dart';
 import 'package:flutter_chan/pages/replies_row.dart';
 import 'package:flutter_chan/pages/thread/thread_media_viewer_page.dart';
 import 'package:flutter_chan/pages/thread/thread_post_comment.dart';
@@ -103,17 +102,6 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     final int height = widget.post.h ?? widget.post.tnH ?? 1;
     final ratio = width / max(height, 1);
     return ratio.clamp(0.65, 1.8);
-  }
-
-  Widget _buildWatchedCornerIcon() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      padding: const EdgeInsets.all(4),
-      child: const Icon(Icons.visibility, color: Colors.white, size: 12),
-    );
   }
 
   Widget _buildLoadingOverlay() {
@@ -237,13 +225,8 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
   @override
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeChanger>(context);
-    final watchedMediaProvider = Provider.of<WatchedMediaProvider>(context);
     final bool isDark = theme.getTheme() == ThemeData.dark();
     final bool hasMedia = _hasRenderableMedia();
-    final int? watchedId = widget.post.tim ?? widget.post.no;
-    final bool isWatched =
-        watchedId != null &&
-        watchedMediaProvider.isWatched(watchedId, widget.thread);
 
     final Color primaryText = isDark ? Colors.white : const Color(0xFF121417);
     final Color secondaryText = isDark
@@ -450,8 +433,6 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
               ),
             ),
           ),
-          if (isWatched)
-            Positioned(top: 8, right: 8, child: _buildWatchedCornerIcon()),
         ],
       ),
     );

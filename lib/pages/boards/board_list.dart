@@ -7,6 +7,7 @@ import 'package:flutter_chan/blocs/favorite_model.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/constants.dart';
+import 'package:flutter_chan/pages/boards/board_list_header.dart';
 import 'package:flutter_chan/pages/boards/board_tile.dart';
 import 'package:flutter_chan/pages/bookmarks/bookmarks.dart';
 import 'package:flutter_chan/pages/savedAttachments/saved_attachments.dart';
@@ -31,7 +32,7 @@ class BoardListState extends State<BoardList> {
   bool showWarning = false;
   String warningText = 'This link is not supported';
 
-  late List<Board> filterdBoards;
+  late List<Board> filteredBoards;
 
   @override
   void initState() {
@@ -42,7 +43,9 @@ class BoardListState extends State<BoardList> {
 
   void loadBoards() {
     setState(() {
-      _fetchAllBoards = fetchAllBoards().then((value) => filterdBoards = value);
+      _fetchAllBoards = fetchAllBoards().then(
+        (value) => filteredBoards = value,
+      );
     });
   }
 
@@ -125,7 +128,7 @@ class BoardListState extends State<BoardList> {
       }
 
       if (value.isNotEmpty) {
-        filterdBoards = data
+        filteredBoards = data
             .where(
               (element) =>
                   element.board!.toLowerCase().contains(value.toLowerCase()) ||
@@ -140,7 +143,7 @@ class BoardListState extends State<BoardList> {
             .toList();
       } else {
         _searchBarController.clear();
-        filterdBoards = data;
+        filteredBoards = data;
       }
 
       setState(() {});
@@ -276,7 +279,7 @@ class BoardListState extends State<BoardList> {
                         ),
                       );
                     },
-                    child: const Icon(CupertinoIcons.bookmark),
+                    child: const Icon(CupertinoIcons.download_circle),
                   ),
                   CupertinoButton(
                     padding: EdgeInsets.zero,
@@ -287,7 +290,7 @@ class BoardListState extends State<BoardList> {
                         ),
                       );
                     },
-                    child: const Icon(CupertinoIcons.heart),
+                    child: const Icon(CupertinoIcons.bookmark),
                   ),
                   SizedBox(
                     child: CupertinoButton(
@@ -354,20 +357,15 @@ class BoardListState extends State<BoardList> {
                                   if (favorites.getFavorites().isNotEmpty)
                                     CupertinoListSection.insetGrouped(
                                       backgroundColor: pageBackground,
-                                      header: Text(
-                                        'Favorites',
-                                        style: TextStyle(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.bold,
-                                          color:
-                                              theme.getTheme() ==
-                                                  ThemeData.dark()
-                                              ? CupertinoColors.white
-                                              : CupertinoColors.black,
-                                        ),
+                                      header: BoardListHeader(
+                                        title: 'Favorites',
+                                        icon: CupertinoIcons.heart_fill,
+                                        iconColor: CupertinoColors.systemPink,
+                                        isDark: isDark,
                                       ),
                                       children: [
-                                        for (final Board board in filterdBoards)
+                                        for (final Board board
+                                            in filteredBoards)
                                           if (favorites.getFavorites().contains(
                                             board.board,
                                           ))
@@ -389,19 +387,14 @@ class BoardListState extends State<BoardList> {
                                     ),
                                   CupertinoListSection.insetGrouped(
                                     backgroundColor: pageBackground,
-                                    header: Text(
-                                      'Boards',
-                                      style: TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                        color:
-                                            theme.getTheme() == ThemeData.dark()
-                                            ? CupertinoColors.white
-                                            : CupertinoColors.black,
-                                      ),
+                                    header: BoardListHeader(
+                                      title: 'Boards',
+                                      icon: CupertinoIcons.square_grid_2x2_fill,
+                                      iconColor: CupertinoColors.activeBlue,
+                                      isDark: isDark,
                                     ),
                                     children: [
-                                      for (final Board board in filterdBoards)
+                                      for (final Board board in filteredBoards)
                                         if (settings.getNSFW())
                                           BoardTile(
                                             board: board,

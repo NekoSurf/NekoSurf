@@ -1,7 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_chan/blocs/theme.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_chan/utils/build_blur_pill.dart';
 
 class FloatingActionButtons extends StatelessWidget {
   const FloatingActionButtons({
@@ -33,33 +32,32 @@ class FloatingActionButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeChanger theme = Provider.of<ThemeChanger>(context);
-
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        FloatingActionButton(
-          child: const Icon(Icons.keyboard_arrow_up_rounded, size: 28),
-          elevation: 0,
-          backgroundColor: theme.getTheme() == ThemeData.light()
-              ? Colors.white.withValues(alpha: 0.92)
-              : const Color(0xFF171A20).withValues(alpha: 0.92),
-          foregroundColor: CupertinoColors.activeBlue,
-          onPressed: () => {if (goUp == null) animateToTop() else goUp!()},
-          heroTag: null,
+        GestureDetector(
+          onTap: () => {if (goUp == null) animateToTop() else goUp!()},
+          child: buildBlurPill(
+            child: const Icon(
+              Icons.keyboard_arrow_up_rounded,
+              size: 28,
+              color: CupertinoColors.white,
+            ),
+            padding: const EdgeInsets.all(8),
+          ),
         ),
         const SizedBox(height: 14),
-        FloatingActionButton(
-          child: const Icon(Icons.keyboard_arrow_down_rounded, size: 28),
-          elevation: 0,
-          backgroundColor: theme.getTheme() == ThemeData.light()
-              ? Colors.white.withValues(alpha: 0.92)
-              : const Color(0xFF171A20).withValues(alpha: 0.92),
-          foregroundColor: CupertinoColors.activeBlue,
-          onPressed: () => {
-            if (goDown == null) animateToBottom() else goDown!(),
-          },
-          heroTag: null,
+
+        GestureDetector(
+          onTap: () => {if (goDown == null) animateToBottom() else goDown!()},
+          child: buildBlurPill(
+            child: const Icon(
+              Icons.keyboard_arrow_down_rounded,
+              size: 28,
+              color: CupertinoColors.white,
+            ),
+            padding: const EdgeInsets.all(8),
+          ),
         ),
       ],
     );

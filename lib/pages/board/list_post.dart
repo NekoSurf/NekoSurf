@@ -128,135 +128,155 @@ class _ListPostState extends State<ListPost> {
                   ],
           ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  CircleAvatar(
-                    radius: 14,
-                    backgroundColor: CupertinoColors.activeBlue.withValues(
-                      alpha: 0.2,
-                    ),
-                    child: Text(
-                      posterName.characters.first.toUpperCase(),
-                      style: const TextStyle(
-                        color: CupertinoColors.activeBlue,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            Expanded(
+                            CircleAvatar(
+                              radius: 14,
+                              backgroundColor: CupertinoColors.activeBlue
+                                  .withValues(alpha: 0.2),
                               child: Text(
-                                posterName,
-                                style: TextStyle(
-                                  fontSize: 13,
+                                posterName.characters.first.toUpperCase(),
+                                style: const TextStyle(
+                                  color: CupertinoColors.activeBlue,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w700,
-                                  color: primaryText,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            if (widget.post.country != null &&
-                                CountryFlag.fromCountryCode(
-                                      widget.post.country!,
-                                    ) !=
-                                    null)
-                              Padding(
-                                padding: const EdgeInsets.only(left: 6),
-                                child: SizedBox(
-                                  width: 16,
-                                  height: 11,
-                                  child: CountryFlag.fromCountryCode(
-                                    widget.post.country!,
-                                  ),
-                                ),
-                              ),
-                            if (widget.post.sticky == 1)
-                              Container(
-                                margin: const EdgeInsets.only(left: 6),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: CupertinoColors.systemOrange
-                                      .withValues(alpha: 0.16),
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                child: const Text(
-                                  'Sticky',
-                                  style: TextStyle(
-                                    color: CupertinoColors.systemOrange,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 3),
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? CupertinoColors.systemGrey.withValues(
-                                        alpha: 0.18,
-                                      )
-                                    : const Color(0x11000000),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                'No.${widget.post.no}',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: secondaryText,
                                 ),
                               ),
                             ),
+
                             const SizedBox(width: 8),
+
                             Expanded(
-                              child: Text(
-                                DateFormat('kk:mm - dd.MM.y').format(
-                                  DateTime.fromMillisecondsSinceEpoch(
-                                    widget.post.time! * 1000,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        posterName,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: primaryText,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+
+                                      const SizedBox(width: 6),
+
+                                      if (widget.post.sticky == 1)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: CupertinoColors.systemOrange
+                                                .withValues(alpha: 0.16),
+                                            borderRadius: BorderRadius.circular(
+                                              999,
+                                            ),
+                                          ),
+                                          child: const Text(
+                                            'Sticky',
+                                            style: TextStyle(
+                                              color:
+                                                  CupertinoColors.systemOrange,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+
+                                      const Spacer(),
+
+                                      if (widget.post.country != null &&
+                                          CountryFlag.fromCountryCode(
+                                                widget.post.country!,
+                                              ) !=
+                                              null)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            left: 6,
+                                          ),
+                                          child: SizedBox(
+                                            width: 16,
+                                            height: 11,
+                                            child: CountryFlag.fromCountryCode(
+                                              widget.post.country!,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
                                   ),
-                                ),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: secondaryText,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+
+                                  Text(
+                                    DateFormat('kk:mm - dd.MM.y').format(
+                                      DateTime.fromMillisecondsSinceEpoch(
+                                        widget.post.time! * 1000,
+                                      ),
+                                    ),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: secondaryText,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
+
+                        if (headline.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+
+                          Text(
+                            headline,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: primaryText,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+
+                        if (excerpt.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+
+                          Text(
+                            excerpt,
+                            style: TextStyle(
+                              fontSize: 13,
+                              height: 1.35,
+                              color: secondaryText,
+                            ),
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ],
                     ),
                   ),
+
                   if (widget.post.tim != null) ...[
                     const SizedBox(width: 10),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child: SizedBox(
-                        width: 72,
-                        height: 72,
+                        width: 100,
+                        height: 100,
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
@@ -281,48 +301,66 @@ class _ListPostState extends State<ListPost> {
                   ],
                 ],
               ),
-              if (headline.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                Text(
-                  headline,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: primaryText,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-              if (excerpt.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                Text(
-                  excerpt,
-                  style: TextStyle(
-                    fontSize: 13,
-                    height: 1.35,
-                    color: secondaryText,
-                  ),
-                  maxLines: 5,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+
               const SizedBox(height: 10),
+
               Row(
                 children: [
                   RepliesRow(
                     replies: widget.post.replies,
                     imageReplies: widget.post.images,
                   ),
+
+                  const SizedBox(width: 6),
+
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? CupertinoColors.systemGrey.withValues(alpha: 0.18)
+                          : const Color(0x11000000),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      'No.${widget.post.no}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: secondaryText,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+
                   const Spacer(),
-                  Icon(
-                    isFavorite
-                        ? CupertinoIcons.bookmark_fill
-                        : CupertinoIcons.bookmark,
-                    size: 18,
-                    color: isFavorite
-                        ? CupertinoColors.activeBlue
-                        : secondaryText,
+
+                  GestureDetector(
+                    onTap: () => {
+                      if (isFavorite)
+                        bookmarks.removeBookmarks(favorite)
+                      else
+                        bookmarks.addBookmarks(favorite),
+                    },
+
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Icon(
+                        isFavorite
+                            ? CupertinoIcons.bookmark_fill
+                            : CupertinoIcons.bookmark,
+                        size: 18,
+                        color: isFavorite
+                            ? CupertinoColors.activeBlue
+                            : secondaryText,
+                      ),
+                    ),
                   ),
                 ],
               ),

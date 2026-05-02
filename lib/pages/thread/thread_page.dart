@@ -5,7 +5,7 @@ import 'package:flutter_chan/Models/bookmark.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
-import 'package:flutter_chan/blocs/watched_media_model.dart';
+import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/pages/bookmark_button.dart';
 import 'package:flutter_chan/pages/thread/thread_page_post.dart';
@@ -53,7 +53,7 @@ class ThreadPageState extends State<ThreadPage> {
       return;
     }
 
-    final watchedMedia = Provider.of<WatchedMediaProvider>(
+    final watchedPosts = Provider.of<WatchedPostsProvider>(
       context,
       listen: false,
     );
@@ -61,15 +61,7 @@ class ThreadPageState extends State<ThreadPage> {
     final positions = itemPositionsListener.itemPositions.value;
 
     for (final position in positions) {
-      final double trailing = position.itemTrailingEdge < 0
-          ? 0
-          : (position.itemTrailingEdge > 1 ? 1 : position.itemTrailingEdge);
-      final double leading = position.itemLeadingEdge < 0
-          ? 0
-          : (position.itemLeadingEdge > 1 ? 1 : position.itemLeadingEdge);
-      final double visiblePortion = trailing - leading;
-
-      if (visiblePortion < 0.55) {
+      if (position.itemLeadingEdge < 0 || position.itemLeadingEdge > 0.85) {
         continue;
       }
 
@@ -78,19 +70,7 @@ class ThreadPageState extends State<ThreadPage> {
         continue;
       }
 
-      final Post post = allPosts[index];
-      final int? watchedId = post.tim ?? post.no;
-
-      if (watchedId == null) {
-        continue;
-      }
-
-      watchedMedia.markAsWatched(
-        mediaId: watchedId,
-        thread: widget.thread,
-        fileName: post.filename ?? '',
-        ext: post.ext ?? '',
-      );
+      watchedPosts.markAsWatched(postIndex: index, thread: widget.thread);
     }
   }
 
@@ -129,9 +109,9 @@ class ThreadPageState extends State<ThreadPage> {
     });
   }
 
-  void scrollToLastWatchedMedia(List<Post> allPosts) {
+  void scrollToLastWatchedPosts(List<Post> allPosts) {
     final settings = Provider.of<SettingsProvider>(context, listen: false);
-    final watchedMedia = Provider.of<WatchedMediaProvider>(
+    final watchedPosts = Provider.of<WatchedPostsProvider>(
       context,
       listen: false,
     );
@@ -140,22 +120,16 @@ class ThreadPageState extends State<ThreadPage> {
       return;
     }
 
-    final latestWatchedMedia = watchedMedia.getLatestWatchedMedia(
+    final latestWatchedPosts = watchedPosts.getLatestWatchedPosts(
       widget.thread,
     );
 
-    if (latestWatchedMedia != null) {
-      final index = allPosts.indexWhere(
-        (post) =>
-            post.tim == latestWatchedMedia.mediaId ||
-            post.no == latestWatchedMedia.mediaId,
-      );
-
-      if (index != -1) {
-        Future.delayed(const Duration(milliseconds: 250), () {
+    if (latestWatchedPosts != null) {
+      if (latestWatchedPosts.postIndex != -1) {
+        Future.delayed(const Duration(milliseconds: 50), () {
           if (mounted && itemScrollController.isAttached) {
             itemScrollController.scrollTo(
-              index: index,
+              index: latestWatchedPosts.postIndex,
               alignment: 0,
               duration: const Duration(milliseconds: 500),
               curve: Curves.easeInOutCubic,
@@ -285,7 +259,7 @@ class ThreadPageState extends State<ThreadPage> {
 
                 if (!_hasScrolledToLastWatched) {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
-                    scrollToLastWatchedMedia(allPosts);
+                    scrollToLastWatchedPosts(allPosts);
                     _hasScrolledToLastWatched = true;
                   });
                 }

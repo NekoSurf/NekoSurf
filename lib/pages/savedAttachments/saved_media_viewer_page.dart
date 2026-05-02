@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/save_videos.dart';
 import 'package:flutter_chan/Models/saved_attachment.dart';
 import 'package:flutter_chan/blocs/saved_attachments_model.dart';
+import 'package:flutter_chan/utils/build_blur_pill.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:provider/provider.dart';
@@ -74,29 +75,6 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
   String _filePath(SavedAttachment attachment) {
     final fileName = _fileName(attachment);
     return '${widget.directoryPath}/savedAttachments/$fileName';
-  }
-
-  Widget _buildBlurPill({
-    required Widget child,
-    BorderRadius? borderRadius,
-    EdgeInsetsGeometry? padding,
-  }) {
-    final radius = borderRadius ?? BorderRadius.circular(999);
-    return ClipRRect(
-      borderRadius: radius,
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.28),
-            borderRadius: radius,
-            border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-          ),
-          child: child,
-        ),
-      ),
-    );
   }
 
   Widget _buildMediaPage(SavedAttachment attachment, int index) {
@@ -255,7 +233,7 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildBlurPill(
+                buildBlurPill(
                   child: CupertinoButton(
                     minimumSize: const Size(36, 36),
                     padding: const EdgeInsets.symmetric(
@@ -275,7 +253,7 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildBlurPill(
+                    buildBlurPill(
                       child: CupertinoButton(
                         minimumSize: const Size(36, 36),
                         padding: const EdgeInsets.symmetric(
@@ -299,7 +277,7 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    _buildBlurPill(
+                    buildBlurPill(
                       child: CupertinoButton(
                         minimumSize: const Size(36, 36),
                         padding: const EdgeInsets.symmetric(
@@ -319,7 +297,7 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    _buildBlurPill(
+                    buildBlurPill(
                       child: CupertinoButton(
                         minimumSize: const Size(36, 36),
                         padding: const EdgeInsets.symmetric(
@@ -341,7 +319,7 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    _buildBlurPill(
+                    buildBlurPill(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
                         vertical: 6,

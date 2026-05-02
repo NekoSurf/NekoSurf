@@ -160,6 +160,7 @@ class _BookmarksState extends State<Bookmarks> {
                       children: [
                         for (final String string in bookmarks.getBookmarks())
                           BookmarksPost(
+                            key: ValueKey<String>(string),
                             favorite: Bookmark.fromJson(
                               json.decode(string) as Map<String, dynamic>,
                             ),
