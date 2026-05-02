@@ -130,6 +130,7 @@ class _ListPostState extends State<ListPost> {
           child: Column(
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: Column(
