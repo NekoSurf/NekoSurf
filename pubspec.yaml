@@ -52,10 +52,12 @@ dependencies:
   modal_bottom_sheet: ^3.0.0
   device_info_plus: ^13.1.0
   country_flags: ^4.1.2
-  ffmpeg_kit_flutter_new:
-    git:
-      url: https://github.com/dart-technologies/ffmpeg_kit_flutter.git
-      ref: arm64-simulator-support
+  ffmpeg_kit_flutter_new: ^4.1.0
+  # For testing the arm64 simulator support branch of ffmpeg_kit_flutter:
+  # ffmpeg_kit_flutter_new:
+  #   git:
+  #     url: https://github.com/dart-technologies/ffmpeg_kit_flutter.git
+  #     ref: arm64-simulator-support
 
 dev_dependencies:
   flutter_test:
