@@ -42,7 +42,7 @@ class _BookmarkButtonState extends State<BookmarkButton> {
       },
       child: Icon(
         isFavorite ? Icons.bookmark : Icons.bookmark_border,
-        color: isFavorite ? CupertinoColors.activeBlue : Colors.white,
+        color: CupertinoColors.activeBlue,
       ),
     );
   }

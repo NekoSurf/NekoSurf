@@ -22,10 +22,6 @@ Future<BookmarkStatus> fetchBookmarkStatus(
         .map((model) => Post.fromJson(model as Map<String?, dynamic>))
         .toList();
 
-    if (response.body == null) {
-      bookmarkStatus.status = ThreadStatus.deleted;
-    }
-
     if (posts[0].archived == 1) {
       bookmarkStatus.status = ThreadStatus.archived;
     } else {

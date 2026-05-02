@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_chan/Models/watched_media.dart';
+import 'package:flutter_chan/Models/watched_posts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {

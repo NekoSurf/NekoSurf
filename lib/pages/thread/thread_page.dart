@@ -5,7 +5,7 @@ import 'package:flutter_chan/Models/bookmark.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
-import 'package:flutter_chan/blocs/watched_media_model.dart';
+import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/pages/bookmark_button.dart';
 import 'package:flutter_chan/pages/thread/thread_page_post.dart';
@@ -296,7 +296,6 @@ class ThreadPageState extends State<ThreadPage> {
                           curve: Curves.easeInOutCubic,
                         );
                       },
-                      postIndex: index,
                     ),
                   ),
                 );

@@ -23,7 +23,6 @@ class ThreadPagePost extends StatefulWidget {
     required this.thread,
     required this.allPosts,
     required this.onDismiss,
-    required this.postIndex,
     this.replies,
   }) : super(key: key);
 
@@ -33,7 +32,6 @@ class ThreadPagePost extends StatefulWidget {
   final List<Post> allPosts;
   final Function(int? postId) onDismiss;
   final List<Post>? replies;
-  final int postIndex;
 
   static String formatBytes(int bytes, int decimals) {
     if (bytes <= 0) {

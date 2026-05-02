@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/blocs/theme.dart';
-import 'package:flutter_chan/blocs/watched_media_model.dart';
+import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/constants.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
@@ -211,9 +211,9 @@ class DataSettingsState extends State<DataSettings> {
               backgroundColor: AppColors.pageBackground(isDark),
               children: [
                 CupertinoListTile(
-                  title: const Text('Watched Media Retention Period'),
+                  title: const Text('Watched Posts Retention Period'),
                   subtitle: const Text(
-                    'The number of days watched status of all media will be kept.',
+                    'The number of days watched status of all posts will be kept.',
                   ),
                   trailing: CupertinoButton(
                     padding: EdgeInsets.zero,
@@ -258,7 +258,7 @@ class DataSettingsState extends State<DataSettings> {
                     color: CupertinoColors.systemRed,
                     icon: CupertinoIcons.eye_slash,
                   ),
-                  title: const Text('Clear Watched Media History'),
+                  title: const Text('Clear Watched Posts History'),
                   trailing: const CupertinoListTileChevron(),
                   onTap: () async {
                     final watchedPostsProvider =
@@ -272,7 +272,7 @@ class DataSettingsState extends State<DataSettings> {
                         const Duration(milliseconds: 1800),
                         true,
                         context,
-                        'Watched media history cleared!',
+                        'Watched posts history cleared!',
                       );
                     }
                   },

@@ -61,14 +61,21 @@ class _BookmarksPostState extends State<BookmarksPost> {
     return FutureBuilder<BookmarkStatus>(
       future: _fetchBookmarkStatus,
       builder: (BuildContext context, snapshot) {
+        final bool hasStatusData = snapshot.hasData && snapshot.data != null;
+        final bool failedToLoad =
+            snapshot.hasError ||
+            (snapshot.connectionState == ConnectionState.done &&
+                !hasStatusData);
         final ThreadStatus status =
             snapshot.connectionState == ConnectionState.waiting
             ? ThreadStatus.online
-            : (snapshot.data!.status ?? ThreadStatus.online);
+            : failedToLoad
+            ? ThreadStatus.deleted
+            : (snapshot.data?.status ?? ThreadStatus.online);
         final ThreadReplyCount? replyCount =
-            snapshot.connectionState == ConnectionState.waiting
+            snapshot.connectionState == ConnectionState.waiting || failedToLoad
             ? null
-            : snapshot.data!.replies;
+            : snapshot.data?.replies;
         final bool isDeleted = status == ThreadStatus.deleted;
 
         final Widget card = _BookmarkCard(
@@ -205,50 +212,58 @@ class _BookmarkCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? CupertinoColors.systemGrey.withValues(alpha: 0.18)
-                        : const Color(0x11000000),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    'No.${favorite.no}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: secondaryText,
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? CupertinoColors.systemGrey.withValues(alpha: 0.18)
+                            : const Color(0x11000000),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        'No.${favorite.no}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: secondaryText,
+                        ),
+                      ),
                     ),
-                  ),
+
+                    if (status == ThreadStatus.archived ||
+                        status == ThreadStatus.deleted) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: CupertinoColors.systemRed.withValues(
+                            alpha: isDark ? 0.25 : 0.12,
+                          ),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          status == ThreadStatus.archived
+                              ? 'Archived'
+                              : 'Deleted',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: CupertinoColors.systemRed,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-                if (status == ThreadStatus.archived ||
-                    status == ThreadStatus.deleted) ...[
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: CupertinoColors.systemRed.withValues(
-                        alpha: isDark ? 0.25 : 0.12,
-                      ),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      status == ThreadStatus.archived ? 'Archived' : 'Deleted',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: CupertinoColors.systemRed,
-                      ),
-                    ),
-                  ),
-                ],
+
                 if (headline.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   Text(
