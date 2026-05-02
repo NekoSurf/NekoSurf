@@ -38,8 +38,8 @@ It is designed for smooth browsing with modern card-based layouts, media-first n
 
 - Dark mode support
 - NSFW board visibility toggle
-- Auto-scroll to last seen media
-- Watched media retention controls
+- Auto-scroll to last seen post
+- Watched posts retention controls
 - Cache size display and one-tap cache cleanup
 
 ## Screenshots
