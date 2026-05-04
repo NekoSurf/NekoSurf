@@ -96,9 +96,6 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     if (index < 0) {
       return;
     }
-    final startPosition = _isVideoPost()
-        ? _feedVideoPosition.value
-        : Duration.zero;
     final focusedPostId = await Navigator.of(context).push<int>(
       MaterialPageRoute(
         builder: (context) => ThreadMediaViewerPage(
@@ -106,7 +103,6 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
           initialIndex: index,
           board: widget.board,
           thread: widget.thread,
-          startPosition: startPosition,
         ),
       ),
     );
