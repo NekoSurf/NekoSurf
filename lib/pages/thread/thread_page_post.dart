@@ -52,6 +52,25 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     Duration.zero,
   );
 
+  Future<void> _openReplies() async {
+    final focusedPostId = await Navigator.of(context).push<int>(
+      MaterialPageRoute(
+        builder: (context) => ThreadReplies(
+          post: widget.post,
+          thread: widget.thread,
+          board: widget.board,
+          allPosts: widget.allPosts,
+        ),
+      ),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    widget.onDismiss(focusedPostId);
+  }
+
   String _thumbnailUrl() {
     return 'https://i.4cdn.org/${widget.board}/${widget.post.tim}s.jpg';
   }
@@ -184,7 +203,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     }
     final fileName = '$mediaId${widget.post.ext ?? '.webm'}';
     final mediaUrl = 'https://i.4cdn.org/${widget.board}/$fileName';
-    final itemKey = widget.post.no ?? mediaId ?? fileName.hashCode;
+    final itemKey = widget.post.no ?? mediaId;
 
     try {
       return GestureDetector(
@@ -250,15 +269,13 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                     : const Color(0x14000000),
                 width: 1,
               ),
-              boxShadow: isDark
-                  ? []
-                  : const [
-                      BoxShadow(
-                        color: Color(0x12000000),
-                        blurRadius: 12,
-                        offset: Offset(0, 4),
-                      ),
-                    ],
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x12000000),
+                  blurRadius: 12,
+                  offset: Offset(0, 4),
+                ),
+              ],
             ),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
@@ -266,7 +283,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       CircleAvatar(
                         radius: 14,
@@ -293,38 +310,17 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                           children: [
                             Row(
                               children: [
-                                Expanded(
-                                  child: Text(
-                                    widget.post.name ?? 'Anonymous',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700,
-                                      color: primaryText,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                                Text(
+                                  widget.post.name ?? 'Anonymous',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: primaryText,
                                   ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                if (widget.post.country != null &&
-                                    CountryFlag.fromCountryCode(
-                                          widget.post.country!,
-                                        ) !=
-                                        null)
-                                  Padding(
-                                    padding: const EdgeInsets.only(left: 6),
-                                    child: SizedBox(
-                                      width: 16,
-                                      height: 11,
-                                      child: CountryFlag.fromCountryCode(
-                                        widget.post.country!,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 3),
-                            Row(
-                              children: [
+                                const SizedBox(width: 6),
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 8,
@@ -347,23 +343,36 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    DateFormat('kk:mm - dd.MM.y').format(
-                                      DateTime.fromMillisecondsSinceEpoch(
-                                        widget.post.time! * 1000,
+                                const SizedBox(width: 6),
+                                if (widget.post.country != null &&
+                                    CountryFlag.fromCountryCode(
+                                          widget.post.country!,
+                                        ) !=
+                                        null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 6),
+                                    child: SizedBox(
+                                      width: 16,
+                                      height: 11,
+                                      child: CountryFlag.fromCountryCode(
+                                        widget.post.country!,
                                       ),
                                     ),
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: secondaryText,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                ),
                               ],
+                            ),
+                            Text(
+                              DateFormat('kk:mm - dd.MM.y').format(
+                                DateTime.fromMillisecondsSinceEpoch(
+                                  widget.post.time! * 1000,
+                                ),
+                              ),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: secondaryText,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),
@@ -389,9 +398,9 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                       _buildInlineVideoMedia()
                     else
                       _buildInlineImageMedia(),
-                    const SizedBox(height: 10),
                   ],
-                  if (widget.post.com != null)
+                  if (widget.post.com != null) ...[
+                    const SizedBox(height: 10),
                     Padding(
                       padding: const EdgeInsets.only(bottom: 6),
                       child: ThreadPostComment(
@@ -401,24 +410,13 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                         allPosts: widget.allPosts,
                       ),
                     ),
+                  ],
                   FutureBuilder<List<Post>>(
                     future: _fetchAllRepliesToPost,
                     builder: (context, AsyncSnapshot<List<Post>> snapshot) {
                       if (snapshot.data != null && snapshot.data!.isNotEmpty) {
                         return GestureDetector(
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) => ThreadReplies(
-                                  replies: snapshot.data ?? [],
-                                  post: widget.post,
-                                  thread: widget.thread,
-                                  board: widget.board,
-                                  allPosts: widget.allPosts,
-                                ),
-                              ),
-                            );
-                          },
+                          onTap: _openReplies,
                           child: RepliesRow(
                             replies: snapshot.data!.length,
                             showImageReplies: false,
