@@ -207,11 +207,9 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
             _openMediaViewer(widget.replies ?? widget.allPosts, widget.post),
         child: FeedVideoPlayer(
           key: ValueKey('feed-player-${widget.board}-$itemKey'),
-          playerKey: '${widget.board}:$mediaId',
           videoUrl: mediaUrl,
           thumbnailUrl: _thumbnailUrl(),
           aspectRatio: _mediaAspectRatio(),
-          positionNotifier: _feedVideoPosition,
         ),
       );
     } catch (_) {
