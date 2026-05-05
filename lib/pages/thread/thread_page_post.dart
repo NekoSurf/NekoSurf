@@ -397,26 +397,28 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                   ],
                   if (widget.post.com != null) ...[
                     const SizedBox(height: 10),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: ThreadPostComment(
-                        com: widget.post.com ?? '',
-                        board: widget.board,
-                        thread: widget.thread,
-                        allPosts: widget.allPosts,
-                      ),
+                    ThreadPostComment(
+                      com: widget.post.com ?? '',
+                      board: widget.board,
+                      thread: widget.thread,
+                      allPosts: widget.allPosts,
                     ),
                   ],
                   FutureBuilder<List<Post>>(
                     future: _fetchAllRepliesToPost,
                     builder: (context, AsyncSnapshot<List<Post>> snapshot) {
                       if (snapshot.data != null && snapshot.data!.isNotEmpty) {
-                        return GestureDetector(
-                          onTap: _openReplies,
-                          child: RepliesRow(
-                            replies: snapshot.data!.length,
-                            showImageReplies: false,
-                          ),
+                        return Column(
+                          children: [
+                            const SizedBox(height: 10),
+                            GestureDetector(
+                              onTap: _openReplies,
+                              child: RepliesRow(
+                                replies: snapshot.data!.length,
+                                showImageReplies: false,
+                              ),
+                            ),
+                          ],
                         );
                       }
 
