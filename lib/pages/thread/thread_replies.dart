@@ -260,12 +260,8 @@ class _ThreadRepliesState extends State<ThreadReplies> {
       ),
       body: Scrollbar(
         controller: scrollController,
-        child: ListView.builder(
-          controller: scrollController,
-          itemCount: replyEntries.length,
-          itemBuilder: (BuildContext context, int index) {
-            if (replyEntries.isEmpty) {
-              return Padding(
+        child: replyEntries.isEmpty
+            ? Padding(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
                 child: Text(
                   'No threaded replies were found for this post.',
@@ -276,40 +272,46 @@ class _ThreadRepliesState extends State<ThreadReplies> {
                         : const Color(0xFF5B6470),
                   ),
                 ),
-              );
-            }
+              )
+            : ListView.builder(
+                controller: scrollController,
+                itemCount: replyEntries.length,
+                itemBuilder: (BuildContext context, int index) {
+                  final _ReplyTreeEntry entry = replyEntries[index];
 
-            final _ReplyTreeEntry entry = replyEntries[index];
-
-            return Padding(
-              padding: const EdgeInsets.only(left: 8.0),
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => collapseEntry(entry),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(top: 15),
-                      child: _buildTreeBranch(entry.branchState, isDark, entry),
-                    ),
-                    Expanded(
-                      child: entry.isCollapsed
-                          ? _buildCollapsedCard(entry, isDark)
-                          : ThreadPagePost(
-                              board: widget.board,
-                              thread: widget.thread,
-                              post: entry.post,
-                              allPosts: widget.allPosts,
-                              onDismiss: (int? postId) {},
+                  return Padding(
+                    padding: const EdgeInsets.only(left: 8.0),
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => collapseEntry(entry),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(top: 15),
+                            child: _buildTreeBranch(
+                              entry.branchState,
+                              isDark,
+                              entry,
                             ),
+                          ),
+                          Expanded(
+                            child: entry.isCollapsed
+                                ? _buildCollapsedCard(entry, isDark)
+                                : ThreadPagePost(
+                                    board: widget.board,
+                                    thread: widget.thread,
+                                    post: entry.post,
+                                    allPosts: widget.allPosts,
+                                    onDismiss: (int? postId) {},
+                                  ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
-                ),
+                  );
+                },
               ),
-            );
-          },
-        ),
       ),
     );
   }

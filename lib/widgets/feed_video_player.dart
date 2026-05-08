@@ -24,13 +24,18 @@ class FeedVideoPlayer extends StatefulWidget {
 class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   Player? _player;
   VideoController? _controller;
+  bool _isDisposing = false;
+  int _opToken = 0;
 
   bool _visible = false;
   bool _initialized = false;
   bool _hasFirstFrame = false;
   bool _isMuted = true;
-  Duration _duration = Duration.zero;
-  Duration _position = Duration.zero;
+
+  final ValueNotifier<double> _progressValue = ValueNotifier<double>(0.0);
+  final ValueNotifier<bool> _hasDuration = ValueNotifier<bool>(false);
+  Duration _lastProgressUiPosition = Duration.zero;
+  int _durationMicros = 0;
 
   StreamSubscription<Duration>? _positionSub;
   StreamSubscription<Duration>? _durationSub;
@@ -40,9 +45,15 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   // ---------------------------
 
   Future<void> _initAndPlay() async {
-    if (_initialized) {
+    if (_isDisposing) {
       return;
     }
+
+    if (_initialized || _player != null) {
+      return;
+    }
+
+    final token = ++_opToken;
 
     final player = Player();
     final controller = VideoController(player);
@@ -50,12 +61,29 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _player = player;
     _controller = controller;
 
+    if (mounted) {
+      setState(() {
+        // Attach video surface immediately while first frame is loading.
+      });
+    }
+
     try {
-      await player.open(Media(widget.videoUrl));
+      await player.open(Media(widget.videoUrl), play: false);
+      if (_isDisposing || token != _opToken || _player != player || !_visible) {
+        try {
+          await player.dispose();
+        } catch (_) {}
+        return;
+      }
+
       await player.setAudioTrack(AudioTrack.no());
       await player.setPlaylistMode(PlaylistMode.loop);
 
       _positionSub = player.stream.position.listen((pos) {
+        if (token != _opToken || _player != player) {
+          return;
+        }
+
         if (pos > Duration.zero && !_hasFirstFrame) {
           if (mounted) {
             setState(() {
@@ -63,17 +91,46 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
             });
           }
         }
-        if (mounted) {
-          setState(() => _position = pos);
+
+        final durationMicros = _durationMicros;
+        if (durationMicros <= 0) {
+          return;
+        }
+
+        final shouldUpdateUi =
+            pos == Duration.zero ||
+            (pos - _lastProgressUiPosition).inMilliseconds >= 100;
+        if (!shouldUpdateUi) {
+          return;
+        }
+
+        _lastProgressUiPosition = pos;
+        final nextProgress = (pos.inMicroseconds / durationMicros).clamp(
+          0.0,
+          1.0,
+        );
+        if (_progressValue.value != nextProgress) {
+          _progressValue.value = nextProgress;
         }
       });
       _durationSub = player.stream.duration.listen((dur) {
-        if (mounted) {
-          setState(() => _duration = dur);
+        if (token != _opToken || _player != player) {
+          return;
+        }
+
+        final micros = dur.inMicroseconds;
+        _durationMicros = micros;
+        final hasDurationNow = micros > 0;
+        if (_hasDuration.value != hasDurationNow) {
+          _hasDuration.value = hasDurationNow;
         }
       });
 
-      if (!mounted) {
+      if (!mounted ||
+          _isDisposing ||
+          token != _opToken ||
+          _player != player ||
+          !_visible) {
         return;
       }
 
@@ -84,33 +141,50 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       await player.play();
     } catch (_) {
       // keep it simple: fail silently for feed
+      if (_player == player) {
+        _player = null;
+        _controller = null;
+      }
     }
   }
 
   Future<void> _pauseAndDispose() async {
+    if (_isDisposing) {
+      return;
+    }
+
+    ++_opToken;
+
     final player = _player;
 
-    _positionSub?.cancel();
-    _positionSub = null;
-
-    _durationSub?.cancel();
-    _durationSub = null;
-
-    if (player != null) {
-      try {
-        await player.pause();
-        await player.dispose();
-      } catch (_) {}
-    }
+    final positionSub = _positionSub;
+    final durationSub = _durationSub;
 
     _player = null;
     _controller = null;
+    _positionSub = null;
+    _durationSub = null;
 
     if (mounted) {
       setState(() {
         _initialized = false;
         _hasFirstFrame = false;
       });
+    }
+
+    _lastProgressUiPosition = Duration.zero;
+    _durationMicros = 0;
+    _progressValue.value = 0.0;
+    _hasDuration.value = false;
+
+    await positionSub?.cancel();
+    await durationSub?.cancel();
+
+    if (player != null) {
+      try {
+        await player.pause();
+        await player.dispose();
+      } catch (_) {}
     }
   }
 
@@ -206,20 +280,36 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                   ),
                 ),
 
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: LinearProgressIndicator(
-                  value: _duration.inMicroseconds > 0
-                      ? (_position.inMicroseconds / _duration.inMicroseconds)
-                            .clamp(0.0, 1.0)
-                      : 0.0,
-                  backgroundColor: Colors.white.withValues(alpha: 0.25),
-                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                  minHeight: 3,
+              if (_controller != null && _hasFirstFrame)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: ValueListenableBuilder<bool>(
+                    valueListenable: _hasDuration,
+                    builder: (context, hasDuration, _) {
+                      if (!hasDuration) {
+                        return const SizedBox.shrink();
+                      }
+
+                      return ValueListenableBuilder<double>(
+                        valueListenable: _progressValue,
+                        builder: (context, progress, _) {
+                          return LinearProgressIndicator(
+                            value: progress,
+                            backgroundColor: Colors.white.withValues(
+                              alpha: 0.25,
+                            ),
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                            minHeight: 3,
+                          );
+                        },
+                      );
+                    },
+                  ),
                 ),
-              ),
             ],
           ),
         ),
@@ -229,7 +319,32 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
   @override
   void dispose() {
-    _pauseAndDispose();
+    _isDisposing = true;
+    ++_opToken;
+
+    final player = _player;
+
+    _player = null;
+    _controller = null;
+
+    _positionSub?.cancel();
+    _positionSub = null;
+
+    _durationSub?.cancel();
+    _durationSub = null;
+
+    if (player != null) {
+      unawaited(() async {
+        try {
+          await player.pause();
+          await player.dispose();
+        } catch (_) {}
+      }());
+    }
+
+    _progressValue.dispose();
+    _hasDuration.dispose();
+
     super.dispose();
   }
 }

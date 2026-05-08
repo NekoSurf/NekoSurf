@@ -739,10 +739,13 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
                   builder: (context, heightSnapshot) {
                     final int width = widthSnapshot.data ?? 0;
                     final int height = heightSnapshot.data ?? 0;
-                    final double aspectRatio = width / height;
+                    final bool hasValidDimensions = width > 0 && height > 0;
+                    final double aspectRatio = hasValidDimensions
+                        ? width / height
+                        : 16 / 9;
 
                     final bool showVideo =
-                        aspectRatio > 0 && _hasVideoFrame && !_isBuffering;
+                        hasValidDimensions && _hasVideoFrame && !_isBuffering;
 
                     return Stack(
                       children: [
@@ -752,9 +755,7 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
                           curve: Curves.easeOut,
                           child: Center(
                             child: AspectRatio(
-                              aspectRatio: aspectRatio > 0
-                                  ? aspectRatio
-                                  : 16 / 9,
+                              aspectRatio: aspectRatio,
                               child: Video(
                                 controller: widget.controller,
                                 controls: NoVideoControls,

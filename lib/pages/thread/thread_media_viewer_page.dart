@@ -210,7 +210,12 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
       onClose: () =>
           Navigator.of(context).pop(_currentPost.no ?? _currentPost.tim),
       onIndexChanged: (int index) {
+        if (index == _currentIndex) {
+          return;
+        }
         setState(() {
+          _didSaveAttachment = false;
+          _didDownload = false;
           _currentIndex = index;
         });
       },

@@ -304,15 +304,17 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                           children: [
                             Row(
                               children: [
-                                Text(
-                                  widget.post.name ?? 'Anonymous',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: primaryText,
+                                Flexible(
+                                  child: Text(
+                                    widget.post.name ?? 'Anonymous',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: primaryText,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
                                 ),
                                 const SizedBox(width: 6),
                                 Container(
