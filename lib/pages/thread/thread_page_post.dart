@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:country_flags/country_flags.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/pages/replies_row.dart';
@@ -11,6 +10,7 @@ import 'package:flutter_chan/pages/thread/thread_media_viewer_page.dart';
 import 'package:flutter_chan/pages/thread/thread_post_comment.dart';
 import 'package:flutter_chan/pages/thread/thread_replies.dart';
 import 'package:flutter_chan/services/string.dart';
+import 'package:flutter_chan/widgets/feed_player_pool.dart';
 import 'package:flutter_chan/widgets/feed_video_player.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -24,6 +24,9 @@ class ThreadPagePost extends StatefulWidget {
     required this.allPosts,
     required this.onDismiss,
     this.replies,
+    this.replyCount = 0,
+    this.eagerVideoInit = false,
+    this.playerPool,
   }) : super(key: key);
 
   final String board;
@@ -32,6 +35,9 @@ class ThreadPagePost extends StatefulWidget {
   final List<Post> allPosts;
   final Function(int? postId) onDismiss;
   final List<Post>? replies;
+  final int replyCount;
+  final bool eagerVideoInit;
+  final FeedPlayerPool? playerPool;
 
   static String formatBytes(int bytes, int decimals) {
     if (bytes <= 0) {
@@ -47,11 +53,6 @@ class ThreadPagePost extends StatefulWidget {
 }
 
 class _ThreadPagePostState extends State<ThreadPagePost> {
-  late Future<List<Post>> _fetchAllRepliesToPost;
-  final ValueNotifier<Duration> _feedVideoPosition = ValueNotifier(
-    Duration.zero,
-  );
-
   Future<void> _openReplies() async {
     final focusedPostId = await Navigator.of(context).push<int>(
       MaterialPageRoute(
@@ -210,29 +211,13 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
           videoUrl: mediaUrl,
           thumbnailUrl: _thumbnailUrl(),
           aspectRatio: _mediaAspectRatio(),
+          eagerInitialize: widget.eagerVideoInit,
+          pool: widget.playerPool,
         ),
       );
     } catch (_) {
       return _buildInlineImageMedia();
     }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-
-    _fetchAllRepliesToPost = fetchAllRepliesToPost(
-      widget.post.no ?? 0,
-      widget.board,
-      widget.thread,
-      widget.allPosts,
-    );
-  }
-
-  @override
-  void dispose() {
-    _feedVideoPosition.dispose();
-    super.dispose();
   }
 
   @override
@@ -404,27 +389,19 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                       allPosts: widget.allPosts,
                     ),
                   ],
-                  FutureBuilder<List<Post>>(
-                    future: _fetchAllRepliesToPost,
-                    builder: (context, AsyncSnapshot<List<Post>> snapshot) {
-                      if (snapshot.data != null && snapshot.data!.isNotEmpty) {
-                        return Column(
-                          children: [
-                            const SizedBox(height: 10),
-                            GestureDetector(
-                              onTap: _openReplies,
-                              child: RepliesRow(
-                                replies: snapshot.data!.length,
-                                showImageReplies: false,
-                              ),
-                            ),
-                          ],
-                        );
-                      }
-
-                      return const SizedBox.shrink();
-                    },
-                  ),
+                  if (widget.replyCount > 0)
+                    Column(
+                      children: [
+                        const SizedBox(height: 10),
+                        GestureDetector(
+                          onTap: _openReplies,
+                          child: RepliesRow(
+                            replies: widget.replyCount,
+                            showImageReplies: false,
+                          ),
+                        ),
+                      ],
+                    ),
                 ],
               ),
             ),

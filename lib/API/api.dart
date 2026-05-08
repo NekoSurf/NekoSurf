@@ -163,6 +163,46 @@ Map<int, List<Post>> buildReplyChildrenIndex(List<Post> allPosts) {
   return repliesByParent;
 }
 
+Map<int, int> buildReplyDescendantCountIndex(List<Post> allPosts) {
+  final Map<int, List<Post>> repliesByParent = buildReplyChildrenIndex(
+    allPosts,
+  );
+  final Map<int, int> descendantsByPostId = <int, int>{};
+
+  int countDescendants(int postId) {
+    final int? cached = descendantsByPostId[postId];
+    if (cached != null) {
+      return cached;
+    }
+
+    final List<Post> children = repliesByParent[postId] ?? const <Post>[];
+    int descendants = 0;
+
+    for (final Post child in children) {
+      final int? childId = child.no;
+      if (childId == null) {
+        continue;
+      }
+
+      descendants += 1 + countDescendants(childId);
+    }
+
+    descendantsByPostId[postId] = descendants;
+    return descendants;
+  }
+
+  for (final Post post in allPosts) {
+    final int? postId = post.no;
+    if (postId == null) {
+      continue;
+    }
+
+    countDescendants(postId);
+  }
+
+  return descendantsByPostId;
+}
+
 List<Post> collectReplySubtree({
   required int rootPostId,
   required List<Post> allPosts,

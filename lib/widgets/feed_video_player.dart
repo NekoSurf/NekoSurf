@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_chan/widgets/feed_player_pool.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:visibility_detector/visibility_detector.dart';
@@ -11,19 +12,28 @@ class FeedVideoPlayer extends StatefulWidget {
     required this.videoUrl,
     required this.thumbnailUrl,
     required this.aspectRatio,
+    this.eagerInitialize = false,
+    this.pool,
   });
 
   final String videoUrl;
   final String thumbnailUrl;
   final double aspectRatio;
+  final bool eagerInitialize;
+  final FeedPlayerPool? pool;
 
   @override
   State<FeedVideoPlayer> createState() => _FeedVideoPlayerState();
 }
 
 class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
+  static const double _preloadVisibilityThreshold = 0.02;
+  static const double _pauseVisibilityThreshold = 0.01;
+  static const Duration _pauseDebounce = Duration(milliseconds: 550);
+
   Player? _player;
   VideoController? _controller;
+  FeedPlayerPoolLease? _poolLease;
   bool _isDisposing = false;
   int _opToken = 0;
 
@@ -39,15 +49,50 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
   StreamSubscription<Duration>? _positionSub;
   StreamSubscription<Duration>? _durationSub;
+  Timer? _pauseDebounceTimer;
+
+  @override
+  void initState() {
+    super.initState();
+
+    if (widget.eagerInitialize) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _isDisposing || _player != null || _initialized) {
+          return;
+        }
+
+        _initAndPlay(allowHiddenWarmup: true);
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant FeedVideoPlayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (!oldWidget.eagerInitialize && widget.eagerInitialize) {
+      if (_player == null && !_isDisposing) {
+        _initAndPlay(allowHiddenWarmup: true);
+      }
+      return;
+    }
+
+    if (oldWidget.eagerInitialize && !widget.eagerInitialize && !_visible) {
+      _schedulePauseAndDispose();
+    }
+  }
 
   // ---------------------------
   // Lifecycle
   // ---------------------------
 
-  Future<void> _initAndPlay() async {
+  Future<void> _initAndPlay({bool allowHiddenWarmup = false}) async {
     if (_isDisposing) {
       return;
     }
+
+    _pauseDebounceTimer?.cancel();
+    _pauseDebounceTimer = null;
 
     if (_initialized || _player != null) {
       return;
@@ -55,8 +100,24 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
     final token = ++_opToken;
 
-    final player = Player();
-    final controller = VideoController(player);
+    // Try to borrow from pool; fall back to creating a new player.
+    Player player;
+    VideoController controller;
+    FeedPlayerPoolLease? lease;
+
+    final pool = widget.pool;
+    if (pool != null) {
+      lease = pool.acquire(source: widget.videoUrl);
+    }
+
+    if (lease != null) {
+      player = lease.player;
+      controller = lease.controller;
+      _poolLease = lease;
+    } else {
+      player = Player();
+      controller = VideoController(player);
+    }
 
     _player = player;
     _controller = controller;
@@ -69,10 +130,25 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
     try {
       await player.open(Media(widget.videoUrl), play: false);
-      if (_isDisposing || token != _opToken || _player != player || !_visible) {
-        try {
-          await player.dispose();
-        } catch (_) {}
+      final shouldAbortOpen =
+          _isDisposing ||
+          token != _opToken ||
+          _player != player ||
+          (!_visible && !allowHiddenWarmup);
+      if (shouldAbortOpen) {
+        final abortLease = _poolLease;
+        if (_player == player) {
+          _player = null;
+          _controller = null;
+          _poolLease = null;
+        }
+        if (abortLease != null) {
+          await abortLease.release();
+        } else {
+          try {
+            await player.dispose();
+          } catch (_) {}
+        }
         return;
       }
 
@@ -130,7 +206,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
           _isDisposing ||
           token != _opToken ||
           _player != player ||
-          !_visible) {
+          (!_visible && !allowHiddenWarmup)) {
         return;
       }
 
@@ -138,7 +214,9 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
         _initialized = true;
       });
 
-      await player.play();
+      if (_visible) {
+        await player.play();
+      }
     } catch (_) {
       // keep it simple: fail silently for feed
       if (_player == player) {
@@ -153,15 +231,20 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       return;
     }
 
+    _pauseDebounceTimer?.cancel();
+    _pauseDebounceTimer = null;
+
     ++_opToken;
 
     final player = _player;
+    final lease = _poolLease;
 
     final positionSub = _positionSub;
     final durationSub = _durationSub;
 
     _player = null;
     _controller = null;
+    _poolLease = null;
     _positionSub = null;
     _durationSub = null;
 
@@ -180,7 +263,9 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     await positionSub?.cancel();
     await durationSub?.cancel();
 
-    if (player != null) {
+    if (lease != null) {
+      await lease.release();
+    } else if (player != null) {
       try {
         await player.pause();
         await player.dispose();
@@ -188,19 +273,69 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     }
   }
 
+  Future<void> _pauseOnly() async {
+    final player = _player;
+    if (player == null) {
+      return;
+    }
+
+    try {
+      await player.pause();
+    } catch (_) {}
+  }
+
   // ---------------------------
   // Visibility
   // ---------------------------
 
-  void _handleVisibility(double fraction) {
-    final shouldPlay = fraction > 0;
+  void _schedulePauseAndDispose() {
+    if (widget.eagerInitialize) {
+      unawaited(_pauseOnly());
+      return;
+    }
 
-    if (shouldPlay && !_visible) {
-      _visible = true;
-      _initAndPlay();
-    } else if (!shouldPlay && _visible) {
-      _visible = false;
+    _pauseDebounceTimer?.cancel();
+    _pauseDebounceTimer = Timer(_pauseDebounce, () {
+      if (_isDisposing || _visible || widget.eagerInitialize) {
+        return;
+      }
+
       _pauseAndDispose();
+    });
+  }
+
+  void _handleVisibility(double fraction) {
+    final shouldKeepWarm = fraction >= _preloadVisibilityThreshold;
+
+    if (shouldKeepWarm) {
+      _pauseDebounceTimer?.cancel();
+      _pauseDebounceTimer = null;
+
+      if (!_visible) {
+        _visible = true;
+        if (_player == null || !_initialized) {
+          _initAndPlay();
+        } else {
+          unawaited(() async {
+            try {
+              await _player?.play();
+            } catch (_) {}
+          }());
+        }
+      }
+
+      return;
+    }
+
+    final shouldPause = fraction <= _pauseVisibilityThreshold;
+
+    if (!shouldPause) {
+      return;
+    }
+
+    if (_visible) {
+      _visible = false;
+      _schedulePauseAndDispose();
     }
   }
 
@@ -322,10 +457,15 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _isDisposing = true;
     ++_opToken;
 
+    _pauseDebounceTimer?.cancel();
+    _pauseDebounceTimer = null;
+
     final player = _player;
+    final lease = _poolLease;
 
     _player = null;
     _controller = null;
+    _poolLease = null;
 
     _positionSub?.cancel();
     _positionSub = null;
@@ -333,7 +473,9 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _durationSub?.cancel();
     _durationSub = null;
 
-    if (player != null) {
+    if (lease != null) {
+      unawaited(lease.release());
+    } else if (player != null) {
       unawaited(() async {
         try {
           await player.pause();
