@@ -98,13 +98,11 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
       return;
     }
     final focusedPostId = await Navigator.of(context).push<int>(
-      MaterialPageRoute(
-        builder: (context) => ThreadMediaViewerPage(
-          mediaPosts: mediaPosts,
-          initialIndex: index,
-          board: widget.board,
-          thread: widget.thread,
-        ),
+      ThreadMediaViewerRoute(
+        mediaPosts: mediaPosts,
+        initialIndex: index,
+        board: widget.board,
+        thread: widget.thread,
       ),
     );
     if (!mounted) {

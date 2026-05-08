@@ -9,6 +9,61 @@ import 'package:flutter_chan/pages/media/shared_media_viewer.dart';
 import 'package:flutter_chan/services/cached_video.dart';
 import 'package:provider/provider.dart';
 
+class ThreadMediaViewerRoute extends MaterialPageRoute<int> {
+  ThreadMediaViewerRoute({
+    required List<Post> mediaPosts,
+    required int initialIndex,
+    required String board,
+    required int thread,
+  }) : this._(
+         mediaPosts: mediaPosts,
+         initialIndex: initialIndex,
+         board: board,
+         thread: thread,
+         currentPostId: ValueNotifier<int?>(
+           _resolveInitialPostId(mediaPosts, initialIndex),
+         ),
+       );
+
+  ThreadMediaViewerRoute._({
+    required List<Post> mediaPosts,
+    required int initialIndex,
+    required String board,
+    required int thread,
+    required ValueNotifier<int?> currentPostId,
+  }) : _currentPostId = currentPostId,
+       super(
+         builder: (BuildContext context) => ThreadMediaViewerPage(
+           mediaPosts: mediaPosts,
+           initialIndex: initialIndex,
+           board: board,
+           thread: thread,
+           currentPostIdNotifier: currentPostId,
+         ),
+       );
+
+  final ValueNotifier<int?> _currentPostId;
+
+  @override
+  int? get currentResult => _currentPostId.value;
+
+  @override
+  void dispose() {
+    _currentPostId.dispose();
+    super.dispose();
+  }
+
+  static int? _resolveInitialPostId(List<Post> mediaPosts, int initialIndex) {
+    if (mediaPosts.isEmpty) {
+      return null;
+    }
+
+    final int safeIndex = initialIndex.clamp(0, mediaPosts.length - 1);
+    final Post initialPost = mediaPosts[safeIndex];
+    return initialPost.no ?? initialPost.tim;
+  }
+}
+
 class ThreadMediaViewerPage extends StatefulWidget {
   const ThreadMediaViewerPage({
     Key? key,
@@ -16,12 +71,14 @@ class ThreadMediaViewerPage extends StatefulWidget {
     required this.initialIndex,
     required this.board,
     required this.thread,
+    required this.currentPostIdNotifier,
   }) : super(key: key);
 
   final List<Post> mediaPosts;
   final int initialIndex;
   final String board;
   final int thread;
+  final ValueNotifier<int?> currentPostIdNotifier;
 
   @override
   State<ThreadMediaViewerPage> createState() => _ThreadMediaViewerPageState();
@@ -45,6 +102,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
+    widget.currentPostIdNotifier.value = _currentPostId;
   }
 
   @override
@@ -55,6 +113,8 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
   }
 
   Post get _currentPost => widget.mediaPosts[_currentIndex];
+
+  int? get _currentPostId => _currentPost.no ?? _currentPost.tim;
 
   bool _isVideo(Post post) => post.ext == '.webm' || post.ext == '.mp4';
 
@@ -194,6 +254,10 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
     });
   }
 
+  void _closeWithCurrentPost() {
+    Navigator.of(context).pop(_currentPostId);
+  }
+
   @override
   Widget build(BuildContext context) {
     final savedAttachments = context.watch<SavedAttachmentsProvider>();
@@ -207,8 +271,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
     return SharedMediaViewer(
       items: _items,
       initialIndex: _currentIndex,
-      onClose: () =>
-          Navigator.of(context).pop(_currentPost.no ?? _currentPost.tim),
+      onClose: _closeWithCurrentPost,
       onIndexChanged: (int index) {
         if (index == _currentIndex) {
           return;
@@ -218,6 +281,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
           _didDownload = false;
           _currentIndex = index;
         });
+        widget.currentPostIdNotifier.value = _currentPostId;
       },
       actions: SharedMediaViewerTopBarActions(
         saveToggle: SharedMediaViewerSaveToggleAction(
