@@ -287,7 +287,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                           children: [
                             Row(
                               children: [
-                                Flexible(
+                                Expanded(
                                   child: Text(
                                     widget.post.name ?? 'Anonymous',
                                     style: TextStyle(

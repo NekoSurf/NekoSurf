@@ -276,6 +276,8 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
         if (index == _currentIndex) {
           return;
         }
+        _saveSuccessTimer?.cancel();
+        _downloadSuccessTimer?.cancel();
         setState(() {
           _didSaveAttachment = false;
           _didDownload = false;

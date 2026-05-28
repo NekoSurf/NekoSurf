@@ -177,7 +177,9 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
       initialIndex: _currentIndex,
       onClose: () => Navigator.of(context).maybePop(),
       onIndexChanged: (int index) {
+        _downloadSuccessTimer?.cancel();
         setState(() {
+          _didDownload = false;
           _currentIndex = index;
         });
       },
