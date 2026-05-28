@@ -7,7 +7,6 @@ import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/pages/boards/board_list.dart';
-import 'package:flutter_chan/services/feed_player_pool.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:provider/provider.dart';
 import 'package:visibility_detector/visibility_detector.dart';
@@ -77,7 +76,6 @@ class _AppWithThemeState extends State<AppWithTheme>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    FeedPlayerPool.instance.dispose();
     super.dispose();
   }
 

@@ -16,3 +16,22 @@ String unescape(String body) {
       .replaceAll('&nbsp;', ' ')
       .replaceAll('&copy;', '©');
 }
+
+List<int> extractQuotedPostIds(String? body) {
+  if (body == null || body.isEmpty) {
+    return const [];
+  }
+
+  final String text = unescape(cleanTags(body));
+  final List<int> orderedIds = <int>[];
+
+  for (final Match match in RegExp(r'>>(\d+)').allMatches(text)) {
+    final int? postId = int.tryParse(match.group(1) ?? '');
+
+    if (postId != null) {
+      orderedIds.add(postId);
+    }
+  }
+
+  return orderedIds;
+}

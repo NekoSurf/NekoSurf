@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:country_flags/country_flags.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/pages/replies_row.dart';
@@ -11,6 +10,7 @@ import 'package:flutter_chan/pages/thread/thread_media_viewer_page.dart';
 import 'package:flutter_chan/pages/thread/thread_post_comment.dart';
 import 'package:flutter_chan/pages/thread/thread_replies.dart';
 import 'package:flutter_chan/services/string.dart';
+import 'package:flutter_chan/widgets/feed_player_pool.dart';
 import 'package:flutter_chan/widgets/feed_video_player.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -24,6 +24,9 @@ class ThreadPagePost extends StatefulWidget {
     required this.allPosts,
     required this.onDismiss,
     this.replies,
+    this.replyCount = 0,
+    this.eagerVideoInit = false,
+    this.playerPool,
   }) : super(key: key);
 
   final String board;
@@ -32,6 +35,9 @@ class ThreadPagePost extends StatefulWidget {
   final List<Post> allPosts;
   final Function(int? postId) onDismiss;
   final List<Post>? replies;
+  final int replyCount;
+  final bool eagerVideoInit;
+  final FeedPlayerPool? playerPool;
 
   static String formatBytes(int bytes, int decimals) {
     if (bytes <= 0) {
@@ -47,10 +53,24 @@ class ThreadPagePost extends StatefulWidget {
 }
 
 class _ThreadPagePostState extends State<ThreadPagePost> {
-  late Future<List<Post>> _fetchAllRepliesToPost;
-  final ValueNotifier<Duration> _feedVideoPosition = ValueNotifier(
-    Duration.zero,
-  );
+  Future<void> _openReplies() async {
+    final focusedPostId = await Navigator.of(context).push<int>(
+      MaterialPageRoute(
+        builder: (context) => ThreadReplies(
+          post: widget.post,
+          thread: widget.thread,
+          board: widget.board,
+          allPosts: widget.allPosts,
+        ),
+      ),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    widget.onDismiss(focusedPostId);
+  }
 
   String _thumbnailUrl() {
     return 'https://i.4cdn.org/${widget.board}/${widget.post.tim}s.jpg';
@@ -77,18 +97,12 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     if (index < 0) {
       return;
     }
-    final startPosition = _isVideoPost()
-        ? _feedVideoPosition.value
-        : Duration.zero;
     final focusedPostId = await Navigator.of(context).push<int>(
-      MaterialPageRoute(
-        builder: (context) => ThreadMediaViewerPage(
-          mediaPosts: mediaPosts,
-          initialIndex: index,
-          board: widget.board,
-          thread: widget.thread,
-          startPosition: startPosition,
-        ),
+      ThreadMediaViewerRoute(
+        mediaPosts: mediaPosts,
+        initialIndex: index,
+        board: widget.board,
+        thread: widget.thread,
       ),
     );
     if (!mounted) {
@@ -184,7 +198,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     }
     final fileName = '$mediaId${widget.post.ext ?? '.webm'}';
     final mediaUrl = 'https://i.4cdn.org/${widget.board}/$fileName';
-    final itemKey = widget.post.no ?? mediaId ?? fileName.hashCode;
+    final itemKey = widget.post.no ?? mediaId;
 
     try {
       return GestureDetector(
@@ -192,34 +206,16 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
             _openMediaViewer(widget.replies ?? widget.allPosts, widget.post),
         child: FeedVideoPlayer(
           key: ValueKey('feed-player-${widget.board}-$itemKey'),
-          playerKey: '${widget.board}:$mediaId',
           videoUrl: mediaUrl,
           thumbnailUrl: _thumbnailUrl(),
           aspectRatio: _mediaAspectRatio(),
-          positionNotifier: _feedVideoPosition,
+          eagerInitialize: widget.eagerVideoInit,
+          pool: widget.playerPool,
         ),
       );
     } catch (_) {
       return _buildInlineImageMedia();
     }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-
-    _fetchAllRepliesToPost = fetchAllRepliesToPost(
-      widget.post.no ?? 0,
-      widget.board,
-      widget.thread,
-      widget.allPosts,
-    );
-  }
-
-  @override
-  void dispose() {
-    _feedVideoPosition.dispose();
-    super.dispose();
   }
 
   @override
@@ -250,15 +246,13 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                     : const Color(0x14000000),
                 width: 1,
               ),
-              boxShadow: isDark
-                  ? []
-                  : const [
-                      BoxShadow(
-                        color: Color(0x12000000),
-                        blurRadius: 12,
-                        offset: Offset(0, 4),
-                      ),
-                    ],
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x12000000),
+                  blurRadius: 12,
+                  offset: Offset(0, 4),
+                ),
+              ],
             ),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
@@ -266,7 +260,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       CircleAvatar(
                         radius: 14,
@@ -305,26 +299,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                if (widget.post.country != null &&
-                                    CountryFlag.fromCountryCode(
-                                          widget.post.country!,
-                                        ) !=
-                                        null)
-                                  Padding(
-                                    padding: const EdgeInsets.only(left: 6),
-                                    child: SizedBox(
-                                      width: 16,
-                                      height: 11,
-                                      child: CountryFlag.fromCountryCode(
-                                        widget.post.country!,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 3),
-                            Row(
-                              children: [
+                                const SizedBox(width: 6),
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 8,
@@ -347,23 +322,36 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    DateFormat('kk:mm - dd.MM.y').format(
-                                      DateTime.fromMillisecondsSinceEpoch(
-                                        widget.post.time! * 1000,
+                                const SizedBox(width: 6),
+                                if (widget.post.country != null &&
+                                    CountryFlag.fromCountryCode(
+                                          widget.post.country!,
+                                        ) !=
+                                        null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 6),
+                                    child: SizedBox(
+                                      width: 16,
+                                      height: 11,
+                                      child: CountryFlag.fromCountryCode(
+                                        widget.post.country!,
                                       ),
                                     ),
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: secondaryText,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                ),
                               ],
+                            ),
+                            Text(
+                              DateFormat('kk:mm - dd.MM.y').format(
+                                DateTime.fromMillisecondsSinceEpoch(
+                                  widget.post.time! * 1000,
+                                ),
+                              ),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: secondaryText,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),
@@ -389,46 +377,29 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                       _buildInlineVideoMedia()
                     else
                       _buildInlineImageMedia(),
-                    const SizedBox(height: 10),
                   ],
-                  if (widget.post.com != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: ThreadPostComment(
-                        com: widget.post.com ?? '',
-                        board: widget.board,
-                        thread: widget.thread,
-                        allPosts: widget.allPosts,
-                      ),
+                  if (widget.post.com != null) ...[
+                    const SizedBox(height: 10),
+                    ThreadPostComment(
+                      com: widget.post.com ?? '',
+                      board: widget.board,
+                      thread: widget.thread,
+                      allPosts: widget.allPosts,
                     ),
-                  FutureBuilder<List<Post>>(
-                    future: _fetchAllRepliesToPost,
-                    builder: (context, AsyncSnapshot<List<Post>> snapshot) {
-                      if (snapshot.data != null && snapshot.data!.isNotEmpty) {
-                        return GestureDetector(
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) => ThreadReplies(
-                                  replies: snapshot.data ?? [],
-                                  post: widget.post,
-                                  thread: widget.thread,
-                                  board: widget.board,
-                                  allPosts: widget.allPosts,
-                                ),
-                              ),
-                            );
-                          },
+                  ],
+                  if (widget.replyCount > 0)
+                    Column(
+                      children: [
+                        const SizedBox(height: 10),
+                        GestureDetector(
+                          onTap: _openReplies,
                           child: RepliesRow(
-                            replies: snapshot.data!.length,
+                            replies: widget.replyCount,
                             showImageReplies: false,
                           ),
-                        );
-                      }
-
-                      return const SizedBox.shrink();
-                    },
-                  ),
+                        ),
+                      ],
+                    ),
                 ],
               ),
             ),

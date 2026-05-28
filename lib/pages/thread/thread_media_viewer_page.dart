@@ -1,23 +1,69 @@
 import 'dart:async';
-import 'dart:io';
-import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/save_videos.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/saved_attachments_model.dart';
+import 'package:flutter_chan/pages/media/shared_media_viewer.dart';
 import 'package:flutter_chan/services/cached_video.dart';
-import 'package:flutter_chan/services/feed_player_pool.dart';
-import 'package:flutter_chan/utils/build_blur_pill.dart';
-import 'package:media_kit/media_kit.dart';
-import 'package:media_kit_video/media_kit_video.dart';
 import 'package:provider/provider.dart';
 
-// ---------------------------------------------------------------------------
-// Entry page — vertical-swipe PageView over all media posts in a thread.
-// Save/download buttons live in the top bar beside the index counter.
-// ---------------------------------------------------------------------------
+class ThreadMediaViewerRoute extends MaterialPageRoute<int> {
+  ThreadMediaViewerRoute({
+    required List<Post> mediaPosts,
+    required int initialIndex,
+    required String board,
+    required int thread,
+  }) : this._(
+         mediaPosts: mediaPosts,
+         initialIndex: initialIndex,
+         board: board,
+         thread: thread,
+         currentPostId: ValueNotifier<int?>(
+           _resolveInitialPostId(mediaPosts, initialIndex),
+         ),
+       );
+
+  ThreadMediaViewerRoute._({
+    required List<Post> mediaPosts,
+    required int initialIndex,
+    required String board,
+    required int thread,
+    required ValueNotifier<int?> currentPostId,
+  }) : _currentPostId = currentPostId,
+       super(
+         builder: (BuildContext context) => ThreadMediaViewerPage(
+           mediaPosts: mediaPosts,
+           initialIndex: initialIndex,
+           board: board,
+           thread: thread,
+           currentPostIdNotifier: currentPostId,
+         ),
+       );
+
+  final ValueNotifier<int?> _currentPostId;
+
+  @override
+  int? get currentResult => _currentPostId.value;
+
+  @override
+  void dispose() {
+    _currentPostId.dispose();
+    super.dispose();
+  }
+
+  static int? _resolveInitialPostId(List<Post> mediaPosts, int initialIndex) {
+    if (mediaPosts.isEmpty) {
+      return null;
+    }
+
+    final int safeIndex = initialIndex.clamp(0, mediaPosts.length - 1);
+    final Post initialPost = mediaPosts[safeIndex];
+    return initialPost.no ?? initialPost.tim;
+  }
+}
+
 class ThreadMediaViewerPage extends StatefulWidget {
   const ThreadMediaViewerPage({
     Key? key,
@@ -25,34 +71,21 @@ class ThreadMediaViewerPage extends StatefulWidget {
     required this.initialIndex,
     required this.board,
     required this.thread,
-    this.startPosition = Duration.zero,
+    required this.currentPostIdNotifier,
   }) : super(key: key);
 
   final List<Post> mediaPosts;
   final int initialIndex;
   final String board;
   final int thread;
-  final Duration startPosition;
+  final ValueNotifier<int?> currentPostIdNotifier;
 
   @override
   State<ThreadMediaViewerPage> createState() => _ThreadMediaViewerPageState();
 }
 
 class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
-  late final PageController _pageController;
   late int _currentIndex;
-  bool _isVideoScrubbing = false;
-
-  // A single long-lived Player + VideoController reused across all video pages
-  // in the PageView.  Creating a new Player on every swipe triggers AVAudioSession
-  // reconfiguration on iOS (media-kit #964), which causes a ~1 s playback pause.
-  // Reusing one player avoids that initialisation overhead entirely.
-  late final Player _viewerPlayer;
-  late final VideoController _viewerController;
-
-  // Persists the playback position for each video (keyed by post.tim) so that
-  // scrolling back to a video resumes where the user left off.
-  final Map<int?, Duration> _savedPositions = {};
 
   bool _isSaving = false;
   bool _isRemoving = false;
@@ -62,36 +95,26 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
   bool _isDownloading = false;
   bool _didDownload = false;
   Timer? _downloadSuccessTimer;
+
   bool _isSharing = false;
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
-    _pageController = PageController(initialPage: widget.initialIndex);
-
-    _viewerPlayer = Player();
-    _viewerController = VideoController(_viewerPlayer);
-    // PlaylistMode is a player-level property; set it once here.
-    _viewerPlayer.setPlaylistMode(PlaylistMode.loop).ignore();
-    // Pause any pool-managed feed players only when the viewer opens on a video
-    // page, so they don't compete for the AVAudioSession while the viewer
-    // player is starting up.
-    if (_isVideo(widget.mediaPosts[widget.initialIndex])) {
-      FeedPlayerPool.instance.pauseAll();
-    }
+    widget.currentPostIdNotifier.value = _currentPostId;
   }
 
   @override
   void dispose() {
     _saveSuccessTimer?.cancel();
     _downloadSuccessTimer?.cancel();
-    _pageController.dispose();
-    _viewerPlayer.dispose();
     super.dispose();
   }
 
   Post get _currentPost => widget.mediaPosts[_currentIndex];
+
+  int? get _currentPostId => _currentPost.no ?? _currentPost.tim;
 
   bool _isVideo(Post post) => post.ext == '.webm' || post.ext == '.mp4';
 
@@ -100,8 +123,29 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
 
   String _fileName(Post post) => '${post.tim}${post.ext}';
 
+  List<SharedMediaViewerItem> get _items {
+    return widget.mediaPosts
+        .map((Post post) {
+          final String mediaUrl = _mediaUrl(post);
+
+          return SharedMediaViewerItem(
+            id: '${post.no ?? post.tim}',
+            source: mediaUrl,
+            isVideo: _isVideo(post),
+            imageProvider: NetworkImage(mediaUrl),
+            resolveVideoSource: resolveCachedVideoSource,
+            thumbnail: NetworkImage(
+              'https://i.4cdn.org/${widget.board}/${post.tim}s.jpg',
+            ),
+          );
+        })
+        .toList(growable: false);
+  }
+
   Future<void> _saveToAttachments() async {
-    if (_isSaving) return;
+    if (_isSaving) {
+      return;
+    }
     final savedAttachments = context.read<SavedAttachmentsProvider>();
     final fileName = _fileName(_currentPost);
     final alreadySaved = savedAttachments.getSavedAttachments().any(
@@ -117,7 +161,9 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
       _isSaving = true;
     });
     await savedAttachments.addSavedAttachments(context, widget.board, fileName);
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
     final saveSucceeded = savedAttachments.getSavedAttachments().any(
       (a) =>
           a.fileName?.split('/').last.split('.').first ==
@@ -132,7 +178,9 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
   }
 
   Future<void> _removeFromAttachments() async {
-    if (_isRemoving) return;
+    if (_isRemoving) {
+      return;
+    }
     setState(() {
       _isRemoving = true;
     });
@@ -140,7 +188,9 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
       _fileName(_currentPost),
       context,
     );
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
     setState(() {
       _isRemoving = false;
     });
@@ -152,7 +202,9 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
       _didSaveAttachment = true;
     });
     _saveSuccessTimer = Timer(const Duration(milliseconds: 1200), () {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _didSaveAttachment = false;
       });
@@ -160,19 +212,25 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
   }
 
   Future<void> _downloadToGallery() async {
-    if (_isDownloading) return;
+    if (_isDownloading) {
+      return;
+    }
     final post = _currentPost;
     setState(() {
       _isDownloading = true;
     });
     await saveVideo(_mediaUrl(post), _fileName(post), context, isSaved: false);
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
     setState(() {
       _isDownloading = false;
       _didDownload = true;
     });
     _downloadSuccessTimer = Timer(const Duration(milliseconds: 1200), () {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _didDownload = false;
       });
@@ -196,11 +254,12 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
     });
   }
 
-  void _closeViewer() {
-    Navigator.of(context).pop(_currentPost.no ?? _currentPost.tim);
+  void _closeWithCurrentPost() {
+    Navigator.of(context).pop(_currentPostId);
   }
 
-  Widget _buildSaveButton(BuildContext context) {
+  @override
+  Widget build(BuildContext context) {
     final savedAttachments = context.watch<SavedAttachmentsProvider>();
     final fileName = _fileName(_currentPost);
     final isSaved = savedAttachments.getSavedAttachments().any(
@@ -208,638 +267,41 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
           a.fileName?.split('/').last.split('.').first ==
           fileName.split('.').first,
     );
-    if (isSaved) {
-      return buildBlurPill(
-        child: CupertinoButton(
-          minimumSize: const Size(36, 36),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(999),
-          onPressed: _isRemoving ? null : _removeFromAttachments,
-          child: _isRemoving
-              ? const CupertinoActivityIndicator(radius: 9)
-              : const Icon(CupertinoIcons.trash, color: Colors.white, size: 18),
-        ),
-      );
-    }
-    return buildBlurPill(
-      child: CupertinoButton(
-        minimumSize: const Size(36, 36),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(999),
-        onPressed: _isSaving || _didSaveAttachment ? null : _saveToAttachments,
-        child: _isSaving
-            ? const CupertinoActivityIndicator(radius: 9)
-            : Icon(
-                _didSaveAttachment
-                    ? CupertinoIcons.check_mark_circled_solid
-                    : CupertinoIcons.add_circled,
-                color: Colors.white,
-                size: 18,
-              ),
-      ),
-    );
-  }
 
-  @override
-  Widget build(BuildContext context) {
-    final topInset = MediaQuery.of(context).padding.top;
-
-    return PopScope<int>(
-      canPop: true,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) {
-          _closeViewer();
+    return SharedMediaViewer(
+      items: _items,
+      initialIndex: _currentIndex,
+      onClose: _closeWithCurrentPost,
+      onIndexChanged: (int index) {
+        if (index == _currentIndex) {
+          return;
         }
+        _saveSuccessTimer?.cancel();
+        _downloadSuccessTimer?.cancel();
+        setState(() {
+          _didSaveAttachment = false;
+          _didDownload = false;
+          _currentIndex = index;
+        });
+        widget.currentPostIdNotifier.value = _currentPostId;
       },
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        body: Stack(
-          children: [
-            PageView.builder(
-              controller: _pageController,
-              scrollDirection: Axis.vertical,
-              physics: _isVideoScrubbing
-                  ? const NeverScrollableScrollPhysics()
-                  : const ClampingScrollPhysics(),
-              itemCount: widget.mediaPosts.length,
-              onPageChanged: (index) {
-                setState(() {
-                  _currentIndex = index;
-                  _didSaveAttachment = false;
-                  _didDownload = false;
-                  _isVideoScrubbing = false;
-                });
-              },
-              itemBuilder: (context, index) {
-                final post = widget.mediaPosts[index];
-                if (_isVideo(post)) {
-                  return _ThreadMediaVideoPage(
-                    key: ValueKey('thread-video-$index-${post.tim}'),
-                    videoUrl: _mediaUrl(post),
-                    player: _viewerPlayer,
-                    controller: _viewerController,
-                    isActive: _currentIndex == index,
-                    onScrubStateChanged: (isScrubbing) {
-                      if (!mounted || _isVideoScrubbing == isScrubbing) {
-                        return;
-                      }
-                      setState(() {
-                        _isVideoScrubbing = isScrubbing;
-                      });
-                    },
-                    startPosition:
-                        _savedPositions[post.tim] ??
-                        (index == widget.initialIndex
-                            ? widget.startPosition
-                            : Duration.zero),
-                    onPositionSave: (pos) {
-                      _savedPositions[post.tim] = pos;
-                    },
-                  );
-                }
-                return _ThreadMediaImagePage(
-                  key: ValueKey('thread-image-$index-${post.tim}'),
-                  imageUrl: _mediaUrl(post),
-                );
-              },
-            ),
-            // Top bar: [back] ... [save] [download] [N/total]
-            Positioned(
-              top: topInset + 8,
-              left: 8,
-              right: 8,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  buildBlurPill(
-                    child: CupertinoButton(
-                      minimumSize: const Size(36, 36),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      color: Colors.transparent,
-                      borderRadius: BorderRadius.circular(999),
-                      onPressed: _closeViewer,
-                      child: const Icon(
-                        CupertinoIcons.back,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                    ),
-                  ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Builder(builder: _buildSaveButton),
-                      const SizedBox(width: 8),
-                      buildBlurPill(
-                        child: CupertinoButton(
-                          minimumSize: const Size(36, 36),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          color: Colors.transparent,
-                          borderRadius: BorderRadius.circular(999),
-                          onPressed: _isDownloading || _didDownload
-                              ? null
-                              : _downloadToGallery,
-                          child: _isDownloading
-                              ? const CupertinoActivityIndicator(radius: 9)
-                              : Icon(
-                                  _didDownload
-                                      ? CupertinoIcons.check_mark_circled_solid
-                                      : CupertinoIcons.arrow_down_to_line,
-                                  color: Colors.white,
-                                  size: 18,
-                                ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      buildBlurPill(
-                        child: CupertinoButton(
-                          minimumSize: const Size(36, 36),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          color: Colors.transparent,
-                          borderRadius: BorderRadius.circular(999),
-                          onPressed: _isSharing ? null : _shareCurrentMedia,
-                          child: _isSharing
-                              ? const CupertinoActivityIndicator(radius: 9)
-                              : const Icon(
-                                  CupertinoIcons.share,
-                                  color: Colors.white,
-                                  size: 18,
-                                ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      buildBlurPill(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        child: Text(
-                          '${_currentIndex + 1} / ${widget.mediaPosts.length}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
+      actions: SharedMediaViewerTopBarActions(
+        saveToggle: SharedMediaViewerSaveToggleAction(
+          isSaved: isSaved,
+          isSaving: _isSaving,
+          isRemoving: _isRemoving,
+          didSave: _didSaveAttachment,
+          onSave: _saveToAttachments,
+          onRemove: _removeFromAttachments,
         ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Per-page video player — handles only playback and seek controls.
-// The Player + VideoController are owned by the parent and passed in so that
-// a single native player instance is reused across all video pages.  This
-// avoids the AVAudioSession re-initialisation on iOS (media-kit #964) that
-// caused a ~1 s pause every time the user swiped to a new video.
-// ---------------------------------------------------------------------------
-class _ThreadMediaVideoPage extends StatefulWidget {
-  const _ThreadMediaVideoPage({
-    Key? key,
-    required this.videoUrl,
-    required this.player,
-    required this.controller,
-    required this.isActive,
-    required this.onScrubStateChanged,
-    required this.onPositionSave,
-    this.startPosition = Duration.zero,
-  }) : super(key: key);
-
-  final String videoUrl;
-  final Player player;
-  final VideoController controller;
-  final bool isActive;
-  final ValueChanged<bool> onScrubStateChanged;
-  final Duration startPosition;
-  final ValueChanged<Duration> onPositionSave;
-
-  @override
-  State<_ThreadMediaVideoPage> createState() => _ThreadMediaVideoPageState();
-}
-
-class _ThreadMediaVideoPageState extends State<_ThreadMediaVideoPage> {
-  static const double _backSwipeEdgeInset = 24;
-
-  // Stream subscriptions — attached only while this page is active.
-  StreamSubscription<String>? _errorSub;
-  StreamSubscription<bool>? _playingSub;
-  StreamSubscription<Duration>? _positionSub;
-  StreamSubscription<Duration>? _durationSub;
-  StreamSubscription<bool>? _bufferingSub;
-
-  String? _errorMessage;
-  bool _isPlaying = false;
-  bool _isBuffering = false;
-  bool _isMuted = false;
-  // True from the moment a page becomes active until the first playing=true
-  // event fires for the new media.  The black overlay shown during this window
-  // hides the last decoded frame of the previous video.
-  bool _isTransitioning = true;
-  Duration _position = Duration.zero;
-  Duration _duration = Duration.zero;
-  double _dragSeekPreviewMs = 0;
-  bool _isHorizontalSeeking = false;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.isActive) {
-      _attachSubscriptions();
-      _openAndPlay();
-    }
-  }
-
-  @override
-  void didUpdateWidget(covariant _ThreadMediaVideoPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!oldWidget.isActive && widget.isActive) {
-      _attachSubscriptions();
-      _openAndPlay();
-    } else if (oldWidget.isActive && !widget.isActive) {
-      widget.onPositionSave(_position);
-      widget.player.pause().ignore();
-      _cancelSubscriptions();
-      _resetPlaybackState();
-    }
-  }
-
-  @override
-  void dispose() {
-    _cancelSubscriptions();
-    // Do NOT dispose the player — it is owned by _ThreadMediaViewerPageState.
-    super.dispose();
-  }
-
-  void _attachSubscriptions() {
-    _cancelSubscriptions();
-
-    _errorSub = widget.player.stream.error.listen((error) {
-      if (!mounted) return;
-      setState(() => _errorMessage = error);
-    });
-    _playingSub = widget.player.stream.playing.listen((playing) {
-      if (!mounted) return;
-      setState(() {
-        _isPlaying = playing;
-        if (playing) _isTransitioning = false;
-      });
-    });
-    _positionSub = widget.player.stream.position.listen((p) {
-      if (!mounted) return;
-      setState(() => _position = p);
-    });
-    _durationSub = widget.player.stream.duration.listen((d) {
-      if (!mounted) return;
-      setState(() => _duration = d);
-    });
-    _bufferingSub = widget.player.stream.buffering.listen((buffering) {
-      if (!mounted) return;
-      setState(() => _isBuffering = buffering);
-    });
-  }
-
-  void _cancelSubscriptions() {
-    _errorSub?.cancel();
-    _playingSub?.cancel();
-    _positionSub?.cancel();
-    _durationSub?.cancel();
-    _bufferingSub?.cancel();
-    _errorSub = null;
-    _playingSub = null;
-    _positionSub = null;
-    _durationSub = null;
-    _bufferingSub = null;
-  }
-
-  void _resetPlaybackState() {
-    setState(() {
-      _isPlaying = false;
-      _isBuffering = false;
-      _isTransitioning = true;
-      _position = Duration.zero;
-      _duration = Duration.zero;
-      _errorMessage = null;
-      _isHorizontalSeeking = false;
-    });
-  }
-
-  /// Fixes media-kit issue #964: on iOS, explicitly selecting AudioTrack.auto()
-  /// before play() prevents the player from doing a lazy AVAudioSession
-  /// reconfiguration ~1 second into playback.
-  Future<void> _applyAudioMode() async {
-    try {
-      if (Platform.isIOS && !_isMuted) {
-        await widget.player.setAudioTrack(AudioTrack.auto());
-      }
-      await widget.player.setVolume(_isMuted ? 0 : 100);
-    } catch (_) {
-      // Ignore transient volume races.
-    }
-  }
-
-  Future<void> _toggleMuted() async {
-    setState(() => _isMuted = !_isMuted);
-    await _applyAudioMode();
-  }
-
-  Future<void> _openAndPlay() async {
-    // Snapshot the URL so we can detect if the page deactivated or the URL
-    // changed while the async resolve / open calls were in flight.
-    final snapshotUrl = widget.videoUrl;
-    try {
-      final resolved = await resolveCachedVideoSource(snapshotUrl);
-      if (!mounted || !widget.isActive || widget.videoUrl != snapshotUrl) {
-        return;
-      }
-      await widget.player.open(Media(resolved), play: false);
-      if (widget.startPosition > Duration.zero) {
-        try {
-          await widget.player.seek(widget.startPosition);
-        } catch (_) {
-          // Ignore seek races on open.
-        }
-      }
-      if (!mounted || !widget.isActive) return;
-      await _applyAudioMode();
-      await widget.player.play();
-    } catch (error) {
-      if (!mounted) return;
-      setState(() => _errorMessage = error.toString());
-    }
-  }
-
-  Future<void> _seekTo(double ms) async {
-    try {
-      await widget.player.seek(
-        _clampDuration(Duration(milliseconds: ms.round())),
-      );
-    } catch (_) {}
-  }
-
-  String _formatDuration(Duration v) {
-    final h = v.inHours;
-    final m = v.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final s = v.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return h > 0 ? '${h.toString().padLeft(2, '0')}:$m:$s' : '$m:$s';
-  }
-
-  Duration _clampDuration(Duration v) {
-    if (_duration <= Duration.zero)
-      return v < Duration.zero ? Duration.zero : v;
-    if (v < Duration.zero) return Duration.zero;
-    if (v > _duration) return _duration;
-    return v;
-  }
-
-  void _handleScrubPanStart(DragStartDetails details) {
-    if (details.globalPosition.dx <= _backSwipeEdgeInset) {
-      return;
-    }
-    if (_duration <= Duration.zero) {
-      return;
-    }
-    _dragSeekPreviewMs = _position.inMilliseconds.toDouble();
-    setState(() {
-      _isHorizontalSeeking = true;
-    });
-    widget.onScrubStateChanged(true);
-  }
-
-  void _handleScrubPanUpdate(DragUpdateDetails details) {
-    if (!_isHorizontalSeeking) {
-      return;
-    }
-    final width = MediaQuery.of(context).size.width - _backSwipeEdgeInset;
-    if (width <= 0) return;
-    final durationMs = _duration.inMilliseconds.toDouble();
-    if (durationMs <= 0) {
-      return;
-    }
-    final msPerScreen = durationMs.clamp(15000.0, 90000.0);
-    _dragSeekPreviewMs += details.delta.dx / width * msPerScreen;
-    _dragSeekPreviewMs = _dragSeekPreviewMs.clamp(0.0, durationMs);
-    setState(() {});
-  }
-
-  Future<void> _handleScrubPanEnd(DragEndDetails details) async {
-    if (!_isHorizontalSeeking) {
-      return;
-    }
-
-    final target = _clampDuration(
-      Duration(milliseconds: _dragSeekPreviewMs.round()),
-    );
-    setState(() {
-      _isHorizontalSeeking = false;
-    });
-    widget.onScrubStateChanged(false);
-    await _seekTo(target.inMilliseconds.toDouble());
-  }
-
-  @override
-  void deactivate() {
-    widget.onScrubStateChanged(false);
-    super.deactivate();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Video(controller: widget.controller, controls: NoVideoControls),
-        // Black overlay hides the last decoded frame of the previous video while
-        // the new media is opening.  Cleared once playing=true fires.
-        if (_isTransitioning) const ColoredBox(color: Colors.black),
-        if ((_isBuffering || _isTransitioning) && !_isHorizontalSeeking)
-          const Center(child: CupertinoActivityIndicator(radius: 14)),
-        if (_isHorizontalSeeking)
-          Center(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.58),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Text(
-                '${_formatDuration(_clampDuration(Duration(milliseconds: _dragSeekPreviewMs.round())))} / ${_formatDuration(_duration)}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-        Positioned.fill(
-          left: _backSwipeEdgeInset,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onPanStart: _handleScrubPanStart,
-            onPanUpdate: _handleScrubPanUpdate,
-            onPanEnd: _handleScrubPanEnd,
-            onPanCancel: () {
-              if (_isHorizontalSeeking) {
-                widget.onScrubStateChanged(false);
-                setState(() {
-                  _isHorizontalSeeking = false;
-                });
-              }
-            },
-            child: const SizedBox.expand(),
-          ),
+        download: SharedMediaViewerDownloadAction(
+          isDownloading: _isDownloading,
+          didDownload: _didDownload,
+          onDownload: _downloadToGallery,
         ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 14),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.28),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.14),
-                      width: 0.5,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      CupertinoButton(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        minimumSize: const Size(28, 28),
-                        onPressed: _toggleMuted,
-                        child: Icon(
-                          _isMuted
-                              ? CupertinoIcons.speaker_slash_fill
-                              : CupertinoIcons.speaker_2_fill,
-                          color: Colors.white,
-                          size: 18,
-                        ),
-                      ),
-                      CupertinoButton(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        minimumSize: const Size(28, 28),
-                        onPressed: () => widget.player.playOrPause().ignore(),
-                        child: Icon(
-                          _isPlaying
-                              ? CupertinoIcons.pause_fill
-                              : CupertinoIcons.play_fill,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                      Expanded(
-                        child: Slider(
-                          value: _position.inMilliseconds.toDouble().clamp(
-                            0,
-                            (_duration.inMilliseconds <= 0
-                                    ? 1
-                                    : _duration.inMilliseconds)
-                                .toDouble(),
-                          ),
-                          min: 0,
-                          max:
-                              (_duration.inMilliseconds <= 0
-                                      ? 1
-                                      : _duration.inMilliseconds)
-                                  .toDouble(),
-                          onChanged: _duration.inMilliseconds > 0
-                              ? _seekTo
-                              : null,
-                          activeColor: Colors.white,
-                          inactiveColor: Colors.white.withValues(alpha: 0.25),
-                        ),
-                      ),
-                      Text(
-                        '${_formatDuration(_position)} / ${_formatDuration(_duration)}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-        if (_errorMessage != null)
-          Positioned(
-            left: 16,
-            right: 16,
-            bottom: 24,
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.22),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.red.withValues(alpha: 0.55)),
-              ),
-              child: Text(
-                _errorMessage!,
-                style: const TextStyle(color: Colors.white, fontSize: 12),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Per-page image viewer — display only, no action buttons.
-// ---------------------------------------------------------------------------
-class _ThreadMediaImagePage extends StatelessWidget {
-  const _ThreadMediaImagePage({Key? key, required this.imageUrl})
-    : super(key: key);
-
-  final String imageUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    return InteractiveViewer(
-      minScale: 1,
-      maxScale: 4,
-      child: Center(
-        child: Image.network(
-          imageUrl,
-          fit: BoxFit.contain,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return const Center(child: CupertinoActivityIndicator(radius: 14));
-          },
-          errorBuilder: (context, error, stackTrace) {
-            return const Text(
-              'Unable to load image',
-              style: TextStyle(color: Colors.white),
-            );
-          },
+        share: SharedMediaViewerShareAction(
+          isSharing: _isSharing,
+          onShare: _shareCurrentMedia,
         ),
       ),
     );

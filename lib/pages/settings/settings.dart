@@ -88,8 +88,11 @@ class _SettingsState extends State<Settings> {
                         future: _getVersionNumber,
                         builder:
                             (context, AsyncSnapshot<PackageInfo> snapshot) {
+                              final version = snapshot.hasData 
+                                  ? '${snapshot.data!.version}+${snapshot.data!.buildNumber}' 
+                                  : '';
                               return Text(
-                                snapshot.hasData ? snapshot.data!.version : '',
+                                version,
                                 style: const TextStyle(
                                   color: CupertinoColors.systemGrey,
                                   fontSize: 15,

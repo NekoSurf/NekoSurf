@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter_chan/Models/board.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/enums/enums.dart';
-import 'package:html/parser.dart' show parse;
+import 'package:flutter_chan/services/string.dart';
 import 'package:http/http.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -116,19 +116,121 @@ Future<List<Post>> fetchAllRepliesToPost(
   int thread,
   List<Post> allPosts,
 ) async {
-  final List<Post> list = [];
+  return collectReplySubtree(rootPostId: post, allPosts: allPosts);
+}
 
-  for (final Post postLoop in allPosts) {
-    if (postLoop.com != null) {
-      final document = parse(postLoop.com);
+Map<int, List<Post>> buildReplyChildrenIndex(List<Post> allPosts) {
+  final Map<int, Post> postsById = <int, Post>{
+    for (final Post post in allPosts)
+      if (post.no != null) post.no!: post,
+  };
+  final Map<int, int> postOrder = <int, int>{
+    for (int index = 0; index < allPosts.length; index++)
+      if (allPosts[index].no != null) allPosts[index].no!: index,
+  };
+  final Map<int, List<Post>> repliesByParent = <int, List<Post>>{};
 
-      if (document.body!.text.contains(post.toString())) {
-        list.add(postLoop);
+  for (final Post post in allPosts) {
+    final int? postId = post.no;
+
+    if (postId == null) {
+      continue;
+    }
+
+    final List<int> quotedPostIds = extractQuotedPostIds(post.com)
+        .where((int quotedPostId) => postsById.containsKey(quotedPostId))
+        .where(
+          (int quotedPostId) =>
+              (postOrder[quotedPostId] ?? -1) < (postOrder[postId] ?? 0),
+        )
+        .toList();
+
+    if (quotedPostIds.isEmpty) {
+      continue;
+    }
+
+    final int parentId = quotedPostIds.last;
+    repliesByParent.putIfAbsent(parentId, () => <Post>[]).add(post);
+  }
+
+  for (final List<Post> replies in repliesByParent.values) {
+    replies.sort(
+      (Post a, Post b) =>
+          (postOrder[a.no] ?? 0).compareTo(postOrder[b.no] ?? 0),
+    );
+  }
+
+  return repliesByParent;
+}
+
+Map<int, int> buildReplyDescendantCountIndex(List<Post> allPosts) {
+  final Map<int, List<Post>> repliesByParent = buildReplyChildrenIndex(
+    allPosts,
+  );
+  final Map<int, int> descendantsByPostId = <int, int>{};
+
+  int countDescendants(int postId) {
+    final int? cached = descendantsByPostId[postId];
+    if (cached != null) {
+      return cached;
+    }
+
+    final List<Post> children = repliesByParent[postId] ?? const <Post>[];
+    int descendants = 0;
+
+    for (final Post child in children) {
+      final int? childId = child.no;
+      if (childId == null) {
+        continue;
       }
+
+      descendants += 1 + countDescendants(childId);
+    }
+
+    descendantsByPostId[postId] = descendants;
+    return descendants;
+  }
+
+  for (final Post post in allPosts) {
+    final int? postId = post.no;
+    if (postId == null) {
+      continue;
+    }
+
+    countDescendants(postId);
+  }
+
+  return descendantsByPostId;
+}
+
+List<Post> collectReplySubtree({
+  required int rootPostId,
+  required List<Post> allPosts,
+}) {
+  final Map<int, List<Post>> repliesByParent = buildReplyChildrenIndex(
+    allPosts,
+  );
+  final List<Post> collectedReplies = <Post>[];
+  final Set<int> visitedPostIds = <int>{rootPostId};
+
+  void collectChildren(int parentId) {
+    final List<Post> children = repliesByParent[parentId] ?? const <Post>[];
+
+    for (final Post child in children) {
+      final int? childId = child.no;
+
+      if (childId == null || !visitedPostIds.add(childId)) {
+        continue;
+      }
+
+      collectedReplies.add(child);
+      collectChildren(childId);
     }
   }
 
-  return list;
+  collectChildren(rootPostId);
+
+  return collectedReplies;
 }
 
 Future<List<Board>> fetchAllBoards() async {

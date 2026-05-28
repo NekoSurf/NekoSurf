@@ -24,7 +24,6 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
   // Placeholder; set to the real app directory in _loadAttachments().
   Directory directory = Directory('');
 
-  List<SavedAttachment>? _loadedAttachments;
   bool _isLoading = true;
   bool _hasPermissionError = false;
 
@@ -49,6 +48,13 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
         ),
       ),
     );
+
+    if (!mounted) {
+      return;
+    }
+
+    // Ensure this page rebuilds immediately after returning from viewer edits.
+    setState(() {});
   }
 
   Widget _buildAttachmentTile(
@@ -93,8 +99,6 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
   @override
   void initState() {
     super.initState();
-
-    convertLegacySavedAttachments();
   }
 
   @override
@@ -103,42 +107,6 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
 
     if (_isLoading) {
       _loadAttachments();
-    }
-  }
-
-  void convertLegacySavedAttachments() {
-    if (Platform.isIOS) {
-      final savedAttachments = Provider.of<SavedAttachmentsProvider>(
-        context,
-        listen: false,
-      );
-      final List<SavedAttachment> savedAttachmentList = savedAttachments
-          .getSavedAttachments();
-
-      if (savedAttachmentList.isEmpty) {
-        return;
-      }
-
-      final List<SavedAttachment> newSavedAttachmentList = [];
-
-      for (final element in savedAttachmentList) {
-        if (element.fileName!.split('.').length >= 2) {
-          String ext = element.fileName!.split('.').last;
-          final String name = element.fileName!.split('.').first;
-
-          if (ext == 'webm') {
-            ext = 'mp4';
-          }
-
-          final newFileName = '$name.$ext';
-
-          element.fileName = newFileName;
-
-          newSavedAttachmentList.add(element);
-        }
-      }
-
-      savedAttachments.setList(newSavedAttachmentList);
     }
   }
 
@@ -160,14 +128,7 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
 
     if (!mounted) return;
 
-    final savedAttachments = Provider.of<SavedAttachmentsProvider>(
-      context,
-      listen: false,
-    );
-    final attachments = savedAttachments.getSavedAttachments();
-
     setState(() {
-      _loadedAttachments = attachments;
       _isLoading = false;
     });
   }
@@ -177,11 +138,10 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
     final theme = Provider.of<ThemeChanger>(context);
     final savedAttachments = Provider.of<SavedAttachmentsProvider>(context);
     final bool isDark = theme.getTheme() == ThemeData.dark();
-
-    final attachments = _loadedAttachments ?? [];
-    final bool isEmpty = !_isLoading &&
-        !_hasPermissionError &&
-        savedAttachments.getSavedAttachments().isEmpty;
+    final List<SavedAttachment> attachments = savedAttachments
+        .getSavedAttachments();
+    final bool isEmpty =
+        !_isLoading && !_hasPermissionError && attachments.isEmpty;
 
     return Scaffold(
       body: CupertinoPageScaffold(
@@ -303,4 +263,3 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
     );
   }
 }
-

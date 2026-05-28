@@ -171,20 +171,6 @@ class SavedAttachmentsProvider with ChangeNotifier {
     }
   }
 
-  void pauseVideo() {
-    playing = false;
-    notifyListeners();
-  }
-
-  void startVideo() {
-    playing = true;
-    notifyListeners();
-  }
-
-  bool getPlaying() {
-    return playing;
-  }
-
   List<String> _normalizeSavedEntries(List<String> entries) {
     final List<String> normalized = [];
 
