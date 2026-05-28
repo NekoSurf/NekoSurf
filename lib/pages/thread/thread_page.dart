@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:collection/collection.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/api.dart';
@@ -61,35 +62,48 @@ class ThreadPageState extends State<ThreadPage> {
   bool _hasScrolledToLastWatched = false;
   bool _didPrimeEagerWindow = false;
   Timer? _eagerWindowDebounce;
+  Timer? _watchedPostsThrottle;
   final Set<int> _prefetchedThumbnailMediaIds = <int>{};
 
   late Bookmark favorite;
+  
   void _markVisiblePostsAsWatched() {
     if (allPosts.isEmpty) {
       return;
     }
-
-    final watchedPosts = Provider.of<WatchedPostsProvider>(
-      context,
-      listen: false,
-    );
-
-    final positions = itemPositionsListener.itemPositions.value;
-
-    for (final position in positions) {
-      if (position.itemLeadingEdge < 0 || position.itemLeadingEdge > 0.85) {
-        continue;
-      }
-
-      final int index = position.index;
-      if (index < 0 || index >= allPosts.length) {
-        continue;
-      }
-
-      watchedPosts.markAsWatched(postIndex: index, thread: widget.thread);
+    
+    // Throttle to avoid calling on every scroll event
+    if (_watchedPostsThrottle?.isActive ?? false) {
+      return;
     }
+    
+    _watchedPostsThrottle = Timer(const Duration(milliseconds: 200), () {
+      if (!mounted || allPosts.isEmpty) {
+        return;
+      }
+      
+      final watchedPosts = Provider.of<WatchedPostsProvider>(
+        context,
+        listen: false,
+      );
 
-    _scheduleEagerWindowRefresh();
+      final positions = itemPositionsListener.itemPositions.value;
+
+      for (final position in positions) {
+        if (position.itemLeadingEdge < 0 || position.itemLeadingEdge > 0.85) {
+          continue;
+        }
+
+        final int index = position.index;
+        if (index < 0 || index >= allPosts.length) {
+          continue;
+        }
+
+        watchedPosts.markAsWatched(postIndex: index, thread: widget.thread);
+      }
+
+      _scheduleEagerWindowRefresh();
+    });
   }
 
   @override
@@ -117,6 +131,8 @@ class ThreadPageState extends State<ThreadPage> {
     );
     _eagerWindowDebounce?.cancel();
     _eagerWindowDebounce = null;
+    _watchedPostsThrottle?.cancel();
+    _watchedPostsThrottle = null;
     scrollController.dispose();
     unawaited(_playerPool.dispose());
     
@@ -155,7 +171,13 @@ class ThreadPageState extends State<ThreadPage> {
     setState(() {
       _fetchAllPostsFromThread =
           fetchAllPostsFromThread(widget.board, widget.thread).then((posts) {
-            _replyDescendantCountByPost = buildReplyDescendantCountIndex(posts);
+            // Use cached reply tree building
+            final replyTree = getReplyTree(
+              board: widget.board,
+              thread: widget.thread,
+              allPosts: posts,
+            );
+            _replyDescendantCountByPost = replyTree.descendants;
             return posts;
           });
     });
@@ -185,20 +207,6 @@ class ThreadPageState extends State<ThreadPage> {
     positions.sort((a, b) => a.itemLeadingEdge.compareTo(b.itemLeadingEdge));
 
     return positions.first.index.clamp(0, postCount - 1);
-  }
-
-  bool _sameIdSet(Set<int> a, Set<int> b) {
-    if (a.length != b.length) {
-      return false;
-    }
-
-    for (final int value in a) {
-      if (!b.contains(value)) {
-        return false;
-      }
-    }
-
-    return true;
   }
 
   ({Set<int> ids, List<Post> posts}) _collectOffscreenVideoWindow() {
@@ -317,7 +325,9 @@ class ThreadPageState extends State<ThreadPage> {
 
     final offscreenWindow = _collectOffscreenVideoWindow();
 
-    if (!_sameIdSet(_eagerVideoPostIds, offscreenWindow.ids)) {
+    // Use SetEquality for efficient set comparison
+    const setEquality = SetEquality<int>();
+    if (!setEquality.equals(_eagerVideoPostIds, offscreenWindow.ids)) {
       setState(() {
         _eagerVideoPostIds = offscreenWindow.ids;
       });

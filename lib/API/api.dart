@@ -7,6 +7,43 @@ import 'package:flutter_chan/services/string.dart';
 import 'package:http/http.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+// Cache for reply tree building
+class _ReplyTreeCache {
+  static final Map<String, ({Map<int, List<Post>> replies, Map<int, int> descendants})> _cache = {};
+  
+  static String _cacheKey(String board, int thread, int postCount) => 
+    '$board:$thread:$postCount';
+  
+  static ({Map<int, List<Post>> replies, Map<int, int> descendants})? get(
+    String board,
+    int thread,
+    int postCount,
+  ) {
+    return _cache[_cacheKey(board, thread, postCount)];
+  }
+  
+  static void put(
+    String board,
+    int thread,
+    int postCount,
+    Map<int, List<Post>> replies,
+    Map<int, int> descendants,
+  ) {
+    final key = _cacheKey(board, thread, postCount);
+    _cache[key] = (replies: replies, descendants: descendants);
+    
+    // Limit cache size to prevent memory issues
+    if (_cache.length > 50) {
+      final firstKey = _cache.keys.first;
+      _cache.remove(firstKey);
+    }
+  }
+  
+  static void clear() {
+    _cache.clear();
+  }
+}
+
 Future<List<Post>> fetchAllThreadsFromBoard(
   Sort sorting,
   String board, {
@@ -201,6 +238,27 @@ Map<int, int> buildReplyDescendantCountIndex(List<Post> allPosts) {
   }
 
   return descendantsByPostId;
+}
+
+// Helper to get cached reply tree or build it
+({Map<int, List<Post>> replies, Map<int, int> descendants}) getReplyTree({
+  required String board,
+  required int thread,
+  required List<Post> allPosts,
+}) {
+  // Check cache first
+  final cached = _ReplyTreeCache.get(board, thread, allPosts.length);
+  if (cached != null) {
+    return cached;
+  }
+  
+  // Build and cache
+  final replies = buildReplyChildrenIndex(allPosts);
+  final descendants = buildReplyDescendantCountIndex(allPosts);
+  
+  _ReplyTreeCache.put(board, thread, allPosts.length, replies, descendants);
+  
+  return (replies: replies, descendants: descendants);
 }
 
 List<Post> collectReplySubtree({
