@@ -518,7 +518,6 @@ class ThreadPageState extends State<ThreadPage> {
                   child: ScrollablePositionedList.builder(
                     shrinkWrap: false,
                     itemCount: allPosts.length,
-                    physics: const ClampingScrollPhysics(),
                     itemScrollController: itemScrollController,
                     itemPositionsListener: itemPositionsListener,
                     itemBuilder: (context, index) => ThreadPagePost(
