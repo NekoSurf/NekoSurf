@@ -64,6 +64,29 @@ class BookmarksProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> updateBookmarkSeenCounts(
+    int threadNo,
+    String board,
+    int replyCount,
+    int imageCount,
+  ) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    // Find and update the bookmark
+    for (int i = 0; i < list.length; i++) {
+      final bookmark = Bookmark.fromJson(json.decode(list[i]));
+      if (bookmark.no == threadNo && bookmark.board == board) {
+        bookmark.lastSeenReplyCount = replyCount;
+        bookmark.lastSeenImageCount = imageCount;
+        list[i] = json.encode(bookmark);
+        break;
+      }
+    }
+
+    prefs.setStringList('favoriteThreads', list);
+    notifyListeners();
+  }
+
   void setSort(Sort sortBy) {
     sort = sortBy;
 

@@ -5,6 +5,8 @@ class Bookmark {
     this.com,
     this.imageUrl,
     this.board,
+    this.lastSeenReplyCount,
+    this.lastSeenImageCount,
   });
 
   factory Bookmark.fromJson(Map<String, dynamic> json) {
@@ -14,6 +16,8 @@ class Bookmark {
       com: json['com'] as String?,
       imageUrl: json['imageUrl'] as String?,
       board: json['board'] as String?,
+      lastSeenReplyCount: json['lastSeenReplyCount'] as int?,
+      lastSeenImageCount: json['lastSeenImageCount'] as int?,
     );
   }
 
@@ -22,6 +26,8 @@ class Bookmark {
   String? com;
   String? imageUrl;
   String? board;
+  int? lastSeenReplyCount;
+  int? lastSeenImageCount;
 
   Map<String, dynamic> toJson() {
     return {
@@ -30,6 +36,8 @@ class Bookmark {
       'com': com,
       'imageUrl': imageUrl,
       'board': board,
+      'lastSeenReplyCount': lastSeenReplyCount,
+      'lastSeenImageCount': lastSeenImageCount,
     };
   }
 }

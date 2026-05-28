@@ -291,9 +291,23 @@ class _BookmarkCard extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 10),
-                RepliesRow(
-                  replies: replyCount?.replies ?? '-',
-                  imageReplies: replyCount?.images ?? '-',
+                Row(
+                  children: [
+                    Expanded(
+                      child: RepliesRow(
+                        replies: replyCount?.replies ?? '-',
+                        imageReplies: replyCount?.images ?? '-',
+                      ),
+                    ),
+                    if (replyCount != null && 
+                        (favorite.lastSeenReplyCount != null || 
+                         favorite.lastSeenImageCount != null))
+                      _buildUnreadBadge(
+                        replyCount,
+                        favorite,
+                        isDark,
+                      ),
+                  ],
                 ),
               ],
             ),
@@ -314,6 +328,46 @@ class _BookmarkCard extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildUnreadBadge(
+    ThreadReplyCount current,
+    Bookmark favorite,
+    bool isDark,
+  ) {
+    final int newReplies = (current.replies ?? 0) - (favorite.lastSeenReplyCount ?? 0);
+    final int newImages = (current.images ?? 0) - (favorite.lastSeenImageCount ?? 0);
+
+    if (newReplies <= 0 && newImages <= 0) {
+      return const SizedBox.shrink();
+    }
+
+    final List<String> badges = [];
+    if (newReplies > 0) {
+      badges.add('+$newReplies');
+    }
+    if (newImages > 0) {
+      badges.add('+$newImages 🖼️');
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 8,
+        vertical: 4,
+      ),
+      decoration: BoxDecoration(
+        color: CupertinoColors.activeBlue,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        badges.join(' · '),
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: CupertinoColors.white,
+        ),
       ),
     );
   }

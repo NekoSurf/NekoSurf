@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/Models/bookmark.dart';
 import 'package:flutter_chan/Models/post.dart';
+import 'package:flutter_chan/blocs/bookmarks_model.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/blocs/watched_posts_model.dart';
@@ -118,7 +119,30 @@ class ThreadPageState extends State<ThreadPage> {
     _eagerWindowDebounce = null;
     scrollController.dispose();
     unawaited(_playerPool.dispose());
+    
+    // Update bookmark seen counts when leaving thread
+    if (widget.fromFavorites && allPosts.isNotEmpty) {
+      _updateBookmarkSeenCounts();
+    }
+    
     super.dispose();
+  }
+
+  void _updateBookmarkSeenCounts() {
+    final bookmarks = Provider.of<BookmarksProvider>(
+      context,
+      listen: false,
+    );
+    
+    final replyCount = allPosts.length;
+    final imageCount = allPosts.where((p) => p.tim != null).length;
+    
+    bookmarks.updateBookmarkSeenCounts(
+      widget.thread,
+      widget.board,
+      replyCount,
+      imageCount,
+    );
   }
 
   void loadThread() {
