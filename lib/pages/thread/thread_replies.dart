@@ -281,13 +281,13 @@ class _ThreadRepliesState extends State<ThreadReplies> {
 
                   return Padding(
                     padding: const EdgeInsets.only(left: 8.0),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () => collapseEntry(entry),
-                          child: Padding(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => collapseEntry(entry),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
                             padding: const EdgeInsets.only(top: 15),
                             child: _buildTreeBranch(
                               entry.branchState,
@@ -295,23 +295,19 @@ class _ThreadRepliesState extends State<ThreadReplies> {
                               entry,
                             ),
                           ),
-                        ),
-                        Expanded(
-                          child: entry.isCollapsed
-                              ? GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: () => collapseEntry(entry),
-                                  child: _buildCollapsedCard(entry, isDark),
-                                )
-                              : ThreadPagePost(
-                                  board: widget.board,
-                                  thread: widget.thread,
-                                  post: entry.post,
-                                  allPosts: widget.allPosts,
-                                  onDismiss: (int? postId) {},
-                                ),
-                        ),
-                      ],
+                          Expanded(
+                            child: entry.isCollapsed
+                                ? _buildCollapsedCard(entry, isDark)
+                                : ThreadPagePost(
+                                    board: widget.board,
+                                    thread: widget.thread,
+                                    post: entry.post,
+                                    allPosts: widget.allPosts,
+                                    onDismiss: (int? postId) {},
+                                  ),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 },
