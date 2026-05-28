@@ -219,9 +219,23 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       }
     } catch (_) {
       // keep it simple: fail silently for feed
+      final currentLease = _poolLease;
       if (_player == player) {
         _player = null;
         _controller = null;
+        _poolLease = null;
+      }
+      _positionSub?.cancel();
+      _positionSub = null;
+      _durationSub?.cancel();
+      _durationSub = null;
+      
+      if (currentLease != null) {
+        await currentLease.release();
+      } else if (player != null) {
+        try {
+          await player.dispose();
+        } catch (_) {}
       }
     }
   }

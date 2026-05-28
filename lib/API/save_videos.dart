@@ -164,12 +164,14 @@ Future<void> saveVideo(
 
   try {
     if (isSaved) {
-      final String outputName = toMp4Name(fileName);
-      final String outputPath =
-          '${directory.path}/savedAttachments/$outputName';
-      final File outputFile = File(outputPath);
+      // On iOS, saved attachments are converted from .webm to .mp4
+      // On Android, they remain as .webm
+      final String savedName = Platform.isIOS ? toMp4Name(fileName) : fileName;
+      final String savedPath =
+          '${directory.path}/savedAttachments/$savedName';
+      final File savedFile = File(savedPath);
 
-      if (!await outputFile.exists()) {
+      if (!await savedFile.exists()) {
         showCupertinoSnackbar(
           const Duration(milliseconds: 1800),
           true,
@@ -180,8 +182,8 @@ Future<void> saveVideo(
       }
 
       await SaverGallery.saveFile(
-        filePath: outputPath,
-        fileName: outputName,
+        filePath: savedPath,
+        fileName: savedName,
         skipIfExists: false,
       );
       return;
@@ -241,8 +243,12 @@ Future<void> shareMedia(
   }
 
   if (isSaved) {
-    final String savedPath = '${directory.path}/savedAttachments/$fileName'
-        .replaceAll('.webm', '.mp4');
+    // On iOS, saved attachments are converted from .webm to .mp4
+    // On Android, they remain as .webm
+    final String savedName = Platform.isIOS
+        ? fileName.replaceAll('.webm', '.mp4')
+        : fileName;
+    final String savedPath = '${directory.path}/savedAttachments/$savedName';
     await SharePlus.instance.share(ShareParams(files: [XFile(savedPath)]));
     return;
   }

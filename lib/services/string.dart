@@ -23,13 +23,12 @@ List<int> extractQuotedPostIds(String? body) {
   }
 
   final String text = unescape(cleanTags(body));
-  final Set<int> uniqueIds = <int>{};
   final List<int> orderedIds = <int>[];
 
   for (final Match match in RegExp(r'>>(\d+)').allMatches(text)) {
     final int? postId = int.tryParse(match.group(1) ?? '');
 
-    if (postId != null && uniqueIds.add(postId)) {
+    if (postId != null) {
       orderedIds.add(postId);
     }
   }
