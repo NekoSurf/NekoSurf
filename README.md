@@ -53,6 +53,10 @@ It is designed for smooth browsing with modern card-based layouts, media-first n
 
 <img src="./screenshots/galery.gif" width="40%">
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=NekoSurf/NekoSurf&type=Date)](https://www.star-history.com/#NekoSurf/NekoSurf&Date)
+
 ## TestFlight
 
 Try NekoSurf on iOS via TestFlight: [https://testflight.apple.com/join/ky5bRwMY](https://testflight.apple.com/join/ky5bRwMY)
