@@ -1,0 +1,37 @@
+{
+  "name": "NekoSurf",
+  "subtitle": "Official NekoSurf Releases",
+  "description": "",
+  "iconURL": "https://i.imgur.com/QvADqxl.png",
+  "website": "https://github.com/NekoSurf/NekoSurf",
+  "tintColor": "#6dd4ec",
+  "featuredApps": ["com.wrngwrld.Chanyan"],
+  "apps": [
+    {
+      "name": "NekoSurf",
+      "bundleIdentifier": "com.wrngwrld.Chanyan",
+      "developerName": "wrngwrld",
+      "subtitle": "🍀 4chan image board viewer for iOS and Android, written in Flutter",
+      "localizedDescription": "NekoSurf is a fast, privacy-friendly 4chan viewer built with Flutter for iOS and Android.\n\nIt is designed for smooth browsing with modern card-based layouts, media-first navigation, and practical quality-of-life tools for everyday use.",
+      "iconURL": "https://i.imgur.com/QvADqxl.png",
+      "tintColor": "#6dd4ec",
+      "category": "entertainment",
+      "screenshots": [
+        "https://i.imgur.com/B40QWPl.png",
+        "https://i.imgur.com/IAfnXoA.png"
+      ],
+      "versions": [
+        {
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.11.4/Runner.ipa",
+          "size": 42600000,
+          "version": "0.11.4",
+          "buildVersion": "219",
+          "date": "2026-05-27T20:00:00+02:00",
+          "localizedDescription": "This update makes NekoSurf feel smoother and easier to use.\n\n- Replies are now truly threaded, so conversations are much easier to follow.\n- Media viewing is now unified across threads and saved attachments for a more consistent experience.\n- Saved attachments and thread UI were cleaned up, improving reliability and overall polish.\n- Overall: better conversation flow, cleaner media experience, and a nicer day-to-day feel.",
+          "minOSVersion": "14.0"
+        }
+      ]
+    }
+  ],
+  "news": []
+}
