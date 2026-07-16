@@ -10,6 +10,23 @@ NekoSurf is a fast, privacy-friendly 4chan viewer built with Flutter for iOS and
 
 It is designed for smooth browsing with modern card-based layouts, media-first navigation, and practical quality-of-life tools for everyday use.
 
+## Sources
+
+<a href="https://intradeus.github.io/http-protocol-redirector?r=altstore://source?url=https://raw.githubusercontent.com/NekoSurf/NekoSurf/refs/heads/main/source.json">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/icons/altstore_dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="assets/icons/altstore_light.png">
+    <img alt="Add to AltStore" src="assets/icons/altstore_light.png" height="55">
+  </picture>
+</a>
+<a href="https://intradeus.github.io/http-protocol-redirector?r=sidestore://source?url=https://raw.githubusercontent.com/NekoSurf/NekoSurf/refs/heads/main/source.json">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/icons/sidestore_dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="assets/icons/sidestore_light.png">
+    <img alt="Add to SideStore" src="assets/icons/sidestore_light.png" height="55">
+  </picture>
+</a>
+
 ## Features
 
 ### Browsing
