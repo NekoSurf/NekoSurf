@@ -28,7 +28,7 @@
           "buildVersion": "219",
           "date": "2026-05-27T20:00:00+02:00",
           "localizedDescription": "This update makes NekoSurf feel smoother and easier to use.\n\n- Replies are now truly threaded, so conversations are much easier to follow.\n- Media viewing is now unified across threads and saved attachments for a more consistent experience.\n- Saved attachments and thread UI were cleaned up, improving reliability and overall polish.\n- Overall: better conversation flow, cleaner media experience, and a nicer day-to-day feel.",
-          "minOSVersion": "14.0"
+          "minOSVersion": "17.6"
         }
       ]
     }
