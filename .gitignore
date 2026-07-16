@@ -36,7 +36,7 @@
 /dev/docs/lib/
 /dev/docs/pubspec.yaml
 /dev/integration_tests/**/xcuserdata
-/dev/integration_tests/**/Pods
+/dev/integration_tests/**/
 /packages/flutter/coverage/
 version
 analysis_benchmark.json
@@ -83,7 +83,6 @@ unlinked_spec.ds
 **/ios/**/.vagrant/
 **/ios/**/DerivedData/
 **/ios/**/Icon?
-**/ios/**/Pods/
 **/ios/**/.symlinks/
 **/ios/**/profile
 **/ios/**/xcuserdata
@@ -91,7 +90,6 @@ unlinked_spec.ds
 **/ios/Flutter/.last_build_id
 **/ios/Flutter/App.framework
 **/ios/Flutter/Flutter.framework
-**/ios/Flutter/Flutter.podspec
 **/ios/Flutter/Generated.xcconfig
 **/ios/Flutter/ephemeral
 **/ios/Flutter/app.flx

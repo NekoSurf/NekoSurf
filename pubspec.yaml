@@ -30,7 +30,8 @@ dependencies:
   http: ^1.6.0
   media_kit: ^1.2.6
   media_kit_video: ^2.0.1
-  media_kit_libs_video: ^1.0.7
+  media_kit_libs_android_video: ^1.3.8
+  media_kit_libs_ios_video: ^1.1.5
   flutter_html: ^3.0.0
   path_provider: ^2.1.5
   dio: ^5.9.2
@@ -52,12 +53,29 @@ dependencies:
   device_info_plus: ^13.1.0
   country_flags: ^4.1.2
   ffmpeg_kit_flutter_new: ^4.1.0
-  # For testing the arm64 simulator support branch of ffmpeg_kit_flutter:
-  # ffmpeg_kit_flutter_new:
-  #   git:
-  #     url: https://github.com/dart-technologies/ffmpeg_kit_flutter.git
-  #     ref: arm64-simulator-support
-  saver_gallery: ^4.0.0
+  saver_gallery: ^5.1.0
+
+dependency_overrides:
+  media_kit:
+    git:
+      url: https://github.com/media-kit/media-kit.git
+      ref: main
+      path: media_kit
+  media_kit_video:
+    git:
+      url: https://github.com/media-kit/media-kit.git
+      ref: main
+      path: media_kit_video
+  media_kit_libs_android_video:
+    git:
+      url: https://github.com/media-kit/media-kit.git
+      ref: main
+      path: libs/android/media_kit_libs_android_video
+  media_kit_libs_ios_video:
+    git:
+      url: https://github.com/media-kit/media-kit.git
+      ref: main
+      path: libs/ios/media_kit_libs_ios_video
 
 dev_dependencies:
   flutter_test:
