@@ -3,7 +3,7 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
-  media_kit_libs_windows_video
+  ffmpeg_kit_flutter_new
   media_kit_video
   permission_handler_windows
   share_plus
@@ -11,6 +11,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST
+  jni
 )
 
 set(PLUGIN_BUNDLED_LIBRARIES)

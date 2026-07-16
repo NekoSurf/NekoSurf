@@ -14,12 +14,6 @@ jobs:
       - name: "📩 Checkout actions/checkout@v1"
         uses: actions/checkout@v4
 
-      - name: "💎 Setup Ruby"
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: "3.3"
-          bundler-cache: true
-
       - name: "🍎 Select Xcode"
         uses: maxim-lobanov/setup-xcode@v1
         with:
@@ -28,7 +22,7 @@ jobs:
       - name: "🦋 Setup Flutter"
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.38.1"
+          flutter-version: "3.44.6"
           channel: "stable"
 
       - name: "❓ Verify Flutter"
@@ -36,11 +30,6 @@ jobs:
 
       - name: "📦 Install dependencies"
         run: flutter pub get
-
-      - name: "💭 Install CocoaPods"
-        run: |
-          gem install cocoapods
-          cd ios && pod install && cd ..
 
       - name: "🏗️ Build iOS app"
         run: |
