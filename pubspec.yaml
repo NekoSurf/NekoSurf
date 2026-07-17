@@ -54,6 +54,7 @@ dependencies:
   country_flags: ^4.1.2
   saver_gallery: ^5.1.0
   ffmpeg_kit_extended_flutter: ^0.5.10
+  liquid_glass_widgets: ^0.22.1
 
 dependency_overrides:
   media_kit:

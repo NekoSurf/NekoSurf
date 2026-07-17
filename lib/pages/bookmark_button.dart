@@ -4,6 +4,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/Models/bookmark.dart';
 import 'package:flutter_chan/blocs/bookmarks_model.dart';
+import 'package:liquid_glass_widgets/types/glass_quality.dart';
+import 'package:liquid_glass_widgets/widgets/interactive/glass_button.dart';
 import 'package:provider/provider.dart';
 
 class BookmarkButton extends StatefulWidget {
@@ -32,18 +34,18 @@ class _BookmarkButtonState extends State<BookmarkButton> {
 
     isFavorite = bookmarks.getBookmarks().contains(favoriteString);
 
-    return CupertinoButton(
-      padding: EdgeInsets.zero,
-      onPressed: () => {
+    return GlassButton(
+      onTap: () => {
         if (isFavorite)
           bookmarks.removeBookmarks(widget.favorite)
         else
           bookmarks.addBookmarks(widget.favorite),
       },
-      child: Icon(
-        isFavorite ? Icons.bookmark : Icons.bookmark_border,
-        color: CupertinoColors.activeBlue,
-      ),
+      icon: Icon(isFavorite ? Icons.bookmark : Icons.bookmark_border),
+      width: 40,
+      height: 40,
+      iconSize: 20,
+      quality: GlassQuality.premium,
     );
   }
 }

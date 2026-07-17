@@ -3,7 +3,10 @@ import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_chan/utils/build_blur_pill.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:liquid_glass_widgets/widgets/containers/glass_card.dart';
+import 'package:liquid_glass_widgets/widgets/interactive/glass_button.dart';
+import 'package:liquid_glass_widgets/widgets/interactive/glass_chip.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
@@ -241,22 +244,12 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                buildBlurPill(
-                  child: CupertinoButton(
-                    minimumSize: const Size(36, 36),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(999),
-                    onPressed: widget.onClose,
-                    child: const Icon(
-                      CupertinoIcons.back,
-                      color: Colors.white,
-                      size: 18,
-                    ),
-                  ),
+                GlassButton(
+                  icon: const Icon(CupertinoIcons.back),
+                  onTap: widget.onClose,
+                  width: 36,
+                  height: 36,
+                  iconSize: 18,
                 ),
                 Row(
                   mainAxisSize: MainAxisSize.min,
@@ -265,20 +258,12 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
                       _buildActionButton(action),
                       const SizedBox(width: 8),
                     ],
-                    buildBlurPill(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      child: Text(
-                        itemCount == 0
-                            ? '0 / 0'
-                            : '${_currentIndex + 1} / $itemCount',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                        ),
-                      ),
+
+                    GlassChip(
+                      label: itemCount == 0
+                          ? '0 / 0'
+                          : '${_currentIndex + 1} / $itemCount',
+                      iconSize: 18,
                     ),
                   ],
                 ),
@@ -420,23 +405,20 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
         ? null
         : action.onPressed;
 
-    return buildBlurPill(
-      child: CupertinoButton(
-        minimumSize: const Size(36, 36),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(999),
-        onPressed: onPressed,
-        child: action.isBusy
-            ? const CupertinoActivityIndicator(radius: 9)
-            : Icon(
-                action.isCompleted && action.completedIcon != null
-                    ? action.completedIcon!
-                    : action.icon,
-                color: Colors.white,
-                size: 18,
-              ),
-      ),
+    return GlassButton(
+      icon: action.isBusy
+          ? const CupertinoActivityIndicator(radius: 9)
+          : Icon(
+              action.isCompleted && action.completedIcon != null
+                  ? action.completedIcon!
+                  : action.icon,
+              color: Colors.white,
+              size: 18,
+            ),
+      onTap: onPressed ?? () {},
+      width: 36,
+      height: 36,
+      iconSize: 18,
     );
   }
 }
@@ -822,51 +804,47 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
           bottom: 0,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(8, 8, 8, 14),
-            child: buildBlurPill(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    CupertinoButton(
-                      padding: EdgeInsets.zero,
-                      minimumSize: const Size(28, 28),
-                      onPressed: _togglePlayPause,
-                      child: Icon(
-                        _isPlaying
-                            ? CupertinoIcons.pause_fill
-                            : CupertinoIcons.play_fill,
-                        color: Colors.white,
-                        size: 20,
-                      ),
+            child: GlassCard(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(28, 28),
+                    onPressed: _togglePlayPause,
+                    child: Icon(
+                      _isPlaying
+                          ? CupertinoIcons.pause_fill
+                          : CupertinoIcons.play_fill,
+                      color: Colors.white,
+                      size: 20,
                     ),
-                    Expanded(
-                      child: Slider(
-                        value: _position.inMilliseconds.toDouble().clamp(
-                          0,
+                  ),
+                  Expanded(
+                    child: Slider(
+                      value: _position.inMilliseconds.toDouble().clamp(
+                        0,
+                        (_duration.inMilliseconds <= 0
+                                ? 1
+                                : _duration.inMilliseconds)
+                            .toDouble(),
+                      ),
+                      min: 0,
+                      max:
                           (_duration.inMilliseconds <= 0
                                   ? 1
                                   : _duration.inMilliseconds)
                               .toDouble(),
-                        ),
-                        min: 0,
-                        max:
-                            (_duration.inMilliseconds <= 0
-                                    ? 1
-                                    : _duration.inMilliseconds)
-                                .toDouble(),
-                        onChanged: _duration.inMilliseconds > 0
-                            ? _seekTo
-                            : null,
-                        activeColor: Colors.white,
-                        inactiveColor: Colors.white.withValues(alpha: 0.25),
-                      ),
+                      onChanged: _duration.inMilliseconds > 0 ? _seekTo : null,
+                      activeColor: Colors.white,
+                      inactiveColor: Colors.white.withValues(alpha: 0.25),
                     ),
-                    Text(
-                      '${_formatDuration(_position)} / ${_formatDuration(_duration)}',
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                    ),
-                  ],
-                ),
+                  ),
+                  Text(
+                    '${_formatDuration(_position)} / ${_formatDuration(_duration)}',
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                ],
               ),
             ),
           ),

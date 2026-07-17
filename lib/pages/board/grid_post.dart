@@ -10,6 +10,8 @@ import 'package:flutter_chan/pages/replies_row.dart';
 import 'package:flutter_chan/pages/thread/thread_page.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/image_viewer.dart';
+import 'package:liquid_glass_widgets/widgets/interactive/glass_button.dart';
+import 'package:liquid_glass_widgets/widgets/interactive/glass_chip.dart';
 import 'package:provider/provider.dart';
 
 class GridPost extends StatefulWidget {
@@ -59,39 +61,6 @@ class _GridPostState extends State<GridPost> {
     isFavorite = bookmarks.getBookmarks().contains(favoriteString);
 
     return InkWell(
-      onLongPress: () => {
-        showCupertinoModalPopup(
-          context: context,
-          builder: (BuildContext context) => CupertinoActionSheet(
-            actions: [
-              if (isFavorite)
-                CupertinoActionSheetAction(
-                  child: const Text('Remove bookmark'),
-                  onPressed: () {
-                    bookmarks.removeBookmarks(favorite);
-
-                    Navigator.pop(context);
-                  },
-                )
-              else
-                CupertinoActionSheetAction(
-                  child: const Text('Set bookmark'),
-                  onPressed: () {
-                    bookmarks.addBookmarks(favorite);
-
-                    Navigator.pop(context);
-                  },
-                ),
-            ],
-            cancelButton: CupertinoActionSheetAction(
-              child: const Text('Cancel'),
-              onPressed: () {
-                Navigator.pop(context);
-              },
-            ),
-          ),
-        ),
-      },
       onTap: () => {
         Navigator.of(context).push(
           MaterialPageRoute(
@@ -155,29 +124,19 @@ class _GridPostState extends State<GridPost> {
                     Positioned(
                       top: 10,
                       right: 10,
-                      child: GestureDetector(
+                      child: GlassButton(
+                        icon: isFavorite
+                            ? const Icon(CupertinoIcons.bookmark_fill)
+                            : const Icon(CupertinoIcons.bookmark),
                         onTap: () => {
                           if (isFavorite)
                             bookmarks.removeBookmarks(favorite)
                           else
                             bookmarks.addBookmarks(favorite),
                         },
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.35),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Icon(
-                            isFavorite
-                                ? CupertinoIcons.bookmark_fill
-                                : CupertinoIcons.bookmark,
-                            color: isFavorite
-                                ? CupertinoColors.activeBlue
-                                : Colors.white,
-                            size: 16,
-                          ),
-                        ),
+                        width: 32,
+                        height: 32,
+                        iconSize: 18,
                       ),
                     ),
                     Positioned(
@@ -228,27 +187,13 @@ class _GridPostState extends State<GridPost> {
                       replies: widget.post.replies,
                       imageReplies: widget.post.images,
                     ),
-                    Container(
+                    GlassChip(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
                         vertical: 4,
                       ),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? CupertinoColors.systemGrey.withValues(alpha: 0.16)
-                            : CupertinoColors.systemGrey6,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        'No.${widget.post.no}',
-                        style: TextStyle(
-                          color: isDark
-                              ? CupertinoColors.systemGrey
-                              : const Color(0xFF5B6470),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      label: 'No.${widget.post.no}',
+                      labelStyle: const TextStyle(fontSize: 12),
                     ),
                   ],
                 ),

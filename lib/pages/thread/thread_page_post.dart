@@ -13,6 +13,7 @@ import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/feed_player_pool.dart';
 import 'package:flutter_chan/widgets/feed_video_player.dart';
 import 'package:intl/intl.dart';
+import 'package:liquid_glass_widgets/widgets/interactive/glass_chip.dart';
 import 'package:provider/provider.dart';
 
 class ThreadPagePost extends StatefulWidget {
@@ -300,27 +301,13 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                                   ),
                                 ),
                                 const SizedBox(width: 6),
-                                Container(
+                                GlassChip(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 8,
-                                    vertical: 2,
+                                    vertical: 4,
                                   ),
-                                  decoration: BoxDecoration(
-                                    color: isDark
-                                        ? CupertinoColors.systemGrey.withValues(
-                                            alpha: 0.18,
-                                          )
-                                        : const Color(0x11000000),
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  child: Text(
-                                    'No.${widget.post.no}',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: secondaryText,
-                                    ),
-                                  ),
+                                  label: 'No.${widget.post.no}',
+                                  labelStyle: const TextStyle(fontSize: 12),
                                 ),
                                 const SizedBox(width: 6),
                                 if (widget.post.country != null &&

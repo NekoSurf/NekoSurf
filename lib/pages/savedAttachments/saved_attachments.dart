@@ -6,7 +6,6 @@ import 'package:flutter_chan/API/save_videos.dart';
 import 'package:flutter_chan/Models/saved_attachment.dart';
 import 'package:flutter_chan/blocs/saved_attachments_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
-import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/pages/savedAttachments/permission_denied.dart';
 import 'package:flutter_chan/pages/savedAttachments/saved_media_viewer_page.dart';
 import 'package:provider/provider.dart';
@@ -118,7 +117,9 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
         showErrorDialog: false,
       );
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _hasPermissionError = true;
         _isLoading = false;
@@ -126,7 +127,9 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
       return;
     }
 
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
     setState(() {
       _isLoading = false;
@@ -143,123 +146,43 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
     final bool isEmpty =
         !_isLoading && !_hasPermissionError && attachments.isEmpty;
 
-    return Scaffold(
-      body: CupertinoPageScaffold(
-        backgroundColor: AppColors.pageBackground(isDark),
-        child: CustomScrollView(
-          slivers: [
-            CupertinoSliverNavigationBar(
-              leading: MediaQuery(
-                data: MediaQueryData(
-                  textScaler: MediaQuery.textScalerOf(context),
-                ),
-                child: Transform.translate(
-                  offset: const Offset(-16, 0),
-                  child: CupertinoNavigationBarBackButton(
-                    previousPageTitle: 'Home',
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ),
+    if (_isLoading)
+      return const SliverFillRemaining(
+        hasScrollBody: false,
+        child: SizedBox.shrink(),
+      );
+    else if (_hasPermissionError) {
+      return const SliverFillRemaining(
+        hasScrollBody: false,
+        child: PermissionDenied(),
+      );
+    } else if (isEmpty) {
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: Column(
+          children: [
+            const SizedBox(height: 30),
+            Text(
+              'Save Attachments first!',
+              style: TextStyle(
+                fontSize: 26,
+                color: isDark ? Colors.white : Colors.black,
               ),
-              previousPageTitle: 'Home',
-              border: Border.all(color: Colors.transparent),
-              largeTitle: MediaQuery(
-                data: MediaQueryData(
-                  textScaler: MediaQuery.textScalerOf(context),
-                ),
-                child: Text(
-                  'Saved Attachments',
-                  style: TextStyle(
-                    color: theme.getTheme() == ThemeData.dark()
-                        ? CupertinoColors.white
-                        : CupertinoColors.black,
-                  ),
-                ),
-              ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 20,
-                    child: CupertinoButton(
-                      padding: EdgeInsets.zero,
-                      onPressed: () {
-                        showCupertinoModalPopup(
-                          context: context,
-                          builder: (BuildContext context) =>
-                              CupertinoActionSheet(
-                                actions: [
-                                  CupertinoActionSheetAction(
-                                    child: const Text('Clear bookmarks'),
-                                    onPressed: () {
-                                      savedAttachments.clearSavedAttachments(
-                                        context,
-                                      );
-                                      Navigator.pop(context);
-                                    },
-                                  ),
-                                ],
-                                cancelButton: CupertinoActionSheetAction(
-                                  child: const Text('Cancel'),
-                                  onPressed: () {
-                                    Navigator.pop(context);
-                                  },
-                                ),
-                              ),
-                        );
-                      },
-                      child: const Icon(Icons.more_vert),
-                    ),
-                  ),
-                ],
-              ),
-              backgroundColor: theme.getTheme() == ThemeData.light()
-                  ? AppColors.navigationBackground(false)
-                  : AppColors.navigationBackground(true),
             ),
-            if (_isLoading)
-              const SliverFillRemaining(
-                hasScrollBody: false,
-                child: SizedBox.shrink(),
-              )
-            else if (_hasPermissionError)
-              const SliverFillRemaining(
-                hasScrollBody: false,
-                child: PermissionDenied(),
-              )
-            else if (isEmpty)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: Column(
-                  children: [
-                    const SizedBox(height: 30),
-                    Text(
-                      'Save Attachments first!',
-                      style: TextStyle(
-                        fontSize: 26,
-                        color: isDark ? Colors.white : Colors.black,
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            else
-              SliverGrid(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) => _buildAttachmentTile(
-                    attachments[index],
-                    attachments,
-                    index,
-                  ),
-                  childCount: attachments.length,
-                ),
-              ),
           ],
         ),
-      ),
-    );
+      );
+    } else {
+      return SliverGrid(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+        ),
+        delegate: SliverChildBuilderDelegate(
+          (context, index) =>
+              _buildAttachmentTile(attachments[index], attachments, index),
+          childCount: attachments.length,
+        ),
+      );
+    }
   }
 }
