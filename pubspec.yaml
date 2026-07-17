@@ -33,27 +33,27 @@ dependencies:
   media_kit_libs_android_video: ^1.3.8
   media_kit_libs_ios_video: ^1.1.5
   flutter_html: ^3.0.0
-  path_provider: ^2.1.5
-  dio: ^5.9.2
-  permission_handler: ^12.0.1
+  path_provider: ^2.1.6
+  dio: ^5.10.0
+  permission_handler: ^12.0.3
   flutter_launcher_icons: ^0.14.4
   shared_preferences: ^2.5.5
   visibility_detector: ^0.4.0+2
-  share_plus: ^13.1.0
+  share_plus: ^13.2.1
   url_launcher: ^6.3.2
   provider: ^6.1.5
   flutter_slidable: ^4.0.3
-  intl: ^0.20.2
+  intl: ^0.20.3
   lint: ^2.8.0
   scrollable_positioned_list: ^0.3.8
   flutter_cache_manager: ^3.4.1
-  package_info_plus: ^10.1.0
-  app_settings: ^7.0.0
+  package_info_plus: ^10.2.1
+  app_settings: ^8.0.0
   modal_bottom_sheet: ^3.0.0
-  device_info_plus: ^13.1.0
+  device_info_plus: ^13.2.0
   country_flags: ^4.1.2
-  ffmpeg_kit_flutter_new: ^4.5.1
   saver_gallery: ^5.1.0
+  ffmpeg_kit_extended_flutter: ^0.5.10
 
 dependency_overrides:
   media_kit:
@@ -81,7 +81,12 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
 
-  flutter_native_splash: ^2.4.7
+  flutter_native_splash: ^2.4.8
+
+ffmpeg_kit_extended_config:
+  type: "base" # pre-bundled builds: debug, base, full, audio, video, video_hw
+  gpl: false # enable to include GPL libraries
+  small: true # enable to use smaller builds
 
 flutter_launcher_icons:
   android: "launcher_icon"

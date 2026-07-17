@@ -2,9 +2,7 @@ import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
-import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
-import 'package:ffmpeg_kit_flutter_new/ffmpeg_session.dart';
-import 'package:ffmpeg_kit_flutter_new/return_code.dart';
+import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
@@ -97,7 +95,7 @@ Future<bool> checkAndRequestPermissions({required bool skipIfExists}) async {
           : await Permission.storage.request().isGranted;
     } else {
       // No read permission required for Android SDK 29 and above
-      return sdkInt >= 29 ? true : await Permission.storage.request().isGranted;
+      return sdkInt >= 29 || await Permission.storage.request().isGranted;
     }
   } else if (Platform.isIOS) {
     return skipIfExists
@@ -108,10 +106,10 @@ Future<bool> checkAndRequestPermissions({required bool skipIfExists}) async {
   return false; // Unsupported platforms
 }
 
-Future<ReturnCode?> convertWebMToMP4(File webmFile, File mp4File) async {
+Future<int> convertWebMToMP4(File webmFile, File mp4File) async {
   mp4File = File(mp4File.path.replaceAll('.webm', '.mp4'));
 
-  final FFmpegSession session = await FFmpegKit.execute(
+  final FFmpegSession session = await FFmpegKit.executeAsync(
     '-y -i ${webmFile.path} -c:v mpeg4 -qscale 0 ${mp4File.path}',
   );
 
@@ -167,8 +165,7 @@ Future<void> saveVideo(
       // On iOS, saved attachments are converted from .webm to .mp4
       // On Android, they remain as .webm
       final String savedName = Platform.isIOS ? toMp4Name(fileName) : fileName;
-      final String savedPath =
-          '${directory.path}/savedAttachments/$savedName';
+      final String savedPath = '${directory.path}/savedAttachments/$savedName';
       final File savedFile = File(savedPath);
 
       if (!await savedFile.exists()) {
@@ -196,12 +193,9 @@ Future<void> saveVideo(
       final String outputName = toMp4Name(fileName);
       final File outputFile = File('${directory.path}/$outputName');
 
-      final ReturnCode? returnCode = await convertWebMToMP4(
-        videoCache,
-        outputFile,
-      );
+      final returnCode = await convertWebMToMP4(videoCache, outputFile);
 
-      if (!ReturnCode.isSuccess(returnCode)) {
+      if (returnCode != 0) {
         throw Exception('webm conversion failed');
       }
 
@@ -263,12 +257,12 @@ Future<void> shareMedia(
 
     if (Platform.isIOS && ext == '.webm') {
       final File fileDownloadPath = File('${directory.path}/$fileName');
-      final ReturnCode? returnCode = await convertWebMToMP4(
+      final int returnCode = await convertWebMToMP4(
         videoCache,
         fileDownloadPath,
       );
 
-      if (ReturnCode.isSuccess(returnCode)) {
+      if (returnCode == 0) {
         await SharePlus.instance.share(
           ShareParams(
             files: [XFile(fileDownloadPath.path.replaceAll('.webm', '.mp4'))],
@@ -328,12 +322,9 @@ Future<SavedAttachment?> saveAttachment(
 
     if (Platform.isIOS && ext == '.webm') {
       final File outputFile = File('${savedDir.path}/$fileName');
-      final ReturnCode? returnCode = await convertWebMToMP4(
-        cachedFile,
-        outputFile,
-      );
+      final int returnCode = await convertWebMToMP4(cachedFile, outputFile);
 
-      if (!ReturnCode.isSuccess(returnCode)) {
+      if (returnCode != 0) {
         return null;
       }
 
