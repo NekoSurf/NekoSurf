@@ -482,6 +482,9 @@ class ThreadPageState extends State<ThreadPage> {
                 }
 
                 return ScrollablePositionedList.builder(
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.paddingOf(context).bottom + 8,
+                  ),
                   shrinkWrap: false,
                   itemCount: allPosts.length,
                   itemScrollController: itemScrollController,
