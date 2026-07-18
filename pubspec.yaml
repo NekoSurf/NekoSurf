@@ -77,11 +77,6 @@ dependency_overrides:
       url: https://github.com/media-kit/media-kit.git
       ref: main
       path: libs/ios/media_kit_libs_ios_video
-
-dev_dependencies:
-  flutter_test:
-    sdk: flutter
-
   flutter_native_splash: ^2.4.8
 
 ffmpeg_kit_extended_config:

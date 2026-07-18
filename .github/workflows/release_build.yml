@@ -1,9 +1,15 @@
 name: Build NekoSurf iOS IPA
 
-# This workflow is triggered on creation of a release.
+# This workflow can run on release publish or manually from Actions.
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to upload artifacts to (optional for manual runs)"
+        required: false
+        type: string
 
 jobs:
   build_ipa:
@@ -18,6 +24,12 @@ jobs:
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: "26.1"
+
+      - name: "🧩 Install iOS platform components"
+        run: |
+          sudo xcodebuild -runFirstLaunch
+          sudo xcodebuild -downloadPlatform iOS
+          xcodebuild -showsdks
 
       - name: "🦋 Setup Flutter"
         uses: subosito/flutter-action@v2
@@ -54,10 +66,16 @@ jobs:
         continue-on-error: true
 
       - name: "🚀 Upload IPA to Release"
-        run: |
-          gh release upload ${{ github.event.release.tag_name }} "build/ios/ipa/*.ipa"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || github.event.inputs.release_tag }}
+        run: |
+          if [ -z "$RELEASE_TAG" ]; then
+            echo "No release tag provided; skipping IPA upload."
+            exit 0
+          fi
+
+          gh release upload "$RELEASE_TAG" "build/ios/ipa/*.ipa"
 
   build_apk:
     name: Build Android APK
@@ -74,7 +92,7 @@ jobs:
       - name: "🦋 Setup Flutter"
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.38.1"
+          flutter-version: "3.44.6"
           channel: "stable"
 
       - name: "❓ Verify Flutter"
@@ -87,11 +105,18 @@ jobs:
         run: echo "GRADLE_OPTS=-Xmx2048m" >> $GITHUB_ENV
 
       - name: "🚀 Build APK"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || github.event.inputs.release_tag }}
         run: |
           flutter build apk --split-per-abi
-          gh release upload ${{github.event.release.tag_name}} build/app/outputs/apk/release/app-arm64-v8a-release.apk
-          gh release upload ${{github.event.release.tag_name}} build/app/outputs/apk/release/app-armeabi-v7a-release.apk
-          gh release upload ${{github.event.release.tag_name}} build/app/outputs/apk/release/app-x86_64-release.apk
-        env:
-          GITHUB_TOKEN: ${{ github.TOKEN }}
+
+          if [ -z "$RELEASE_TAG" ]; then
+            echo "No release tag provided; skipping APK upload."
+            exit 0
+          fi
+
+          gh release upload "$RELEASE_TAG" build/app/outputs/apk/release/app-arm64-v8a-release.apk
+          gh release upload "$RELEASE_TAG" build/app/outputs/apk/release/app-armeabi-v7a-release.apk
+          gh release upload "$RELEASE_TAG" build/app/outputs/apk/release/app-x86_64-release.apk
         shell: bash
