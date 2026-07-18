@@ -6,15 +6,20 @@ import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/Models/bookmark.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
-import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/pages/bookmark_button.dart';
 import 'package:flutter_chan/pages/thread/thread_page_post.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/feed_player_pool.dart';
-import 'package:flutter_chan/widgets/floating_action_buttons.dart';
 import 'package:flutter_chan/widgets/reload.dart';
+import 'package:liquid_glass_widgets/types/glass_quality.dart';
+import 'package:liquid_glass_widgets/widgets/interactive/glass_button.dart';
+import 'package:liquid_glass_widgets/widgets/overlays/glass_menu.dart';
+import 'package:liquid_glass_widgets/widgets/overlays/glass_menu_item.dart';
+import 'package:liquid_glass_widgets/widgets/shared/adaptive_liquid_glass_layer.dart';
+import 'package:liquid_glass_widgets/widgets/surfaces/glass_app_bar.dart';
+import 'package:liquid_glass_widgets/widgets/surfaces/glass_scaffold.dart';
 import 'package:provider/provider.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:share_plus/share_plus.dart';
@@ -361,112 +366,100 @@ class ThreadPageState extends State<ThreadPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Provider.of<ThemeChanger>(context);
-    final bool isDark = theme.getTheme() == ThemeData.dark();
-
-    return Scaffold(
-      backgroundColor: AppColors.pageBackground(isDark),
-      extendBodyBehindAppBar: true,
-      appBar: CupertinoNavigationBar(
-        backgroundColor: AppColors.navigationBackground(isDark),
-        border: Border.all(color: Colors.transparent),
-        leading: MediaQuery(
-          data: MediaQueryData(
-            textScaler: TextScaler.linear(
-              MediaQuery.textScaleFactorOf(context),
-            ),
-          ),
-          child: Transform.translate(
-            offset: const Offset(-16, 0),
-            child: CupertinoNavigationBarBackButton(
-              previousPageTitle: widget.fromFavorites
-                  ? 'bookmarks'
-                  : '/${widget.board}/',
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ),
-        ),
-        middle: MediaQuery(
-          data: MediaQueryData(
-            textScaler: TextScaler.linear(
-              MediaQuery.textScaleFactorOf(context),
-            ),
-          ),
-          child: Text(
+    return GlassScaffold(
+      backgroundColor: AppColors.pageBackground(
+        Theme.of(context).brightness == Brightness.dark,
+      ),
+      appBar: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12.0),
+        child: GlassAppBar(
+          title: Text(
             unescape(cleanTags(widget.threadName)),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: CupertinoColors.label.resolveFrom(context),
+            ),
           ),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+          leading: GlassButton(
+            icon: const Icon(CupertinoIcons.back),
+            onTap: () => Navigator.of(context).pop(),
+            width: 40,
+            height: 40,
+            iconSize: 20,
+            quality: GlassQuality.premium,
+          ),
+          actions: [
             BookmarkButton(favorite: favorite),
-            SizedBox(
-              width: 20,
-              child: CupertinoButton(
-                padding: EdgeInsets.zero,
-                onPressed: () {
-                  showCupertinoModalPopup(
-                    context: context,
-                    builder: (BuildContext context) => CupertinoActionSheet(
-                      actions: [
-                        CupertinoActionSheetAction(
-                          child: const Text('Share'),
-                          onPressed: () {
-                            Share.share(
-                              'https://boards.4chan.org/${widget.board}/thread/${widget.thread}',
-                            );
-                            Navigator.pop(context);
-                          },
-                        ),
-                        CupertinoActionSheetAction(
-                          child: const Text('Open in Browser'),
-                          onPressed: () {
-                            launchURL(
-                              'https://boards.4chan.org/${widget.board}/thread/${widget.thread}',
-                            );
-                            Navigator.pop(context);
-                          },
-                        ),
-                      ],
-                      cancelButton: CupertinoActionSheetAction(
-                        child: const Text('Cancel'),
-                        onPressed: () {
-                          Navigator.pop(context);
-                        },
-                      ),
-                    ),
-                  );
-                },
-                child: const Icon(Icons.more_vert),
+            GlassMenu(
+              quality: GlassQuality.premium,
+              menuAlignment: GlassMenuAlignment.bottomRight,
+              autoAdjustToScreen: true,
+              items: [
+                GlassMenuItem(
+                  title: 'Share',
+                  icon: const Icon(CupertinoIcons.share),
+                  isDestructive: false,
+                  onTap: () {
+                    Share.share(
+                      'https://boards.4chan.org/${widget.board}/thread/${widget.thread}',
+                    );
+                  },
+                ),
+                GlassMenuItem(
+                  title: 'Open in Browser',
+                  icon: const Icon(CupertinoIcons.globe),
+                  isDestructive: false,
+                  onTap: () {
+                    launchURL(
+                      'https://boards.4chan.org/${widget.board}/thread/${widget.thread}',
+                    );
+                  },
+                ),
+                GlassMenuItem(
+                  title: 'Scroll to Top',
+                  icon: const Icon(CupertinoIcons.arrow_up),
+                  isDestructive: false,
+                  onTap: () {
+                    if (itemScrollController.isAttached) {
+                      itemScrollController.scrollTo(
+                        index: 0,
+                        alignment: 0,
+                        duration: const Duration(milliseconds: 500),
+                        curve: Curves.easeInOutCubic,
+                      );
+                    }
+                  },
+                ),
+                GlassMenuItem(
+                  title: 'Scroll to Bottom',
+                  icon: const Icon(CupertinoIcons.arrow_down),
+                  isDestructive: false,
+                  onTap: () {
+                    if (itemScrollController.isAttached) {
+                      itemScrollController.scrollTo(
+                        index: allPosts.length - 1,
+                        alignment: 0,
+                        duration: const Duration(milliseconds: 500),
+                        curve: Curves.easeInOutCubic,
+                      );
+                    }
+                  },
+                ),
+              ],
+              triggerBuilder: (ctx, toggle) => AdaptiveLiquidGlassLayer(
+                child: GlassButton(
+                  quality: GlassQuality.premium,
+                  icon: const Icon(Icons.more_vert),
+                  onTap: toggle,
+                  width: 40,
+                  height: 40,
+                  iconSize: 20,
+                ),
               ),
             ),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButtons(
-        scrollController: scrollController,
-        goUp: () {
-          itemScrollController.scrollTo(
-            index: 0,
-            alignment: 0,
-            duration: const Duration(milliseconds: 500),
-            curve: Curves.easeInOutCubic,
-          );
-        },
-        goDown: () {
-          if (allPosts.isEmpty) {
-            return;
-          }
-
-          itemScrollController.scrollTo(
-            index: allPosts.length - 1,
-            alignment: 0,
-            duration: const Duration(milliseconds: 500),
-            curve: Curves.easeInOutCubic,
-          );
-        },
       ),
       body: FutureBuilder(
         future: _fetchAllPostsFromThread,
@@ -488,15 +481,21 @@ class ThreadPageState extends State<ThreadPage> {
                   });
                 }
 
-                return SafeArea(
-                  top: true,
-                  bottom: false,
-                  child: ScrollablePositionedList.builder(
-                    shrinkWrap: false,
-                    itemCount: allPosts.length,
-                    itemScrollController: itemScrollController,
-                    itemPositionsListener: itemPositionsListener,
-                    itemBuilder: (context, index) => ThreadPagePost(
+                return ScrollablePositionedList.builder(
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.paddingOf(context).bottom + 8,
+                  ),
+                  shrinkWrap: false,
+                  itemCount: allPosts.length,
+                  itemScrollController: itemScrollController,
+                  itemPositionsListener: itemPositionsListener,
+                  itemBuilder: (context, index) => Padding(
+                    padding: EdgeInsets.only(
+                      top: index == 0
+                          ? MediaQuery.paddingOf(context).top + 44 + 8
+                          : 0,
+                    ),
+                    child: ThreadPagePost(
                       board: widget.board,
                       thread: widget.thread,
                       post: allPosts[index],

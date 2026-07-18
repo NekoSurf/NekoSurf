@@ -1,9 +1,14 @@
 import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/constants.dart';
+import 'package:liquid_glass_widgets/widgets/interactive/glass_button.dart';
+import 'package:liquid_glass_widgets/widgets/overlays/glass_menu.dart';
+import 'package:liquid_glass_widgets/widgets/overlays/glass_menu_item.dart';
+import 'package:liquid_glass_widgets/widgets/shared/adaptive_liquid_glass_layer.dart';
+import 'package:liquid_glass_widgets/widgets/surfaces/glass_app_bar.dart';
+import 'package:liquid_glass_widgets/widgets/surfaces/glass_scaffold.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
@@ -114,173 +119,145 @@ class DataSettingsState extends State<DataSettings> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Provider.of<ThemeChanger>(context);
     final settings = Provider.of<SettingsProvider>(context);
-    final bool isDark = theme.getTheme() == ThemeData.dark();
 
-    return CupertinoPageScaffold(
-      backgroundColor: AppColors.pageBackground(isDark),
-      navigationBar: CupertinoNavigationBar(
-        backgroundColor: AppColors.navigationBackground(isDark),
-        brightness: theme.getTheme() == ThemeData.dark()
-            ? Brightness.dark
-            : Brightness.light,
-        leading: MediaQuery(
-          data: MediaQueryData(textScaler: MediaQuery.textScalerOf(context)),
-          child: Transform.translate(
-            offset: const Offset(-16, 0),
-            child: CupertinoNavigationBarBackButton(
-              previousPageTitle: 'Settings',
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ),
-        ),
-        border: Border.all(color: Colors.transparent),
-        previousPageTitle: 'Settings',
-        middle: MediaQuery(
-          data: MediaQueryData(textScaler: MediaQuery.textScalerOf(context)),
-          child: Text(
+    return GlassScaffold(
+      backgroundColor: AppColors.pageBackground(
+        Theme.of(context).brightness == Brightness.dark,
+      ),
+      appBar: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12.0),
+        child: GlassAppBar(
+          title: Text(
             'Data',
             style: TextStyle(
-              color: theme.getTheme() == ThemeData.dark()
-                  ? Colors.white
-                  : Colors.black,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: CupertinoColors.label.resolveFrom(context),
             ),
+          ),
+          leading: GlassButton(
+            icon: const Icon(CupertinoIcons.back),
+            onTap: () => Navigator.of(context).pop(),
+            width: 40,
+            height: 40,
+            iconSize: 20,
           ),
         ),
       ),
-      child: SafeArea(
-        child: ListView(
-          padding: EdgeInsets.only(
-            top: 8,
-            bottom: MediaQuery.of(context).padding.bottom + 16,
+      extendBody: false,
+      body: Column(
+        children: [
+          CupertinoListSection.insetGrouped(
+            backgroundColor: Colors.transparent,
+            children: [
+              CupertinoListTile(
+                leading: const CupertinoSettingsIcon(
+                  icon: CupertinoIcons.arrow_down_circle,
+                  color: CupertinoColors.systemBlue,
+                ),
+                title: const Text('Auto-scroll to last seen media'),
+                subtitle: const Text(
+                  'Automatically scroll to the last media you viewed',
+                ),
+                trailing: CupertinoSwitch(
+                  onChanged: (value) => {
+                    settings.setAutoScrollToLastSeen(value),
+                  },
+                  value: settings.getAutoScrollToLastSeen(),
+                ),
+              ),
+            ],
           ),
-          children: [
-            CupertinoListSection.insetGrouped(
-              backgroundColor: AppColors.pageBackground(isDark),
-              children: [
-                CupertinoListTile(
-                  leading: const CupertinoSettingsIcon(
-                    icon: CupertinoIcons.arrow_down_circle,
-                    color: CupertinoColors.systemBlue,
-                  ),
-                  title: const Text('Auto-scroll to last seen media'),
-                  subtitle: const Text(
-                    'Automatically scroll to the last media you viewed',
-                  ),
-                  trailing: CupertinoSwitch(
-                    onChanged: (value) => {
-                      settings.setAutoScrollToLastSeen(value),
-                    },
-                    value: settings.getAutoScrollToLastSeen(),
-                  ),
+          CupertinoListSection.insetGrouped(
+            backgroundColor: Colors.transparent,
+            children: [
+              CupertinoListTile(
+                title: const Text('Cache Size'),
+                trailing: Text(
+                  '${_cacheSize.toStringAsFixed(2)} MB',
+                  style: const TextStyle(color: CupertinoColors.systemGrey),
                 ),
-              ],
-            ),
-            CupertinoListSection.insetGrouped(
-              backgroundColor: AppColors.pageBackground(isDark),
-              children: [
-                CupertinoListTile(
-                  title: const Text('Cache Size'),
-                  trailing: Text(
-                    '${_cacheSize.toStringAsFixed(2)} MB',
-                    style: const TextStyle(color: CupertinoColors.systemGrey),
-                  ),
+              ),
+            ],
+          ),
+          CupertinoListSection.insetGrouped(
+            backgroundColor: Colors.transparent,
+            children: [
+              CupertinoListTile(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 12,
+                  horizontal: 16,
                 ),
-              ],
-            ),
-            CupertinoListSection.insetGrouped(
-              backgroundColor: AppColors.pageBackground(isDark),
-              children: [
-                CupertinoListTile(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 12,
-                    horizontal: 16,
-                  ),
-                  leading: const CupertinoSettingsIcon(
-                    color: CupertinoColors.systemRed,
-                    icon: CupertinoIcons.trash,
-                  ),
-                  title: const Text('Delete Cache'),
-                  trailing: const CupertinoListTileChevron(),
-                  onTap: () => deleteCache(),
+                leading: const CupertinoSettingsIcon(
+                  color: CupertinoColors.systemRed,
+                  icon: CupertinoIcons.trash,
                 ),
-              ],
-            ),
-            CupertinoListSection.insetGrouped(
-              backgroundColor: AppColors.pageBackground(isDark),
-              children: [
-                CupertinoListTile(
-                  title: const Text('Watched Posts Retention Period'),
-                  subtitle: const Text(
-                    'The number of days watched status of all posts will be kept.',
-                  ),
-                  trailing: CupertinoButton(
-                    padding: EdgeInsets.zero,
-                    child: Text(
+                title: const Text('Delete Cache'),
+                trailing: const CupertinoListTileChevron(),
+                onTap: () => deleteCache(),
+              ),
+            ],
+          ),
+
+          CupertinoListSection.insetGrouped(
+            backgroundColor: Colors.transparent,
+            children: [
+              GlassMenu(
+                menuAlignment: GlassMenuAlignment.center,
+                autoAdjustToScreen: true,
+                items: [
+                  for (final days in [3, 7, 14, 30])
+                    GlassMenuItem(
+                      title: '$days days',
+                      icon: const Icon(CupertinoIcons.clock),
+                      isDestructive: false,
+                      onTap: () => settings.setWatchedPostsRetentionDays(days),
+                    ),
+                ],
+                triggerBuilder: (ctx, toggle) => AdaptiveLiquidGlassLayer(
+                  child: CupertinoListTile(
+                    title: const Text('Watched Posts Retention Period'),
+                    subtitle: const Text(
+                      'The number of days watched status of all posts will be kept.',
+                    ),
+                    trailing: Text(
                       '${settings.getWatchedPostsRetentionDays()} days',
                       style: const TextStyle(color: CupertinoColors.systemGrey),
                     ),
-                    onPressed: () async {
-                      final int? selected = await showCupertinoModalPopup<int>(
-                        context: context,
-                        builder: (context) {
-                          return CupertinoActionSheet(
-                            title: const Text('Select retention period'),
-                            actions: [
-                              for (final days in [3, 7, 14, 30])
-                                CupertinoActionSheetAction(
-                                  onPressed: () {
-                                    Navigator.pop(context, days);
-                                  },
-                                  child: Text('$days days'),
-                                ),
-                            ],
-                            cancelButton: CupertinoActionSheetAction(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('Cancel'),
-                            ),
-                          );
-                        },
-                      );
-                      if (selected != null) {
-                        await settings.setWatchedPostsRetentionDays(selected);
-                      }
-                    },
+                    onTap: toggle,
                   ),
                 ),
-                CupertinoListTile(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 12,
-                    horizontal: 16,
-                  ),
-                  leading: const CupertinoSettingsIcon(
-                    color: CupertinoColors.systemRed,
-                    icon: CupertinoIcons.eye_slash,
-                  ),
-                  title: const Text('Clear Watched Posts History'),
-                  trailing: const CupertinoListTileChevron(),
-                  onTap: () async {
-                    final watchedPostsProvider =
-                        Provider.of<WatchedPostsProvider>(
-                          context,
-                          listen: false,
-                        );
-                    await watchedPostsProvider.clearAllWatchedPosts();
-                    if (mounted) {
-                      showCupertinoSnackbar(
-                        const Duration(milliseconds: 1800),
-                        true,
-                        context,
-                        'Watched posts history cleared!',
-                      );
-                    }
-                  },
+              ),
+
+              CupertinoListTile(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 12,
+                  horizontal: 16,
                 ),
-              ],
-            ),
-          ],
-        ),
+                leading: const CupertinoSettingsIcon(
+                  color: CupertinoColors.systemRed,
+                  icon: CupertinoIcons.eye_slash,
+                ),
+                title: const Text('Clear Watched Posts History'),
+                trailing: const CupertinoListTileChevron(),
+                onTap: () async {
+                  final watchedPostsProvider =
+                      Provider.of<WatchedPostsProvider>(context, listen: false);
+                  await watchedPostsProvider.clearAllWatchedPosts();
+                  if (mounted) {
+                    showCupertinoSnackbar(
+                      const Duration(milliseconds: 1800),
+                      true,
+                      context,
+                      'Watched posts history cleared!',
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

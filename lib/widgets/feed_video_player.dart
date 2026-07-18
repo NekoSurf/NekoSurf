@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/widgets/feed_player_pool.dart';
+import 'package:liquid_glass_widgets/widgets/interactive/glass_button.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:visibility_detector/visibility_detector.dart';
@@ -229,7 +230,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       _positionSub = null;
       _durationSub?.cancel();
       _durationSub = null;
-      
+
       if (currentLease != null) {
         await currentLease.release();
       } else if (player != null) {
@@ -391,7 +392,14 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                 Positioned(
                   bottom: 8,
                   left: 8,
-                  child: GestureDetector(
+                  child: GlassButton(
+                    icon: Icon(
+                      _isMuted
+                          ? CupertinoIcons.volume_off
+                          : CupertinoIcons.volume_up,
+                      color: Colors.white,
+                      size: 16,
+                    ),
                     onTap: () async {
                       final player = _player;
                       if (player == null) {
@@ -414,18 +422,8 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                         });
                       } catch (_) {}
                     },
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.black54,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Icon(
-                        _isMuted ? Icons.volume_off : Icons.volume_up,
-                        color: Colors.white,
-                        size: 16,
-                      ),
-                    ),
+                    width: 40,
+                    height: 40,
                   ),
                 ),
 

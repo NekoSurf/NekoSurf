@@ -5,6 +5,9 @@ import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/pages/thread/thread_page_post.dart';
+import 'package:liquid_glass_widgets/widgets/interactive/glass_button.dart';
+import 'package:liquid_glass_widgets/widgets/surfaces/glass_app_bar.dart';
+import 'package:liquid_glass_widgets/widgets/surfaces/glass_scaffold.dart';
 import 'package:provider/provider.dart';
 
 class _ReplyTreeEntry {
@@ -230,47 +233,43 @@ class _ThreadRepliesState extends State<ThreadReplies> {
       widget.allPosts,
     );
 
-    return Scaffold(
-      backgroundColor: AppColors.pageBackground(isDark),
-      appBar: CupertinoNavigationBar(
-        border: Border.all(color: Colors.transparent),
-        backgroundColor: AppColors.navigationBackground(isDark),
-        leading: MediaQuery(
-          data: MediaQueryData(
-            textScaler: TextScaler.linear(
-              MediaQuery.textScaleFactorOf(context),
+    return GlassScaffold(
+      backgroundColor: AppColors.pageBackground(
+        Theme.of(context).brightness == Brightness.dark,
+      ),
+      appBar: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12.0),
+        child: GlassAppBar(
+          title: Text(
+            'Replies',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: CupertinoColors.label.resolveFrom(context),
             ),
           ),
-          child: Transform.translate(
-            offset: const Offset(-16, 0),
-            child: CupertinoNavigationBarBackButton(
-              previousPageTitle: 'back',
-              onPressed: () => Navigator.of(context).pop(),
-            ),
+          leading: GlassButton(
+            icon: const Icon(CupertinoIcons.back),
+            onTap: () => Navigator.of(context).pop(),
+            width: 40,
+            height: 40,
+            iconSize: 20,
           ),
-        ),
-        middle: MediaQuery(
-          data: MediaQueryData(
-            textScaler: TextScaler.linear(
-              MediaQuery.textScaleFactorOf(context),
-            ),
-          ),
-          child: const Text('Replies'),
         ),
       ),
       body: Scrollbar(
         controller: scrollController,
         child: replyEntries.isEmpty
             ? Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-                child: Text(
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  MediaQuery.paddingOf(context).top + 44 + 8,
+                  20,
+                  24,
+                ),
+                child: const Text(
                   'No threaded replies were found for this post.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: isDark
-                        ? CupertinoColors.systemGrey
-                        : const Color(0xFF5B6470),
-                  ),
+                  style: TextStyle(fontSize: 14),
                 ),
               )
             : ListView.builder(
@@ -280,7 +279,12 @@ class _ThreadRepliesState extends State<ThreadReplies> {
                   final _ReplyTreeEntry entry = replyEntries[index];
 
                   return Padding(
-                    padding: const EdgeInsets.only(left: 8.0),
+                    padding: EdgeInsets.only(
+                      left: 8.0,
+                      top: index == 0
+                          ? MediaQuery.paddingOf(context).top + 44 + 8
+                          : 0,
+                    ),
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: () => collapseEntry(entry),

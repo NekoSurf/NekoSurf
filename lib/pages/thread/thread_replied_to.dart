@@ -2,11 +2,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/Models/post.dart';
-import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/pages/thread/thread_page_post.dart';
 import 'package:flutter_chan/widgets/reload.dart';
-import 'package:provider/provider.dart';
+import 'package:liquid_glass_widgets/widgets/interactive/glass_button.dart';
+import 'package:liquid_glass_widgets/widgets/surfaces/glass_app_bar.dart';
+import 'package:liquid_glass_widgets/widgets/surfaces/glass_scaffold.dart';
 
 class ThreadRepliesTo extends StatefulWidget {
   const ThreadRepliesTo({
@@ -46,35 +47,28 @@ class _ThreadRepliesToState extends State<ThreadRepliesTo> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Provider.of<ThemeChanger>(context);
-    final bool isDark = theme.getTheme() == ThemeData.dark();
-
-    return Scaffold(
-      backgroundColor: AppColors.pageBackground(isDark),
-      appBar: CupertinoNavigationBar(
-        border: Border.all(color: Colors.transparent),
-        backgroundColor: AppColors.navigationBackground(isDark),
-        leading: MediaQuery(
-          data: MediaQueryData(
-            textScaler: TextScaler.linear(
-              MediaQuery.textScaleFactorOf(context),
+    return GlassScaffold(
+      backgroundColor: AppColors.pageBackground(
+        Theme.of(context).brightness == Brightness.dark,
+      ),
+      appBar: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12.0),
+        child: GlassAppBar(
+          title: Text(
+            'Replies',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: CupertinoColors.label.resolveFrom(context),
             ),
           ),
-          child: Transform.translate(
-            offset: const Offset(-16, 0),
-            child: CupertinoNavigationBarBackButton(
-              previousPageTitle: 'back',
-              onPressed: () => Navigator.of(context).pop(),
-            ),
+          leading: GlassButton(
+            icon: const Icon(CupertinoIcons.back),
+            onTap: () => Navigator.of(context).pop(),
+            width: 40,
+            height: 40,
+            iconSize: 20,
           ),
-        ),
-        middle: MediaQuery(
-          data: MediaQueryData(
-            textScaler: TextScaler.linear(
-              MediaQuery.textScaleFactorOf(context),
-            ),
-          ),
-          child: const Text('Replies'),
         ),
       ),
       body: FutureBuilder(
@@ -91,25 +85,20 @@ class _ThreadRepliesToState extends State<ThreadRepliesTo> {
                   },
                 );
               } else {
-                return Scrollbar(
-                  controller: scrollController,
-                  child: ListView(
-                    shrinkWrap: false,
-                    controller: scrollController,
-                    padding: EdgeInsets.only(
-                      top: MediaQuery.of(context).padding.top + 12,
-                      bottom: MediaQuery.of(context).padding.bottom + 16,
+                return Column(
+                  children: [
+                    SizedBox(
+                      height: MediaQuery.paddingOf(context).top + 44 + 8,
                     ),
-                    children: [
-                      ThreadPagePost(
-                        board: widget.board,
-                        thread: widget.thread,
-                        post: snapshot.data ?? Post(),
-                        allPosts: widget.allPosts,
-                        onDismiss: (i) => {},
-                      ),
-                    ],
-                  ),
+
+                    ThreadPagePost(
+                      board: widget.board,
+                      thread: widget.thread,
+                      post: snapshot.data ?? Post(),
+                      allPosts: widget.allPosts,
+                      onDismiss: (i) => {},
+                    ),
+                  ],
                 );
               }
           }
