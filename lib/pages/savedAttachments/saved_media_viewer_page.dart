@@ -175,6 +175,7 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
     return SharedMediaViewer(
       items: _items,
       initialIndex: _currentIndex,
+      mediaNameBuilder: (int index) => _fileName(_attachments[index]),
       onClose: () => Navigator.of(context).maybePop(),
       onIndexChanged: (int index) {
         _downloadSuccessTimer?.cancel();

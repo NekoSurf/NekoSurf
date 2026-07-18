@@ -108,6 +108,8 @@ class SharedMediaViewer extends StatefulWidget {
     required this.items,
     required this.initialIndex,
     required this.onClose,
+    this.mediaName,
+    this.mediaNameBuilder,
     this.actions,
     this.onIndexChanged,
   }) : super(key: key);
@@ -117,6 +119,9 @@ class SharedMediaViewer extends StatefulWidget {
   final VoidCallback onClose;
   final SharedMediaViewerTopBarActions? actions;
   final ValueChanged<int>? onIndexChanged;
+
+  final String? mediaName;
+  final String Function(int index)? mediaNameBuilder;
 
   @override
   State<SharedMediaViewer> createState() => _SharedMediaViewerState();
@@ -188,6 +193,7 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
     final List<SharedMediaViewerAction> actions = itemCount == 0
         ? const <SharedMediaViewerAction>[]
         : _buildActions();
+    final String mediaTitle = _resolveMediaTitle(itemCount);
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -250,6 +256,19 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
                   width: 36,
                   height: 36,
                   iconSize: 18,
+                ),
+                Expanded(
+                  child: Text(
+                    mediaTitle,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
                 Row(
                   mainAxisSize: MainAxisSize.min,
@@ -395,6 +414,19 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
     }
 
     return actions;
+  }
+
+  String _resolveMediaTitle(int itemCount) {
+    if (itemCount == 0) {
+      return '';
+    }
+
+    final String Function(int index)? builder = widget.mediaNameBuilder;
+    if (builder != null) {
+      return builder(_currentIndex);
+    }
+
+    return widget.mediaName ?? '';
   }
 
   Widget _buildActionButton(SharedMediaViewerAction action) {

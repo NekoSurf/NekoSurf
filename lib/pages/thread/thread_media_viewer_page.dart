@@ -272,6 +272,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
       items: _items,
       initialIndex: _currentIndex,
       onClose: _closeWithCurrentPost,
+      mediaNameBuilder: (int index) => _fileName(widget.mediaPosts[index]),
       onIndexChanged: (int index) {
         if (index == _currentIndex) {
           return;
