@@ -10,11 +10,22 @@ on:
         description: "Release tag to upload artifacts to (optional for manual runs)"
         required: false
         type: string
+      build_ios:
+        description: "Build iOS IPA"
+        required: true
+        default: true
+        type: boolean
+      build_android:
+        description: "Build Android APK"
+        required: true
+        default: true
+        type: boolean
 
 jobs:
   build_ipa:
     name: Build iOS IPA
     runs-on: macos-latest
+    if: ${{ github.event_name == 'release' || github.event.inputs.build_ios == 'true' }}
 
     steps:
       - name: "📩 Checkout actions/checkout@v1"
@@ -88,9 +99,11 @@ jobs:
   build_apk:
     name: Build Android APK
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'release' || github.event.inputs.build_android == 'true' }}
+
     steps:
-      - name: "📩 Checkout actions/checkout@v1"
-        uses: actions/checkout@v1
+      - name: "📩 Checkout actions/checkout@v4"
+        uses: actions/checkout@v4
 
       - name: "☕️ Setup Java"
         uses: actions/setup-java@v1
