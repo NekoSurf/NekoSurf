@@ -13,7 +13,6 @@ import 'package:flutter_chan/pages/thread/thread_page_post.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/feed_player_pool.dart';
 import 'package:flutter_chan/widgets/reload.dart';
-import 'package:liquid_glass_widgets/types/glass_quality.dart';
 import 'package:liquid_glass_widgets/widgets/interactive/glass_button.dart';
 import 'package:liquid_glass_widgets/widgets/overlays/glass_menu.dart';
 import 'package:liquid_glass_widgets/widgets/overlays/glass_menu_item.dart';
@@ -373,12 +372,16 @@ class ThreadPageState extends State<ThreadPage> {
       appBar: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12.0),
         child: GlassAppBar(
-          title: Text(
-            unescape(cleanTags(widget.threadName)),
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: CupertinoColors.label.resolveFrom(context),
+          title: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: Text(
+              unescape(cleanTags(widget.threadName)),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                overflow: TextOverflow.ellipsis,
+                color: CupertinoColors.label.resolveFrom(context),
+              ),
             ),
           ),
           leading: GlassButton(
@@ -387,14 +390,13 @@ class ThreadPageState extends State<ThreadPage> {
             width: 40,
             height: 40,
             iconSize: 20,
-            quality: GlassQuality.premium,
           ),
           actions: [
             BookmarkButton(favorite: favorite),
             GlassMenu(
-              quality: GlassQuality.premium,
               menuAlignment: GlassMenuAlignment.bottomRight,
               autoAdjustToScreen: true,
+              menuWidth: 250,
               items: [
                 GlassMenuItem(
                   title: 'Share',
@@ -449,7 +451,6 @@ class ThreadPageState extends State<ThreadPage> {
               ],
               triggerBuilder: (ctx, toggle) => AdaptiveLiquidGlassLayer(
                 child: GlassButton(
-                  quality: GlassQuality.premium,
                   icon: const Icon(Icons.more_vert),
                   onTap: toggle,
                   width: 40,

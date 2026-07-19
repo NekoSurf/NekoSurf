@@ -18,7 +18,6 @@ import 'package:flutter_chan/pages/settings/settings.dart';
 import 'package:flutter_chan/pages/thread/thread_page.dart';
 import 'package:flutter_chan/widgets/reload.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
-import 'package:liquid_glass_widgets/types/glass_quality.dart';
 import 'package:liquid_glass_widgets/widgets/shared/glass_page.dart';
 import 'package:liquid_glass_widgets/widgets/surfaces/glass_app_bar.dart';
 import 'package:liquid_glass_widgets/widgets/surfaces/glass_scaffold.dart';
@@ -234,7 +233,6 @@ class BoardListState extends State<BoardList> {
                                         _updateBoardList(value, snapshot.data);
                                       },
                                       useOwnLayer: true,
-                                      quality: GlassQuality.premium,
                                     ),
                                   ),
 
@@ -320,7 +318,6 @@ class BoardListState extends State<BoardList> {
     GlassButton? buildLeadingButton() {
       if (currentIndex == 0) {
         return GlassButton(
-          quality: GlassQuality.premium,
           icon: const Icon(CupertinoIcons.link),
           onTap: () => {
             showWarning = false,
@@ -396,6 +393,7 @@ class BoardListState extends State<BoardList> {
         return [
           GlassMenu(
             menuAlignment: GlassMenuAlignment.bottomRight,
+            menuWidth: 250,
             autoAdjustToScreen: true,
             items: [
               GlassMenuItem(
@@ -407,7 +405,6 @@ class BoardListState extends State<BoardList> {
             ],
             triggerBuilder: (ctx, toggle) => AdaptiveLiquidGlassLayer(
               child: GlassButton(
-                quality: GlassQuality.premium,
                 icon: const Icon(CupertinoIcons.ellipsis_vertical),
                 onTap: toggle,
                 width: 40,
@@ -422,7 +419,6 @@ class BoardListState extends State<BoardList> {
           GlassMenu(
             menuAlignment: GlassMenuAlignment.bottomRight,
             autoAdjustToScreen: true,
-            quality: GlassQuality.premium,
             items: [
               GlassMenuItem(
                 title: 'Newest',
@@ -444,7 +440,6 @@ class BoardListState extends State<BoardList> {
                 width: 40,
                 height: 40,
                 iconSize: 20,
-                quality: GlassQuality.premium,
               ),
             ),
           ),
@@ -452,7 +447,7 @@ class BoardListState extends State<BoardList> {
           GlassMenu(
             menuAlignment: GlassMenuAlignment.bottomRight,
             autoAdjustToScreen: true,
-            quality: GlassQuality.premium,
+            menuWidth: 250,
             items: [
               GlassMenuItem(
                 title: 'Clear bookmarks',
@@ -468,7 +463,6 @@ class BoardListState extends State<BoardList> {
                 width: 40,
                 height: 40,
                 iconSize: 20,
-                quality: GlassQuality.premium,
               ),
             ),
           ),
@@ -517,7 +511,6 @@ class BoardListState extends State<BoardList> {
           saturation: 1.2,
           specularSharpness: GlassSpecularSharpness.medium,
         ),
-        quality: GlassQuality.premium,
         tabs: const [
           GlassTab(
             icon: Icon(CupertinoIcons.square_grid_2x2_fill),

@@ -4,7 +4,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/Models/bookmark.dart';
 import 'package:flutter_chan/blocs/bookmarks_model.dart';
-import 'package:liquid_glass_widgets/types/glass_quality.dart';
 import 'package:liquid_glass_widgets/widgets/interactive/glass_button.dart';
 import 'package:provider/provider.dart';
 
@@ -45,7 +44,6 @@ class _BookmarkButtonState extends State<BookmarkButton> {
       width: 40,
       height: 40,
       iconSize: 20,
-      quality: GlassQuality.premium,
     );
   }
 }

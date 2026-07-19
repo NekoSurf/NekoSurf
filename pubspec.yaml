@@ -55,6 +55,7 @@ dependencies:
   saver_gallery: ^5.1.0
   ffmpeg_kit_extended_flutter: ^0.5.10
   liquid_glass_widgets: ^0.22.1
+  flutter_native_splash: ^2.4.8
 
 dependency_overrides:
   media_kit:
@@ -77,7 +78,6 @@ dependency_overrides:
       url: https://github.com/media-kit/media-kit.git
       ref: main
       path: libs/ios/media_kit_libs_ios_video
-  flutter_native_splash: ^2.4.8
 
 ffmpeg_kit_extended_config:
   type: "base" # pre-bundled builds: debug, base, full, audio, video, video_hw

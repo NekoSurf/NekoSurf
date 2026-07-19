@@ -9,7 +9,7 @@ import 'package:flutter_chan/enums/enums.dart';
 import 'package:flutter_chan/pages/board/grid_view.dart';
 import 'package:flutter_chan/pages/board/list_view.dart';
 import 'package:flutter_chan/widgets/reload.dart';
-import 'package:liquid_glass_widgets/types/glass_quality.dart';
+import 'package:liquid_glass_widgets/widgets/containers/glass_divider.dart';
 import 'package:liquid_glass_widgets/widgets/input/glass_search_bar.dart';
 import 'package:liquid_glass_widgets/widgets/interactive/glass_button.dart';
 import 'package:liquid_glass_widgets/widgets/overlays/glass_menu.dart';
@@ -89,13 +89,8 @@ class BoardPageState extends State<BoardPage> {
     });
   }
 
-  void toggleSortDirection(SettingsProvider settings) {
-    final newDirection = sortDirection == SortDirection.asc
-        ? SortDirection.desc
-        : SortDirection.asc;
-    settings.setBoardSortDirection(newDirection);
+  void setSortDirection(SortDirection newDirection, SettingsProvider settings) {
     setState(() {
-      sortDirection = newDirection;
       _searchBarController.clear();
 
       _fetchAllThreadsFromBoard = fetchAllThreadsFromBoard(
@@ -103,6 +98,8 @@ class BoardPageState extends State<BoardPage> {
         widget.board,
         direction: newDirection,
       ).then((value) => filteredBoards = value);
+
+      sortDirection = newDirection;
     });
   }
 
@@ -146,12 +143,16 @@ class BoardPageState extends State<BoardPage> {
       appBar: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12.0),
         child: GlassAppBar(
-          title: Text(
-            '/${widget.board}/ - ${widget.boardName}',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: CupertinoColors.label.resolveFrom(context),
+          title: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: Text(
+              '/${widget.board}/ - ${widget.boardName}',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                overflow: TextOverflow.ellipsis,
+                color: CupertinoColors.label.resolveFrom(context),
+              ),
             ),
           ),
           largeTitleController: _titleController,
@@ -161,7 +162,6 @@ class BoardPageState extends State<BoardPage> {
             width: 40,
             height: 40,
             iconSize: 20,
-            quality: GlassQuality.premium,
           ),
           actions: [
             GlassButton(
@@ -175,7 +175,6 @@ class BoardPageState extends State<BoardPage> {
               width: 40,
               height: 40,
               iconSize: 20,
-              quality: GlassQuality.premium,
             ),
             GlassButton(
               icon: Icon(
@@ -192,24 +191,12 @@ class BoardPageState extends State<BoardPage> {
               width: 40,
               height: 40,
               iconSize: 20,
-              quality: GlassQuality.premium,
-            ),
-            GlassButton(
-              icon: Icon(
-                sortDirection == SortDirection.asc
-                    ? Icons.arrow_upward
-                    : Icons.arrow_downward,
-              ),
-              onTap: () => toggleSortDirection(settings),
-              width: 40,
-              height: 40,
-              iconSize: 20,
-              quality: GlassQuality.premium,
             ),
             GlassMenu(
               menuAlignment: GlassMenuAlignment.bottomRight,
               autoAdjustToScreen: true,
-              quality: GlassQuality.premium,
+              menuWidth: 250,
+              menuHeight: 300,
               items: [
                 GlassMenuItem(
                   title: 'Image Count',
@@ -247,6 +234,25 @@ class BoardPageState extends State<BoardPage> {
                       ? const Icon(Icons.check, color: Colors.green)
                       : null,
                 ),
+                const GlassDivider(),
+                GlassMenuItem(
+                  title: 'Descending',
+                  icon: const Icon(Icons.arrow_downward),
+                  isDestructive: false,
+                  onTap: () => setSortDirection(SortDirection.desc, settings),
+                  trailing: sortDirection == SortDirection.desc
+                      ? const Icon(Icons.check, color: Colors.green)
+                      : null,
+                ),
+                GlassMenuItem(
+                  title: 'Ascending',
+                  icon: const Icon(Icons.arrow_upward),
+                  isDestructive: false,
+                  onTap: () => setSortDirection(SortDirection.asc, settings),
+                  trailing: sortDirection == SortDirection.asc
+                      ? const Icon(Icons.check, color: Colors.green)
+                      : null,
+                ),
               ],
               triggerBuilder: (ctx, toggle) => AdaptiveLiquidGlassLayer(
                 child: GlassButton(
@@ -255,7 +261,6 @@ class BoardPageState extends State<BoardPage> {
                   width: 40,
                   height: 40,
                   iconSize: 20,
-                  quality: GlassQuality.premium,
                 ),
               ),
             ),
@@ -285,7 +290,6 @@ class BoardPageState extends State<BoardPage> {
                     _updateThreadsList(value);
                   },
                   useOwnLayer: true,
-                  quality: GlassQuality.premium,
                 ),
               ),
 

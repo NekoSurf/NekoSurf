@@ -213,6 +213,9 @@ class DataSettingsState extends State<DataSettings> {
                       icon: const Icon(CupertinoIcons.clock),
                       isDestructive: false,
                       onTap: () => settings.setWatchedPostsRetentionDays(days),
+                      trailing: settings.getWatchedPostsRetentionDays() == days
+                          ? const Icon(CupertinoIcons.check_mark)
+                          : null,
                     ),
                 ],
                 triggerBuilder: (ctx, toggle) => AdaptiveLiquidGlassLayer(

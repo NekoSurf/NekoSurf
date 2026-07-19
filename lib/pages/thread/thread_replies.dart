@@ -240,12 +240,16 @@ class _ThreadRepliesState extends State<ThreadReplies> {
       appBar: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12.0),
         child: GlassAppBar(
-          title: Text(
-            'Replies',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: CupertinoColors.label.resolveFrom(context),
+          title: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: Text(
+              'Replies to #${widget.post.no}',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                overflow: TextOverflow.ellipsis,
+                color: CupertinoColors.label.resolveFrom(context),
+              ),
             ),
           ),
           leading: GlassButton(
