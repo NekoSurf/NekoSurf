@@ -22,12 +22,12 @@
       ],
       "versions": [
         {
-          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.11.4/Runner.ipa",
-          "size": 42600000,
-          "version": "0.11.4",
-          "buildVersion": "64",
-          "date": "2026-05-27T20:00:00+02:00",
-          "localizedDescription": "This update makes NekoSurf feel smoother and easier to use.\n\n- Replies are now truly threaded, so conversations are much easier to follow.\n- Media viewing is now unified across threads and saved attachments for a more consistent experience.\n- Saved attachments and thread UI were cleaned up, improving reliability and overall polish.\n- Overall: better conversation flow, cleaner media experience, and a nicer day-to-day feel.",
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.11.5-2/Runner.ipa",
+          "size": 28500000,
+          "version": "0.11.5-2",
+          "buildVersion": "236",
+          "date": "2026-07-19T13:35:00+02:00",
+          "localizedDescription": "This update fixes some liquid glass issues and improves the overall experience.",
           "minOSVersion": "17.6"
         },
         {
@@ -40,12 +40,12 @@
           "minOSVersion": "17.6"
         },
         {
-          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.11.5-2/Runner.ipa",
-          "size": 28500000,
-          "version": "0.11.5-2",
-          "buildVersion": "236",
-          "date": "2026-07-19T13:35:00+02:00",
-          "localizedDescription": "This update fixes some liquid glass issues and improves the overall experience.",
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.11.4/Runner.ipa",
+          "size": 42600000,
+          "version": "0.11.4",
+          "buildVersion": "64",
+          "date": "2026-05-27T20:00:00+02:00",
+          "localizedDescription": "This update makes NekoSurf feel smoother and easier to use.\n\n- Replies are now truly threaded, so conversations are much easier to follow.\n- Media viewing is now unified across threads and saved attachments for a more consistent experience.\n- Saved attachments and thread UI were cleaned up, improving reliability and overall polish.\n- Overall: better conversation flow, cleaner media experience, and a nicer day-to-day feel.",
           "minOSVersion": "17.6"
         }
       ]
