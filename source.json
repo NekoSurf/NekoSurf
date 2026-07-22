@@ -22,6 +22,15 @@
       ],
       "versions": [
         {
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.11.5-3/Runner.ipa",
+          "size": 28600000,
+          "version": "0.11.5-3",
+          "buildVersion": "251",
+          "date": "2026-07-22T14:11:00+02:00",
+          "localizedDescription": "Fix performance on specific pages and improve overall stability.",
+          "minOSVersion": "17.6"
+        },
+        {
           "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.11.5-2/Runner.ipa",
           "size": 28500000,
           "version": "0.11.5-2",
