@@ -1,6 +1,5 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:liquid_glass_widgets/widgets/interactive/glass_chip.dart';
 
 class RepliesRow extends StatelessWidget {
   const RepliesRow({
@@ -17,11 +16,20 @@ class RepliesRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget buildChip(IconData icon, dynamic value) {
-      return GlassChip(
+      return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        icon: Icon(icon, size: 12),
-        label: '$value',
-        labelStyle: const TextStyle(fontSize: 12),
+        decoration: BoxDecoration(
+          color: CupertinoColors.systemFill.resolveFrom(context),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 12),
+            const SizedBox(width: 4),
+            Text('$value', style: const TextStyle(fontSize: 12)),
+          ],
+        ),
       );
     }
 

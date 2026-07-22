@@ -30,8 +30,15 @@ class _ImageViewerState extends State<ImageViewer> {
   @override
   void initState() {
     super.initState();
-
     _getImage = getImage();
+  }
+
+  @override
+  void didUpdateWidget(ImageViewer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.url != widget.url) {
+      _getImage = getImage();
+    }
   }
 
   Future<File> getImage() async {

@@ -32,13 +32,12 @@ class BoardPage extends StatefulWidget {
 }
 
 class BoardPageState extends State<BoardPage> {
-  final ScrollController scrollController = ScrollController();
   final TextEditingController _searchBarController = TextEditingController();
   final _titleController = GlassLargeTitleController();
 
-  late Future<List<Post>> _fetchAllThreadsFromBoard;
-
-  late List<Post> filteredBoards;
+  List<Post> filteredBoards = [];
+  bool _isLoading = true;
+  bool _hasError = false;
 
   bool isFavorite = false;
   late Sort sort;
@@ -57,7 +56,6 @@ class BoardPageState extends State<BoardPage> {
 
   @override
   void dispose() {
-    scrollController.dispose();
     _searchBarController.dispose();
     _titleController.dispose();
     super.dispose();
@@ -67,66 +65,101 @@ class BoardPageState extends State<BoardPage> {
     final settings = Provider.of<SettingsProvider>(context, listen: false);
 
     setState(() {
-      _fetchAllThreadsFromBoard = fetchAllThreadsFromBoard(
-        settings.getBoardSort(),
-        widget.board,
-        direction: settings.getBoardSortDirection(),
-      ).then((value) => filteredBoards = value);
+      _isLoading = true;
+      _hasError = false;
     });
+
+    fetchAllThreadsFromBoard(
+          settings.getBoardSort(),
+          widget.board,
+          direction: settings.getBoardSortDirection(),
+        )
+        .then((value) {
+          if (mounted) {
+            setState(() {
+              filteredBoards = value;
+              _isLoading = false;
+            });
+          }
+        })
+        .catchError((_) {
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+              _hasError = true;
+            });
+          }
+        });
   }
 
   void setSort(Sort sortBy, SettingsProvider settings) {
+    _searchBarController.clear();
     setState(() {
-      _searchBarController.clear();
-
-      _fetchAllThreadsFromBoard = fetchAllThreadsFromBoard(
-        sortBy,
-        widget.board,
-        direction: sortDirection,
-      ).then((value) => filteredBoards = value);
-
       sort = sortBy;
+      _isLoading = true;
+      _hasError = false;
     });
+
+    fetchAllThreadsFromBoard(sortBy, widget.board, direction: sortDirection)
+        .then((value) {
+          if (mounted) {
+            setState(() {
+              filteredBoards = value;
+              _isLoading = false;
+            });
+          }
+        })
+        .catchError((_) {
+          if (mounted)
+            setState(() {
+              _isLoading = false;
+              _hasError = true;
+            });
+        });
   }
 
   void setSortDirection(SortDirection newDirection, SettingsProvider settings) {
+    _searchBarController.clear();
     setState(() {
-      _searchBarController.clear();
-
-      _fetchAllThreadsFromBoard = fetchAllThreadsFromBoard(
-        sort,
-        widget.board,
-        direction: newDirection,
-      ).then((value) => filteredBoards = value);
-
       sortDirection = newDirection;
+      _isLoading = true;
+      _hasError = false;
     });
+
+    fetchAllThreadsFromBoard(sort, widget.board, direction: newDirection)
+        .then((value) {
+          if (mounted) {
+            setState(() {
+              filteredBoards = value;
+              _isLoading = false;
+            });
+          }
+        })
+        .catchError((_) {
+          if (mounted)
+            setState(() {
+              _isLoading = false;
+              _hasError = true;
+            });
+        });
   }
 
-  Widget getBoardView(List<Post> threads, SettingsProvider settings) {
+  Widget getBoardSliverView(List<Post> threads, SettingsProvider settings) {
     if (settings.getBoardViewMode() == ViewMode.list) {
-      return BoardListView(
-        scrollController: scrollController,
-        board: widget.board,
-        threads: threads,
-      );
+      return BoardListView(board: widget.board, threads: threads);
     }
-    return BoardGridView(
-      scrollController: scrollController,
-      board: widget.board,
-      threads: threads,
-    );
+    return BoardGridView(board: widget.board, threads: threads);
   }
 
   void _updateThreadsList(String value) {
-    _fetchAllThreadsFromBoard = fetchAllThreadsFromBoard(
+    fetchAllThreadsFromBoard(
       sort,
       widget.board,
       searchValue: value,
       direction: sortDirection,
-    ).then((value) => filteredBoards = value);
-
-    setState(() {});
+    ).then((result) {
+      if (mounted) setState(() => filteredBoards = result);
+    });
   }
 
   @override
@@ -280,40 +313,25 @@ class BoardPageState extends State<BoardPage> {
             controller: _titleController,
           ),
 
-          SliverList(
-            delegate: SliverChildListDelegate([
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                child: GlassSearchBar(
-                  controller: _searchBarController,
-                  onChanged: (value) {
-                    _updateThreadsList(value);
-                  },
-                  useOwnLayer: true,
-                ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12.0),
+              child: GlassSearchBar(
+                controller: _searchBarController,
+                onChanged: _updateThreadsList,
+                useOwnLayer: true,
               ),
-
-              FutureBuilder(
-                future: _fetchAllThreadsFromBoard,
-                builder:
-                    (BuildContext context, AsyncSnapshot<List<Post>> snapshot) {
-                      switch (snapshot.connectionState) {
-                        case ConnectionState.waiting:
-                          return const SizedBox(
-                            height: 400,
-                            child: Center(child: CupertinoActivityIndicator()),
-                          );
-                        default:
-                          if (snapshot.hasError) {
-                            return ReloadWidget(onReload: () => {loadBoard()});
-                          } else {
-                            return getBoardView(filteredBoards, settings);
-                          }
-                      }
-                    },
-              ),
-            ]),
+            ),
           ),
+
+          if (_isLoading)
+            const SliverFillRemaining(
+              child: Center(child: CupertinoActivityIndicator()),
+            )
+          else if (_hasError)
+            SliverFillRemaining(child: ReloadWidget(onReload: loadBoard))
+          else
+            getBoardSliverView(filteredBoards, settings),
         ],
       ),
     );

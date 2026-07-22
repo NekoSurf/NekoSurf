@@ -10,8 +10,7 @@ import 'package:flutter_chan/pages/replies_row.dart';
 import 'package:flutter_chan/pages/thread/thread_page.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/image_viewer.dart';
-import 'package:liquid_glass_widgets/widgets/interactive/glass_button.dart';
-import 'package:liquid_glass_widgets/widgets/interactive/glass_chip.dart';
+
 import 'package:provider/provider.dart';
 
 class GridPost extends StatefulWidget {
@@ -124,19 +123,25 @@ class _GridPostState extends State<GridPost> {
                     Positioned(
                       top: 10,
                       right: 10,
-                      child: GlassButton(
-                        icon: isFavorite
-                            ? const Icon(CupertinoIcons.bookmark_fill)
-                            : const Icon(CupertinoIcons.bookmark),
-                        onTap: () => {
-                          if (isFavorite)
-                            bookmarks.removeBookmarks(favorite)
-                          else
-                            bookmarks.addBookmarks(favorite),
-                        },
-                        width: 32,
-                        height: 32,
-                        iconSize: 18,
+                      child: GestureDetector(
+                        onTap: () => isFavorite
+                            ? bookmarks.removeBookmarks(favorite)
+                            : bookmarks.addBookmarks(favorite),
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.35),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            isFavorite
+                                ? CupertinoIcons.bookmark_fill
+                                : CupertinoIcons.bookmark,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                        ),
                       ),
                     ),
                     Positioned(
@@ -187,13 +192,19 @@ class _GridPostState extends State<GridPost> {
                       replies: widget.post.replies,
                       imageReplies: widget.post.images,
                     ),
-                    GlassChip(
+                    Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
                         vertical: 4,
                       ),
-                      label: 'No.${widget.post.no}',
-                      labelStyle: const TextStyle(fontSize: 12),
+                      decoration: BoxDecoration(
+                        color: CupertinoColors.systemFill.resolveFrom(context),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        'No.${widget.post.no}',
+                        style: const TextStyle(fontSize: 12),
+                      ),
                     ),
                   ],
                 ),

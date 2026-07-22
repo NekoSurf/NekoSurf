@@ -13,8 +13,7 @@ import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/image_viewer.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:intl/intl.dart';
-import 'package:liquid_glass_widgets/widgets/interactive/glass_button.dart';
-import 'package:liquid_glass_widgets/widgets/interactive/glass_chip.dart';
+
 import 'package:provider/provider.dart';
 
 class ListPost extends StatefulWidget {
@@ -316,30 +315,33 @@ class _ListPostState extends State<ListPost> {
 
                   const SizedBox(width: 6),
 
-                  GlassChip(
+                  Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
                       vertical: 4,
                     ),
-                    label: 'No.${widget.post.no}',
-                    labelStyle: const TextStyle(fontSize: 12),
+                    decoration: BoxDecoration(
+                      color: CupertinoColors.systemFill.resolveFrom(context),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      'No.${widget.post.no}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
                   ),
 
                   const Spacer(),
 
-                  GlassButton(
-                    icon: isFavorite
-                        ? const Icon(CupertinoIcons.bookmark_fill)
-                        : const Icon(CupertinoIcons.bookmark),
-                    onTap: () => {
-                      if (isFavorite)
-                        bookmarks.removeBookmarks(favorite)
-                      else
-                        bookmarks.addBookmarks(favorite),
-                    },
-                    width: 32,
-                    height: 32,
-                    iconSize: 18,
+                  GestureDetector(
+                    onTap: () => isFavorite
+                        ? bookmarks.removeBookmarks(favorite)
+                        : bookmarks.addBookmarks(favorite),
+                    child: Icon(
+                      isFavorite
+                          ? CupertinoIcons.bookmark_fill
+                          : CupertinoIcons.bookmark,
+                      size: 20,
+                    ),
                   ),
                 ],
               ),

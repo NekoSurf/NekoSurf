@@ -13,7 +13,6 @@ import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/feed_player_pool.dart';
 import 'package:flutter_chan/widgets/feed_video_player.dart';
 import 'package:intl/intl.dart';
-import 'package:liquid_glass_widgets/widgets/interactive/glass_chip.dart';
 import 'package:provider/provider.dart';
 
 class ThreadPagePost extends StatefulWidget {
@@ -301,13 +300,20 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                                   ),
                                 ),
                                 const SizedBox(width: 6),
-                                GlassChip(
+                                Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 8,
                                     vertical: 4,
                                   ),
-                                  label: 'No.${widget.post.no}',
-                                  labelStyle: const TextStyle(fontSize: 12),
+                                  decoration: BoxDecoration(
+                                    color: CupertinoColors.systemFill
+                                        .resolveFrom(context),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    'No.${widget.post.no}',
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
                                 ),
                                 const SizedBox(width: 6),
                                 if (widget.post.country != null &&
