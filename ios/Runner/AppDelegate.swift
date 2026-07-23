@@ -135,7 +135,9 @@ struct Post: Codable, Hashable, Identifiable {
   let board: String?
   let archived: Int?
 
-  var id: Int { no ?? tim ?? Int.random(in: 1...999_999_999) }
+  var id: String {
+    "\(no ?? -1)-\(tim ?? -1)-\(resto ?? -1)-\(time ?? -1)-\(filename ?? "")"
+  }
 
   var isVideo: Bool {
     let lower = (ext ?? "").lowercased()
@@ -872,7 +874,7 @@ final class AppModel: ObservableObject {
         } else if success {
           continuation.resume(returning: ())
         } else {
-          continuation.resume(throwing: AppError.saveFailure("Download failed :("))
+          continuation.resume(throwing: AppError.saveFailure("Failed to save media to photo library."))
         }
       })
     }
@@ -918,6 +920,7 @@ struct LoadingView: View {
         .foregroundStyle(.secondary)
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .accessibilityLabel("Loading content")
   }
 }
 
