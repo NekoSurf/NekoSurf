@@ -164,7 +164,7 @@ struct SavedAttachment: Codable, Hashable, Identifiable {
   let fileName: String?
   let thumbnail: String?
 
-  var id: String { fileName ?? UUID().uuidString }
+  var id: String { [fileName, thumbnail, savedAttachmentType].compactMap { $0 }.joined(separator: "-") }
 
   var resolvedType: SavedAttachmentKind {
     let raw = (savedAttachmentType ?? "").lowercased()
@@ -218,6 +218,10 @@ struct ThreadPostsResponse: Codable {
 private let supportedVideoFileExtensions = ["mp4", "webm", "gif"]
 private let watchedPostThrottleInterval: TimeInterval = 10
 private let scrollRestoreDelayNanoseconds: UInt64 = 150_000_000
+private let minSpoilerPlaceholderLength = 4
+private let maxSpoilerPlaceholderLength = 20
+private let commentTokenPattern = #"(⟪spoiler:.*?⟫|>>\d+)"#
+private let commentTokenRegex = try? NSRegularExpression(pattern: commentTokenPattern)
 
 enum AppError: LocalizedError {
   case invalidURL
@@ -834,7 +838,8 @@ final class AppModel: ObservableObject {
   }
 
   private func documentsDirectory() -> URL {
-    FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+    FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+      ?? FileManager.default.temporaryDirectory
   }
 
   private func savedAttachmentsDirectory() -> URL {
@@ -1031,7 +1036,7 @@ struct SpoilerText: View {
   @State private var revealed = false
 
   var body: some View {
-    Text(revealed ? text : String(repeating: "█", count: max(4, min(text.count, 20))))
+    Text(revealed ? text : String(repeating: "█", count: max(minSpoilerPlaceholderLength, min(text.count, maxSpoilerPlaceholderLength))))
       .foregroundStyle(revealed ? .primary : .black)
       .padding(.horizontal, 4)
       .padding(.vertical, 2)
@@ -1058,8 +1063,7 @@ struct CommentRenderer: View {
   }
 
   private func tokenize(_ line: String) -> [CommentToken] {
-    let pattern = #"(⟪spoiler:.*?⟫|>>\d+)"#
-    guard let regex = try? NSRegularExpression(pattern: pattern) else {
+    guard let regex = commentTokenRegex else {
       return [.text(line)]
     }
     let nsLine = line as NSString
@@ -1985,16 +1989,24 @@ struct MediaViewer: View {
 
   var body: some View {
     NavigationStack {
-      TabView(selection: $currentIndex) {
-        ForEach(Array(displayItems.enumerated()), id: \.element.id) { entry in
-          let index = entry.offset
-          let item = entry.element
-          mediaPage(item)
-            .tag(index)
-            .background(Color.black.ignoresSafeArea())
+      Group {
+        if displayItems.isEmpty {
+          Color.black
+            .ignoresSafeArea()
+            .task { dismiss() }
+        } else {
+          TabView(selection: $currentIndex) {
+            ForEach(Array(displayItems.enumerated()), id: \.element.id) { entry in
+              let index = entry.offset
+              let item = entry.element
+              mediaPage(item)
+                .tag(index)
+                .background(Color.black.ignoresSafeArea())
+            }
+          }
+          .tabViewStyle(.page(indexDisplayMode: .never))
         }
       }
-      .tabViewStyle(.page(indexDisplayMode: .never))
       .background(Color.black.ignoresSafeArea())
       .toolbar {
         ToolbarItem(placement: .topBarLeading) {
@@ -2002,7 +2014,7 @@ struct MediaViewer: View {
             .tint(.white)
         }
         ToolbarItemGroup(placement: .topBarTrailing) {
-          if case .remote = currentItem {
+          if isRemoteItem {
             Button {
               Task { await saveCurrentRemoteMedia() }
             } label: {
@@ -2056,11 +2068,26 @@ struct MediaViewer: View {
     canDelete ? localItems : items
   }
 
-  private var currentItem: MediaItem {
-    displayItems[max(0, min(currentIndex, displayItems.count - 1))]
+  private var currentItem: MediaItem? {
+    guard !displayItems.isEmpty else {
+      return nil
+    }
+
+    private var isRemoteItem: Bool {
+      guard let currentItem else { return false }
+      if case .remote = currentItem {
+        return true
+      }
+      return false
+    }
+    let safeIndex = max(0, min(currentIndex, displayItems.count - 1))
+    return displayItems[safeIndex]
   }
 
   private var currentName: String {
+    guard let currentItem else {
+      return "Media"
+    }
     switch currentItem {
     case .remote(_, let post):
       if let tim = post.tim, let ext = post.ext {
@@ -2097,6 +2124,7 @@ struct MediaViewer: View {
 
   private func shareCurrentMedia() async {
     do {
+      guard let currentItem else { return }
       switch currentItem {
       case .remote(let board, let post):
         sharePayload = SharePayload(url: try await store.prepareRemoteMediaForShare(board: board, post: post))
@@ -2109,7 +2137,8 @@ struct MediaViewer: View {
   }
 
   private var isCurrentRemoteSaved: Bool {
-    guard case .remote(_, let post) = currentItem,
+    guard let currentItem,
+          case .remote(_, let post) = currentItem,
           let tim = post.tim
     else {
       return false
@@ -2118,7 +2147,7 @@ struct MediaViewer: View {
   }
 
   private func saveCurrentRemoteMedia() async {
-    guard case .remote(let board, let post) = currentItem else { return }
+    guard let currentItem, case .remote(let board, let post) = currentItem else { return }
     do {
       try await store.saveRemoteAttachment(board: board, post: post)
     } catch {
@@ -2128,6 +2157,7 @@ struct MediaViewer: View {
 
   private func exportCurrentMedia() async {
     do {
+      guard let currentItem else { return }
       switch currentItem {
       case .remote(let board, let post):
         try await store.exportRemoteMediaToPhotos(board: board, post: post)
@@ -2140,7 +2170,7 @@ struct MediaViewer: View {
   }
 
   private func removeCurrentMedia() {
-    guard case .local(let attachment) = currentItem else { return }
+    guard let currentItem, case .local(let attachment) = currentItem else { return }
     store.removeSavedAttachment(attachment)
     localItems.removeAll { item in
       if case .local(let currentAttachment) = item {

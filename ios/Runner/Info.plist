@@ -32,7 +32,7 @@
 		<true/>
 	</dict>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>$(PRODUCT_NAME) needs photo library access to browse and share saved media.</string>
+	<string>$(PRODUCT_NAME) needs photo library access to save media.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>$(PRODUCT_NAME) needs permission to save media to your photo library.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
