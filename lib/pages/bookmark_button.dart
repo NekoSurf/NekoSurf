@@ -17,17 +17,10 @@ class BookmarkButton extends ConsumerStatefulWidget {
 }
 
 class _BookmarkButtonState extends ConsumerState<BookmarkButton> {
-  late String favoriteString;
-
-  @override
-  void initState() {
-    super.initState();
-    favoriteString = json.encode(widget.favorite);
-  }
-
   @override
   Widget build(BuildContext context) {
     final bookmarks = ref.watch(bookmarksProvider);
+    final favoriteString = json.encode(widget.favorite);
     final isFavorite = bookmarks.getBookmarks().contains(favoriteString);
 
     return GlassButton(

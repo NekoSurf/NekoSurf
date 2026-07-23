@@ -144,8 +144,8 @@ class BoardPageState extends ConsumerState<BoardPage> {
         });
   }
 
-  Widget getBoardSliverView(List<Post> threads, SettingsState settings) {
-    if (settings.getBoardViewMode() == ViewMode.list) {
+  Widget getBoardSliverView(List<Post> threads, SettingsState settingsState) {
+    if (settingsState.getBoardViewMode() == ViewMode.list) {
       return BoardListView(board: widget.board, threads: threads);
     }
     return BoardGridView(board: widget.board, threads: threads);
