@@ -173,7 +173,7 @@ struct SavedAttachment: Codable, Hashable, Identifiable {
       return .image
     }
     let ext = (fileName as NSString?)?.pathExtension.lowercased() ?? ""
-    if ["mp4", "webm", "gif"].contains(ext) {
+    if supportedVideoFileExtensions.contains(ext) {
       return .video
     }
     return .image
@@ -212,6 +212,10 @@ struct ThreadPostsResponse: Codable {
 }
 
 // MARK: - Utilities
+
+private let supportedVideoFileExtensions = ["mp4", "webm", "gif"]
+private let watchedPostThrottleInterval: TimeInterval = 10
+private let scrollRestoreDelayNanoseconds: UInt64 = 150_000_000
 
 enum AppError: LocalizedError {
   case invalidURL
@@ -615,7 +619,7 @@ final class AppModel: ObservableObject {
     let now = Date()
     if let existing = watchedPostsByThread[thread],
        existing.postIndex == index,
-       now.timeIntervalSince(existing.watchedAt) < 10 {
+       now.timeIntervalSince(existing.watchedAt) < watchedPostThrottleInterval {
       return
     }
     watchedPostsByThread[thread] = WatchedPost(postIndex: index, thread: thread, watchedAt: now)
@@ -789,7 +793,7 @@ final class AppModel: ObservableObject {
         return attachment
       }
       let ext = (trimmed as NSString).pathExtension.lowercased()
-      let isVideo = ["mp4", "webm", "gif"].contains(ext)
+      let isVideo = supportedVideoFileExtensions.contains(ext)
       let baseName = (trimmed as NSString).deletingPathExtension
       return SavedAttachment(
         savedAttachmentType: isVideo ? "video" : "image",
@@ -857,7 +861,7 @@ final class AppModel: ObservableObject {
     let ext = fileURL.pathExtension.lowercased()
     try await withCheckedThrowingContinuation { continuation in
       PHPhotoLibrary.shared().performChanges({
-        if ["mp4", "mov", "webm", "gif"].contains(ext) {
+        if supportedVideoFileExtensions.contains(ext) || ext == "mov" {
           PHAssetCreationRequest.forAsset().addResource(with: .video, fileURL: fileURL, options: nil)
         } else {
           PHAssetCreationRequest.forAsset().addResource(with: .photo, fileURL: fileURL, options: nil)
@@ -1591,7 +1595,7 @@ struct ThreadPage: View {
             else {
               return
             }
-            try? await Task.sleep(nanoseconds: 150_000_000)
+            try? await Task.sleep(nanoseconds: scrollRestoreDelayNanoseconds)
             withAnimation(.easeInOut(duration: 0.45)) {
               proxy.scrollTo(watched.postIndex, anchor: .top)
             }

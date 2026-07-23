@@ -47,6 +47,7 @@ jobs:
 
       - name: "🏗️ Build iOS app"
         run: |
+          # Build the native Runner target for a generic iPhoneOS destination without code signing.
           xcodebuild \
             -project ios/Runner.xcodeproj \
             -scheme Runner \
