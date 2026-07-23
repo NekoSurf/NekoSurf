@@ -17,21 +17,21 @@ import 'package:flutter_chan/pages/savedAttachments/saved_attachments.dart';
 import 'package:flutter_chan/pages/settings/settings.dart';
 import 'package:flutter_chan/pages/thread/thread_page.dart';
 import 'package:flutter_chan/widgets/reload.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:liquid_glass_widgets/widgets/shared/glass_page.dart';
 import 'package:liquid_glass_widgets/widgets/surfaces/glass_app_bar.dart';
 import 'package:liquid_glass_widgets/widgets/surfaces/glass_scaffold.dart';
 import 'package:liquid_glass_widgets/widgets/surfaces/glass_tab_bar.dart';
-import 'package:provider/provider.dart';
 
-class BoardList extends StatefulWidget {
+class BoardList extends ConsumerStatefulWidget {
   const BoardList({Key? key}) : super(key: key);
 
   @override
-  BoardListState createState() => BoardListState();
+  ConsumerState<BoardList> createState() => BoardListState();
 }
 
-class BoardListState extends State<BoardList> {
+class BoardListState extends ConsumerState<BoardList> {
   late Future<List<Board>> _fetchAllBoards;
   TextEditingController controller = TextEditingController();
   final TextEditingController _searchBarController = TextEditingController();
@@ -70,10 +70,10 @@ class BoardListState extends State<BoardList> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Provider.of<ThemeChanger>(context);
-    final favorites = Provider.of<FavoriteProvider>(context);
-    final settings = Provider.of<SettingsProvider>(context);
-    final bool isDark = theme.getTheme() == ThemeData.dark();
+    final theme = ref.watch(themeProvider);
+    final favorites = ref.watch(favoritesProvider);
+    final settings = ref.watch(settingsProvider);
+    final bool isDark = theme == ThemeData.dark();
 
     Future<bool> openURL(StateSetter setDialogState) async {
       if (controller.text.isEmpty) {
@@ -386,9 +386,6 @@ class BoardListState extends State<BoardList> {
     }
 
     List<Widget> buildActions() {
-      final savedAttachments = Provider.of<SavedAttachmentsProvider>(context);
-      final bookmarks = Provider.of<BookmarksProvider>(context);
-
       if (currentIndex == 1) {
         return [
           GlassMenu(
@@ -400,7 +397,9 @@ class BoardListState extends State<BoardList> {
                 title: 'Clear attachments',
                 icon: const Icon(CupertinoIcons.trash),
                 isDestructive: true,
-                onTap: () => savedAttachments.clearSavedAttachments(context),
+                onTap: () => ref
+                    .read(savedAttachmentsProvider.notifier)
+                    .clearSavedAttachments(context),
               ),
             ],
             triggerBuilder: (ctx, toggle) => AdaptiveLiquidGlassLayer(
@@ -424,13 +423,15 @@ class BoardListState extends State<BoardList> {
                 title: 'Newest',
                 icon: const Icon(CupertinoIcons.clock),
                 isDestructive: false,
-                onTap: () => bookmarks.setSort(Sort.byNewest),
+                onTap: () =>
+                    ref.read(bookmarksProvider.notifier).setSort(Sort.byNewest),
               ),
               GlassMenuItem(
                 title: 'Oldest',
                 icon: const Icon(CupertinoIcons.clock_fill),
                 isDestructive: false,
-                onTap: () => bookmarks.setSort(Sort.byOldest),
+                onTap: () =>
+                    ref.read(bookmarksProvider.notifier).setSort(Sort.byOldest),
               ),
             ],
             triggerBuilder: (ctx, toggle) => AdaptiveLiquidGlassLayer(
@@ -453,7 +454,8 @@ class BoardListState extends State<BoardList> {
                 title: 'Clear bookmarks',
                 icon: const Icon(CupertinoIcons.trash),
                 isDestructive: true,
-                onTap: () => bookmarks.clearBookmarks(),
+                onTap: () =>
+                    ref.read(bookmarksProvider.notifier).clearBookmarks(),
               ),
             ],
             triggerBuilder: (ctx, toggle) => AdaptiveLiquidGlassLayer(

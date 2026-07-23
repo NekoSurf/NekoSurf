@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/blocs/theme.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class SpoilerText extends StatefulWidget {
+class SpoilerText extends ConsumerStatefulWidget {
   const SpoilerText({
     Key? key,
     required this.text,
@@ -11,10 +11,10 @@ class SpoilerText extends StatefulWidget {
   final String text;
 
   @override
-  State<SpoilerText> createState() => _SpoilerTextState();
+  ConsumerState<SpoilerText> createState() => _SpoilerTextState();
 }
 
-class _SpoilerTextState extends State<SpoilerText> {
+class _SpoilerTextState extends ConsumerState<SpoilerText> {
   bool _isRevealed = false;
 
   void _toggleReveal() {
@@ -25,8 +25,8 @@ class _SpoilerTextState extends State<SpoilerText> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Provider.of<ThemeChanger>(context);
-    final isDark = theme.getTheme() == ThemeData.dark();
+    final theme = ref.watch(themeProvider);
+    final isDark = theme == ThemeData.dark();
 
     return GestureDetector(
       onTap: _toggleReveal,

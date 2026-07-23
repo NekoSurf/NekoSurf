@@ -8,16 +8,16 @@ import 'package:flutter_chan/blocs/saved_attachments_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/pages/savedAttachments/permission_denied.dart';
 import 'package:flutter_chan/pages/savedAttachments/saved_media_viewer_page.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class SavedAttachments extends StatefulWidget {
+class SavedAttachments extends ConsumerStatefulWidget {
   const SavedAttachments({Key? key}) : super(key: key);
 
   @override
-  State<SavedAttachments> createState() => _SavedAttachmentsState();
+  ConsumerState<SavedAttachments> createState() => _SavedAttachmentsState();
 }
 
-class _SavedAttachmentsState extends State<SavedAttachments> {
+class _SavedAttachmentsState extends ConsumerState<SavedAttachments> {
   final ScrollController scrollController = ScrollController();
 
   // Placeholder; set to the real app directory in _loadAttachments().
@@ -138,9 +138,9 @@ class _SavedAttachmentsState extends State<SavedAttachments> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Provider.of<ThemeChanger>(context);
-    final savedAttachments = Provider.of<SavedAttachmentsProvider>(context);
-    final bool isDark = theme.getTheme() == ThemeData.dark();
+    final theme = ref.watch(themeProvider);
+    final savedAttachments = ref.watch(savedAttachmentsProvider);
+    final bool isDark = theme == ThemeData.dark();
     final List<SavedAttachment> attachments = savedAttachments
         .getSavedAttachments();
     final bool isEmpty =

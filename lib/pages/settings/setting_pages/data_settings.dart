@@ -1,8 +1,10 @@
 import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/constants.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:liquid_glass_widgets/widgets/interactive/glass_button.dart';
 import 'package:liquid_glass_widgets/widgets/overlays/glass_menu.dart';
 import 'package:liquid_glass_widgets/widgets/overlays/glass_menu_item.dart';
@@ -10,20 +12,18 @@ import 'package:liquid_glass_widgets/widgets/shared/adaptive_liquid_glass_layer.
 import 'package:liquid_glass_widgets/widgets/surfaces/glass_app_bar.dart';
 import 'package:liquid_glass_widgets/widgets/surfaces/glass_scaffold.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:provider/provider.dart';
 
-import '../../../blocs/settings_model.dart';
 import '../../../services/show_snackbar.dart';
 import '../cupertino_settings_icon.dart';
 
-class DataSettings extends StatefulWidget {
+class DataSettings extends ConsumerStatefulWidget {
   const DataSettings({Key? key}) : super(key: key);
 
   @override
-  State<DataSettings> createState() => DataSettingsState();
+  ConsumerState<DataSettings> createState() => DataSettingsState();
 }
 
-class DataSettingsState extends State<DataSettings> {
+class DataSettingsState extends ConsumerState<DataSettings> {
   double _cacheSize = 0.0;
 
   Future<void> getCacheSize() async {
@@ -119,7 +119,7 @@ class DataSettingsState extends State<DataSettings> {
 
   @override
   Widget build(BuildContext context) {
-    final settings = Provider.of<SettingsProvider>(context);
+    final settings = ref.watch(settingsProvider);
 
     return GlassScaffold(
       backgroundColor: AppColors.pageBackground(
@@ -161,9 +161,9 @@ class DataSettingsState extends State<DataSettings> {
                   'Automatically scroll to the last media you viewed',
                 ),
                 trailing: CupertinoSwitch(
-                  onChanged: (value) => {
-                    settings.setAutoScrollToLastSeen(value),
-                  },
+                  onChanged: (value) => ref
+                      .read(settingsProvider.notifier)
+                      .setAutoScrollToLastSeen(value),
                   value: settings.getAutoScrollToLastSeen(),
                 ),
               ),
@@ -212,10 +212,13 @@ class DataSettingsState extends State<DataSettings> {
                       title: '$days days',
                       icon: const Icon(CupertinoIcons.clock),
                       isDestructive: false,
-                      onTap: () => settings.setWatchedPostsRetentionDays(days),
-                      trailing: settings.getWatchedPostsRetentionDays() == days
-                          ? const Icon(CupertinoIcons.check_mark)
-                          : null,
+                      onTap: () => ref
+                          .read(settingsProvider.notifier)
+                          .setWatchedPostsRetentionDays(days),
+                      trailing:
+                          settings.getWatchedPostsRetentionDays() == days
+                              ? const Icon(CupertinoIcons.check_mark)
+                              : null,
                     ),
                 ],
                 triggerBuilder: (ctx, toggle) => AdaptiveLiquidGlassLayer(
@@ -245,9 +248,9 @@ class DataSettingsState extends State<DataSettings> {
                 title: const Text('Clear Watched Posts History'),
                 trailing: const CupertinoListTileChevron(),
                 onTap: () async {
-                  final watchedPostsProvider =
-                      Provider.of<WatchedPostsProvider>(context, listen: false);
-                  await watchedPostsProvider.clearAllWatchedPosts();
+                  await ref
+                      .read(watchedPostsProvider.notifier)
+                      .clearAllWatchedPosts();
                   if (mounted) {
                     showCupertinoSnackbar(
                       const Duration(milliseconds: 1800),

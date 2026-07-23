@@ -7,9 +7,9 @@ import 'package:flutter_chan/API/save_videos.dart';
 import 'package:flutter_chan/Models/saved_attachment.dart';
 import 'package:flutter_chan/blocs/saved_attachments_model.dart';
 import 'package:flutter_chan/pages/media/shared_media_viewer.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class SavedMediaViewerPage extends StatefulWidget {
+class SavedMediaViewerPage extends ConsumerStatefulWidget {
   const SavedMediaViewerPage({
     Key? key,
     required this.attachments,
@@ -22,10 +22,11 @@ class SavedMediaViewerPage extends StatefulWidget {
   final String directoryPath;
 
   @override
-  State<SavedMediaViewerPage> createState() => _SavedMediaViewerPageState();
+  ConsumerState<SavedMediaViewerPage> createState() =>
+      _SavedMediaViewerPageState();
 }
 
-class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
+class _SavedMediaViewerPageState extends ConsumerState<SavedMediaViewerPage> {
   late int _currentIndex;
 
   late List<SavedAttachment> _attachments;
@@ -142,10 +143,9 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
       _isRemoving = true;
     });
 
-    await context.read<SavedAttachmentsProvider>().removeSavedAttachments(
-      fileName,
-      context,
-    );
+    await ref
+        .read(savedAttachmentsProvider.notifier)
+        .removeSavedAttachments(fileName, context);
 
     if (!mounted) {
       return;

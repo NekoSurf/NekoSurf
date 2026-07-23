@@ -2,15 +2,15 @@ import 'package:app_settings/app_settings.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/blocs/theme.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class PermissionDenied extends StatelessWidget {
+class PermissionDenied extends ConsumerWidget {
   const PermissionDenied({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Provider.of<ThemeChanger>(context);
-    final bool isDark = theme.getTheme() == ThemeData.dark();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.watch(themeProvider);
+    final bool isDark = theme == ThemeData.dark();
     final Color cardColor = isDark
         ? const Color(0xFF13161B)
         : const Color(0xFFFFFFFF);
@@ -46,9 +46,7 @@ class PermissionDenied extends StatelessWidget {
                 'Permission denied!',
                 style: TextStyle(
                   fontSize: 26,
-                  color: theme.getTheme() == ThemeData.dark()
-                      ? Colors.white
-                      : Colors.black,
+                  color: isDark ? Colors.white : Colors.black,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -57,9 +55,7 @@ class PermissionDenied extends StatelessWidget {
                 'To use this feature, you need to grant the app permission to access your storage.',
                 style: TextStyle(
                   fontSize: 16,
-                  color: theme.getTheme() == ThemeData.dark()
-                      ? Colors.white
-                      : Colors.black,
+                  color: isDark ? Colors.white : Colors.black,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -68,9 +64,7 @@ class PermissionDenied extends StatelessWidget {
                 'Go to your device settings and enable the Full Access permission to the Photos for this app.',
                 style: TextStyle(
                   fontSize: 16,
-                  color: theme.getTheme() == ThemeData.dark()
-                      ? Colors.white
-                      : Colors.black,
+                  color: isDark ? Colors.white : Colors.black,
                 ),
                 textAlign: TextAlign.center,
               ),

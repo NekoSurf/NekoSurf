@@ -3,22 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/enums/enums.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
-import 'package:provider/provider.dart';
 
 import '../cupertino_settings_icon.dart';
 
-class ThreadsSettings extends StatefulWidget {
+class ThreadsSettings extends ConsumerWidget {
   const ThreadsSettings({Key? key}) : super(key: key);
 
   @override
-  State<ThreadsSettings> createState() => ThreadsSettingsState();
-}
-
-class ThreadsSettingsState extends State<ThreadsSettings> {
-  @override
-  Widget build(BuildContext context) {
-    final settings = Provider.of<SettingsProvider>(context);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsProvider);
 
     return GlassScaffold(
       backgroundColor: AppColors.pageBackground(
@@ -57,7 +52,9 @@ class ThreadsSettingsState extends State<ThreadsSettings> {
                 title: 'Images Count',
                 icon: const Icon(CupertinoIcons.photo_on_rectangle),
                 isDestructive: false,
-                onTap: () => {settings.setBoardSort(Sort.byImagesCount)},
+                onTap: () => ref
+                    .read(settingsProvider.notifier)
+                    .setBoardSort(Sort.byImagesCount),
                 trailing: settings.getBoardSort().name == 'byImagesCount'
                     ? const Icon(CupertinoIcons.check_mark)
                     : null,
@@ -66,7 +63,9 @@ class ThreadsSettingsState extends State<ThreadsSettings> {
                 title: 'Reply Count',
                 icon: const Icon(CupertinoIcons.bubble_left_bubble_right),
                 isDestructive: false,
-                onTap: () => {settings.setBoardSort(Sort.byReplyCount)},
+                onTap: () => ref
+                    .read(settingsProvider.notifier)
+                    .setBoardSort(Sort.byReplyCount),
                 trailing: settings.getBoardSort().name == 'byReplyCount'
                     ? const Icon(CupertinoIcons.check_mark)
                     : null,
@@ -75,7 +74,9 @@ class ThreadsSettingsState extends State<ThreadsSettings> {
                 title: 'Bump Order',
                 icon: const Icon(CupertinoIcons.arrow_up_arrow_down),
                 isDestructive: false,
-                onTap: () => {settings.setBoardSort(Sort.byBumpOrder)},
+                onTap: () => ref
+                    .read(settingsProvider.notifier)
+                    .setBoardSort(Sort.byBumpOrder),
                 trailing: settings.getBoardSort().name == 'byBumpOrder'
                     ? const Icon(CupertinoIcons.check_mark)
                     : null,
@@ -84,7 +85,9 @@ class ThreadsSettingsState extends State<ThreadsSettings> {
                 title: 'Newest',
                 icon: const Icon(CupertinoIcons.clock),
                 isDestructive: false,
-                onTap: () => {settings.setBoardSort(Sort.byNewest)},
+                onTap: () => ref
+                    .read(settingsProvider.notifier)
+                    .setBoardSort(Sort.byNewest),
                 trailing: settings.getBoardSort().name == 'byNewest'
                     ? const Icon(CupertinoIcons.check_mark)
                     : null,
@@ -114,7 +117,9 @@ class ThreadsSettingsState extends State<ThreadsSettings> {
                 title: 'Descending',
                 icon: const Icon(CupertinoIcons.arrow_down),
                 isDestructive: false,
-                onTap: () => settings.setBoardSortDirection(SortDirection.desc),
+                onTap: () => ref
+                    .read(settingsProvider.notifier)
+                    .setBoardSortDirection(SortDirection.desc),
                 trailing: settings.getBoardSortDirection() == SortDirection.desc
                     ? const Icon(CupertinoIcons.check_mark)
                     : null,
@@ -123,7 +128,9 @@ class ThreadsSettingsState extends State<ThreadsSettings> {
                 title: 'Ascending',
                 icon: const Icon(CupertinoIcons.arrow_up),
                 isDestructive: false,
-                onTap: () => settings.setBoardSortDirection(SortDirection.asc),
+                onTap: () => ref
+                    .read(settingsProvider.notifier)
+                    .setBoardSortDirection(SortDirection.asc),
                 trailing: settings.getBoardSortDirection() == SortDirection.asc
                     ? const Icon(CupertinoIcons.check_mark)
                     : null,
@@ -155,7 +162,9 @@ class ThreadsSettingsState extends State<ThreadsSettings> {
                 title: 'Grid',
                 icon: const Icon(CupertinoIcons.square_grid_2x2),
                 isDestructive: false,
-                onTap: () => settings.setBoardViewMode(ViewMode.grid),
+                onTap: () => ref
+                    .read(settingsProvider.notifier)
+                    .setBoardViewMode(ViewMode.grid),
                 trailing: settings.getBoardViewMode() == ViewMode.grid
                     ? const Icon(CupertinoIcons.check_mark)
                     : null,
@@ -164,7 +173,9 @@ class ThreadsSettingsState extends State<ThreadsSettings> {
                 title: 'List',
                 icon: const Icon(CupertinoIcons.list_bullet),
                 isDestructive: false,
-                onTap: () => settings.setBoardViewMode(ViewMode.list),
+                onTap: () => ref
+                    .read(settingsProvider.notifier)
+                    .setBoardViewMode(ViewMode.list),
                 trailing: settings.getBoardViewMode() == ViewMode.list
                     ? const Icon(CupertinoIcons.check_mark)
                     : null,

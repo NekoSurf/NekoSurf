@@ -3,22 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/pages/settings/cupertino_settings_icon.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:liquid_glass_widgets/widgets/interactive/glass_button.dart';
 import 'package:liquid_glass_widgets/widgets/surfaces/glass_app_bar.dart';
 import 'package:liquid_glass_widgets/widgets/surfaces/glass_scaffold.dart';
-import 'package:provider/provider.dart';
 
-class PrivacySettings extends StatefulWidget {
+class PrivacySettings extends ConsumerWidget {
   const PrivacySettings({Key? key}) : super(key: key);
 
   @override
-  State<PrivacySettings> createState() => PrivacySettingsState();
-}
-
-class PrivacySettingsState extends State<PrivacySettings> {
-  @override
-  Widget build(BuildContext context) {
-    final settings = Provider.of<SettingsProvider>(context);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsProvider);
 
     return GlassScaffold(
       backgroundColor: AppColors.pageBackground(
@@ -55,7 +50,8 @@ class PrivacySettingsState extends State<PrivacySettings> {
             ),
             title: const Text('Allow NSFW-Boards'),
             trailing: CupertinoSwitch(
-              onChanged: (value) => {settings.setNSFW(value)},
+              onChanged: (value) =>
+                  ref.read(settingsProvider.notifier).setNSFW(value),
               value: settings.getNSFW(),
             ),
           ),

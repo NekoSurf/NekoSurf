@@ -5,10 +5,10 @@ import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/pages/thread/thread_page_post.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:liquid_glass_widgets/widgets/interactive/glass_button.dart';
 import 'package:liquid_glass_widgets/widgets/surfaces/glass_app_bar.dart';
 import 'package:liquid_glass_widgets/widgets/surfaces/glass_scaffold.dart';
-import 'package:provider/provider.dart';
 
 class _ReplyTreeEntry {
   const _ReplyTreeEntry({
@@ -26,7 +26,7 @@ class _ReplyTreeEntry {
   final bool isCollapsed;
 }
 
-class ThreadReplies extends StatefulWidget {
+class ThreadReplies extends ConsumerStatefulWidget {
   const ThreadReplies({
     Key? key,
     required this.post,
@@ -41,10 +41,10 @@ class ThreadReplies extends StatefulWidget {
   final List<Post> allPosts;
 
   @override
-  State<ThreadReplies> createState() => _ThreadRepliesState();
+  ConsumerState<ThreadReplies> createState() => _ThreadRepliesState();
 }
 
-class _ThreadRepliesState extends State<ThreadReplies> {
+class _ThreadRepliesState extends ConsumerState<ThreadReplies> {
   final ScrollController scrollController = ScrollController();
   final Set<int> _collapsedPostIds = <int>{};
 
@@ -225,8 +225,8 @@ class _ThreadRepliesState extends State<ThreadReplies> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Provider.of<ThemeChanger>(context);
-    final bool isDark = theme.getTheme() == ThemeData.dark();
+    final theme = ref.watch(themeProvider);
+    final bool isDark = theme == ThemeData.dark();
     final int rootPostId = widget.post.no ?? 0;
     final List<_ReplyTreeEntry> replyEntries = _buildReplyEntries(
       rootPostId,

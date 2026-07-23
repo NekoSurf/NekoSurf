@@ -9,6 +9,7 @@ import 'package:flutter_chan/enums/enums.dart';
 import 'package:flutter_chan/pages/board/grid_view.dart';
 import 'package:flutter_chan/pages/board/list_view.dart';
 import 'package:flutter_chan/widgets/reload.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:liquid_glass_widgets/widgets/containers/glass_divider.dart';
 import 'package:liquid_glass_widgets/widgets/input/glass_search_bar.dart';
 import 'package:liquid_glass_widgets/widgets/interactive/glass_button.dart';
@@ -18,9 +19,8 @@ import 'package:liquid_glass_widgets/widgets/shared/adaptive_liquid_glass_layer.
 import 'package:liquid_glass_widgets/widgets/surfaces/glass_app_bar.dart';
 import 'package:liquid_glass_widgets/widgets/surfaces/glass_large_title.dart';
 import 'package:liquid_glass_widgets/widgets/surfaces/glass_scaffold.dart';
-import 'package:provider/provider.dart';
 
-class BoardPage extends StatefulWidget {
+class BoardPage extends ConsumerStatefulWidget {
   const BoardPage({Key? key, required this.board, required this.boardName})
     : super(key: key);
 
@@ -31,7 +31,7 @@ class BoardPage extends StatefulWidget {
   BoardPageState createState() => BoardPageState();
 }
 
-class BoardPageState extends State<BoardPage> {
+class BoardPageState extends ConsumerState<BoardPage> {
   final TextEditingController _searchBarController = TextEditingController();
   final _titleController = GlassLargeTitleController();
 
@@ -47,7 +47,7 @@ class BoardPageState extends State<BoardPage> {
   void initState() {
     super.initState();
 
-    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final settings = ref.read(settingsProvider);
     sort = settings.getBoardSort();
     sortDirection = settings.getBoardSortDirection();
 
@@ -62,7 +62,7 @@ class BoardPageState extends State<BoardPage> {
   }
 
   void loadBoard() {
-    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final settings = ref.read(settingsProvider);
 
     setState(() {
       _isLoading = true;
@@ -92,7 +92,7 @@ class BoardPageState extends State<BoardPage> {
         });
   }
 
-  void setSort(Sort sortBy, SettingsProvider settings) {
+  void setSort(Sort sortBy) {
     _searchBarController.clear();
     setState(() {
       sort = sortBy;
@@ -118,7 +118,7 @@ class BoardPageState extends State<BoardPage> {
         });
   }
 
-  void setSortDirection(SortDirection newDirection, SettingsProvider settings) {
+  void setSortDirection(SortDirection newDirection) {
     _searchBarController.clear();
     setState(() {
       sortDirection = newDirection;
@@ -144,7 +144,7 @@ class BoardPageState extends State<BoardPage> {
         });
   }
 
-  Widget getBoardSliverView(List<Post> threads, SettingsProvider settings) {
+  Widget getBoardSliverView(List<Post> threads, SettingsState settings) {
     if (settings.getBoardViewMode() == ViewMode.list) {
       return BoardListView(board: widget.board, threads: threads);
     }
@@ -164,8 +164,8 @@ class BoardPageState extends State<BoardPage> {
 
   @override
   Widget build(BuildContext context) {
-    final settings = Provider.of<SettingsProvider>(context);
-    final favorites = Provider.of<FavoriteProvider>(context);
+    final settings = ref.watch(settingsProvider);
+    final favorites = ref.watch(favoritesProvider);
 
     isFavorite = favorites.getFavorites().contains(widget.board);
 
@@ -203,8 +203,12 @@ class BoardPageState extends State<BoardPage> {
                 color: CupertinoColors.systemYellow,
               ),
               onTap: () => isFavorite
-                  ? favorites.removeFavorites(widget.board)
-                  : favorites.addFavorites(widget.board),
+                  ? ref
+                      .read(favoritesProvider.notifier)
+                      .removeFavorites(widget.board)
+                  : ref
+                      .read(favoritesProvider.notifier)
+                      .addFavorites(widget.board),
               width: 40,
               height: 40,
               iconSize: 20,
@@ -219,7 +223,7 @@ class BoardPageState extends State<BoardPage> {
                 final nextMode = settings.getBoardViewMode() == ViewMode.grid
                     ? ViewMode.list
                     : ViewMode.grid;
-                settings.setBoardViewMode(nextMode);
+                ref.read(settingsProvider.notifier).setBoardViewMode(nextMode);
               },
               width: 40,
               height: 40,
@@ -235,7 +239,7 @@ class BoardPageState extends State<BoardPage> {
                   title: 'Image Count',
                   icon: const Icon(CupertinoIcons.photo),
                   isDestructive: false,
-                  onTap: () => setSort(Sort.byImagesCount, settings),
+                  onTap: () => setSort(Sort.byImagesCount),
                   trailing: sort == Sort.byImagesCount
                       ? const Icon(Icons.check, color: Colors.green)
                       : null,
@@ -244,7 +248,7 @@ class BoardPageState extends State<BoardPage> {
                   title: 'Reply Count',
                   icon: const Icon(CupertinoIcons.text_bubble),
                   isDestructive: false,
-                  onTap: () => setSort(Sort.byReplyCount, settings),
+                  onTap: () => setSort(Sort.byReplyCount),
                   trailing: sort == Sort.byReplyCount
                       ? const Icon(Icons.check, color: Colors.green)
                       : null,
@@ -253,7 +257,7 @@ class BoardPageState extends State<BoardPage> {
                   title: 'Bump Order',
                   icon: const Icon(CupertinoIcons.arrow_up_arrow_down),
                   isDestructive: false,
-                  onTap: () => setSort(Sort.byBumpOrder, settings),
+                  onTap: () => setSort(Sort.byBumpOrder),
                   trailing: sort == Sort.byBumpOrder
                       ? const Icon(Icons.check, color: Colors.green)
                       : null,
@@ -262,7 +266,7 @@ class BoardPageState extends State<BoardPage> {
                   title: 'Newest',
                   icon: const Icon(CupertinoIcons.clock),
                   isDestructive: false,
-                  onTap: () => setSort(Sort.byNewest, settings),
+                  onTap: () => setSort(Sort.byNewest),
                   trailing: sort == Sort.byNewest
                       ? const Icon(Icons.check, color: Colors.green)
                       : null,
@@ -272,7 +276,7 @@ class BoardPageState extends State<BoardPage> {
                   title: 'Descending',
                   icon: const Icon(Icons.arrow_downward),
                   isDestructive: false,
-                  onTap: () => setSortDirection(SortDirection.desc, settings),
+                  onTap: () => setSortDirection(SortDirection.desc),
                   trailing: sortDirection == SortDirection.desc
                       ? const Icon(Icons.check, color: Colors.green)
                       : null,
@@ -281,7 +285,7 @@ class BoardPageState extends State<BoardPage> {
                   title: 'Ascending',
                   icon: const Icon(Icons.arrow_upward),
                   isDestructive: false,
-                  onTap: () => setSortDirection(SortDirection.asc, settings),
+                  onTap: () => setSortDirection(SortDirection.asc),
                   trailing: sortDirection == SortDirection.asc
                       ? const Icon(Icons.check, color: Colors.green)
                       : null,

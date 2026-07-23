@@ -12,10 +12,10 @@ import 'package:flutter_chan/pages/thread/thread_replies.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/feed_player_pool.dart';
 import 'package:flutter_chan/widgets/feed_video_player.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 
-class ThreadPagePost extends StatefulWidget {
+class ThreadPagePost extends ConsumerStatefulWidget {
   const ThreadPagePost({
     Key? key,
     required this.board,
@@ -49,10 +49,10 @@ class ThreadPagePost extends StatefulWidget {
   }
 
   @override
-  State<ThreadPagePost> createState() => _ThreadPagePostState();
+  ConsumerState<ThreadPagePost> createState() => _ThreadPagePostState();
 }
 
-class _ThreadPagePostState extends State<ThreadPagePost> {
+class _ThreadPagePostState extends ConsumerState<ThreadPagePost> {
   Future<void> _openReplies() async {
     final focusedPostId = await Navigator.of(context).push<int>(
       MaterialPageRoute(
@@ -220,8 +220,8 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Provider.of<ThemeChanger>(context);
-    final bool isDark = theme.getTheme() == ThemeData.dark();
+    final theme = ref.watch(themeProvider);
+    final bool isDark = theme == ThemeData.dark();
     final bool hasMedia = _hasRenderableMedia();
 
     final Color primaryText = isDark ? Colors.white : const Color(0xFF121417);

@@ -1,27 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class ThemeChanger with ChangeNotifier {
-  ThemeChanger(this._themeData) {
-    loadPreferences();
+final themeProvider = NotifierProvider<ThemeNotifier, ThemeData>(ThemeNotifier.new);
+
+class ThemeNotifier extends Notifier<ThemeData> {
+  @override
+  ThemeData build() {
+    final brightness =
+        SchedulerBinding.instance.platformDispatcher.platformBrightness;
+    return brightness == Brightness.dark ? ThemeData.dark() : ThemeData.light();
   }
-
-  ThemeData _themeData;
-
-  Future<void> loadPreferences() async {
-    final brightness = SchedulerBinding.instance.window.platformBrightness;
-    final bool isDarkMode = brightness == Brightness.dark;
-
-    setTheme(isDarkMode ? ThemeData.dark() : ThemeData.light());
-
-    notifyListeners();
-  }
-
-  ThemeData getTheme() => _themeData;
 
   void setTheme(ThemeData theme) {
-    _themeData = theme;
-
-    notifyListeners();
+    state = theme;
   }
 }

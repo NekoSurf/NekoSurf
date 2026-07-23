@@ -13,17 +13,17 @@ import 'package:flutter_chan/pages/thread/thread_page_post.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/feed_player_pool.dart';
 import 'package:flutter_chan/widgets/reload.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:liquid_glass_widgets/widgets/interactive/glass_button.dart';
 import 'package:liquid_glass_widgets/widgets/overlays/glass_menu.dart';
 import 'package:liquid_glass_widgets/widgets/overlays/glass_menu_item.dart';
 import 'package:liquid_glass_widgets/widgets/shared/adaptive_liquid_glass_layer.dart';
 import 'package:liquid_glass_widgets/widgets/surfaces/glass_app_bar.dart';
 import 'package:liquid_glass_widgets/widgets/surfaces/glass_scaffold.dart';
-import 'package:provider/provider.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:share_plus/share_plus.dart';
 
-class ThreadPage extends StatefulWidget {
+class ThreadPage extends ConsumerStatefulWidget {
   const ThreadPage({
     Key? key,
     required this.board,
@@ -43,7 +43,7 @@ class ThreadPage extends StatefulWidget {
   ThreadPageState createState() => ThreadPageState();
 }
 
-class ThreadPageState extends State<ThreadPage> {
+class ThreadPageState extends ConsumerState<ThreadPage> {
   static const int _offscreenVideoWarmupEachSide = 3;
   static const int _maxOffscreenWarmVideos = 6;
   static const int _thumbWarmupMaxPerPass = _maxOffscreenWarmVideos;
@@ -72,10 +72,7 @@ class ThreadPageState extends State<ThreadPage> {
       return;
     }
 
-    final watchedPosts = Provider.of<WatchedPostsProvider>(
-      context,
-      listen: false,
-    );
+    final watchedPostsNotifier = ref.read(watchedPostsProvider.notifier);
 
     final positions = itemPositionsListener.itemPositions.value;
 
@@ -89,7 +86,10 @@ class ThreadPageState extends State<ThreadPage> {
         continue;
       }
 
-      watchedPosts.markAsWatched(postIndex: index, thread: widget.thread);
+      watchedPostsNotifier.markAsWatched(
+        postIndex: index,
+        thread: widget.thread,
+      );
     }
 
     _scheduleEagerWindowRefresh();
@@ -333,19 +333,14 @@ class ThreadPageState extends State<ThreadPage> {
   }
 
   void scrollToLastWatchedPosts(List<Post> allPosts) {
-    final settings = Provider.of<SettingsProvider>(context, listen: false);
-    final watchedPosts = Provider.of<WatchedPostsProvider>(
-      context,
-      listen: false,
-    );
+    final settings = ref.read(settingsProvider);
+    final watchedPosts = ref.read(watchedPostsProvider);
 
     if (!settings.getAutoScrollToLastSeen()) {
       return;
     }
 
-    final latestWatchedPosts = watchedPosts.getLatestWatchedPosts(
-      widget.thread,
-    );
+    final latestWatchedPosts = watchedPosts[widget.thread];
 
     if (latestWatchedPosts != null) {
       if (latestWatchedPosts.postIndex != -1) {

@@ -10,10 +10,9 @@ import 'package:flutter_chan/pages/replies_row.dart';
 import 'package:flutter_chan/pages/thread/thread_page.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/image_viewer.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:provider/provider.dart';
-
-class GridPost extends StatefulWidget {
+class GridPost extends ConsumerStatefulWidget {
   const GridPost({Key? key, required this.board, required this.post})
     : super(key: key);
 
@@ -21,12 +20,11 @@ class GridPost extends StatefulWidget {
   final Post post;
 
   @override
-  State<GridPost> createState() => _GridPostState();
+  ConsumerState<GridPost> createState() => _GridPostState();
 }
 
-class _GridPostState extends State<GridPost> {
+class _GridPostState extends ConsumerState<GridPost> {
   late Bookmark favorite;
-  bool isFavorite = false;
   late String favoriteString;
 
   @override
@@ -46,9 +44,9 @@ class _GridPostState extends State<GridPost> {
 
   @override
   Widget build(BuildContext context) {
-    final bookmarks = Provider.of<BookmarksProvider>(context);
-    final theme = Provider.of<ThemeChanger>(context);
-    final bool isDark = theme.getTheme() == ThemeData.dark();
+    final bookmarks = ref.watch(bookmarksProvider);
+    final theme = ref.watch(themeProvider);
+    final bool isDark = theme == ThemeData.dark();
     final Color cardColor = isDark
         ? const Color(0xFF13161B)
         : const Color(0xFFFFFFFF);
@@ -57,7 +55,7 @@ class _GridPostState extends State<GridPost> {
     ).trim();
     final String excerpt = unescape(cleanTags(widget.post.com ?? '')).trim();
 
-    isFavorite = bookmarks.getBookmarks().contains(favoriteString);
+    final isFavorite = bookmarks.getBookmarks().contains(favoriteString);
 
     return InkWell(
       onTap: () => {
@@ -125,8 +123,12 @@ class _GridPostState extends State<GridPost> {
                       right: 10,
                       child: GestureDetector(
                         onTap: () => isFavorite
-                            ? bookmarks.removeBookmarks(favorite)
-                            : bookmarks.addBookmarks(favorite),
+                            ? ref
+                                .read(bookmarksProvider.notifier)
+                                .removeBookmarks(favorite)
+                            : ref
+                                .read(bookmarksProvider.notifier)
+                                .addBookmarks(favorite),
                         child: Container(
                           width: 32,
                           height: 32,

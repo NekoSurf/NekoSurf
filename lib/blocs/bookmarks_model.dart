@@ -1,72 +1,70 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_chan/Models/bookmark.dart';
 import 'package:flutter_chan/enums/enums.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class BookmarksProvider with ChangeNotifier {
-  BookmarksProvider(this.list) {
-    loadPreferences();
-  }
+final bookmarksProvider =
+    NotifierProvider<BookmarksNotifier, BookmarksState>(BookmarksNotifier.new);
 
-  List<String> list = [];
-  Sort sort = Sort.byNewest;
+class BookmarksState {
+  const BookmarksState({
+    this.list = const [],
+    this.sort = Sort.byNewest,
+  });
 
-  Future<void> loadPreferences() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    List<String>? bookmarksPrefs = prefs.getStringList('favoriteThreads');
-
-    bookmarksPrefs ??= [];
-
-    list = bookmarksPrefs;
-
-    notifyListeners();
-  }
+  final List<String> list;
+  final Sort sort;
 
   Iterable<String> getBookmarks() {
-    if (sort == Sort.byNewest)
-      return list.reversed;
-    else
-      return list;
+    return sort == Sort.byNewest ? list.reversed : list;
+  }
+
+  BookmarksState copyWith({List<String>? list, Sort? sort}) {
+    return BookmarksState(
+      list: list ?? this.list,
+      sort: sort ?? this.sort,
+    );
+  }
+}
+
+class BookmarksNotifier extends Notifier<BookmarksState> {
+  @override
+  BookmarksState build() {
+    _loadPreferences();
+    return const BookmarksState();
+  }
+
+  Future<void> _loadPreferences() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final List<String> bookmarksPrefs =
+        prefs.getStringList('favoriteThreads') ?? [];
+    state = state.copyWith(list: bookmarksPrefs);
   }
 
   Future<void> addBookmarks(Bookmark? favorite) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    list.add(json.encode(favorite));
-
-    prefs.setStringList('favoriteThreads', list);
-
-    notifyListeners();
+    final updated = List<String>.from(state.list)..add(json.encode(favorite));
+    prefs.setStringList('favoriteThreads', updated);
+    state = state.copyWith(list: updated);
   }
 
-  Future<void> removeBookmarks(
-    Bookmark? favorite,
-  ) async {
+  Future<void> removeBookmarks(Bookmark? favorite) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    list.remove(json.encode(favorite));
-
-    prefs.setStringList('favoriteThreads', list);
-
-    notifyListeners();
+    final updated = List<String>.from(state.list)
+      ..remove(json.encode(favorite));
+    prefs.setStringList('favoriteThreads', updated);
+    state = state.copyWith(list: updated);
   }
 
   Future<void> clearBookmarks() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    list = [];
-
-    prefs.setStringList('favoriteThreads', list);
-
-    notifyListeners();
+    prefs.setStringList('favoriteThreads', []);
+    state = state.copyWith(list: []);
   }
 
-  void setSort(Sort sortBy) {
-    sort = sortBy;
-
-    notifyListeners();
+  void setSort(Sort sort) {
+    state = state.copyWith(sort: sort);
   }
 }

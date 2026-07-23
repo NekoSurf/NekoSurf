@@ -7,7 +7,7 @@ import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/saved_attachments_model.dart';
 import 'package:flutter_chan/pages/media/shared_media_viewer.dart';
 import 'package:flutter_chan/services/cached_video.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class ThreadMediaViewerRoute extends MaterialPageRoute<int> {
   ThreadMediaViewerRoute({
@@ -64,7 +64,7 @@ class ThreadMediaViewerRoute extends MaterialPageRoute<int> {
   }
 }
 
-class ThreadMediaViewerPage extends StatefulWidget {
+class ThreadMediaViewerPage extends ConsumerStatefulWidget {
   const ThreadMediaViewerPage({
     Key? key,
     required this.mediaPosts,
@@ -81,10 +81,11 @@ class ThreadMediaViewerPage extends StatefulWidget {
   final ValueNotifier<int?> currentPostIdNotifier;
 
   @override
-  State<ThreadMediaViewerPage> createState() => _ThreadMediaViewerPageState();
+  ConsumerState<ThreadMediaViewerPage> createState() =>
+      _ThreadMediaViewerPageState();
 }
 
-class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
+class _ThreadMediaViewerPageState extends ConsumerState<ThreadMediaViewerPage> {
   late int _currentIndex;
 
   bool _isSaving = false;
@@ -146,9 +147,11 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
     if (_isSaving) {
       return;
     }
-    final savedAttachments = context.read<SavedAttachmentsProvider>();
+    final savedAttachmentsNotifier =
+        ref.read(savedAttachmentsProvider.notifier);
+    final savedAttachmentsState = ref.read(savedAttachmentsProvider);
     final fileName = _fileName(_currentPost);
-    final alreadySaved = savedAttachments.getSavedAttachments().any(
+    final alreadySaved = savedAttachmentsState.getSavedAttachments().any(
       (a) =>
           a.fileName?.split('/').last.split('.').first ==
           fileName.split('.').first,
@@ -160,15 +163,21 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
     setState(() {
       _isSaving = true;
     });
-    await savedAttachments.addSavedAttachments(context, widget.board, fileName);
+    await savedAttachmentsNotifier.addSavedAttachments(
+      context,
+      widget.board,
+      fileName,
+    );
     if (!mounted) {
       return;
     }
-    final saveSucceeded = savedAttachments.getSavedAttachments().any(
-      (a) =>
-          a.fileName?.split('/').last.split('.').first ==
-          fileName.split('.').first,
-    );
+    final saveSucceeded = ref.read(savedAttachmentsProvider)
+        .getSavedAttachments()
+        .any(
+          (a) =>
+              a.fileName?.split('/').last.split('.').first ==
+              fileName.split('.').first,
+        );
     setState(() {
       _isSaving = false;
     });
@@ -184,10 +193,9 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
     setState(() {
       _isRemoving = true;
     });
-    await context.read<SavedAttachmentsProvider>().removeSavedAttachments(
-      _fileName(_currentPost),
-      context,
-    );
+    await ref
+        .read(savedAttachmentsProvider.notifier)
+        .removeSavedAttachments(_fileName(_currentPost), context);
     if (!mounted) {
       return;
     }
@@ -260,7 +268,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
 
   @override
   Widget build(BuildContext context) {
-    final savedAttachments = context.watch<SavedAttachmentsProvider>();
+    final savedAttachments = ref.watch(savedAttachmentsProvider);
     final fileName = _fileName(_currentPost);
     final isSaved = savedAttachments.getSavedAttachments().any(
       (a) =>
@@ -306,5 +314,61 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
         ),
       ),
     );
+  }
+}
+
+
+class ThreadMediaViewerRoute extends MaterialPageRoute<int> {
+  ThreadMediaViewerRoute({
+    required List<Post> mediaPosts,
+    required int initialIndex,
+    required String board,
+    required int thread,
+  }) : this._(
+         mediaPosts: mediaPosts,
+         initialIndex: initialIndex,
+         board: board,
+         thread: thread,
+         currentPostId: ValueNotifier<int?>(
+           _resolveInitialPostId(mediaPosts, initialIndex),
+         ),
+       );
+
+  ThreadMediaViewerRoute._({
+    required List<Post> mediaPosts,
+    required int initialIndex,
+    required String board,
+    required int thread,
+    required ValueNotifier<int?> currentPostId,
+  }) : _currentPostId = currentPostId,
+       super(
+         builder: (BuildContext context) => ThreadMediaViewerPage(
+           mediaPosts: mediaPosts,
+           initialIndex: initialIndex,
+           board: board,
+           thread: thread,
+           currentPostIdNotifier: currentPostId,
+         ),
+       );
+
+  final ValueNotifier<int?> _currentPostId;
+
+  @override
+  int? get currentResult => _currentPostId.value;
+
+  @override
+  void dispose() {
+    _currentPostId.dispose();
+    super.dispose();
+  }
+
+  static int? _resolveInitialPostId(List<Post> mediaPosts, int initialIndex) {
+    if (mediaPosts.isEmpty) {
+      return null;
+    }
+
+    final int safeIndex = initialIndex.clamp(0, mediaPosts.length - 1);
+    final Post initialPost = mediaPosts[safeIndex];
+    return initialPost.no ?? initialPost.tim;
   }
 }

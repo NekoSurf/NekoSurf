@@ -11,19 +11,19 @@ import 'package:flutter_chan/pages/replies_row.dart';
 import 'package:flutter_chan/pages/thread/thread_page.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/image_viewer.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
-import 'package:provider/provider.dart';
 
-class BookmarksPost extends StatefulWidget {
+class BookmarksPost extends ConsumerStatefulWidget {
   const BookmarksPost({Key? key, required this.favorite}) : super(key: key);
 
   final Bookmark favorite;
 
   @override
-  State<BookmarksPost> createState() => _BookmarksPostState();
+  ConsumerState<BookmarksPost> createState() => _BookmarksPostState();
 }
 
-class _BookmarksPostState extends State<BookmarksPost> {
+class _BookmarksPostState extends ConsumerState<BookmarksPost> {
   late Future<BookmarkStatus> _fetchBookmarkStatus;
 
   Future<BookmarkStatus> _loadBookmarkStatus() {
@@ -54,9 +54,8 @@ class _BookmarksPostState extends State<BookmarksPost> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Provider.of<ThemeChanger>(context);
-    final bookmarks = Provider.of<BookmarksProvider>(context);
-    final bool isDark = theme.getTheme() == ThemeData.dark();
+    final theme = ref.watch(themeProvider);
+    final bool isDark = theme == ThemeData.dark();
 
     return FutureBuilder<BookmarkStatus>(
       future: _fetchBookmarkStatus,
@@ -103,9 +102,9 @@ class _BookmarksPostState extends State<BookmarksPost> {
                 backgroundColor: const Color(0xFFE53935),
                 foregroundColor: Colors.white,
                 icon: CupertinoIcons.trash,
-                onPressed: (context) => {
-                  bookmarks.removeBookmarks(widget.favorite),
-                },
+                onPressed: (context) => ref
+                    .read(bookmarksProvider.notifier)
+                    .removeBookmarks(widget.favorite),
               ),
             ],
           ),

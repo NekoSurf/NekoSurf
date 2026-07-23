@@ -6,11 +6,11 @@ import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/pages/thread/thread_replied_to.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/spoiler_text.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:html/parser.dart' show parse;
-import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-class ThreadPostComment extends StatelessWidget {
+class ThreadPostComment extends ConsumerWidget {
   const ThreadPostComment({
     Key? key,
     required this.com,
@@ -26,12 +26,9 @@ class ThreadPostComment extends StatelessWidget {
 
   List<Widget> formatComment(
     String com,
-    ThemeChanger theme,
+    bool isDark,
     BuildContext context,
   ) {
-    final theme = Provider.of<ThemeChanger>(context);
-    final isDark = theme.getTheme() == ThemeData.dark();
-
     final List<Widget> formattedCom = [];
 
     final List<String> splittedCom = com.split('<br>');
@@ -93,9 +90,7 @@ class ThreadPostComment extends StatelessWidget {
               TextSpan(
                 text: normalText,
                 style: TextStyle(
-                  color: theme.getTheme() == ThemeData.dark()
-                      ? Colors.white
-                      : Colors.black,
+                  color: isDark ? Colors.white : Colors.black,
                 ),
               ),
             );
@@ -117,9 +112,7 @@ class ThreadPostComment extends StatelessWidget {
             TextSpan(
               text: normalText,
               style: TextStyle(
-                color: theme.getTheme() == ThemeData.dark()
-                    ? Colors.white
-                    : Colors.black,
+                color: isDark ? Colors.white : Colors.black,
               ),
             ),
           );
@@ -147,9 +140,7 @@ class ThreadPostComment extends StatelessWidget {
             SelectableText(
               text,
               style: TextStyle(
-                color: theme.getTheme() == ThemeData.dark()
-                    ? Colors.white
-                    : Colors.black,
+                color: isDark ? Colors.white : Colors.black,
                 fontSize: 14,
                 height: 1.35,
               ),
@@ -165,9 +156,7 @@ class ThreadPostComment extends StatelessWidget {
                 TextSpan(
                   text: text.substring(lastEnd, match.start),
                   style: TextStyle(
-                    color: theme.getTheme() == ThemeData.dark()
-                        ? Colors.white
-                        : Colors.black,
+                    color: isDark ? Colors.white : Colors.black,
                   ),
                 ),
               );
@@ -197,9 +186,7 @@ class ThreadPostComment extends StatelessWidget {
               TextSpan(
                 text: text.substring(lastEnd),
                 style: TextStyle(
-                  color: theme.getTheme() == ThemeData.dark()
-                      ? Colors.white
-                      : Colors.black,
+                  color: isDark ? Colors.white : Colors.black,
                 ),
               ),
             );
@@ -219,10 +206,11 @@ class ThreadPostComment extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Provider.of<ThemeChanger>(context);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.watch(themeProvider);
+    final bool isDark = theme == ThemeData.dark();
 
-    final List<Widget> listCom = formatComment(com, theme, context);
+    final List<Widget> listCom = formatComment(com, isDark, context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -230,3 +218,4 @@ class ThreadPostComment extends StatelessWidget {
     );
   }
 }
+

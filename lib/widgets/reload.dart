@@ -2,29 +2,24 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/constants.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class ReloadWidget extends StatefulWidget {
+class ReloadWidget extends ConsumerWidget {
   const ReloadWidget({Key? key, required this.onReload}) : super(key: key);
 
   final Function() onReload;
 
   @override
-  State<ReloadWidget> createState() => _ReloadWidgetState();
-}
-
-class _ReloadWidgetState extends State<ReloadWidget> {
-  @override
-  Widget build(BuildContext context) {
-    final theme = Provider.of<ThemeChanger>(context);
-    final bool isDark = theme.getTheme() == ThemeData.dark();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.watch(themeProvider);
+    final bool isDark = theme == ThemeData.dark();
 
     return Container(
       color: AppColors.pageBackground(isDark),
       child: SizedBox(
         height: 400,
         child: CupertinoButton(
-          onPressed: widget.onReload,
+          onPressed: onReload,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -34,7 +29,7 @@ class _ReloadWidgetState extends State<ReloadWidget> {
                 'Loading failed',
                 style: TextStyle(
                   fontSize: 18,
-                  color: theme.getTheme() == ThemeData.dark()
+                  color: isDark
                       ? CupertinoColors.white
                       : CupertinoColors.black,
                 ),

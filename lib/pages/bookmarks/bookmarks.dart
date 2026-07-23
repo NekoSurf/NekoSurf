@@ -6,22 +6,15 @@ import 'package:flutter_chan/Models/bookmark.dart';
 import 'package:flutter_chan/blocs/bookmarks_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/pages/bookmarks/bookmarks_post.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class Bookmarks extends StatefulWidget {
+class Bookmarks extends ConsumerWidget {
   const Bookmarks({Key? key}) : super(key: key);
 
   @override
-  State<Bookmarks> createState() => _BookmarksState();
-}
-
-class _BookmarksState extends State<Bookmarks> {
-  final ScrollController scrollController = ScrollController();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Provider.of<ThemeChanger>(context);
-    final bookmarks = Provider.of<BookmarksProvider>(context);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.watch(themeProvider);
+    final bookmarks = ref.watch(bookmarksProvider);
     final bookmarkStrings = bookmarks.getBookmarks().toList(growable: false);
 
     if (bookmarkStrings.isEmpty)
@@ -31,9 +24,7 @@ class _BookmarksState extends State<Bookmarks> {
             'Add bookmarks first!',
             style: TextStyle(
               fontSize: 26,
-              color: theme.getTheme() == ThemeData.dark()
-                  ? Colors.white
-                  : Colors.black,
+              color: theme == ThemeData.dark() ? Colors.white : Colors.black,
             ),
           ),
         ),

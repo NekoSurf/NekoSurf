@@ -1,51 +1,90 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_chan/enums/enums.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class SettingsProvider with ChangeNotifier {
-  SettingsProvider() {
-    loadPreferences();
+final settingsProvider =
+    NotifierProvider<SettingsNotifier, SettingsState>(SettingsNotifier.new);
+
+class SettingsState {
+  const SettingsState({
+    this.allowNSFW = false,
+    this.boardSort = Sort.byImagesCount,
+    this.boardSortDirection = SortDirection.desc,
+    this.boardViewMode = ViewMode.grid,
+    this.watchedPostsRetentionDays = 7,
+    this.autoScrollToLastSeen = false,
+  });
+
+  final bool allowNSFW;
+  final Sort boardSort;
+  final SortDirection boardSortDirection;
+  final ViewMode boardViewMode;
+  final int watchedPostsRetentionDays;
+  final bool autoScrollToLastSeen;
+
+  // Getter methods kept for backward compatibility with widget code.
+  bool getNSFW() => allowNSFW;
+  Sort getBoardSort() => boardSort;
+  SortDirection getBoardSortDirection() => boardSortDirection;
+  bool getAutoScrollToLastSeen() => autoScrollToLastSeen;
+  int getWatchedPostsRetentionDays() => watchedPostsRetentionDays;
+  ViewMode getBoardViewMode() => boardViewMode;
+
+  SettingsState copyWith({
+    bool? allowNSFW,
+    Sort? boardSort,
+    SortDirection? boardSortDirection,
+    ViewMode? boardViewMode,
+    int? watchedPostsRetentionDays,
+    bool? autoScrollToLastSeen,
+  }) {
+    return SettingsState(
+      allowNSFW: allowNSFW ?? this.allowNSFW,
+      boardSort: boardSort ?? this.boardSort,
+      boardSortDirection: boardSortDirection ?? this.boardSortDirection,
+      boardViewMode: boardViewMode ?? this.boardViewMode,
+      watchedPostsRetentionDays:
+          watchedPostsRetentionDays ?? this.watchedPostsRetentionDays,
+      autoScrollToLastSeen: autoScrollToLastSeen ?? this.autoScrollToLastSeen,
+    );
+  }
+}
+
+class SettingsNotifier extends Notifier<SettingsState> {
+  @override
+  SettingsState build() {
+    _loadPreferences();
+    return const SettingsState();
   }
 
-  bool allowNSFW = false;
-  Sort boardSort = Sort.byImagesCount;
-  SortDirection boardSortDirection = SortDirection.desc;
-  ViewMode boardViewMode = ViewMode.grid;
-  int watchedPostsRetentionDays = 7;
-  bool autoScrollToLastSeen = false;
-
-  Future<void> loadPreferences() async {
+  Future<void> _loadPreferences() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
 
+    Sort boardSort = Sort.byImagesCount;
     if (prefs.getString('boardSort') != null) {
-      final Sort boardSortPrefs = Sort.values.firstWhere(
+      boardSort = Sort.values.firstWhere(
         (element) => element.name == prefs.getString('boardSort'),
       );
-      boardSort = boardSortPrefs;
     }
 
+    SortDirection boardSortDirection = SortDirection.desc;
     if (prefs.getString('boardSortDirection') != null) {
       boardSortDirection = SortDirection.values.firstWhere(
         (element) => element.name == prefs.getString('boardSortDirection'),
       );
     }
 
-    if (prefs.getBool('allowNSFW') != null) {
-      final bool? allowNSFWPrefs = prefs.getBool('allowNSFW');
-
-      allowNSFW = allowNSFWPrefs!;
-    }
+    final bool allowNSFW = prefs.getBool('allowNSFW') ?? false;
 
     await prefs.remove('useCachingOnVideos');
 
-    if (prefs.getInt('watchedPostsRetentionDays') != null) {
-      watchedPostsRetentionDays = prefs.getInt('watchedPostsRetentionDays')!;
-    }
+    final int watchedPostsRetentionDays =
+        prefs.getInt('watchedPostsRetentionDays') ?? 7;
 
-    if (prefs.getBool('autoScrollToLastSeen') != null) {
-      autoScrollToLastSeen = prefs.getBool('autoScrollToLastSeen')!;
-    }
+    final bool autoScrollToLastSeen =
+        prefs.getBool('autoScrollToLastSeen') ?? false;
 
+    ViewMode boardViewMode = ViewMode.grid;
     if (prefs.getString('boardViewMode') != null) {
       boardViewMode = ViewMode.values.firstWhere(
         (element) => element.name == prefs.getString('boardViewMode'),
@@ -55,80 +94,49 @@ class SettingsProvider with ChangeNotifier {
 
     await prefs.remove('inlineMediaInThreadFeed');
 
-    notifyListeners();
+    state = SettingsState(
+      allowNSFW: allowNSFW,
+      boardSort: boardSort,
+      boardSortDirection: boardSortDirection,
+      boardViewMode: boardViewMode,
+      watchedPostsRetentionDays: watchedPostsRetentionDays,
+      autoScrollToLastSeen: autoScrollToLastSeen,
+    );
   }
 
-  bool getNSFW() {
-    return allowNSFW;
-  }
-
-  Future<void> setNSFW(bool boolean) async {
+  Future<void> setNSFW(bool value) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    allowNSFW = boolean;
-    prefs.setBool('allowNSFW', boolean);
-
-    notifyListeners();
-  }
-
-  Sort getBoardSort() {
-    return boardSort;
+    prefs.setBool('allowNSFW', value);
+    state = state.copyWith(allowNSFW: value);
   }
 
   Future<void> setBoardSort(Sort sort) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    boardSort = sort;
     prefs.setString('boardSort', sort.name);
-
-    notifyListeners();
-  }
-
-  SortDirection getBoardSortDirection() {
-    return boardSortDirection;
+    state = state.copyWith(boardSort: sort);
   }
 
   Future<void> setBoardSortDirection(SortDirection direction) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    boardSortDirection = direction;
     prefs.setString('boardSortDirection', direction.name);
-
-    notifyListeners();
-  }
-
-  bool getAutoScrollToLastSeen() {
-    return autoScrollToLastSeen;
+    state = state.copyWith(boardSortDirection: direction);
   }
 
   Future<void> setAutoScrollToLastSeen(bool value) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    autoScrollToLastSeen = value;
     prefs.setBool('autoScrollToLastSeen', value);
-
-    notifyListeners();
-  }
-
-  int getWatchedPostsRetentionDays() {
-    return watchedPostsRetentionDays;
+    state = state.copyWith(autoScrollToLastSeen: value);
   }
 
   Future<void> setWatchedPostsRetentionDays(int days) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    watchedPostsRetentionDays = days;
     prefs.setInt('watchedPostsRetentionDays', days);
-    notifyListeners();
-  }
-
-  ViewMode getBoardViewMode() {
-    return boardViewMode;
+    state = state.copyWith(watchedPostsRetentionDays: days);
   }
 
   Future<void> setBoardViewMode(ViewMode mode) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    boardViewMode = mode;
     prefs.setString('boardViewMode', mode.name);
-    notifyListeners();
+    state = state.copyWith(boardViewMode: mode);
   }
 }

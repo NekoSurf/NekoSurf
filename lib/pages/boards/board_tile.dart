@@ -5,8 +5,8 @@ import 'package:flutter_chan/blocs/favorite_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/pages/board/board_page.dart';
 import 'package:flutter_chan/services/string.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
-import 'package:provider/provider.dart';
 
 Color _boardColor(String board, bool isNSFW) {
   const colors = [
@@ -27,7 +27,7 @@ Color _boardColor(String board, bool isNSFW) {
       : colors[hash % colors.length];
 }
 
-class BoardTile extends StatefulWidget {
+class BoardTile extends ConsumerWidget {
   const BoardTile({Key? key, required this.board, required this.favorites})
     : super(key: key);
 
@@ -35,22 +35,15 @@ class BoardTile extends StatefulWidget {
   final bool favorites;
 
   @override
-  State<BoardTile> createState() => _BoardTileState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final favoritesState = ref.watch(favoritesProvider);
+    final theme = ref.watch(themeProvider);
+    final bool isDark = theme == ThemeData.dark();
 
-class _BoardTileState extends State<BoardTile> {
-  bool isFavorite = false;
+    final isFavorite = favoritesState.getFavorites().contains(board.board);
 
-  @override
-  Widget build(BuildContext context) {
-    final favorites = Provider.of<FavoriteProvider>(context);
-    final theme = Provider.of<ThemeChanger>(context);
-    final bool isDark = theme.getTheme() == ThemeData.dark();
-
-    isFavorite = favorites.getFavorites().contains(widget.board.board);
-
-    final boardCode = widget.board.board ?? '';
-    final color = _boardColor(boardCode, widget.board.wsBoard == 0);
+    final boardCode = board.board ?? '';
+    final color = _boardColor(boardCode, board.wsBoard == 0);
     final displayCode = boardCode.length > 3
         ? boardCode.substring(0, 3)
         : boardCode;
@@ -69,9 +62,8 @@ class _BoardTileState extends State<BoardTile> {
                   backgroundColor: const Color(0xFFE53935),
                   foregroundColor: Colors.white,
                   icon: CupertinoIcons.heart_slash_fill,
-                  onPressed: (context) => {
-                    favorites.removeFavorites(boardCode),
-                  },
+                  onPressed: (context) =>
+                      ref.read(favoritesProvider.notifier).removeFavorites(boardCode),
                 ),
               ],
             )
@@ -87,7 +79,8 @@ class _BoardTileState extends State<BoardTile> {
                   backgroundColor: const Color(0xFF43A047),
                   foregroundColor: Colors.white,
                   icon: CupertinoIcons.heart_fill,
-                  onPressed: (context) => {favorites.addFavorites(boardCode)},
+                  onPressed: (context) =>
+                      ref.read(favoritesProvider.notifier).addFavorites(boardCode),
                 ),
               ],
             ),
@@ -113,12 +106,12 @@ class _BoardTileState extends State<BoardTile> {
           children: [
             Flexible(
               child: Text(
-                widget.board.title ?? '',
+                board.title ?? '',
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
-            if (widget.board.wsBoard == 0)
+            if (board.wsBoard == 0)
               Padding(
                 padding: const EdgeInsets.only(left: 6),
                 child: Container(
@@ -146,7 +139,7 @@ class _BoardTileState extends State<BoardTile> {
           ],
         ),
         subtitle: Text(
-          cleanTags(unescape(widget.board.metaDescription ?? '')),
+          cleanTags(unescape(board.metaDescription ?? '')),
           overflow: TextOverflow.ellipsis,
           maxLines: 1,
           style: TextStyle(
@@ -161,8 +154,8 @@ class _BoardTileState extends State<BoardTile> {
           Navigator.of(context).push(
             MaterialPageRoute(
               builder: (context) => BoardPage(
-                boardName: widget.board.title ?? '',
-                board: widget.board.board ?? '',
+                boardName: board.title ?? '',
+                board: board.board ?? '',
               ),
             ),
           ),

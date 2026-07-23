@@ -1,47 +1,48 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_chan/enums/enums.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class FavoriteProvider with ChangeNotifier {
-  FavoriteProvider(this.list) {
-    loadPreferences();
-  }
+final favoritesProvider =
+    NotifierProvider<FavoritesNotifier, FavoritesState>(FavoritesNotifier.new);
 
-  List<String> list = [];
-  Sort sort = Sort.byNewest;
+class FavoritesState {
+  const FavoritesState({this.list = const []});
 
-  Future<void> loadPreferences() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    List<String>? favoritePrefs = prefs.getStringList('favoriteBoards');
-
-    favoritePrefs ??= [];
-
-    list = favoritePrefs;
-
-    notifyListeners();
-  }
+  final List<String> list;
 
   List<String> getFavorites() => list;
 
-  Future<void> addFavorites(String board) async {
+  FavoritesState copyWith({List<String>? list}) {
+    return FavoritesState(list: list ?? this.list);
+  }
+}
+
+class FavoritesNotifier extends Notifier<FavoritesState> {
+  @override
+  FavoritesState build() {
+    _loadPreferences();
+    return const FavoritesState();
+  }
+
+  Future<void> _loadPreferences() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
+    state = FavoritesState(list: prefs.getStringList('favoriteBoards') ?? []);
+  }
 
-    if (!list.contains(board)) {
-      list.add(board);
-      prefs.setStringList('favoriteBoards', list);
+  Future<void> addFavorites(String board) async {
+    if (state.list.contains(board)) {
+      return;
     }
-
-    notifyListeners();
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final updated = List<String>.from(state.list)..add(board);
+    prefs.setStringList('favoriteBoards', updated);
+    state = state.copyWith(list: updated);
   }
 
   Future<void> removeFavorites(String board) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    list.remove(board);
-
-    prefs.setStringList('favoriteBoards', list);
-
-    notifyListeners();
+    final updated = List<String>.from(state.list)..remove(board);
+    prefs.setStringList('favoriteBoards', updated);
+    state = state.copyWith(list: updated);
   }
 }

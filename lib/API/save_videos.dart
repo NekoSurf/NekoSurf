@@ -7,7 +7,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_chan/Models/saved_attachment.dart';
-import 'package:flutter_chan/blocs/saved_attachments_model.dart';
 import 'package:flutter_chan/pages/savedAttachments/permission_denied.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:path_provider/path_provider.dart';
@@ -292,7 +291,6 @@ Future<SavedAttachment?> saveAttachment(
   String thumbnailUrl,
   String fileName,
   BuildContext context,
-  SavedAttachmentsProvider savedAttachmentsProvider,
 ) async {
   final Dio dio = Dio();
 

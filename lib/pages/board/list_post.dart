@@ -11,12 +11,11 @@ import 'package:flutter_chan/pages/replies_row.dart';
 import 'package:flutter_chan/pages/thread/thread_page.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/image_viewer.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:intl/intl.dart';
 
-import 'package:provider/provider.dart';
-
-class ListPost extends StatefulWidget {
+class ListPost extends ConsumerStatefulWidget {
   const ListPost({Key? key, required this.board, required this.post})
     : super(key: key);
 
@@ -24,12 +23,11 @@ class ListPost extends StatefulWidget {
   final Post post;
 
   @override
-  State<ListPost> createState() => _ListPostState();
+  ConsumerState<ListPost> createState() => _ListPostState();
 }
 
-class _ListPostState extends State<ListPost> {
+class _ListPostState extends ConsumerState<ListPost> {
   late Bookmark favorite;
-  bool isFavorite = false;
   late String favoriteString;
 
   @override
@@ -49,9 +47,9 @@ class _ListPostState extends State<ListPost> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Provider.of<ThemeChanger>(context);
-    final bookmarks = Provider.of<BookmarksProvider>(context);
-    final bool isDark = theme.getTheme() == ThemeData.dark();
+    final theme = ref.watch(themeProvider);
+    final bookmarks = ref.watch(bookmarksProvider);
+    final bool isDark = theme == ThemeData.dark();
     final Color cardColor = isDark
         ? const Color(0xFF13161B)
         : const Color(0xFFFFFFFF);
@@ -65,7 +63,7 @@ class _ListPostState extends State<ListPost> {
     ).trim();
     final String posterName = (widget.post.name ?? 'Anonymous').trim();
 
-    isFavorite = bookmarks.getBookmarks().contains(favoriteString);
+    final isFavorite = bookmarks.getBookmarks().contains(favoriteString);
 
     return Slidable(
       endActionPane: isFavorite
@@ -77,7 +75,9 @@ class _ListPostState extends State<ListPost> {
                   label: 'Remove',
                   backgroundColor: Colors.red,
                   icon: Icons.delete,
-                  onPressed: (context) => {bookmarks.removeBookmarks(favorite)},
+                  onPressed: (context) => ref
+                      .read(bookmarksProvider.notifier)
+                      .removeBookmarks(favorite),
                 ),
               ],
             )
@@ -89,7 +89,9 @@ class _ListPostState extends State<ListPost> {
                   label: 'Add',
                   backgroundColor: Colors.green,
                   icon: Icons.add,
-                  onPressed: (context) => {bookmarks.addBookmarks(favorite)},
+                  onPressed: (context) => ref
+                      .read(bookmarksProvider.notifier)
+                      .addBookmarks(favorite),
                 ),
               ],
             ),
@@ -334,8 +336,12 @@ class _ListPostState extends State<ListPost> {
 
                   GestureDetector(
                     onTap: () => isFavorite
-                        ? bookmarks.removeBookmarks(favorite)
-                        : bookmarks.addBookmarks(favorite),
+                        ? ref
+                            .read(bookmarksProvider.notifier)
+                            .removeBookmarks(favorite)
+                        : ref
+                            .read(bookmarksProvider.notifier)
+                            .addBookmarks(favorite),
                     child: Icon(
                       isFavorite
                           ? CupertinoIcons.bookmark_fill
