@@ -239,7 +239,7 @@ enum AppError: LocalizedError {
   }
 }
 
-func cleanTags(_ body: String) -> String {
+func stripHTMLTags(_ body: String) -> String {
   body.replacingOccurrences(of: "<[^>]*>", with: "", options: .regularExpression)
 }
 
@@ -265,7 +265,7 @@ func normalizedCommentText(_ raw: String?) -> String {
   text = text.replacingOccurrences(of: "<br />", with: "\n")
   text = text.replacingOccurrences(of: "<wbr>", with: "")
   text = text.replacingOccurrences(of: "<s>(.*?)</s>", with: "⟪spoiler:$1⟫", options: .regularExpression)
-  text = cleanTags(text)
+  text = stripHTMLTags(text)
   text = unescape(text)
   return text
 }
@@ -1871,7 +1871,8 @@ struct ReplyTreeView: View {
                 Button {
                   toggle(entry)
                 } label: {
-                  Text("\(entry.hiddenReplyCount + 1) hidden \((entry.hiddenReplyCount + 1) == 1 ? "reply" : "replies")")
+                  let hiddenReplyTotal = entry.hiddenReplyCount + 1
+                  Text("\(hiddenReplyTotal) hidden \(hiddenReplyTotal == 1 ? "reply" : "replies")")
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -1921,7 +1922,7 @@ struct ReplyTreeEntry: Identifiable {
   let hiddenReplyCount: Int
   let isCollapsed: Bool
 
-  var id: Int { post.no ?? post.id }
+  var id: String { post.id }
 }
 
 // MARK: - Media Viewer
