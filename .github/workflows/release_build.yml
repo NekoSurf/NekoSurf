@@ -45,25 +45,21 @@ jobs:
             exit 1
           fi
 
-      - name: "🦋 Setup Flutter"
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: "3.44.6"
-          channel: "stable"
-
-      - name: "❓ Verify Flutter"
-        run: flutter doctor
-
-      - name: "📦 Install dependencies"
-        run: flutter pub get
-
       - name: "🏗️ Build iOS app"
         run: |
-          flutter build ios --release --no-codesign --verbose
+          xcodebuild \
+            -project ios/Runner.xcodeproj \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination generic/platform=iOS \
+            -derivedDataPath build/ios \
+            CODE_SIGNING_ALLOWED=NO \
+            build
 
       - name: "🔨 Create IPA"
         run: |
-          APP_DIR="build/ios/Release-iphoneos"
+          APP_DIR="build/ios/Build/Products/Release-iphoneos"
           OUTPUT_DIR="build/ios/ipa"
           APP_NAME=$(find "$APP_DIR" -name "*.app" -maxdepth 1 | head -n 1)
           if [ -z "$APP_NAME" ]; then
