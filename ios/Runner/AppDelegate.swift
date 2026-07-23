@@ -309,7 +309,8 @@ func formatDate(epochSeconds: Int?) -> String {
   guard let epochSeconds else { return "" }
   let date = Date(timeIntervalSince1970: TimeInterval(epochSeconds))
   let formatter = DateFormatter()
-  formatter.dateFormat = "HH:mm - dd.MM.y"
+  formatter.dateStyle = .medium
+  formatter.timeStyle = .short
   return formatter.string(from: date)
 }
 
@@ -650,7 +651,7 @@ final class AppModel: ObservableObject {
       throw AppError.invalidURL
     }
     let fileName = "\(tim)\(ext)"
-    if savedAttachments.contains(where: { ($0.fileName as NSString?)?.deletingPathExtension == (fileName as NSString).deletingPathExtension }) {
+    if hasSavedAttachment(named: fileName) {
       return
     }
     let savedDirectory = try ensureSavedAttachmentsDirectory()
@@ -734,6 +735,15 @@ final class AppModel: ObservableObject {
     let savedSize = folderSize(savedAttachmentsDirectory())
     let cacheSize = Int64(URLCache.shared.currentDiskUsage)
     return formatBytes(savedSize + cacheSize)
+  }
+
+  func hasSavedAttachment(named fileName: String) -> Bool {
+    let baseName = (fileName as NSString).deletingPathExtension
+    return savedAttachmentBaseNames.contains(baseName)
+  }
+
+  func hasSavedAttachment(baseName: String) -> Bool {
+    savedAttachmentBaseNames.contains(baseName)
   }
 
   func clearCache() {
@@ -886,6 +896,13 @@ final class AppModel: ObservableObject {
       let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize).flatMap(Int64.init) ?? 0
       result += size
     }
+  }
+
+  private var savedAttachmentBaseNames: Set<String> {
+    Set(savedAttachments.compactMap { attachment in
+      guard let fileName = attachment.fileName else { return nil }
+      return (fileName as NSString).deletingPathExtension
+    })
   }
 }
 
@@ -1834,7 +1851,6 @@ struct ReplyTreeView: View {
     let repliesByParent = buildReplyChildrenIndex(posts: allPosts)
     var values: [ReplyTreeEntry] = []
     var visited: Set<Int> = [rootPost.no ?? 0]
-    let descendantCounts = buildReplyDescendantCountIndex(posts: allPosts)
 
     func appendChildren(parentID: Int, depth: Int) {
       for child in repliesByParent[parentID] ?? [] {
@@ -1858,7 +1874,12 @@ struct ReplyTreeView: View {
     return values
   }
 
+  private var descendantCountIndex: [Int: Int] {
+    buildReplyDescendantCountIndex(posts: allPosts)
+  }
+
   var body: some View {
+    let descendantCounts = descendantCountIndex
     List {
       if entries.isEmpty {
         EmptyStateView(title: "No threaded replies were found for this post.", subtitle: nil)
@@ -1886,7 +1907,7 @@ struct ReplyTreeView: View {
                   thread: thread,
                   post: entry.post,
                   allPosts: allPosts,
-                  replyCount: buildReplyDescendantCountIndex(posts: allPosts)[entry.post.no ?? 0] ?? 0,
+                  replyCount: descendantCounts[entry.post.no ?? 0] ?? 0,
                   onMediaSelected: { _ in }
                 )
                 .onTapGesture {
@@ -2093,9 +2114,7 @@ struct MediaViewer: View {
     else {
       return false
     }
-    return store.savedAttachments.contains {
-      (($0.fileName ?? "") as NSString).deletingPathExtension == String(tim)
-    }
+    return store.hasSavedAttachment(baseName: String(tim))
   }
 
   private func saveCurrentRemoteMedia() async {
