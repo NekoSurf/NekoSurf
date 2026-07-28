@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="NekoSurf — a fast, privacy-friendly 4chan viewer built with Flutter for iOS and Android. Modern card layouts, liquid glass UI, media-first navigation." />
+  <meta property="og:title" content="NekoSurf — Fast, Privacy-Friendly 4chan Viewer" />
+  <meta property="og:description" content="Browse 4chan with style. Modern card-based layouts, liquid glass UI, media-first navigation, and privacy controls." />
+  <meta property="og:image" content="https://i.imgur.com/QvADqxl.png" />
+  <meta property="og:type" content="website" />
+  <title>NekoSurf — Fast, Privacy-Friendly 4chan Viewer</title>
+  <link rel="icon" href="https://i.imgur.com/QvADqxl.png" type="image/png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ─── Reset & Variables ─────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent:        #6dd4ec;
+      --accent-dim:    #4ab8d4;
+      --accent-glow:   rgba(109, 212, 236, 0.25);
+      --accent-2:      #a78bfa;
+      --bg:            #08090d;
+      --bg-1:          #0e1018;
+      --bg-2:          #141520;
+      --bg-glass:      rgba(20, 21, 32, 0.65);
+      --border:        rgba(109, 212, 236, 0.15);
+      --border-subtle: rgba(255, 255, 255, 0.06);
+      --text:          #e8eaf0;
+      --text-muted:    #8a8fa8;
+      --text-dim:      #5a5f76;
+      --radius-sm:     8px;
+      --radius:        16px;
+      --radius-lg:     24px;
+      --shadow-glow:   0 0 60px rgba(109, 212, 236, 0.12);
+      --transition:    0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ─── Scrollbar ─────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ─── Utility ───────────────────────────────────────────── */
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+    .section { padding: 100px 0; }
+    .section-sm { padding: 60px 0; }
+
+    .tag {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--accent);
+      background: rgba(109, 212, 236, 0.1);
+      border: 1px solid rgba(109, 212, 236, 0.25);
+      border-radius: 100px; padding: 4px 12px;
+      margin-bottom: 20px;
+    }
+    .tag::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 2s infinite; }
+
+    .section-title {
+      font-size: clamp(28px, 5vw, 42px);
+      font-weight: 800; line-height: 1.15;
+      letter-spacing: -0.02em;
+      margin-bottom: 16px;
+    }
+    .section-sub {
+      font-size: 17px; color: var(--text-muted);
+      max-width: 560px; line-height: 1.7;
+    }
+    .gradient-text {
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* ─── Keyframes ──────────────────────────────────────────── */
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+    @keyframes float { 0%,100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
+    @keyframes fadeUp {
+      from { opacity:0; transform:translateY(30px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    @keyframes shimmer {
+      0%   { background-position: -200% center; }
+      100% { background-position:  200% center; }
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes orb1 {
+      0%,100% { transform: translate(0,0) scale(1); }
+      33%     { transform: translate(60px,-40px) scale(1.1); }
+      66%     { transform: translate(-30px,30px) scale(0.9); }
+    }
+    @keyframes orb2 {
+      0%,100% { transform: translate(0,0) scale(1); }
+      33%     { transform: translate(-50px,30px) scale(1.15); }
+      66%     { transform: translate(40px,-20px) scale(0.85); }
+    }
+    @keyframes gridFade { from { opacity:0; } to { opacity:1; } }
+
+    /* ─── Noise overlay ─────────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; pointer-events: none; z-index: 999;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+      opacity: 0.5;
+    }
+
+    /* ─── Navigation ─────────────────────────────────────────── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      padding: 16px 24px;
+      background: rgba(8, 9, 13, 0.7);
+      backdrop-filter: blur(20px) saturate(1.5);
+      -webkit-backdrop-filter: blur(20px) saturate(1.5);
+      border-bottom: 1px solid var(--border-subtle);
+      transition: var(--transition);
+    }
+    .nav-inner {
+      max-width: 1100px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-logo {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 800; font-size: 18px; letter-spacing: -0.01em;
+      color: var(--text); text-decoration: none;
+    }
+    .nav-logo img { width: 32px; height: 32px; border-radius: 8px; }
+    .nav-logo span { color: var(--accent); }
+    .nav-links { display: flex; align-items: center; gap: 32px; }
+    .nav-links a {
+      color: var(--text-muted); text-decoration: none;
+      font-size: 14px; font-weight: 500;
+      transition: color var(--transition);
+    }
+    .nav-links a:hover { color: var(--text); }
+    .nav-cta {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--accent); color: #08090d !important;
+      font-weight: 700 !important; font-size: 13px !important;
+      padding: 8px 18px; border-radius: 100px;
+      transition: all var(--transition) !important;
+    }
+    .nav-cta:hover { background: var(--accent-dim) !important; transform: translateY(-1px); }
+
+    /* ─── Hero ───────────────────────────────────────────────── */
+    .hero {
+      position: relative; min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      text-align: center; overflow: hidden;
+      padding: 120px 24px 80px;
+    }
+    .hero-bg {
+      position: absolute; inset: 0; pointer-events: none;
+    }
+    /* Grid lines */
+    .hero-bg::before {
+      content: '';
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(109,212,236,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(109,212,236,0.04) 1px, transparent 1px);
+      background-size: 60px 60px;
+      mask-image: radial-gradient(ellipse 80% 60% at 50% 50%, black, transparent);
+      animation: gridFade 1.5s ease forwards;
+    }
+    /* Glow orbs */
+    .orb {
+      position: absolute; border-radius: 50%;
+      filter: blur(80px); pointer-events: none; will-change: transform;
+    }
+    .orb-1 {
+      width: 500px; height: 500px; top: -100px; left: 50%; margin-left: -400px;
+      background: radial-gradient(circle, rgba(109,212,236,0.18) 0%, transparent 70%);
+      animation: orb1 14s ease-in-out infinite;
+    }
+    .orb-2 {
+      width: 400px; height: 400px; bottom: 0; right: -100px;
+      background: radial-gradient(circle, rgba(167,139,250,0.14) 0%, transparent 70%);
+      animation: orb2 18s ease-in-out infinite;
+    }
+    .orb-3 {
+      width: 300px; height: 300px; top: 40%; left: -80px;
+      background: radial-gradient(circle, rgba(109,212,236,0.08) 0%, transparent 70%);
+      animation: orb1 22s ease-in-out infinite reverse;
+    }
+    .hero-content {
+      position: relative; z-index: 1;
+      max-width: 760px;
+      animation: fadeUp 0.8s ease 0.1s both;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--bg-glass);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      border-radius: 100px; padding: 8px 18px;
+      font-size: 13px; font-weight: 600; color: var(--accent);
+      margin-bottom: 32px;
+    }
+    .hero-badge-dot {
+      width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+      animation: pulse 2s infinite;
+    }
+    .hero-title {
+      font-size: clamp(44px, 9vw, 80px);
+      font-weight: 900; line-height: 1.05;
+      letter-spacing: -0.03em;
+      margin-bottom: 24px;
+    }
+    .hero-sub {
+      font-size: clamp(16px, 2.5vw, 20px);
+      color: var(--text-muted); max-width: 560px;
+      margin: 0 auto 40px; line-height: 1.7;
+    }
+    .hero-actions {
+      display: flex; flex-wrap: wrap; align-items: center;
+      justify-content: center; gap: 14px; margin-bottom: 60px;
+    }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: 'Inter', sans-serif; font-weight: 700;
+      font-size: 15px; padding: 14px 28px; border-radius: 100px;
+      text-decoration: none; transition: all var(--transition);
+      cursor: pointer; white-space: nowrap;
+    }
+    .btn-primary {
+      background: var(--accent); color: #08090d;
+      box-shadow: 0 4px 30px rgba(109, 212, 236, 0.35);
+    }
+    .btn-primary:hover {
+      background: var(--accent-dim);
+      box-shadow: 0 8px 40px rgba(109, 212, 236, 0.5);
+      transform: translateY(-2px);
+    }
+    .btn-secondary {
+      background: var(--bg-glass);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      color: var(--text);
+    }
+    .btn-secondary:hover {
+      border-color: var(--accent);
+      background: rgba(109, 212, 236, 0.08);
+      transform: translateY(-2px);
+    }
+    .btn-ghost {
+      background: transparent; color: var(--text-muted);
+      border: 1px solid var(--border-subtle);
+    }
+    .btn-ghost:hover { color: var(--text); border-color: var(--border); }
+
+    /* Hero store badges */
+    .store-badges {
+      display: flex; flex-wrap: wrap; align-items: center;
+      justify-content: center; gap: 16px;
+    }
+    .store-badge {
+      display: inline-block; transition: all var(--transition);
+      filter: brightness(0.9);
+    }
+    .store-badge:hover { transform: translateY(-2px) scale(1.03); filter: brightness(1); }
+    .store-badge img { height: 50px; }
+
+    /* Hero stats */
+    .hero-stats {
+      display: flex; flex-wrap: wrap; justify-content: center; gap: 40px;
+      padding: 40px 0 0;
+    }
+    .stat { text-align: center; }
+    .stat-num {
+      font-size: 32px; font-weight: 800;
+      letter-spacing: -0.02em; color: var(--text);
+      background: linear-gradient(135deg, #fff 0%, var(--accent) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .stat-label { font-size: 12px; font-weight: 500; color: var(--text-dim); letter-spacing: 0.05em; text-transform: uppercase; margin-top: 2px; }
+
+    /* Scroll hint */
+    .scroll-hint {
+      position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%);
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      opacity: 0.4; animation: float 3s ease-in-out infinite;
+    }
+    .scroll-hint span { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }
+    .scroll-hint svg { width: 20px; height: 20px; color: var(--text-muted); }
+
+    /* ─── Marquee / Versions ─────────────────────────────────── */
+    .marquee-section {
+      padding: 24px 0;
+      border-top: 1px solid var(--border-subtle);
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--bg-1);
+      overflow: hidden;
+    }
+    .marquee-track {
+      display: flex; gap: 0;
+      animation: marqueeScroll 30s linear infinite;
+      width: max-content;
+    }
+    .marquee-section:hover .marquee-track { animation-play-state: paused; }
+    @keyframes marqueeScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+    .marquee-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 0 32px; white-space: nowrap;
+      font-size: 13px; font-weight: 500; color: var(--text-muted);
+    }
+    .marquee-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); opacity: 0.6; }
+
+    /* ─── Features ───────────────────────────────────────────── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px; margin-top: 60px;
+    }
+    .feature-card {
+      position: relative; overflow: hidden;
+      background: var(--bg-glass);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius);
+      padding: 32px;
+      backdrop-filter: blur(12px);
+      transition: all var(--transition);
+    }
+    .feature-card::before {
+      content: '';
+      position: absolute; inset: 0; opacity: 0;
+      background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(109,212,236,0.08), transparent 60%);
+      transition: opacity 0.4s;
+      pointer-events: none;
+    }
+    .feature-card:hover::before { opacity: 1; }
+    .feature-card:hover {
+      border-color: var(--border);
+      transform: translateY(-4px);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3), 0 0 0 1px rgba(109,212,236,0.08);
+    }
+    .feature-card.featured {
+      grid-column: span 2;
+      background: linear-gradient(135deg, rgba(109,212,236,0.06), rgba(167,139,250,0.04));
+      border-color: rgba(109,212,236,0.2);
+    }
+    @media (max-width: 700px) { .feature-card.featured { grid-column: span 1; } }
+    .feature-icon {
+      width: 52px; height: 52px; border-radius: var(--radius-sm);
+      background: rgba(109, 212, 236, 0.1);
+      border: 1px solid rgba(109, 212, 236, 0.2);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 20px; font-size: 24px;
+      transition: var(--transition);
+    }
+    .feature-card:hover .feature-icon {
+      background: rgba(109, 212, 236, 0.18);
+      transform: scale(1.08) rotate(-3deg);
+    }
+    .feature-title {
+      font-size: 18px; font-weight: 700; margin-bottom: 10px;
+      letter-spacing: -0.01em;
+    }
+    .feature-desc {
+      font-size: 14px; color: var(--text-muted); line-height: 1.7;
+    }
+    .feature-list {
+      list-style: none; margin-top: 14px;
+    }
+    .feature-list li {
+      display: flex; align-items: flex-start; gap: 8px;
+      font-size: 13px; color: var(--text-muted);
+      padding: 4px 0;
+    }
+    .feature-list li::before {
+      content: '→'; color: var(--accent); flex-shrink: 0; margin-top: 1px;
+    }
+
+    /* ─── Screenshots ─────────────────────────────────────────── */
+    .screenshots-section { overflow: hidden; }
+    .screenshots-header { text-align: center; margin-bottom: 60px; }
+    .screenshots-wrapper {
+      display: flex; gap: 24px; justify-content: center;
+      flex-wrap: wrap; align-items: flex-start;
+    }
+    .screenshot-frame {
+      position: relative; flex-shrink: 0;
+      transition: all var(--transition);
+    }
+    .screenshot-frame:hover { transform: translateY(-8px) scale(1.02); z-index: 2; }
+    .screenshot-phone {
+      width: 230px;
+      background: linear-gradient(145deg, #1a1c2e, #0e0f1a);
+      border-radius: 40px;
+      padding: 16px 12px;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.06),
+        0 30px 80px rgba(0,0,0,0.6),
+        inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+    .screenshot-notch {
+      width: 80px; height: 20px;
+      background: #08090d; border-radius: 0 0 14px 14px;
+      margin: 0 auto 10px;
+      position: relative;
+    }
+    .screenshot-notch::after {
+      content: '';
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #0d0e16; border: 1px solid rgba(255,255,255,0.06);
+    }
+    .screenshot-screen {
+      border-radius: 26px; overflow: hidden;
+      background: #0a0b12;
+      line-height: 0;
+    }
+    .screenshot-screen img {
+      width: 100%; display: block;
+      border-radius: 26px;
+    }
+    /* Floating label */
+    .screenshot-label {
+      position: absolute; bottom: -32px; left: 50%; transform: translateX(-50%);
+      white-space: nowrap; font-size: 12px; font-weight: 500;
+      color: var(--text-dim); letter-spacing: 0.05em;
+    }
+
+    /* GIF showcase */
+    .gif-showcase {
+      margin-top: 80px; text-align: center;
+    }
+    .gif-frame {
+      display: inline-block; position: relative;
+      background: var(--bg-glass);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 40px 100px rgba(0,0,0,0.5), var(--shadow-glow);
+    }
+    .gif-frame img {
+      width: 260px; border-radius: var(--radius);
+      display: block;
+    }
+    .gif-label {
+      position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+      background: var(--accent); color: #08090d;
+      font-size: 11px; font-weight: 800; letter-spacing: 0.1em;
+      text-transform: uppercase; padding: 4px 14px; border-radius: 100px;
+      white-space: nowrap;
+    }
+
+    /* ─── Highlight / Liquid Glass ────────────────────────────── */
+    .highlight-section {
+      position: relative; overflow: hidden;
+    }
+    .highlight-bg {
+      position: absolute; inset: 0; pointer-events: none;
+      background: linear-gradient(135deg, rgba(109,212,236,0.04), rgba(167,139,250,0.03));
+      border-top: 1px solid var(--border-subtle);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .highlight-inner {
+      position: relative; z-index: 1;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center;
+    }
+    @media (max-width: 768px) { .highlight-inner { grid-template-columns: 1fr; gap: 48px; } }
+    .highlight-mockup {
+      position: relative;
+      display: flex; justify-content: center;
+    }
+    .highlight-phone-wrap {
+      position: relative; animation: float 5s ease-in-out infinite;
+    }
+    .highlight-phone-wrap .screenshot-phone { width: 200px; }
+    .highlight-phone-wrap .screenshot-screen img { border-radius: 20px; }
+    /* Glow under phone */
+    .highlight-phone-wrap::after {
+      content: '';
+      position: absolute; bottom: -30px; left: 50%; transform: translateX(-50%);
+      width: 140px; height: 30px;
+      background: var(--accent); filter: blur(30px); opacity: 0.25;
+      border-radius: 50%;
+    }
+    /* floating chips */
+    .chip {
+      position: absolute;
+      background: var(--bg-glass);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 16px;
+      backdrop-filter: blur(16px);
+      font-size: 13px; font-weight: 600;
+      display: flex; align-items: center; gap: 8px;
+      white-space: nowrap;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      animation: float 4s ease-in-out infinite;
+    }
+    .chip-icon { font-size: 16px; }
+    .chip-1 { top: 10%; right: -20px; animation-delay: 0s; }
+    .chip-2 { bottom: 20%; left: -30px; animation-delay: 1.5s; }
+    .chip-3 { top: 55%; right: -10px; animation-delay: 0.8s; }
+    .chip span.count { color: var(--accent); font-weight: 800; }
+
+    /* ─── Download / CTA Section ──────────────────────────────── */
+    .cta-section { text-align: center; }
+    .cta-card {
+      position: relative; overflow: hidden;
+      background: linear-gradient(135deg, rgba(109,212,236,0.08), rgba(167,139,250,0.05));
+      border: 1px solid rgba(109, 212, 236, 0.2);
+      border-radius: var(--radius-lg);
+      padding: 80px 40px;
+    }
+    .cta-card::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(ellipse 60% 50% at 50% 0%, rgba(109,212,236,0.12), transparent);
+      pointer-events: none;
+    }
+    .cta-title {
+      font-size: clamp(28px, 5vw, 48px); font-weight: 900;
+      letter-spacing: -0.025em; margin-bottom: 16px;
+    }
+    .cta-sub {
+      font-size: 17px; color: var(--text-muted);
+      max-width: 500px; margin: 0 auto 40px;
+    }
+    .download-options {
+      display: flex; flex-wrap: wrap; gap: 20px;
+      justify-content: center; align-items: center;
+    }
+    .download-option {
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+    }
+    .download-option-label {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--text-dim);
+    }
+    .testflight-btn {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: linear-gradient(135deg, #1A77FF, #0D5FD6);
+      color: #fff; font-weight: 700; font-size: 15px;
+      padding: 14px 28px; border-radius: 16px;
+      text-decoration: none; transition: all var(--transition);
+      box-shadow: 0 8px 30px rgba(26, 119, 255, 0.3);
+    }
+    .testflight-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 40px rgba(26, 119, 255, 0.45);
+    }
+    .tf-icon { font-size: 20px; }
+
+    /* ─── Privacy ──────────────────────────────────────────────── */
+    .privacy-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px; margin-top: 60px;
+    }
+    .privacy-item {
+      background: var(--bg-1);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius);
+      padding: 24px;
+      transition: all var(--transition);
+    }
+    .privacy-item:hover {
+      border-color: var(--border);
+      background: var(--bg-2);
+    }
+    .privacy-icon { font-size: 28px; margin-bottom: 12px; display: block; }
+    .privacy-title { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+    .privacy-desc { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+
+    /* ─── Star History ─────────────────────────────────────────── */
+    .star-section { text-align: center; }
+    .star-chart {
+      margin-top: 48px; border-radius: var(--radius-lg); overflow: hidden;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-1);
+    }
+    .star-chart img { width: 100%; display: block; max-width: 800px; margin: 0 auto; }
+
+    /* ─── Version Timeline ─────────────────────────────────────── */
+    .timeline { margin-top: 60px; position: relative; }
+    .timeline::before {
+      content: ''; position: absolute; left: 20px; top: 0; bottom: 0;
+      width: 2px; background: linear-gradient(to bottom, var(--accent), transparent);
+    }
+    .timeline-item {
+      display: flex; gap: 24px; margin-bottom: 32px; padding-left: 56px;
+      position: relative;
+    }
+    .timeline-dot {
+      position: absolute; left: 12px; top: 6px;
+      width: 18px; height: 18px; border-radius: 50%;
+      background: var(--bg-1); border: 2px solid var(--accent);
+      flex-shrink: 0; transition: var(--transition);
+    }
+    .timeline-item:first-child .timeline-dot { background: var(--accent); }
+    .timeline-content {
+      background: var(--bg-glass);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius);
+      padding: 20px 24px; flex: 1;
+      transition: var(--transition);
+    }
+    .timeline-content:hover { border-color: var(--border); }
+    .timeline-header {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px;
+    }
+    .version-badge {
+      font-size: 12px; font-weight: 800; font-family: 'JetBrains Mono', monospace;
+      background: rgba(109,212,236,0.12); color: var(--accent);
+      border: 1px solid rgba(109,212,236,0.2);
+      padding: 3px 10px; border-radius: 100px;
+    }
+    .version-badge.latest {
+      background: var(--accent); color: #08090d;
+    }
+    .timeline-date { font-size: 12px; color: var(--text-dim); }
+    .timeline-desc { font-size: 14px; color: var(--text-muted); line-height: 1.6; }
+
+    /* ─── Footer ───────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border-subtle);
+      background: var(--bg-1);
+      padding: 60px 24px;
+    }
+    .footer-inner {
+      max-width: 1100px; margin: 0 auto;
+      display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 60px;
+    }
+    @media (max-width: 640px) { .footer-inner { grid-template-columns: 1fr; gap: 40px; } }
+    .footer-brand { }
+    .footer-logo {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 20px; font-weight: 800; margin-bottom: 16px;
+      color: var(--text); text-decoration: none;
+    }
+    .footer-logo img { width: 36px; height: 36px; border-radius: 10px; }
+    .footer-logo span { color: var(--accent); }
+    .footer-desc { font-size: 14px; color: var(--text-muted); line-height: 1.7; max-width: 280px; }
+    .footer-heading { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); margin-bottom: 16px; }
+    .footer-links { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .footer-links a { font-size: 14px; color: var(--text-muted); text-decoration: none; transition: color var(--transition); }
+    .footer-links a:hover { color: var(--accent); }
+    .footer-bottom {
+      max-width: 1100px; margin: 40px auto 0;
+      padding-top: 24px; border-top: 1px solid var(--border-subtle);
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: gap;
+      gap: 16px;
+    }
+    .footer-bottom-text { font-size: 13px; color: var(--text-dim); }
+    .footer-bottom-text a { color: var(--text-muted); text-decoration: none; }
+    .footer-bottom-text a:hover { color: var(--accent); }
+    .badges { display: flex; gap: 8px; flex-wrap: wrap; }
+    .badge-img { height: 20px; }
+
+    /* ─── Responsive ───────────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .nav-links { display: none; }
+    }
+    @media (max-width: 640px) {
+      .section { padding: 70px 0; }
+      .hero-stats { gap: 24px; }
+      .stat-num { font-size: 24px; }
+      .cta-card { padding: 48px 24px; }
+    }
+
+    /* ─── Intersection reveal ──────────────────────────────────── */
+    .reveal {
+      opacity: 0; transform: translateY(24px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+    .reveal-delay-1 { transition-delay: 0.1s; }
+    .reveal-delay-2 { transition-delay: 0.2s; }
+    .reveal-delay-3 { transition-delay: 0.3s; }
+    .reveal-delay-4 { transition-delay: 0.4s; }
+  </style>
+</head>
+<body>
+
+<!-- ─── Navigation ─────────────────────────────────────────────── -->
+<nav>
+  <div class="nav-inner">
+    <a class="nav-logo" href="#">
+      <img src="https://i.imgur.com/QvADqxl.png" alt="NekoSurf icon" />
+      Neko<span>Surf</span>
+    </a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#screenshots">Screenshots</a>
+      <a href="#changelog">Changelog</a>
+      <a href="#download">Download</a>
+      <a href="https://github.com/NekoSurf/NekoSurf" target="_blank" rel="noopener" class="nav-cta">
+        ★ GitHub
+      </a>
+    </div>
+  </div>
+</nav>
+
+<!-- ─── Hero ────────────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="hero-bg">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <div class="hero-content">
+    <div class="hero-badge">
+      <div class="hero-badge-dot"></div>
+      v0.11.5-3 — Now with Liquid Glass
+    </div>
+
+    <h1 class="hero-title">
+      Browse 4chan<br />
+      <span class="gradient-text">the right way.</span>
+    </h1>
+
+    <p class="hero-sub">
+      NekoSurf is a fast, privacy-friendly 4chan viewer built with Flutter for iOS and Android.
+      Modern card layouts, media-first navigation, and practical quality-of-life tools — built for everyday use.
+    </p>
+
+    <div class="hero-actions">
+      <a href="#download" class="btn btn-primary">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 16l-6-6h4V4h4v6h4l-6 6z"/><path d="M4 20h16"/></svg>
+        Get NekoSurf
+      </a>
+      <a href="#screenshots" class="btn btn-secondary">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        See Screenshots
+      </a>
+      <a href="https://github.com/NekoSurf/NekoSurf" target="_blank" rel="noopener" class="btn btn-ghost">
+        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38v-1.33C3.72 14.42 3.27 13 3.27 13c-.36-.91-.88-1.15-.88-1.15-.72-.49.05-.48.05-.48.8.06 1.22.82 1.22.82.71 1.22 1.87.87 2.33.66.07-.52.28-.87.5-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82A7.69 7.69 0 0 1 8 4.07c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.19c0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+        View Source
+      </a>
+    </div>
+
+    <div class="store-badges">
+      <a class="store-badge" href="https://intradeus.github.io/http-protocol-redirector?r=altstore://source?url=https://raw.githubusercontent.com/NekoSurf/NekoSurf/refs/heads/main/source.json" target="_blank" rel="noopener" title="Add to AltStore">
+        <img src="https://raw.githubusercontent.com/NekoSurf/NekoSurf/main/assets/icons/altstore_light.png" alt="Add to AltStore" />
+      </a>
+      <a class="store-badge" href="https://intradeus.github.io/http-protocol-redirector?r=sidestore://source?url=https://raw.githubusercontent.com/NekoSurf/NekoSurf/refs/heads/main/source.json" target="_blank" rel="noopener" title="Add to SideStore">
+        <img src="https://raw.githubusercontent.com/NekoSurf/NekoSurf/main/assets/icons/sidestore_light.png" alt="Add to SideStore" />
+      </a>
+    </div>
+
+    <div class="hero-stats">
+      <div class="stat">
+        <div class="stat-num">v0.11</div>
+        <div class="stat-label">Latest Version</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">Flutter</div>
+        <div class="stat-label">Built with</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">iOS&nbsp;+&nbsp;Android</div>
+        <div class="stat-label">Platforms</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">GPL-3</div>
+        <div class="stat-label">Open Source</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="scroll-hint">
+    <span>Scroll</span>
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+  </div>
+</section>
+
+<!-- ─── Marquee ───────────────────────────────────────────────────── -->
+<div class="marquee-section">
+  <div class="marquee-track">
+    <!-- duplicated for seamless loop -->
+    <span class="marquee-item"><span class="marquee-dot"></span>Fast Board Browsing</span>
+    <span class="marquee-item"><span class="marquee-dot"></span>Liquid Glass UI</span>
+    <span class="marquee-item"><span class="marquee-dot"></span>WebM &amp; MP4 Playback</span>
+    <span class="marquee-item"><span class="marquee-dot"></span>Dark Mode</span>
+    <span class="marquee-item"><span class="marquee-dot"></span>Thread Bookmarks</span>
+    <span class="marquee-item"><span class="marquee-dot"></span>Media Gallery</span>
+    <span class="marquee-item"><span class="marquee-dot"></span>Threaded Replies</span>
+    <span class="marquee-item"><span class="marquee-dot"></span>Privacy Controls</span>
+    <span class="marquee-item"><span class="marquee-dot"></span>NSFW Toggle</span>
+    <span class="marquee-item"><span class="marquee-dot"></span>Sort &amp; Filter</span>
+    <span class="marquee-item"><span class="marquee-dot"></span>Paste Link to Open Thread</span>
+    <span class="marquee-item"><span class="marquee-dot"></span>Cache Management</span>
+    <!-- duplicate set -->
+    <span class="marquee-item"><span class="marquee-dot"></span>Fast Board Browsing</span>
+    <span class="marquee-item"><span class="marquee-dot"></span>Liquid Glass UI</span>
+    <span class="marquee-item"><span class="marquee-dot"></span>WebM &amp; MP4 Playback</span>
+    <span class="marquee-item"><span class="marquee-dot"></span>Dark Mode</span>
+    <span class="marquee-item"><span class="marquee-dot"></span>Thread Bookmarks</span>
+    <span class="marquee-item"><span class="marquee-dot"></span>Media Gallery</span>
+    <span class="marquee-item"><span class="marquee-dot"></span>Threaded Replies</span>
+    <span class="marquee-item"><span class="marquee-dot"></span>Privacy Controls</span>
+    <span class="marquee-item"><span class="marquee-dot"></span>NSFW Toggle</span>
+    <span class="marquee-item"><span class="marquee-dot"></span>Sort &amp; Filter</span>
+    <span class="marquee-item"><span class="marquee-dot"></span>Paste Link to Open Thread</span>
+    <span class="marquee-item"><span class="marquee-dot"></span>Cache Management</span>
+  </div>
+</div>
+
+<!-- ─── Features ─────────────────────────────────────────────────── -->
+<section class="section" id="features">
+  <div class="container">
+    <div class="reveal">
+      <div class="tag">Features</div>
+      <h2 class="section-title">Everything you need.<br /><span class="gradient-text">Nothing you don't.</span></h2>
+      <p class="section-sub">NekoSurf is designed around one goal: giving you the smoothest possible 4chan browsing experience while keeping your privacy first.</p>
+    </div>
+
+    <div class="features-grid">
+
+      <!-- Featured card -->
+      <div class="feature-card featured reveal reveal-delay-1" id="card-featured">
+        <div class="feature-icon">🌊</div>
+        <div class="feature-title">Liquid Glass Interface</div>
+        <div class="feature-desc">The latest version introduces a full liquid-glass aesthetic — translucent panels, blur layers, and fluid transitions throughout the entire app. It feels as good as it looks.</div>
+        <ul class="feature-list">
+          <li>Frosted glass cards and overlays</li>
+          <li>Smooth morphing transitions</li>
+          <li>Depth-aware blur layers</li>
+          <li>Consistent motion language across every screen</li>
+        </ul>
+      </div>
+
+      <div class="feature-card reveal reveal-delay-2" id="card-browse">
+        <div class="feature-icon">🔍</div>
+        <div class="feature-title">Smart Board Browsing</div>
+        <div class="feature-desc">Navigate all 4chan boards instantly. Paste any 4chan link directly to jump straight into a thread.</div>
+        <ul class="feature-list">
+          <li>Fast search across all boards</li>
+          <li>Paste a 4chan link → open the thread</li>
+          <li>Grid and list view toggle</li>
+          <li>Sort by bump order, newest, oldest, reply count, or image count</li>
+        </ul>
+      </div>
+
+      <div class="feature-card reveal reveal-delay-3" id="card-media">
+        <div class="feature-icon">🎬</div>
+        <div class="feature-title">Media-First Experience</div>
+        <div class="feature-desc">Images and videos are first-class citizens. Full WebM and MP4 support with a dedicated gallery viewer and swipe navigation.</div>
+        <ul class="feature-list">
+          <li>WebM &amp; MP4 playback</li>
+          <li>Swipeable full-screen gallery</li>
+          <li>Save to camera roll / gallery</li>
+          <li>File name and size context</li>
+          <li>Share saved media directly from the app</li>
+        </ul>
+      </div>
+
+      <div class="feature-card reveal reveal-delay-1" id="card-bookmarks">
+        <div class="feature-icon">🔖</div>
+        <div class="feature-title">Bookmarks &amp; Favorites</div>
+        <div class="feature-desc">Keep track of the threads and boards you care about. NekoSurf shows you exactly when a bookmarked thread has been archived or deleted.</div>
+        <ul class="feature-list">
+          <li>Favorite boards for home-screen quick access</li>
+          <li>Bookmark threads for later</li>
+          <li>Live archive / deleted status on bookmarks</li>
+          <li>Configurable retention controls</li>
+        </ul>
+      </div>
+
+      <div class="feature-card reveal reveal-delay-2" id="card-replies">
+        <div class="feature-icon">💬</div>
+        <div class="feature-title">Threaded Replies</div>
+        <div class="feature-desc">Replies are truly threaded — each reply is nested under its parent post so conversations flow naturally and are easy to follow.</div>
+        <ul class="feature-list">
+          <li>Full recursive reply threading</li>
+          <li>Auto-scroll to last-seen post</li>
+          <li>Inline media previews in threads</li>
+        </ul>
+      </div>
+
+      <div class="feature-card reveal reveal-delay-3" id="card-privacy">
+        <div class="feature-icon">🔒</div>
+        <div class="feature-title">Privacy &amp; Personalization</div>
+        <div class="feature-desc">No account needed. No telemetry. NekoSurf keeps full control in your hands with per-feature toggles and local-only storage.</div>
+        <ul class="feature-list">
+          <li>NSFW board visibility toggle</li>
+          <li>Watched-posts retention controls</li>
+          <li>Cache size display &amp; one-tap cleanup</li>
+          <li>Dark mode</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ─── Screenshots ───────────────────────────────────────────────── -->
+<section class="section screenshots-section" id="screenshots">
+  <div class="container">
+    <div class="screenshots-header reveal">
+      <div class="tag">Screenshots</div>
+      <h2 class="section-title">See it in action.</h2>
+      <p class="section-sub">Clean, focused, and built for the content. NekoSurf gets out of your way so you can focus on what matters.</p>
+    </div>
+
+    <div class="screenshots-wrapper">
+      <div class="screenshot-frame reveal reveal-delay-1" style="margin-top: 40px;">
+        <div class="screenshot-phone">
+          <div class="screenshot-notch"></div>
+          <div class="screenshot-screen">
+            <img src="https://raw.githubusercontent.com/NekoSurf/NekoSurf/main/screenshots/ios_screenshot_1.jpg" alt="NekoSurf thread browser" loading="lazy" />
+          </div>
+        </div>
+        <div class="screenshot-label">Thread browser</div>
+      </div>
+
+      <div class="screenshot-frame reveal reveal-delay-2" style="margin-top: 0;">
+        <div class="screenshot-phone">
+          <div class="screenshot-notch"></div>
+          <div class="screenshot-screen">
+            <img src="https://i.imgur.com/B40QWPl.png" alt="NekoSurf board view" loading="lazy" />
+          </div>
+        </div>
+        <div class="screenshot-label">Board view</div>
+      </div>
+
+      <div class="screenshot-frame reveal reveal-delay-3" style="margin-top: 60px;">
+        <div class="screenshot-phone">
+          <div class="screenshot-notch"></div>
+          <div class="screenshot-screen">
+            <img src="https://i.imgur.com/IAfnXoA.png" alt="NekoSurf media viewer" loading="lazy" />
+          </div>
+        </div>
+        <div class="screenshot-label">Media viewer</div>
+      </div>
+    </div>
+
+    <div class="gif-showcase reveal">
+      <div class="gif-frame">
+        <div class="gif-label">Gallery in Motion</div>
+        <img src="https://raw.githubusercontent.com/NekoSurf/NekoSurf/main/screenshots/galery.gif" alt="NekoSurf gallery animation" loading="lazy" />
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Highlight: Liquid Glass ──────────────────────────────────── -->
+<section class="section highlight-section">
+  <div class="highlight-bg"></div>
+  <div class="container">
+    <div class="highlight-inner">
+      <div class="reveal">
+        <div class="tag">v0.11.5</div>
+        <h2 class="section-title">Liquid Glass.<br /><span class="gradient-text">Fluid by design.</span></h2>
+        <p class="section-sub" style="margin-bottom:32px;">The latest major update rethinks the entire visual layer. Every surface now breathes with translucency and motion — inspired by the best of modern mobile UI design.</p>
+        <ul class="feature-list" style="margin-top:0;">
+          <li>Frosted glass overlays across all panels</li>
+          <li>Depth-aware blur that reacts to content beneath</li>
+          <li>Unified motion language — nothing jumps</li>
+          <li>Media viewer enhanced with file names and sizes</li>
+          <li>Smoother navigation between boards and threads</li>
+        </ul>
+      </div>
+      <div class="highlight-mockup reveal reveal-delay-2">
+        <div class="highlight-phone-wrap">
+          <div class="screenshot-phone" style="width:210px;">
+            <div class="screenshot-notch"></div>
+            <div class="screenshot-screen">
+              <img src="https://raw.githubusercontent.com/NekoSurf/NekoSurf/main/screenshots/ios_screenshot_2.jpg" alt="Liquid glass UI" loading="lazy" style="border-radius:20px;" />
+            </div>
+          </div>
+          <div class="chip chip-1">
+            <span class="chip-icon">🌊</span> Liquid Glass
+          </div>
+          <div class="chip chip-2">
+            <span class="chip-icon">💬</span> <span class="count">+</span> Threaded
+          </div>
+          <div class="chip chip-3">
+            <span class="chip-icon">⚡</span> 60 fps
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Privacy ───────────────────────────────────────────────────── -->
+<section class="section" id="privacy">
+  <div class="container">
+    <div class="reveal">
+      <div class="tag">Privacy</div>
+      <h2 class="section-title">Your data stays <span class="gradient-text">yours.</span></h2>
+      <p class="section-sub">NekoSurf is fully open-source, requires no account, and keeps all your data local.</p>
+    </div>
+    <div class="privacy-grid">
+      <div class="privacy-item reveal reveal-delay-1">
+        <span class="privacy-icon">🚫</span>
+        <div class="privacy-title">No Accounts</div>
+        <div class="privacy-desc">Nothing to sign up for. Just install and browse.</div>
+      </div>
+      <div class="privacy-item reveal reveal-delay-2">
+        <span class="privacy-icon">📡</span>
+        <div class="privacy-title">No Telemetry</div>
+        <div class="privacy-desc">Zero tracking, zero analytics, zero third-party data collection.</div>
+      </div>
+      <div class="privacy-item reveal reveal-delay-3">
+        <span class="privacy-icon">🗄️</span>
+        <div class="privacy-title">Local Storage Only</div>
+        <div class="privacy-desc">Bookmarks, preferences, and cache live entirely on your device.</div>
+      </div>
+      <div class="privacy-item reveal reveal-delay-4">
+        <span class="privacy-icon">🔓</span>
+        <div class="privacy-title">Fully Open Source</div>
+        <div class="privacy-desc">GPL-3 licensed. Inspect every line, fork freely, contribute back.</div>
+      </div>
+      <div class="privacy-item reveal reveal-delay-1">
+        <span class="privacy-icon">🔞</span>
+        <div class="privacy-title">NSFW Toggle</div>
+        <div class="privacy-desc">Show or hide NSFW boards in one tap — your choice, your device.</div>
+      </div>
+      <div class="privacy-item reveal reveal-delay-2">
+        <span class="privacy-icon">🧹</span>
+        <div class="privacy-title">Cache Control</div>
+        <div class="privacy-desc">See exactly how much space the cache uses and wipe it instantly.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Changelog ──────────────────────────────────────────────────── -->
+<section class="section" id="changelog">
+  <div class="container">
+    <div class="reveal">
+      <div class="tag">Changelog</div>
+      <h2 class="section-title">Always <span class="gradient-text">improving.</span></h2>
+      <p class="section-sub">NekoSurf ships frequent updates focused on performance, polish, and new features.</p>
+    </div>
+
+    <div class="timeline">
+      <div class="timeline-item reveal reveal-delay-1">
+        <div class="timeline-dot"></div>
+        <div class="timeline-content">
+          <div class="timeline-header">
+            <span class="version-badge latest">v0.11.5-3</span>
+            <span class="timeline-date">July 22, 2026</span>
+          </div>
+          <p class="timeline-desc">Fix performance on specific pages and improve overall stability.</p>
+        </div>
+      </div>
+      <div class="timeline-item reveal reveal-delay-2">
+        <div class="timeline-dot"></div>
+        <div class="timeline-content">
+          <div class="timeline-header">
+            <span class="version-badge">v0.11.5-2</span>
+            <span class="timeline-date">July 19, 2026</span>
+          </div>
+          <p class="timeline-desc">Fixes liquid glass rendering issues and improves the overall experience.</p>
+        </div>
+      </div>
+      <div class="timeline-item reveal reveal-delay-3">
+        <div class="timeline-dot"></div>
+        <div class="timeline-content">
+          <div class="timeline-header">
+            <span class="version-badge">v0.11.5</span>
+            <span class="timeline-date">July 19, 2026</span>
+          </div>
+          <p class="timeline-desc">Introduces Liquid Glass. Media viewer now shows file names and sizes. Better media viewing experience, more context, and improved navigation.</p>
+        </div>
+      </div>
+      <div class="timeline-item reveal reveal-delay-4">
+        <div class="timeline-dot"></div>
+        <div class="timeline-content">
+          <div class="timeline-header">
+            <span class="version-badge">v0.11.4</span>
+            <span class="timeline-date">May 27, 2026</span>
+          </div>
+          <p class="timeline-desc">Replies are now truly threaded for much easier conversations. Media viewing unified across threads and saved attachments. Saved attachments and thread UI cleaned up for improved reliability and polish.</p>
+        </div>
+      </div>
+    </div>
+
+    <div style="text-align:center; margin-top:40px;">
+      <a href="https://github.com/NekoSurf/NekoSurf/releases" target="_blank" rel="noopener" class="btn btn-secondary reveal">
+        View all releases →
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Star History ───────────────────────────────────────────────── -->
+<section class="section-sm star-section" id="stars">
+  <div class="container">
+    <div class="reveal">
+      <div class="tag">Community</div>
+      <h2 class="section-title">Growing <span class="gradient-text">every day.</span></h2>
+    </div>
+    <div class="star-chart reveal reveal-delay-1">
+      <img src="https://api.star-history.com/svg?repos=NekoSurf/NekoSurf&type=Date" alt="Star history chart" loading="lazy" />
+    </div>
+  </div>
+</section>
+
+<!-- ─── Download CTA ──────────────────────────────────────────────── -->
+<section class="section cta-section" id="download">
+  <div class="container">
+    <div class="cta-card reveal">
+      <div class="tag">Download</div>
+      <h2 class="cta-title">Start surfing.<br /><span class="gradient-text">Right now.</span></h2>
+      <p class="cta-sub">NekoSurf is free, open-source, and available on iOS and Android today.</p>
+
+      <div class="download-options">
+        <div class="download-option">
+          <div class="download-option-label">TestFlight (iOS Beta)</div>
+          <a href="https://testflight.apple.com/join/ky5bRwMY" target="_blank" rel="noopener" class="testflight-btn">
+            <span class="tf-icon">✈️</span>
+            Join TestFlight Beta
+          </a>
+        </div>
+
+        <div class="download-option">
+          <div class="download-option-label">AltStore</div>
+          <a class="store-badge" href="https://intradeus.github.io/http-protocol-redirector?r=altstore://source?url=https://raw.githubusercontent.com/NekoSurf/NekoSurf/refs/heads/main/source.json" target="_blank" rel="noopener">
+            <img src="https://raw.githubusercontent.com/NekoSurf/NekoSurf/main/assets/icons/altstore_light.png" alt="Add to AltStore" />
+          </a>
+        </div>
+
+        <div class="download-option">
+          <div class="download-option-label">SideStore</div>
+          <a class="store-badge" href="https://intradeus.github.io/http-protocol-redirector?r=sidestore://source?url=https://raw.githubusercontent.com/NekoSurf/NekoSurf/refs/heads/main/source.json" target="_blank" rel="noopener">
+            <img src="https://raw.githubusercontent.com/NekoSurf/NekoSurf/main/assets/icons/sidestore_light.png" alt="Add to SideStore" />
+          </a>
+        </div>
+
+        <div class="download-option">
+          <div class="download-option-label">Android / Direct IPA</div>
+          <a href="https://github.com/NekoSurf/NekoSurf/releases/latest" target="_blank" rel="noopener" class="btn btn-secondary" style="font-size:14px;padding:12px 22px;">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 16l-6-6h4V4h4v6h4l-6 6z"/><path d="M4 20h16"/></svg>
+            GitHub Releases
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Footer ────────────────────────────────────────────────────── -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <a class="footer-logo" href="#">
+        <img src="https://i.imgur.com/QvADqxl.png" alt="NekoSurf icon" />
+        Neko<span>Surf</span>
+      </a>
+      <p class="footer-desc">A fast, privacy-friendly 4chan viewer built with Flutter. Open-source. No accounts. No tracking.</p>
+    </div>
+
+    <div>
+      <div class="footer-heading">Project</div>
+      <ul class="footer-links">
+        <li><a href="https://github.com/NekoSurf/NekoSurf" target="_blank" rel="noopener">GitHub Repository</a></li>
+        <li><a href="https://github.com/NekoSurf/NekoSurf/releases" target="_blank" rel="noopener">Releases</a></li>
+        <li><a href="https://github.com/NekoSurf/NekoSurf/issues" target="_blank" rel="noopener">Issues</a></li>
+        <li><a href="https://github.com/NekoSurf/NekoSurf/blob/main/LICENSE" target="_blank" rel="noopener">License (GPL-3)</a></li>
+      </ul>
+    </div>
+
+    <div>
+      <div class="footer-heading">Download</div>
+      <ul class="footer-links">
+        <li><a href="https://testflight.apple.com/join/ky5bRwMY" target="_blank" rel="noopener">TestFlight (iOS)</a></li>
+        <li><a href="https://intradeus.github.io/http-protocol-redirector?r=altstore://source?url=https://raw.githubusercontent.com/NekoSurf/NekoSurf/refs/heads/main/source.json" target="_blank" rel="noopener">AltStore Source</a></li>
+        <li><a href="https://intradeus.github.io/http-protocol-redirector?r=sidestore://source?url=https://raw.githubusercontent.com/NekoSurf/NekoSurf/refs/heads/main/source.json" target="_blank" rel="noopener">SideStore Source</a></li>
+        <li><a href="https://github.com/NekoSurf/NekoSurf/releases/latest" target="_blank" rel="noopener">Latest Release</a></li>
+        <li><a href="https://github.com/NekoSurf/NekoSurf/blob/main/privacy_policy.md" target="_blank" rel="noopener">Privacy Policy</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="footer-bottom">
+    <div class="footer-bottom-text">
+      © 2024–2026 NekoSurf · <a href="https://github.com/NekoSurf/NekoSurf/blob/main/LICENSE" target="_blank" rel="noopener">GPL-3.0 License</a>
+    </div>
+    <div class="badges">
+      <img class="badge-img" src="https://img.shields.io/badge/Maintained%3F-yes-green.svg?style=flat-square" alt="Maintained" />
+      <img class="badge-img" src="https://img.shields.io/github/license/NekoSurf/NekoSurf.svg?style=flat-square" alt="License" />
+      <img class="badge-img" src="https://img.shields.io/github/release/NekoSurf/NekoSurf.svg?style=flat-square" alt="Release" />
+    </div>
+  </div>
+</footer>
+
+<!-- ─── Scripts ───────────────────────────────────────────────────── -->
+<script>
+  // Intersection Observer for reveal animations
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  // Mouse-tracking glow on feature cards
+  document.querySelectorAll('.feature-card').forEach(card => {
+    card.addEventListener('mousemove', e => {
+      const rect = card.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width  * 100).toFixed(1) + '%';
+      const y = ((e.clientY - rect.top)  / rect.height * 100).toFixed(1) + '%';
+      card.style.setProperty('--mx', x);
+      card.style.setProperty('--my', y);
+    });
+  });
+
+  // Nav background opacity on scroll
+  const nav = document.querySelector('nav');
+  window.addEventListener('scroll', () => {
+    nav.style.background = window.scrollY > 40
+      ? 'rgba(8, 9, 13, 0.92)'
+      : 'rgba(8, 9, 13, 0.7)';
+  }, { passive: true });
+</script>
+
+</body>
+</html>
