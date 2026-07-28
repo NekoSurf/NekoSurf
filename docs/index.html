@@ -719,7 +719,7 @@
   <div class="hero-content">
     <div class="hero-badge">
       <div class="hero-badge-dot"></div>
-      v0.11.5-3 — Now with Liquid Glass
+      <span id="hero-badge-text">v0.11.5-3 — Now with Liquid Glass</span>
     </div>
 
     <h1 class="hero-title">
@@ -758,7 +758,7 @@
 
     <div class="hero-stats">
       <div class="stat">
-        <div class="stat-num">v0.11</div>
+        <div class="stat-num" id="hero-stat-version">v0.11</div>
         <div class="stat-label">Latest Version</div>
       </div>
       <div class="stat">
@@ -958,7 +958,7 @@
   <div class="container">
     <div class="highlight-inner">
       <div class="reveal">
-        <div class="tag">v0.11.5</div>
+        <div class="tag" id="spotlight-tag">v0.11.5</div>
         <h2 class="section-title">Liquid Glass.<br /><span class="gradient-text">Fluid by design.</span></h2>
         <p class="section-sub" style="margin-bottom:32px;">The latest major update rethinks the entire visual layer. Every surface now breathes with translucency and motion — inspired by the best of modern mobile UI design.</p>
         <ul class="feature-list" style="margin-top:0;">
@@ -1044,47 +1044,8 @@
       <p class="section-sub">NekoSurf ships frequent updates focused on performance, polish, and new features.</p>
     </div>
 
-    <div class="timeline">
-      <div class="timeline-item reveal reveal-delay-1">
-        <div class="timeline-dot"></div>
-        <div class="timeline-content">
-          <div class="timeline-header">
-            <span class="version-badge latest">v0.11.5-3</span>
-            <span class="timeline-date">July 22, 2026</span>
-          </div>
-          <p class="timeline-desc">Fix performance on specific pages and improve overall stability.</p>
-        </div>
-      </div>
-      <div class="timeline-item reveal reveal-delay-2">
-        <div class="timeline-dot"></div>
-        <div class="timeline-content">
-          <div class="timeline-header">
-            <span class="version-badge">v0.11.5-2</span>
-            <span class="timeline-date">July 19, 2026</span>
-          </div>
-          <p class="timeline-desc">Fixes liquid glass rendering issues and improves the overall experience.</p>
-        </div>
-      </div>
-      <div class="timeline-item reveal reveal-delay-3">
-        <div class="timeline-dot"></div>
-        <div class="timeline-content">
-          <div class="timeline-header">
-            <span class="version-badge">v0.11.5</span>
-            <span class="timeline-date">July 19, 2026</span>
-          </div>
-          <p class="timeline-desc">Introduces Liquid Glass. Media viewer now shows file names and sizes. Better media viewing experience, more context, and improved navigation.</p>
-        </div>
-      </div>
-      <div class="timeline-item reveal reveal-delay-4">
-        <div class="timeline-dot"></div>
-        <div class="timeline-content">
-          <div class="timeline-header">
-            <span class="version-badge">v0.11.4</span>
-            <span class="timeline-date">May 27, 2026</span>
-          </div>
-          <p class="timeline-desc">Replies are now truly threaded for much easier conversations. Media viewing unified across threads and saved attachments. Saved attachments and thread UI cleaned up for improved reliability and polish.</p>
-        </div>
-      </div>
+    <div class="timeline" id="changelog-timeline">
+      <!-- populated dynamically from source.json -->
     </div>
 
     <div style="text-align:center; margin-top:40px;">
@@ -1198,7 +1159,90 @@
 
 <!-- ─── Scripts ───────────────────────────────────────────────────── -->
 <script>
-  // Intersection Observer for reveal animations
+  // ── source.json URL ────────────────────────────────────────────
+  const SOURCE_JSON_URL = 'https://raw.githubusercontent.com/NekoSurf/NekoSurf/refs/heads/main/source.json';
+
+  // ── Helpers ────────────────────────────────────────────────────
+  function formatDate(isoString) {
+    try {
+      return new Date(isoString).toLocaleDateString('en-US', {
+        year: 'numeric', month: 'long', day: 'numeric'
+      });
+    } catch (_) { return isoString; }
+  }
+
+  function shortVersion(ver) {
+    // e.g. "0.11.5-3" → "v0.11"
+    const parts = ver.split('.');
+    return 'v' + parts.slice(0, 2).join('.');
+  }
+
+  // ── Build timeline HTML from versions array ────────────────────
+  function buildTimeline(versions) {
+    const delays = ['reveal-delay-1', 'reveal-delay-2', 'reveal-delay-3', 'reveal-delay-4'];
+    return versions.map((v, i) => {
+      const isLatest = i === 0;
+      const badgeClass = isLatest ? 'version-badge latest' : 'version-badge';
+      const delay = delays[i % delays.length];
+      const desc = (v.localizedDescription || '').replace(/\n/g, ' ').trim();
+      return `
+      <div class="timeline-item reveal ${delay}">
+        <div class="timeline-dot"></div>
+        <div class="timeline-content">
+          <div class="timeline-header">
+            <span class="${badgeClass}">v${v.version}</span>
+            <span class="timeline-date">${formatDate(v.date)}</span>
+          </div>
+          <p class="timeline-desc">${desc}</p>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── Populate page from source.json ────────────────────────────
+  async function loadVersionData() {
+    try {
+      const res  = await fetch(SOURCE_JSON_URL);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      const app  = data.apps && data.apps[0];
+      if (!app || !app.versions || !app.versions.length) return;
+
+      const versions = app.versions; // already sorted newest-first
+      const latest   = versions[0];
+      const latestTag = 'v' + latest.version;
+
+      // Hero badge
+      const badgeEl = document.getElementById('hero-badge-text');
+      if (badgeEl) {
+        // Use first sentence / first line of localizedDescription as tagline
+        const tagline = (latest.localizedDescription || '')
+          .split(/[\n.]/)[0].trim();
+        badgeEl.textContent = latestTag + (tagline ? ' — ' + tagline : '');
+      }
+
+      // Hero stat
+      const statEl = document.getElementById('hero-stat-version');
+      if (statEl) statEl.textContent = shortVersion(latest.version);
+
+      // Spotlight section tag
+      const spotEl = document.getElementById('spotlight-tag');
+      if (spotEl) spotEl.textContent = latestTag;
+
+      // Changelog timeline
+      const tlEl = document.getElementById('changelog-timeline');
+      if (tlEl) {
+        tlEl.innerHTML = buildTimeline(versions);
+        // Re-observe newly inserted .reveal elements
+        tlEl.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+      }
+    } catch (err) {
+      // Silently keep the static fallback content already in the DOM
+      console.warn('NekoSurf: could not load source.json —', err.message);
+    }
+  }
+
+  // ── Intersection Observer for reveal animations ────────────────
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(e => {
       if (e.isIntersecting) {
@@ -1228,6 +1272,9 @@
       ? 'rgba(8, 9, 13, 0.92)'
       : 'rgba(8, 9, 13, 0.7)';
   }, { passive: true });
+
+  // Kick off dynamic version load
+  loadVersionData();
 </script>
 
 </body>
