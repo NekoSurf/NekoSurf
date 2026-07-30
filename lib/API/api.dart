@@ -66,6 +66,11 @@ Future<List<Post>> fetchAllThreadsFromBoard(
         }
       }
 
+      // Always hoist sticky threads to the top, preserving their relative order
+      final stickyThreads = ops.where((p) => (p.sticky ?? 0) == 1).toList();
+      final nonStickyThreads = ops.where((p) => (p.sticky ?? 0) != 1).toList();
+      ops = [...stickyThreads, ...nonStickyThreads];
+
       if (searchValue != null) {
         ops = ops
             .where(

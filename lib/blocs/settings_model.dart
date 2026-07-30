@@ -13,6 +13,7 @@ class SettingsProvider with ChangeNotifier {
   ViewMode boardViewMode = ViewMode.grid;
   int watchedPostsRetentionDays = 7;
   bool autoScrollToLastSeen = false;
+  bool showStickyThreads = true;
 
   Future<void> loadPreferences() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -51,6 +52,10 @@ class SettingsProvider with ChangeNotifier {
         (element) => element.name == prefs.getString('boardViewMode'),
         orElse: () => ViewMode.grid,
       );
+    }
+
+    if (prefs.getBool('showStickyThreads') != null) {
+      showStickyThreads = prefs.getBool('showStickyThreads')!;
     }
 
     await prefs.remove('inlineMediaInThreadFeed');
@@ -129,6 +134,17 @@ class SettingsProvider with ChangeNotifier {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     boardViewMode = mode;
     prefs.setString('boardViewMode', mode.name);
+    notifyListeners();
+  }
+
+  bool getShowStickyThreads() {
+    return showStickyThreads;
+  }
+
+  Future<void> setShowStickyThreads(bool value) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    showStickyThreads = value;
+    prefs.setBool('showStickyThreads', value);
     notifyListeners();
   }
 }
