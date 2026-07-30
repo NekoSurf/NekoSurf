@@ -1,10 +1,14 @@
 {
+  "features" : [
+    "refractivity",
+    "specular-location"
+  ],
   "fill" : {
     "solid" : "display-p3:0.51875,0.80697,0.91781,1.00000"
   },
   "groups" : [
     {
-      "blur-material" : 0.5,
+      "blur-material" : null,
       "hidden-specializations" : [
         {
           "value" : false
@@ -51,17 +55,23 @@
       "lighting" : "individual",
       "name" : "Group",
       "opacity" : 1,
+      "refractivity" : {
+        "depth" : 0.5,
+        "enabled" : true,
+        "strength" : 0.14
+      },
       "shadow" : {
-        "kind" : "neutral",
+        "kind" : "none",
         "opacity" : 1
       },
-      "specular" : true,
+      "specular" : "inside",
       "translucency" : {
-        "enabled" : false,
+        "enabled" : true,
         "value" : 0.5
       }
     },
     {
+      "blend-mode" : "normal",
       "blur-material" : null,
       "hidden-specializations" : [
         {
@@ -96,6 +106,11 @@
           0
         ]
       },
+      "refractivity" : {
+        "depth" : 0.18,
+        "enabled" : true,
+        "strength" : 0.5
+      },
       "shadow" : {
         "kind" : "none",
         "opacity" : 0.5
@@ -124,11 +139,18 @@
           }
         }
       ],
+      "lighting" : "individual",
       "opacity" : 0.4,
+      "refractivity" : {
+        "depth" : 0,
+        "enabled" : false,
+        "strength" : 0.5
+      },
       "shadow" : {
         "kind" : "neutral",
         "opacity" : 0.5
       },
+      "specular" : true,
       "translucency" : {
         "enabled" : true,
         "value" : 0.5

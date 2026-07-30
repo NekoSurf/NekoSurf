@@ -120,6 +120,41 @@ class _GridPostState extends State<GridPost> {
                         ),
                       ),
                     ),
+                    if (widget.post.sticky == 1)
+                      Positioned(
+                        top: 10,
+                        left: 10,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: CupertinoColors.systemOrange.withValues(
+                              alpha: 0.65,
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(
+                                CupertinoIcons.pin,
+                                color: CupertinoColors.white,
+                                size: 12,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                'Sticky',
+                                style: TextStyle(
+                                  color: CupertinoColors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     Positioned(
                       top: 10,
                       right: 10,
@@ -192,6 +227,7 @@ class _GridPostState extends State<GridPost> {
                       replies: widget.post.replies,
                       imageReplies: widget.post.images,
                     ),
+
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,

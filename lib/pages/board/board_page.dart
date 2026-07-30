@@ -145,10 +145,14 @@ class BoardPageState extends State<BoardPage> {
   }
 
   Widget getBoardSliverView(List<Post> threads, SettingsProvider settings) {
+    final visibleThreads = settings.getShowStickyThreads()
+        ? threads
+        : threads.where((p) => (p.sticky ?? 0) != 1).toList();
+
     if (settings.getBoardViewMode() == ViewMode.list) {
-      return BoardListView(board: widget.board, threads: threads);
+      return BoardListView(board: widget.board, threads: visibleThreads);
     }
-    return BoardGridView(board: widget.board, threads: threads);
+    return BoardGridView(board: widget.board, threads: visibleThreads);
   }
 
   void _updateThreadsList(String value) {
@@ -229,7 +233,7 @@ class BoardPageState extends State<BoardPage> {
               menuAlignment: GlassMenuAlignment.bottomRight,
               autoAdjustToScreen: true,
               menuWidth: 250,
-              menuHeight: 300,
+              menuHeight: 350,
               items: [
                 GlassMenuItem(
                   title: 'Image Count',
@@ -286,10 +290,22 @@ class BoardPageState extends State<BoardPage> {
                       ? const Icon(Icons.check, color: Colors.green)
                       : null,
                 ),
+                const GlassDivider(),
+                GlassMenuItem(
+                  title: 'Show Sticky Threads',
+                  icon: const Icon(CupertinoIcons.pin),
+                  isDestructive: false,
+                  onTap: () => settings.setShowStickyThreads(
+                    !settings.getShowStickyThreads(),
+                  ),
+                  trailing: settings.getShowStickyThreads()
+                      ? const Icon(Icons.check, color: Colors.green)
+                      : null,
+                ),
               ],
               triggerBuilder: (ctx, toggle) => AdaptiveLiquidGlassLayer(
                 child: GlassButton(
-                  icon: const Icon(Icons.sort),
+                  icon: const Icon(CupertinoIcons.ellipsis_vertical),
                   onTap: toggle,
                   width: 40,
                   height: 40,
