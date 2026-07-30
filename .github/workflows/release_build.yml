@@ -24,7 +24,7 @@ on:
 jobs:
   build_ipa:
     name: Build iOS IPA
-    runs-on: macos-latest
+    runs-on: xcode-27
     if: ${{ github.event_name == 'release' || github.event.inputs.build_ios == 'true' }}
 
     steps:
@@ -34,7 +34,7 @@ jobs:
       - name: "🍎 Select Xcode"
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: "latest-stable"
+          xcode-version: latest
 
       - name: "🧩 Verify iOS SDK availability"
         run: |
