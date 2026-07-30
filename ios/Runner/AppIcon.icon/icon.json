@@ -8,7 +8,6 @@
   },
   "groups" : [
     {
-      "blur-material" : null,
       "hidden-specializations" : [
         {
           "value" : false
@@ -72,7 +71,6 @@
     },
     {
       "blend-mode" : "normal",
-      "blur-material" : null,
       "hidden-specializations" : [
         {
           "idiom" : "square",
@@ -122,7 +120,6 @@
       }
     },
     {
-      "blur-material" : null,
       "layers" : [
         {
           "fill" : "automatic",
