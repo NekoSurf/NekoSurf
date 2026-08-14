@@ -72,7 +72,13 @@ It is designed for smooth browsing with modern card-based layouts, media-first n
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=NekoSurf/NekoSurf&type=Date)](https://www.star-history.com/#NekoSurf/NekoSurf&Date)
+<a href="https://www.star-history.com/?repos=NekoSurf%2FNekoSurf&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=NekoSurf/NekoSurf&type=date&theme=dark&legend=top-left&sealed_token=U3_L-FBqdp6yqsv4JUQzq641fBwkyIRoLZlzMW0TlyopYzNk8m14tDjymo04PJYZ1ZHtTHTOeoZEPl6d82IGYKc2eHNdkw_s-yOC0aAdKcLE2e5vJixvmg" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=NekoSurf/NekoSurf&type=date&legend=top-left&sealed_token=U3_L-FBqdp6yqsv4JUQzq641fBwkyIRoLZlzMW0TlyopYzNk8m14tDjymo04PJYZ1ZHtTHTOeoZEPl6d82IGYKc2eHNdkw_s-yOC0aAdKcLE2e5vJixvmg" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=NekoSurf/NekoSurf&type=date&legend=top-left&sealed_token=U3_L-FBqdp6yqsv4JUQzq641fBwkyIRoLZlzMW0TlyopYzNk8m14tDjymo04PJYZ1ZHtTHTOeoZEPl6d82IGYKc2eHNdkw_s-yOC0aAdKcLE2e5vJixvmg" />
+ </picture>
+</a>
 
 ## TestFlight
 
