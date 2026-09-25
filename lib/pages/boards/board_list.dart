@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart';
@@ -18,6 +19,7 @@ import 'package:flutter_chan/pages/bookmarks/bookmarks.dart';
 import 'package:flutter_chan/pages/savedAttachments/saved_attachments.dart';
 import 'package:flutter_chan/pages/settings/settings.dart';
 import 'package:flutter_chan/pages/thread/thread_page.dart';
+import 'package:flutter_chan/services/update_checker.dart';
 import 'package:flutter_chan/widgets/reload.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:liquid_glass_widgets/widgets/shared/glass_page.dart';
@@ -60,6 +62,42 @@ class BoardListState extends State<BoardList> {
     super.initState();
 
     loadBoards();
+    if (Platform.isAndroid || Platform.isIOS) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _checkForUpdates());
+    }
+  }
+
+  Future<void> _checkForUpdates() async {
+    final updateUrl = await checkForAppUpdate();
+    if (!mounted || updateUrl == null) {
+      return;
+    }
+
+    await showCupertinoDialog<void>(
+      context: context,
+      builder: (dialogContext) => CupertinoAlertDialog(
+        title: const Text('Update available'),
+        content: Text(
+          Platform.isIOS
+              ? 'A newer version of NekoSurf is available on TestFlight.'
+              : 'A newer version of NekoSurf is available.',
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('Later'),
+            onPressed: () => Navigator.of(dialogContext).pop(),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            child: Text(Platform.isIOS ? 'Open TestFlight' : 'View release'),
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              launchURL(updateUrl.toString());
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   void loadBoards() {
