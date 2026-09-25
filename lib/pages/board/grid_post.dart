@@ -59,7 +59,7 @@ class _GridPostState extends State<GridPost> {
 
     isFavorite = bookmarks.getBookmarks().contains(favoriteString);
 
-    return InkWell(
+    return GestureDetector(
       onTap: () => {
         Navigator.of(context).push(
           MaterialPageRoute(

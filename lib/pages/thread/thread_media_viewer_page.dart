@@ -121,7 +121,18 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
   String _mediaUrl(Post post) =>
       'https://i.4cdn.org/${widget.board}/${post.tim}${post.ext}';
 
-  String _fileName(Post post) => '${post.tim}${post.ext}';
+  String _fileName(Post post) => '${post.filename}${post.ext}';
+  // `tim` is unique per upload; user-provided `filename` is not.
+  String _downloadName(Post post) => '${post.tim}${post.ext}';
+
+  bool _isPostSaved(SavedAttachmentsProvider provider, Post post) {
+    final String baseName = post.tim.toString();
+    return provider.getSavedAttachments().any(
+      (a) =>
+          getNameWithoutExtension(a.fileName?.split('/').last ?? '') ==
+          baseName,
+    );
+  }
 
   List<SharedMediaViewerItem> get _items {
     return widget.mediaPosts
@@ -147,28 +158,24 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
       return;
     }
     final savedAttachments = context.read<SavedAttachmentsProvider>();
-    final fileName = _fileName(_currentPost);
-    final alreadySaved = savedAttachments.getSavedAttachments().any(
-      (a) =>
-          a.fileName?.split('/').last.split('.').first ==
-          fileName.split('.').first,
-    );
-    if (alreadySaved) {
+    final downloadName = _downloadName(_currentPost);
+    if (_isPostSaved(savedAttachments, _currentPost)) {
       _showSaveConfirmation();
       return;
     }
     setState(() {
       _isSaving = true;
     });
-    await savedAttachments.addSavedAttachments(context, widget.board, fileName);
+    await savedAttachments.addSavedAttachments(
+      context,
+      widget.board,
+      _fileName(_currentPost),
+      downloadName,
+    );
     if (!mounted) {
       return;
     }
-    final saveSucceeded = savedAttachments.getSavedAttachments().any(
-      (a) =>
-          a.fileName?.split('/').last.split('.').first ==
-          fileName.split('.').first,
-    );
+    final saveSucceeded = _isPostSaved(savedAttachments, _currentPost);
     setState(() {
       _isSaving = false;
     });
@@ -185,7 +192,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
       _isRemoving = true;
     });
     await context.read<SavedAttachmentsProvider>().removeSavedAttachments(
-      _fileName(_currentPost),
+      _downloadName(_currentPost),
       context,
     );
     if (!mounted) {
@@ -261,12 +268,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
   @override
   Widget build(BuildContext context) {
     final savedAttachments = context.watch<SavedAttachmentsProvider>();
-    final fileName = _fileName(_currentPost);
-    final isSaved = savedAttachments.getSavedAttachments().any(
-      (a) =>
-          a.fileName?.split('/').last.split('.').first ==
-          fileName.split('.').first,
-    );
+    final isSaved = _isPostSaved(savedAttachments, _currentPost);
 
     return SharedMediaViewer(
       items: _items,

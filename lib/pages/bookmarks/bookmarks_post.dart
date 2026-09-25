@@ -109,7 +109,7 @@ class _BookmarksPostState extends State<BookmarksPost> {
               ),
             ],
           ),
-          child: InkWell(
+          child: GestureDetector(
             onTap: () {
               if (!isDeleted) {
                 Navigator.of(context).push(

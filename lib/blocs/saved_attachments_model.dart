@@ -62,22 +62,24 @@ class SavedAttachmentsProvider with ChangeNotifier {
     BuildContext context,
     String board,
     String fileName,
+    String downloadName,
   ) async {
-    final String nameWithoutExtension = fileName.substring(
+    final String nameWithoutExtension = downloadName.substring(
       0,
-      fileName.lastIndexOf('.'),
+      downloadName.lastIndexOf('.'),
     );
 
-    if (!_containsFileName(fileName)) {
+    if (!_containsFileName(downloadName)) {
       final SavedAttachment? savedAttachment = await saveAttachment(
-        'https://i.4cdn.org/$board/$fileName',
+        'https://i.4cdn.org/$board/$downloadName',
         'https://i.4cdn.org/$board/${nameWithoutExtension}s.jpg',
-        fileName,
+        downloadName,
         context,
         this,
       );
 
       if (savedAttachment != null) {
+        savedAttachment.originalName = fileName;
         final SharedPreferences prefs = await SharedPreferences.getInstance();
 
         list.add(json.encode(savedAttachment));
@@ -102,10 +104,10 @@ class SavedAttachmentsProvider with ChangeNotifier {
 
     list = [];
 
-    final String pathBaseName = path.split('.').first;
+    final String pathBaseName = getNameWithoutExtension(path);
 
     for (final element in savedAttachmentList) {
-      final String elementBaseName = element.fileName!.split('.').first;
+      final String elementBaseName = getNameWithoutExtension(element.fileName!);
 
       if (elementBaseName == pathBaseName) {
         newList.remove(element);
@@ -129,7 +131,8 @@ class SavedAttachmentsProvider with ChangeNotifier {
 
       final List<FileSystemEntity> entities = await directory.list().toList();
       for (final entity in entities) {
-        if (entity.path.contains(getNameWithoutExtension(path))) {
+        if (getNameWithoutExtension(entity.uri.pathSegments.last) ==
+            pathBaseName) {
           await entity.delete();
         }
       }
