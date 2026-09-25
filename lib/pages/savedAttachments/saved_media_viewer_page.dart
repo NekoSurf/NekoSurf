@@ -55,6 +55,10 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
     return attachment.fileName?.split('/').last ?? '';
   }
 
+  String _displayName(SavedAttachment attachment) {
+    return attachment.originalName ?? _fileName(attachment);
+  }
+
   String _filePath(SavedAttachment attachment) {
     final fileName = _fileName(attachment);
     return '${widget.directoryPath}/savedAttachments/$fileName';
@@ -175,7 +179,7 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
     return SharedMediaViewer(
       items: _items,
       initialIndex: _currentIndex,
-      mediaNameBuilder: (int index) => _fileName(_attachments[index]),
+      mediaNameBuilder: (int index) => _displayName(_attachments[index]),
       onClose: () => Navigator.of(context).maybePop(),
       onIndexChanged: (int index) {
         _downloadSuccessTimer?.cancel();

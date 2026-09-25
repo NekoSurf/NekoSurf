@@ -93,7 +93,7 @@ class _ListPostState extends State<ListPost> {
                 ),
               ],
             ),
-      child: InkWell(
+      child: GestureDetector(
         onTap: () => {
           Navigator.of(context).push(
             MaterialPageRoute(

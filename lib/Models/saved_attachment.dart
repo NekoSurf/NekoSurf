@@ -1,7 +1,12 @@
 enum SavedAttachmentType { Image, Video }
 
 class SavedAttachment {
-  SavedAttachment({this.savedAttachmentType, this.fileName, this.thumbnail});
+  SavedAttachment({
+    this.savedAttachmentType,
+    this.fileName,
+    this.thumbnail,
+    this.originalName,
+  });
 
   factory SavedAttachment.fromJson(Map<String, dynamic> json) {
     final String? fileName = json['fileName'] as String?;
@@ -13,18 +18,22 @@ class SavedAttachment {
       ),
       fileName: fileName,
       thumbnail: json['thumbnail'] as String?,
+      originalName: json['originalName'] as String?,
     );
   }
 
   SavedAttachmentType? savedAttachmentType;
   String? fileName;
   String? thumbnail;
+  // Uploader's filename, for display only; `fileName` is the unique on-disk name.
+  String? originalName;
 
   Map<String, dynamic> toJson() {
     return {
       'savedAttachmentType': savedAttachmentType?.name,
       'fileName': fileName,
       'thumbnail': thumbnail,
+      'originalName': originalName,
     };
   }
 

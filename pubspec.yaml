@@ -54,7 +54,7 @@ dependencies:
   country_flags: ^4.1.2
   saver_gallery: ^5.1.0
   ffmpeg_kit_extended_flutter: ^0.5.10
-  liquid_glass_widgets: ^0.22.1
+  liquid_glass_widgets: ^1.7.2
   flutter_native_splash: ^2.4.8
 
 dependency_overrides:

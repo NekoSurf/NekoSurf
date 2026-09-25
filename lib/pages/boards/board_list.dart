@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/api.dart';
@@ -329,6 +331,15 @@ class BoardListState extends State<BoardList> {
                 builder: (context, setDialogState) {
                   return GlassDialog(
                     title: 'Open Link',
+                    settings: LiquidGlassSettings(
+                      blur: 12,
+                      thickness: 5,
+                      ambientStrength: 0.5,
+                      lightIntensity: 0.6,
+                      lightAngle: 0.75 * math.pi,
+                      glassColor: CupertinoColors.white.withValues(alpha: 0.08),
+                    ),
+                    quality: GlassQuality.premium,
                     content: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,

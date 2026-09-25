@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
@@ -195,6 +196,52 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
         : _buildActions();
     final String mediaTitle = _resolveMediaTitle(itemCount);
 
+    void showFileInfo() {
+      GlassDialog.show(
+        context: context,
+        actions: [
+          GlassDialogAction(
+            label: 'Close',
+            onPressed: () => Navigator.pop(context),
+            isPrimary: true,
+          ),
+        ],
+        barrierDismissible: true,
+        barrierColor: Colors.black.withValues(alpha: 0.7),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const Text(
+              'File Information',
+              style: TextStyle(
+                color: CupertinoColors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Filename: $mediaTitle',
+              style: const TextStyle(
+                color: CupertinoColors.white,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+        settings: LiquidGlassSettings(
+          blur: 12,
+          thickness: 5,
+          ambientStrength: 0.5,
+          lightIntensity: 0.6,
+          lightAngle: 0.75 * math.pi,
+          glassColor: CupertinoColors.white.withValues(alpha: 0.08),
+        ),
+        quality: GlassQuality.premium,
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
@@ -251,24 +298,27 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 GlassButton(
-                  icon: const Icon(CupertinoIcons.back),
+                  icon: const Icon(CupertinoIcons.back, color: Colors.white),
                   onTap: widget.onClose,
                   width: 36,
                   height: 36,
                   iconSize: 18,
                 ),
                 Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                    child: Text(
-                      mediaTitle,
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                  child: GestureDetector(
+                    onTap: showFileInfo,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                      child: Text(
+                        mediaTitle,
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
@@ -285,7 +335,12 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
                       label: itemCount == 0
                           ? '0 / 0'
                           : '${_currentIndex + 1} / $itemCount',
-                      iconSize: 18,
+                      labelStyle: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      onTap: showFileInfo,
                     ),
                   ],
                 ),
