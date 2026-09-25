@@ -22,11 +22,20 @@
       ],
       "versions": [
         {
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.11.5-5/Runner.ipa",
+          "size": 32500000,
+          "version": "0.11.5",
+          "buildVersion": "275",
+          "date": "2026-09-25T23:00:00+02:00",
+          "localizedDescription": "Fix media files to display correctly; Adding an update checker on app launch.",
+          "minOSVersion": "17.6"
+        },
+        {
           "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.11.5-4/Runner.ipa",
           "size": 32500000,
           "version": "0.11.5",
           "buildVersion": "256",
-          "date": "2026-07-30T46:00:00+02:00",
+          "date": "2026-07-30T16:00:00+02:00",
           "localizedDescription": "Add sticky threads functionality.",
           "minOSVersion": "17.6"
         },
