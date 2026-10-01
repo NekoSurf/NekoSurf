@@ -8,16 +8,8 @@ import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/enums/enums.dart';
 import 'package:flutter_chan/pages/board/grid_view.dart';
 import 'package:flutter_chan/pages/board/list_view.dart';
+import 'package:flutter_chan/widgets/cupertino_menu.dart';
 import 'package:flutter_chan/widgets/reload.dart';
-import 'package:liquid_glass_widgets/widgets/containers/glass_divider.dart';
-import 'package:liquid_glass_widgets/widgets/input/glass_search_bar.dart';
-import 'package:liquid_glass_widgets/widgets/interactive/glass_button.dart';
-import 'package:liquid_glass_widgets/widgets/overlays/glass_menu.dart';
-import 'package:liquid_glass_widgets/widgets/overlays/glass_menu_item.dart';
-import 'package:liquid_glass_widgets/widgets/shared/adaptive_liquid_glass_layer.dart';
-import 'package:liquid_glass_widgets/widgets/surfaces/glass_app_bar.dart';
-import 'package:liquid_glass_widgets/widgets/surfaces/glass_large_title.dart';
-import 'package:liquid_glass_widgets/widgets/surfaces/glass_scaffold.dart';
 import 'package:provider/provider.dart';
 
 class BoardPage extends StatefulWidget {
@@ -33,7 +25,6 @@ class BoardPage extends StatefulWidget {
 
 class BoardPageState extends State<BoardPage> {
   final TextEditingController _searchBarController = TextEditingController();
-  final _titleController = GlassLargeTitleController();
 
   List<Post> filteredBoards = [];
   bool _isLoading = true;
@@ -57,7 +48,6 @@ class BoardPageState extends State<BoardPage> {
   @override
   void dispose() {
     _searchBarController.dispose();
-    _titleController.dispose();
     super.dispose();
   }
 
@@ -162,7 +152,9 @@ class BoardPageState extends State<BoardPage> {
       searchValue: value,
       direction: sortDirection,
     ).then((result) {
-      if (mounted) setState(() => filteredBoards = result);
+      if (mounted) {
+        setState(() => filteredBoards = result);
+      }
     });
   }
 
@@ -173,169 +165,102 @@ class BoardPageState extends State<BoardPage> {
 
     isFavorite = favorites.getFavorites().contains(widget.board);
 
-    return GlassScaffold(
+    return CupertinoPageScaffold(
       backgroundColor: AppColors.pageBackground(
         Theme.of(context).brightness == Brightness.dark,
       ),
-      appBar: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12.0),
-        child: GlassAppBar(
-          title: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: Text(
-              '/${widget.board}/ - ${widget.boardName}',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                overflow: TextOverflow.ellipsis,
-                color: CupertinoColors.label.resolveFrom(context),
-              ),
-            ),
-          ),
-          largeTitleController: _titleController,
-          leading: GlassButton(
-            icon: const Icon(CupertinoIcons.back),
-            onTap: () => Navigator.of(context).pop(),
-            width: 40,
-            height: 40,
-            iconSize: 20,
-          ),
-          actions: [
-            GlassButton(
-              icon: Icon(
-                isFavorite ? Icons.star_rate : Icons.star_outline,
-                color: CupertinoColors.systemYellow,
-              ),
-              onTap: () => isFavorite
-                  ? favorites.removeFavorites(widget.board)
-                  : favorites.addFavorites(widget.board),
-              width: 40,
-              height: 40,
-              iconSize: 20,
-            ),
-            GlassButton(
-              icon: Icon(
-                settings.getBoardViewMode() == ViewMode.grid
-                    ? Icons.view_list
-                    : Icons.grid_view,
-              ),
-              onTap: () {
-                final nextMode = settings.getBoardViewMode() == ViewMode.grid
-                    ? ViewMode.list
-                    : ViewMode.grid;
-                settings.setBoardViewMode(nextMode);
-              },
-              width: 40,
-              height: 40,
-              iconSize: 20,
-            ),
-            GlassMenu(
-              menuAlignment: GlassMenuAlignment.bottomRight,
-              autoAdjustToScreen: true,
-              menuWidth: 250,
-              menuHeight: 350,
-              items: [
-                GlassMenuItem(
-                  title: 'Image Count',
-                  icon: const Icon(CupertinoIcons.photo),
-                  isDestructive: false,
-                  onTap: () => setSort(Sort.byImagesCount, settings),
-                  trailing: sort == Sort.byImagesCount
-                      ? const Icon(Icons.check, color: Colors.green)
-                      : null,
-                ),
-                GlassMenuItem(
-                  title: 'Reply Count',
-                  icon: const Icon(CupertinoIcons.text_bubble),
-                  isDestructive: false,
-                  onTap: () => setSort(Sort.byReplyCount, settings),
-                  trailing: sort == Sort.byReplyCount
-                      ? const Icon(Icons.check, color: Colors.green)
-                      : null,
-                ),
-                GlassMenuItem(
-                  title: 'Bump Order',
-                  icon: const Icon(CupertinoIcons.arrow_up_arrow_down),
-                  isDestructive: false,
-                  onTap: () => setSort(Sort.byBumpOrder, settings),
-                  trailing: sort == Sort.byBumpOrder
-                      ? const Icon(Icons.check, color: Colors.green)
-                      : null,
-                ),
-                GlassMenuItem(
-                  title: 'Newest',
-                  icon: const Icon(CupertinoIcons.clock),
-                  isDestructive: false,
-                  onTap: () => setSort(Sort.byNewest, settings),
-                  trailing: sort == Sort.byNewest
-                      ? const Icon(Icons.check, color: Colors.green)
-                      : null,
-                ),
-                const GlassDivider(),
-                GlassMenuItem(
-                  title: 'Descending',
-                  icon: const Icon(Icons.arrow_downward),
-                  isDestructive: false,
-                  onTap: () => setSortDirection(SortDirection.desc, settings),
-                  trailing: sortDirection == SortDirection.desc
-                      ? const Icon(Icons.check, color: Colors.green)
-                      : null,
-                ),
-                GlassMenuItem(
-                  title: 'Ascending',
-                  icon: const Icon(Icons.arrow_upward),
-                  isDestructive: false,
-                  onTap: () => setSortDirection(SortDirection.asc, settings),
-                  trailing: sortDirection == SortDirection.asc
-                      ? const Icon(Icons.check, color: Colors.green)
-                      : null,
-                ),
-                const GlassDivider(),
-                GlassMenuItem(
-                  title: 'Show Sticky Threads',
-                  icon: const Icon(CupertinoIcons.pin),
-                  isDestructive: false,
-                  onTap: () => settings.setShowStickyThreads(
-                    !settings.getShowStickyThreads(),
-                  ),
-                  trailing: settings.getShowStickyThreads()
-                      ? const Icon(Icons.check, color: Colors.green)
-                      : null,
-                ),
-              ],
-              triggerBuilder: (ctx, toggle) => AdaptiveLiquidGlassLayer(
-                child: GlassButton(
-                  icon: const Icon(CupertinoIcons.ellipsis_vertical),
-                  onTap: toggle,
-                  width: 40,
-                  height: 40,
-                  iconSize: 20,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-      body: CustomScrollView(
-        controller: _titleController.scrollController,
+      child: CustomScrollView(
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         slivers: [
-          SliverToBoxAdapter(
-            child: SizedBox(height: MediaQuery.paddingOf(context).top + 44 + 8),
-          ),
-
-          GlassLargeTitle(
-            text: '/${widget.board}/ - ${widget.boardName}',
-            controller: _titleController,
+          CupertinoSliverNavigationBar(
+            largeTitle: Text('/${widget.board}/ - ${widget.boardName}'),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CupertinoIconButton(
+                  icon: isFavorite
+                      ? CupertinoIcons.heart_fill
+                      : CupertinoIcons.heart,
+                  color: CupertinoColors.systemRed,
+                  onPressed: () => isFavorite
+                      ? favorites.removeFavorites(widget.board)
+                      : favorites.addFavorites(widget.board),
+                ),
+                CupertinoIconButton(
+                  icon: settings.getBoardViewMode() == ViewMode.grid
+                      ? CupertinoIcons.list_bullet
+                      : CupertinoIcons.square_grid_2x2,
+                  onPressed: () {
+                    final nextMode =
+                        settings.getBoardViewMode() == ViewMode.grid
+                        ? ViewMode.list
+                        : ViewMode.grid;
+                    settings.setBoardViewMode(nextMode);
+                  },
+                ),
+                CupertinoMenuButton(
+                  icon: CupertinoIcons.ellipsis_circle,
+                  menuChildren: [
+                    buildMenuItem(
+                      title: 'Image Count',
+                      icon: CupertinoIcons.photo,
+                      isSelected: sort == Sort.byImagesCount,
+                      onPressed: () => setSort(Sort.byImagesCount, settings),
+                    ),
+                    buildMenuItem(
+                      title: 'Reply Count',
+                      icon: CupertinoIcons.text_bubble,
+                      isSelected: sort == Sort.byReplyCount,
+                      onPressed: () => setSort(Sort.byReplyCount, settings),
+                    ),
+                    buildMenuItem(
+                      title: 'Bump Order',
+                      icon: CupertinoIcons.arrow_up_arrow_down,
+                      isSelected: sort == Sort.byBumpOrder,
+                      onPressed: () => setSort(Sort.byBumpOrder, settings),
+                    ),
+                    buildMenuItem(
+                      title: 'Newest',
+                      icon: CupertinoIcons.clock,
+                      isSelected: sort == Sort.byNewest,
+                      onPressed: () => setSort(Sort.byNewest, settings),
+                    ),
+                    const CupertinoMenuDivider(),
+                    buildMenuItem(
+                      title: 'Descending',
+                      icon: CupertinoIcons.arrow_down,
+                      isSelected: sortDirection == SortDirection.desc,
+                      onPressed: () =>
+                          setSortDirection(SortDirection.desc, settings),
+                    ),
+                    buildMenuItem(
+                      title: 'Ascending',
+                      icon: CupertinoIcons.arrow_up,
+                      isSelected: sortDirection == SortDirection.asc,
+                      onPressed: () =>
+                          setSortDirection(SortDirection.asc, settings),
+                    ),
+                    const CupertinoMenuDivider(),
+                    buildMenuItem(
+                      title: 'Show Sticky Threads',
+                      icon: CupertinoIcons.pin,
+                      isSelected: settings.getShowStickyThreads(),
+                      onPressed: () => settings.setShowStickyThreads(
+                        !settings.getShowStickyThreads(),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
 
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12.0),
-              child: GlassSearchBar(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: CupertinoSearchTextField(
                 controller: _searchBarController,
                 onChanged: _updateThreadsList,
-                useOwnLayer: true,
               ),
             ),
           ),

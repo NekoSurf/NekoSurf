@@ -11,13 +11,8 @@ import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/pages/bookmark_button.dart';
 import 'package:flutter_chan/pages/thread/thread_page_post.dart';
 import 'package:flutter_chan/services/string.dart';
+import 'package:flutter_chan/widgets/cupertino_menu.dart';
 import 'package:flutter_chan/widgets/reload.dart';
-import 'package:liquid_glass_widgets/widgets/interactive/glass_button.dart';
-import 'package:liquid_glass_widgets/widgets/overlays/glass_menu.dart';
-import 'package:liquid_glass_widgets/widgets/overlays/glass_menu_item.dart';
-import 'package:liquid_glass_widgets/widgets/shared/adaptive_liquid_glass_layer.dart';
-import 'package:liquid_glass_widgets/widgets/surfaces/glass_app_bar.dart';
-import 'package:liquid_glass_widgets/widgets/surfaces/glass_scaffold.dart';
 import 'package:provider/provider.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:share_plus/share_plus.dart';
@@ -358,64 +353,48 @@ class ThreadPageState extends State<ThreadPage> {
 
   @override
   Widget build(BuildContext context) {
-    return GlassScaffold(
+    return CupertinoPageScaffold(
       backgroundColor: AppColors.pageBackground(
         Theme.of(context).brightness == Brightness.dark,
       ),
-      appBar: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12.0),
-        child: GlassAppBar(
-          title: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: Text(
-              unescape(cleanTags(widget.threadName)),
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                overflow: TextOverflow.ellipsis,
-                color: CupertinoColors.label.resolveFrom(context),
-              ),
-            ),
-          ),
-          leading: GlassButton(
-            icon: const Icon(CupertinoIcons.back),
-            onTap: () => Navigator.of(context).pop(),
-            width: 40,
-            height: 40,
-            iconSize: 20,
-          ),
-          actions: [
+      navigationBar: CupertinoNavigationBar(
+        middle: Text(
+          unescape(cleanTags(widget.threadName)),
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
             BookmarkButton(favorite: favorite),
-            GlassMenu(
-              menuAlignment: GlassMenuAlignment.bottomRight,
-              autoAdjustToScreen: true,
-              menuWidth: 250,
-              items: [
-                GlassMenuItem(
+            CupertinoMenuButton(
+              icon: CupertinoIcons.ellipsis_circle,
+              menuChildren: [
+                buildMenuItem(
                   title: 'Share',
-                  icon: const Icon(CupertinoIcons.share),
-                  isDestructive: false,
-                  onTap: () {
-                    Share.share(
-                      'https://boards.4chan.org/${widget.board}/thread/${widget.thread}',
+                  icon: CupertinoIcons.share,
+                  onPressed: () {
+                    SharePlus.instance.share(
+                      ShareParams(
+                        uri: Uri.parse(
+                          'https://boards.4chan.org/${widget.board}/thread/${widget.thread}',
+                        ),
+                      ),
                     );
                   },
                 ),
-                GlassMenuItem(
+                buildMenuItem(
                   title: 'Open in Browser',
-                  icon: const Icon(CupertinoIcons.globe),
-                  isDestructive: false,
-                  onTap: () {
+                  icon: CupertinoIcons.globe,
+                  onPressed: () {
                     launchURL(
                       'https://boards.4chan.org/${widget.board}/thread/${widget.thread}',
                     );
                   },
                 ),
-                GlassMenuItem(
+                buildMenuItem(
                   title: 'Scroll to Top',
-                  icon: const Icon(CupertinoIcons.arrow_up),
-                  isDestructive: false,
-                  onTap: () {
+                  icon: CupertinoIcons.arrow_up,
+                  onPressed: () {
                     if (itemScrollController.isAttached) {
                       itemScrollController.scrollTo(
                         index: 0,
@@ -426,11 +405,10 @@ class ThreadPageState extends State<ThreadPage> {
                     }
                   },
                 ),
-                GlassMenuItem(
+                buildMenuItem(
                   title: 'Scroll to Bottom',
-                  icon: const Icon(CupertinoIcons.arrow_down),
-                  isDestructive: false,
-                  onTap: () {
+                  icon: CupertinoIcons.arrow_down,
+                  onPressed: () {
                     if (itemScrollController.isAttached) {
                       itemScrollController.scrollTo(
                         index: allPosts.length - 1,
@@ -442,20 +420,11 @@ class ThreadPageState extends State<ThreadPage> {
                   },
                 ),
               ],
-              triggerBuilder: (ctx, toggle) => AdaptiveLiquidGlassLayer(
-                child: GlassButton(
-                  icon: const Icon(Icons.more_vert),
-                  onTap: toggle,
-                  width: 40,
-                  height: 40,
-                  iconSize: 20,
-                ),
-              ),
             ),
           ],
         ),
       ),
-      body: FutureBuilder(
+      child: FutureBuilder(
         future: _fetchAllPostsFromThread,
         builder: (BuildContext context, AsyncSnapshot<List<Post>> snapshot) {
           switch (snapshot.connectionState) {
@@ -486,7 +455,7 @@ class ThreadPageState extends State<ThreadPage> {
                   itemBuilder: (context, index) => Padding(
                     padding: EdgeInsets.only(
                       top: index == 0
-                          ? MediaQuery.paddingOf(context).top + 44 + 8
+                          ? MediaQuery.paddingOf(context).top + 8
                           : 0,
                     ),
                     child: ThreadPagePost(

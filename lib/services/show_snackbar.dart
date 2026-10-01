@@ -20,9 +20,7 @@ Future<dynamic> showCupertinoSnackbar(
             Navigator.of(context).pop(true);
           }
         },
-        child: CupertinoAlertDialog(
-          title: Text(message),
-        ),
+        child: CupertinoAlertDialog(title: Text(message)),
       );
     },
   );

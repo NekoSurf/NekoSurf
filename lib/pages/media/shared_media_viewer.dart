@@ -1,13 +1,8 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
-import 'package:liquid_glass_widgets/widgets/containers/glass_card.dart';
-import 'package:liquid_glass_widgets/widgets/interactive/glass_button.dart';
-import 'package:liquid_glass_widgets/widgets/interactive/glass_chip.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
@@ -197,48 +192,23 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
     final String mediaTitle = _resolveMediaTitle(itemCount);
 
     void showFileInfo() {
-      GlassDialog.show(
+      showCupertinoDialog<void>(
         context: context,
-        actions: [
-          GlassDialogAction(
-            label: 'Close',
-            onPressed: () => Navigator.pop(context),
-            isPrimary: true,
-          ),
-        ],
         barrierDismissible: true,
-        barrierColor: Colors.black.withValues(alpha: 0.7),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const Text(
-              'File Information',
-              style: TextStyle(
-                color: CupertinoColors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Filename: $mediaTitle',
-              style: const TextStyle(
-                color: CupertinoColors.white,
-                fontSize: 14,
-              ),
+        builder: (dialogContext) => CupertinoAlertDialog(
+          title: const Text('File Information'),
+          content: Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text('Filename: $mediaTitle'),
+          ),
+          actions: [
+            CupertinoDialogAction(
+              isDefaultAction: true,
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Close'),
             ),
           ],
         ),
-        settings: LiquidGlassSettings(
-          blur: 12,
-          thickness: 5,
-          ambientStrength: 0.5,
-          lightIntensity: 0.6,
-          lightAngle: 0.75 * math.pi,
-          glassColor: CupertinoColors.white.withValues(alpha: 0.08),
-        ),
-        quality: GlassQuality.premium,
       );
     }
 
@@ -297,12 +267,13 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                GlassButton(
-                  icon: const Icon(CupertinoIcons.back, color: Colors.white),
-                  onTap: widget.onClose,
-                  width: 36,
-                  height: 36,
-                  iconSize: 18,
+                _OverlayButton(
+                  onPressed: widget.onClose,
+                  child: const Icon(
+                    CupertinoIcons.back,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                 ),
                 Expanded(
                   child: GestureDetector(
@@ -331,16 +302,19 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
                       const SizedBox(width: 8),
                     ],
 
-                    GlassChip(
-                      label: itemCount == 0
-                          ? '0 / 0'
-                          : '${_currentIndex + 1} / $itemCount',
-                      labelStyle: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                    _OverlayButton(
+                      onPressed: showFileInfo,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        itemCount == 0
+                            ? '0 / 0'
+                            : '${_currentIndex + 1} / $itemCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                      onTap: showFileInfo,
                     ),
                   ],
                 ),
@@ -495,8 +469,9 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
         ? null
         : action.onPressed;
 
-    return GlassButton(
-      icon: action.isBusy
+    return _OverlayButton(
+      onPressed: onPressed,
+      child: action.isBusy
           ? const CupertinoActivityIndicator(radius: 9)
           : Icon(
               action.isCompleted && action.completedIcon != null
@@ -505,10 +480,31 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
               color: Colors.white,
               size: 18,
             ),
-      onTap: onPressed ?? () {},
-      width: 36,
-      height: 36,
-      iconSize: 18,
+    );
+  }
+}
+
+class _OverlayButton extends StatelessWidget {
+  const _OverlayButton({
+    required this.onPressed,
+    required this.child,
+    this.padding = EdgeInsets.zero,
+  });
+
+  final VoidCallback? onPressed;
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoButton(
+      padding: padding,
+      minimumSize: const Size(36, 36),
+      color: Colors.black.withValues(alpha: 0.45),
+      disabledColor: Colors.black.withValues(alpha: 0.45),
+      borderRadius: BorderRadius.circular(18),
+      onPressed: onPressed,
+      child: child,
     );
   }
 }
@@ -894,8 +890,12 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
           bottom: 0,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(8, 8, 8, 14),
-            child: GlassCard(
+            child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.45),
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Row(
                 children: [
                   CupertinoButton(

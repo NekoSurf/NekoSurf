@@ -71,10 +71,6 @@ class Board {
   final int? customSpoilers;
 
   Map<String, dynamic> toJson() {
-    return {
-      'board': board,
-      'title': title,
-      'ws_board': wsBoard,
-    };
+    return {'board': board, 'title': title, 'ws_board': wsBoard};
   }
 }
