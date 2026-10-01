@@ -55,7 +55,7 @@ dependencies:
   saver_gallery: ^5.1.0
   ffmpeg_kit_extended_flutter: ^0.5.10
   flutter_native_splash: ^2.4.8
-
+  liquid_glass_widgets: ^1.8.1
 dependency_overrides:
   media_kit:
     git:

@@ -21,6 +21,10 @@ import 'package:flutter_chan/pages/thread/thread_page.dart';
 import 'package:flutter_chan/services/update_checker.dart';
 import 'package:flutter_chan/widgets/cupertino_menu.dart';
 import 'package:flutter_chan/widgets/reload.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:liquid_glass_widgets/types/glass_quality.dart';
+import 'package:liquid_glass_widgets/widgets/surfaces/glass_scaffold.dart';
+import 'package:liquid_glass_widgets/widgets/surfaces/glass_tab_bar.dart';
 import 'package:provider/provider.dart';
 
 class BoardList extends StatefulWidget {
@@ -35,11 +39,14 @@ class BoardListState extends State<BoardList> {
   TextEditingController controller = TextEditingController();
   final TextEditingController _searchBarController = TextEditingController();
 
+  final _titleController = GlassLargeTitleController();
+
   int currentIndex = 0;
 
   @override
   void dispose() {
     _searchBarController.dispose();
+    _titleController.dispose();
     controller.dispose();
     super.dispose();
   }
@@ -219,11 +226,20 @@ class BoardListState extends State<BoardList> {
       return 'NekoSurf';
     }
 
-    Widget buildPageContent(Widget navigationBar) {
+    Widget buildPageContent() {
       return CustomScrollView(
+        controller: _titleController.scrollController,
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         slivers: [
-          navigationBar,
+          SliverToBoxAdapter(
+            child: SizedBox(height: MediaQuery.paddingOf(context).top + 52),
+          ),
+
+          GlassLargeTitle(
+            text: buildTitle(),
+            controller: _titleController,
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+          ),
 
           if (currentIndex == 0)
             SliverList(
@@ -341,75 +357,72 @@ class BoardListState extends State<BoardList> {
       );
     }
 
-    Widget? buildLeadingButton() {
-      if (currentIndex == 0) {
-        return CupertinoIconButton(
-          icon: CupertinoIcons.link,
-          onPressed: () {
-            showWarning = false;
-
-            showCupertinoDialog<void>(
-              context: context,
-              barrierDismissible: true,
-              builder: (context) => StatefulBuilder(
-                builder: (context, setDialogState) {
-                  return CupertinoAlertDialog(
-                    title: const Text('Open Link'),
-                    content: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 10),
-                        Visibility(
-                          visible: showWarning,
-                          child: Column(
-                            children: [
-                              Text(
-                                warningText,
-                                style: const TextStyle(
-                                  color: CupertinoColors.systemRed,
-                                ),
-                              ),
-                              const SizedBox(height: 5),
-                            ],
-                          ),
-                        ),
-                        CupertinoTextField(
-                          controller: controller,
-                          placeholder: 'Insert Thread URL',
-                        ),
-                      ],
-                    ),
-                    actions: [
-                      CupertinoDialogAction(
-                        child: const Text('Cancel'),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                      CupertinoDialogAction(
-                        isDefaultAction: true,
-                        child: const Text('Open'),
-                        onPressed: () => openURL(setDialogState),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            );
-          },
-        );
-      } else {
-        return null;
-      }
-    }
-
     List<Widget> buildActions() {
       final savedAttachments = Provider.of<SavedAttachmentsProvider>(context);
       final bookmarks = Provider.of<BookmarksProvider>(context);
 
-      if (currentIndex == 1) {
+      if (currentIndex == 0) {
+        return [
+          GlassIconButton(
+            icon: const Icon(CupertinoIcons.link),
+            onPressed: () {
+              showWarning = false;
+
+              showCupertinoDialog<void>(
+                context: context,
+                barrierDismissible: true,
+                builder: (context) => StatefulBuilder(
+                  builder: (context, setDialogState) {
+                    return CupertinoAlertDialog(
+                      title: const Text('Open Link'),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 10),
+                          Visibility(
+                            visible: showWarning,
+                            child: Column(
+                              children: [
+                                Text(
+                                  warningText,
+                                  style: const TextStyle(
+                                    color: CupertinoColors.systemRed,
+                                  ),
+                                ),
+                                const SizedBox(height: 5),
+                              ],
+                            ),
+                          ),
+                          CupertinoTextField(
+                            controller: controller,
+                            placeholder: 'Insert Thread URL',
+                          ),
+                        ],
+                      ),
+                      actions: [
+                        CupertinoDialogAction(
+                          child: const Text('Cancel'),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                        CupertinoDialogAction(
+                          isDefaultAction: true,
+                          child: const Text('Open'),
+                          onPressed: () => openURL(setDialogState),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+        ];
+      } else if (currentIndex == 1) {
         return [
           CupertinoMenuButton(
-            icon: CupertinoIcons.ellipsis_circle,
+            glassIcon: const Icon(CupertinoIcons.ellipsis_circle),
+            isGlass: true,
             menuChildren: [
               buildMenuItem(
                 title: 'Clear attachments',
@@ -424,6 +437,8 @@ class BoardListState extends State<BoardList> {
       } else if (currentIndex == 2) {
         return [
           CupertinoMenuButton(
+            glassIcon: const Icon(CupertinoIcons.sort_down),
+            isGlass: true,
             icon: CupertinoIcons.sort_down,
             menuChildren: [
               buildMenuItem(
@@ -439,6 +454,8 @@ class BoardListState extends State<BoardList> {
             ],
           ),
           CupertinoMenuButton(
+            glassIcon: const Icon(CupertinoIcons.ellipsis_circle),
+            isGlass: true,
             icon: CupertinoIcons.ellipsis_circle,
             menuChildren: [
               buildMenuItem(
@@ -455,53 +472,57 @@ class BoardListState extends State<BoardList> {
       }
     }
 
-    return CupertinoPageScaffold(
+    return GlassScaffold(
       backgroundColor: AppColors.pageBackground(
         Theme.of(context).brightness == Brightness.dark,
       ),
-      child: Stack(
-        children: [
-          buildPageContent(
-            CupertinoSliverNavigationBar(
-              largeTitle: Text(buildTitle()),
-              leading: buildLeadingButton(),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: buildActions(),
-              ),
-            ),
+      appBar: GlassAppBar(
+        toolbarHeight: 52,
+        title: Text(
+          buildTitle(),
+          style: TextStyle(
+            color: CupertinoColors.label.resolveFrom(context),
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
           ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: CupertinoTabBar(
-              currentIndex: currentIndex,
-              onTap: (index) => setState(() {
-                currentIndex = index;
-              }),
-              items: const [
-                BottomNavigationBarItem(
-                  icon: Icon(CupertinoIcons.square_grid_2x2_fill),
-                  label: 'Boards',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(CupertinoIcons.paperclip),
-                  label: 'Attachments',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(CupertinoIcons.bookmark_fill),
-                  label: 'Bookmarks',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(CupertinoIcons.settings),
-                  label: 'Settings',
-                ),
-              ],
-            ),
-          ),
-        ],
+        ),
+        largeTitleController: _titleController,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        actions: buildActions(),
       ),
+      bottomBar: GlassTabBar.bottom(
+        settings: LiquidGlassSettings(
+          glassColor: CupertinoTheme.of(context).brightness == Brightness.dark
+              ? const Color(0xAA1C1C1E)
+              : const Color(0xAAF2F2F7),
+          thickness: 30,
+          blur: 2,
+          chromaticAberration: .01,
+          lightAngle: GlassDefaults.lightAngle,
+          lightIntensity: 0.2,
+          ambientStrength: 0,
+          refractiveIndex: 1.2,
+          fresnelStrength: 0.0,
+          saturation: 1.2,
+          specularSharpness: GlassSpecularSharpness.medium,
+        ),
+        quality: GlassQuality.premium,
+        tabs: const [
+          GlassTab(
+            icon: Icon(CupertinoIcons.square_grid_2x2_fill),
+            label: 'Boards',
+          ),
+          GlassTab(icon: Icon(CupertinoIcons.paperclip), label: 'Attachments'),
+          GlassTab(
+            icon: Icon(CupertinoIcons.bookmark_fill),
+            label: 'Bookmarks',
+          ),
+          GlassTab(icon: Icon(CupertinoIcons.settings), label: 'Settings'),
+        ],
+        selectedIndex: currentIndex,
+        onTabSelected: (i) => setState(() => currentIndex = i),
+      ),
+      body: buildPageContent(),
     );
   }
 }

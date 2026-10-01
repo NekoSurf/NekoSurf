@@ -1,24 +1,35 @@
 import 'package:flutter/cupertino.dart';
+import 'package:liquid_glass_widgets/widgets/interactive/glass_icon_button.dart';
 
 class CupertinoMenuButton extends StatelessWidget {
   const CupertinoMenuButton({
     super.key,
-    required this.icon,
+    this.icon = CupertinoIcons.ellipsis_circle,
+    this.glassIcon = const Icon(CupertinoIcons.ellipsis_circle),
     required this.menuChildren,
+    this.isGlass = false,
   });
 
   final IconData icon;
+  final Icon glassIcon;
   final List<Widget> menuChildren;
+  final bool isGlass;
 
   @override
   Widget build(BuildContext context) {
     return CupertinoMenuAnchor(
       menuChildren: menuChildren,
-      builder: (context, controller, _) => CupertinoIconButton(
-        icon: icon,
-        onPressed: () =>
-            controller.isOpen ? controller.close() : controller.open(),
-      ),
+      builder: (context, controller, _) => isGlass
+          ? GlassIconButton(
+              icon: glassIcon,
+              onPressed: () =>
+                  controller.isOpen ? controller.close() : controller.open(),
+            )
+          : CupertinoIconButton(
+              icon: icon,
+              onPressed: () =>
+                  controller.isOpen ? controller.close() : controller.open(),
+            ),
     );
   }
 }
