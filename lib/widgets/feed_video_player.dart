@@ -1,7 +1,7 @@
 import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_chan/widgets/feed_player_pool.dart';
 import 'package:liquid_glass_widgets/widgets/interactive/glass_button.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -14,14 +14,12 @@ class FeedVideoPlayer extends StatefulWidget {
     required this.thumbnailUrl,
     required this.aspectRatio,
     this.eagerInitialize = false,
-    this.pool,
   });
 
   final String videoUrl;
   final String thumbnailUrl;
   final double aspectRatio;
   final bool eagerInitialize;
-  final FeedPlayerPool? pool;
 
   @override
   State<FeedVideoPlayer> createState() => _FeedVideoPlayerState();
@@ -34,7 +32,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
   Player? _player;
   VideoController? _controller;
-  FeedPlayerPoolLease? _poolLease;
   bool _isDisposing = false;
   int _opToken = 0;
 
@@ -101,24 +98,8 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
     final token = ++_opToken;
 
-    // Try to borrow from pool; fall back to creating a new player.
-    Player player;
-    VideoController controller;
-    FeedPlayerPoolLease? lease;
-
-    final pool = widget.pool;
-    if (pool != null) {
-      lease = pool.acquire(source: widget.videoUrl);
-    }
-
-    if (lease != null) {
-      player = lease.player;
-      controller = lease.controller;
-      _poolLease = lease;
-    } else {
-      player = Player();
-      controller = VideoController(player);
-    }
+    final player = Player();
+    final controller = VideoController(player);
 
     _player = player;
     _controller = controller;
@@ -136,20 +117,15 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
           token != _opToken ||
           _player != player ||
           (!_visible && !allowHiddenWarmup);
+
       if (shouldAbortOpen) {
-        final abortLease = _poolLease;
         if (_player == player) {
           _player = null;
           _controller = null;
-          _poolLease = null;
         }
-        if (abortLease != null) {
-          await abortLease.release();
-        } else {
-          try {
-            await player.dispose();
-          } catch (_) {}
-        }
+        try {
+          await player.dispose();
+        } catch (_) {}
         return;
       }
 
@@ -220,24 +196,18 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       }
     } catch (_) {
       // keep it simple: fail silently for feed
-      final currentLease = _poolLease;
       if (_player == player) {
         _player = null;
         _controller = null;
-        _poolLease = null;
       }
       _positionSub?.cancel();
       _positionSub = null;
       _durationSub?.cancel();
       _durationSub = null;
 
-      if (currentLease != null) {
-        await currentLease.release();
-      } else if (player != null) {
-        try {
-          await player.dispose();
-        } catch (_) {}
-      }
+      try {
+        await player.dispose();
+      } catch (_) {}
     }
   }
 
@@ -252,14 +222,11 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     ++_opToken;
 
     final player = _player;
-    final lease = _poolLease;
-
     final positionSub = _positionSub;
     final durationSub = _durationSub;
 
     _player = null;
     _controller = null;
-    _poolLease = null;
     _positionSub = null;
     _durationSub = null;
 
@@ -278,9 +245,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     await positionSub?.cancel();
     await durationSub?.cancel();
 
-    if (lease != null) {
-      await lease.release();
-    } else if (player != null) {
+    if (player != null) {
       try {
         await player.pause();
         await player.dispose();
@@ -392,14 +357,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                 Positioned(
                   bottom: 8,
                   left: 8,
-                  child: GlassButton(
-                    icon: Icon(
-                      _isMuted
-                          ? CupertinoIcons.volume_off
-                          : CupertinoIcons.volume_up,
-                      color: Colors.white,
-                      size: 16,
-                    ),
+                  child: GestureDetector(
                     onTap: () async {
                       final player = _player;
                       if (player == null) {
@@ -422,8 +380,18 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                         });
                       } catch (_) {}
                     },
-                    width: 40,
-                    height: 40,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Icon(
+                        _isMuted ? Icons.volume_off : Icons.volume_up,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                    ),
                   ),
                 ),
 
@@ -473,21 +441,18 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _pauseDebounceTimer = null;
 
     final player = _player;
-    final lease = _poolLease;
+    final positionSub = _positionSub;
+    final durationSub = _durationSub;
 
     _player = null;
     _controller = null;
-    _poolLease = null;
-
-    _positionSub?.cancel();
     _positionSub = null;
-
-    _durationSub?.cancel();
     _durationSub = null;
 
-    if (lease != null) {
-      unawaited(lease.release());
-    } else if (player != null) {
+    unawaited(positionSub?.cancel());
+    unawaited(durationSub?.cancel());
+
+    if (player != null) {
       unawaited(() async {
         try {
           await player.pause();

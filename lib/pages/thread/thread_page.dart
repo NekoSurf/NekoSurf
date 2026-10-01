@@ -11,7 +11,6 @@ import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/pages/bookmark_button.dart';
 import 'package:flutter_chan/pages/thread/thread_page_post.dart';
 import 'package:flutter_chan/services/string.dart';
-import 'package:flutter_chan/widgets/feed_player_pool.dart';
 import 'package:flutter_chan/widgets/reload.dart';
 import 'package:liquid_glass_widgets/widgets/interactive/glass_button.dart';
 import 'package:liquid_glass_widgets/widgets/overlays/glass_menu.dart';
@@ -47,8 +46,6 @@ class ThreadPageState extends State<ThreadPage> {
   static const int _offscreenVideoWarmupEachSide = 3;
   static const int _maxOffscreenWarmVideos = 6;
   static const int _thumbWarmupMaxPerPass = _maxOffscreenWarmVideos;
-  // Pool size = warm-window cap + a couple for currently-visible items.
-  static const int _playerPoolSize = _maxOffscreenWarmVideos + 4;
 
   final ScrollController scrollController = ScrollController();
   final ItemScrollController itemScrollController = ItemScrollController();
@@ -56,8 +53,6 @@ class ThreadPageState extends State<ThreadPage> {
       ItemPositionsListener.create();
 
   late Future<List<Post>> _fetchAllPostsFromThread;
-  late final FeedPlayerPool _playerPool;
-
   List<Post> allPosts = [];
   Map<int, int> _replyDescendantCountByPost = const <int, int>{};
   Set<int> _eagerVideoPostIds = const <int>{};
@@ -99,7 +94,6 @@ class ThreadPageState extends State<ThreadPage> {
   void initState() {
     super.initState();
 
-    _playerPool = FeedPlayerPool(poolSize: _playerPoolSize);
     loadThread();
 
     favorite = Bookmark(
@@ -121,7 +115,6 @@ class ThreadPageState extends State<ThreadPage> {
     _eagerWindowDebounce?.cancel();
     _eagerWindowDebounce = null;
     scrollController.dispose();
-    unawaited(_playerPool.dispose());
     super.dispose();
   }
 
@@ -506,7 +499,6 @@ class ThreadPageState extends State<ThreadPage> {
                       eagerVideoInit: _eagerVideoPostIds.contains(
                         allPosts[index].no ?? allPosts[index].tim,
                       ),
-                      playerPool: _playerPool,
                       onDismiss: (postId) {
                         if (postId == null ||
                             !itemScrollController.isAttached) {
