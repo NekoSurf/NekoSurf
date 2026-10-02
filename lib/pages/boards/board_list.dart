@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -20,10 +19,10 @@ import 'package:flutter_chan/pages/savedAttachments/saved_attachments.dart';
 import 'package:flutter_chan/pages/settings/settings.dart';
 import 'package:flutter_chan/pages/thread/thread_page.dart';
 import 'package:flutter_chan/services/update_checker.dart';
+import 'package:flutter_chan/widgets/cupertino_menu.dart';
 import 'package:flutter_chan/widgets/reload.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
-import 'package:liquid_glass_widgets/widgets/shared/glass_page.dart';
-import 'package:liquid_glass_widgets/widgets/surfaces/glass_app_bar.dart';
+import 'package:liquid_glass_widgets/types/glass_quality.dart';
 import 'package:liquid_glass_widgets/widgets/surfaces/glass_scaffold.dart';
 import 'package:liquid_glass_widgets/widgets/surfaces/glass_tab_bar.dart';
 import 'package:provider/provider.dart';
@@ -46,8 +45,8 @@ class BoardListState extends State<BoardList> {
 
   @override
   void dispose() {
-    _titleController.dispose();
     _searchBarController.dispose();
+    _titleController.dispose();
     controller.dispose();
     super.dispose();
   }
@@ -233,10 +232,14 @@ class BoardListState extends State<BoardList> {
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         slivers: [
           SliverToBoxAdapter(
-            child: SizedBox(height: MediaQuery.paddingOf(context).top + 44 + 8),
+            child: SizedBox(height: MediaQuery.paddingOf(context).top + 52),
           ),
 
-          GlassLargeTitle(text: buildTitle(), controller: _titleController),
+          GlassLargeTitle(
+            text: buildTitle(),
+            controller: _titleController,
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+          ),
 
           if (currentIndex == 0)
             SliverList(
@@ -267,12 +270,11 @@ class BoardListState extends State<BoardList> {
                                       horizontal: 20.0,
                                       vertical: 8.0,
                                     ),
-                                    child: GlassSearchBar(
+                                    child: CupertinoSearchTextField(
                                       controller: _searchBarController,
                                       onChanged: (value) {
                                         _updateBoardList(value, snapshot.data);
                                       },
-                                      useOwnLayer: true,
                                     ),
                                   ),
 
@@ -348,172 +350,121 @@ class BoardListState extends State<BoardList> {
 
           SliverToBoxAdapter(
             child: SizedBox(
-              height: MediaQuery.paddingOf(context).bottom + 44 + 8,
+              height: MediaQuery.paddingOf(context).bottom + 50 + 8,
             ),
           ),
         ],
       );
     }
 
-    GlassButton? buildLeadingButton() {
-      if (currentIndex == 0) {
-        return GlassButton(
-          icon: const Icon(CupertinoIcons.link),
-          onTap: () => {
-            showWarning = false,
-
-            showDialog(
-              context: context,
-              barrierColor: Colors.black.withValues(alpha: 0.7),
-              builder: (context) => StatefulBuilder(
-                builder: (context, setDialogState) {
-                  return GlassDialog(
-                    title: 'Open Link',
-                    settings: LiquidGlassSettings(
-                      blur: 12,
-                      thickness: 5,
-                      ambientStrength: 0.5,
-                      lightIntensity: 0.6,
-                      lightAngle: 0.75 * math.pi,
-                      glassColor: CupertinoColors.white.withValues(alpha: 0.08),
-                    ),
-                    quality: GlassQuality.premium,
-                    content: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 10),
-                        Visibility(
-                          visible: showWarning,
-                          child: Column(
-                            children: [
-                              Text(
-                                warningText,
-                                style: const TextStyle(color: Colors.red),
-                              ),
-                              const SizedBox(height: 5),
-                            ],
-                          ),
-                        ),
-                        Card(
-                          color: Colors.transparent,
-                          elevation: 0.0,
-                          child: Column(
-                            children: [
-                              CupertinoTextField(
-                                controller: controller,
-                                placeholder: 'Insert Thread URL',
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    actions: [
-                      GlassDialogAction(
-                        label: 'Cancel',
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                      GlassDialogAction(
-                        label: 'Open',
-                        isPrimary: true,
-                        onPressed: () => openURL(setDialogState),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-          },
-          width: 40,
-          height: 40,
-          iconSize: 20,
-        );
-      } else {
-        return null;
-      }
-    }
-
     List<Widget> buildActions() {
       final savedAttachments = Provider.of<SavedAttachmentsProvider>(context);
       final bookmarks = Provider.of<BookmarksProvider>(context);
 
-      if (currentIndex == 1) {
+      if (currentIndex == 0) {
         return [
-          GlassMenu(
-            menuAlignment: GlassMenuAlignment.bottomRight,
-            menuWidth: 250,
-            autoAdjustToScreen: true,
-            items: [
-              GlassMenuItem(
+          GlassIconButton(
+            icon: const Icon(CupertinoIcons.link),
+            onPressed: () {
+              showWarning = false;
+
+              showCupertinoDialog<void>(
+                context: context,
+                barrierDismissible: true,
+                builder: (context) => StatefulBuilder(
+                  builder: (context, setDialogState) {
+                    return CupertinoAlertDialog(
+                      title: const Text('Open Link'),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 10),
+                          Visibility(
+                            visible: showWarning,
+                            child: Column(
+                              children: [
+                                Text(
+                                  warningText,
+                                  style: const TextStyle(
+                                    color: CupertinoColors.systemRed,
+                                  ),
+                                ),
+                                const SizedBox(height: 5),
+                              ],
+                            ),
+                          ),
+                          CupertinoTextField(
+                            controller: controller,
+                            placeholder: 'Insert Thread URL',
+                          ),
+                        ],
+                      ),
+                      actions: [
+                        CupertinoDialogAction(
+                          child: const Text('Cancel'),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                        CupertinoDialogAction(
+                          isDefaultAction: true,
+                          child: const Text('Open'),
+                          onPressed: () => openURL(setDialogState),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+        ];
+      } else if (currentIndex == 1) {
+        return [
+          CupertinoMenuButton(
+            glassIcon: const Icon(CupertinoIcons.ellipsis_circle),
+            isGlass: true,
+            menuChildren: [
+              buildMenuItem(
                 title: 'Clear attachments',
-                icon: const Icon(CupertinoIcons.trash),
+                icon: CupertinoIcons.trash,
                 isDestructive: true,
-                onTap: () => savedAttachments.clearSavedAttachments(context),
+                onPressed: () =>
+                    savedAttachments.clearSavedAttachments(context),
               ),
             ],
-            triggerBuilder: (ctx, toggle) => AdaptiveLiquidGlassLayer(
-              child: GlassButton(
-                icon: const Icon(CupertinoIcons.ellipsis_vertical),
-                onTap: toggle,
-                width: 40,
-                height: 40,
-                iconSize: 20,
-              ),
-            ),
           ),
         ];
       } else if (currentIndex == 2) {
         return [
-          GlassMenu(
-            menuAlignment: GlassMenuAlignment.bottomRight,
-            autoAdjustToScreen: true,
-            items: [
-              GlassMenuItem(
+          CupertinoMenuButton(
+            glassIcon: const Icon(CupertinoIcons.sort_down),
+            isGlass: true,
+            icon: CupertinoIcons.sort_down,
+            menuChildren: [
+              buildMenuItem(
                 title: 'Newest',
-                icon: const Icon(CupertinoIcons.clock),
-                isDestructive: false,
-                onTap: () => bookmarks.setSort(Sort.byNewest),
+                icon: CupertinoIcons.clock,
+                onPressed: () => bookmarks.setSort(Sort.byNewest),
               ),
-              GlassMenuItem(
+              buildMenuItem(
                 title: 'Oldest',
-                icon: const Icon(CupertinoIcons.clock_fill),
-                isDestructive: false,
-                onTap: () => bookmarks.setSort(Sort.byOldest),
+                icon: CupertinoIcons.clock_fill,
+                onPressed: () => bookmarks.setSort(Sort.byOldest),
               ),
             ],
-            triggerBuilder: (ctx, toggle) => AdaptiveLiquidGlassLayer(
-              child: GlassButton(
-                icon: const Icon(CupertinoIcons.sort_down),
-                onTap: toggle,
-                width: 40,
-                height: 40,
-                iconSize: 20,
-              ),
-            ),
           ),
-
-          GlassMenu(
-            menuAlignment: GlassMenuAlignment.bottomRight,
-            autoAdjustToScreen: true,
-            menuWidth: 250,
-            items: [
-              GlassMenuItem(
+          CupertinoMenuButton(
+            glassIcon: const Icon(CupertinoIcons.ellipsis_circle),
+            isGlass: true,
+            icon: CupertinoIcons.ellipsis_circle,
+            menuChildren: [
+              buildMenuItem(
                 title: 'Clear bookmarks',
-                icon: const Icon(CupertinoIcons.trash),
+                icon: CupertinoIcons.trash,
                 isDestructive: true,
-                onTap: () => bookmarks.clearBookmarks(),
+                onPressed: () => bookmarks.clearBookmarks(),
               ),
             ],
-            triggerBuilder: (ctx, toggle) => AdaptiveLiquidGlassLayer(
-              child: GlassButton(
-                icon: const Icon(CupertinoIcons.ellipsis_vertical),
-                onTap: toggle,
-                width: 40,
-                height: 40,
-                iconSize: 20,
-              ),
-            ),
           ),
         ];
       } else {
@@ -522,44 +473,40 @@ class BoardListState extends State<BoardList> {
     }
 
     return GlassScaffold(
-      edgeFade: true,
       backgroundColor: AppColors.pageBackground(
         Theme.of(context).brightness == Brightness.dark,
       ),
-      appBar: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12.0),
-        child: GlassAppBar(
-          title: Text(
-            buildTitle(),
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: CupertinoColors.label.resolveFrom(context),
-            ),
+      appBar: GlassAppBar(
+        toolbarHeight: 52,
+        title: Text(
+          buildTitle(),
+          style: TextStyle(
+            color: CupertinoColors.label.resolveFrom(context),
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
           ),
-          largeTitleController: _titleController,
-          leading: buildLeadingButton(),
-          actions: buildActions(),
         ),
+        largeTitleController: _titleController,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        actions: buildActions(),
       ),
-      statusBarStyle: GlassStatusBarStyle.auto,
-
       bottomBar: GlassTabBar.bottom(
-        selectedIndex: currentIndex,
-        onTabSelected: (index) => setState(() {
-          currentIndex = index;
-        }),
-        selectedIconColor: AppColors.kGreen,
-        settings: const LiquidGlassSettings(
+        settings: LiquidGlassSettings(
+          glassColor: CupertinoTheme.of(context).brightness == Brightness.dark
+              ? const Color(0xAA1C1C1E)
+              : const Color(0xAAF2F2F7),
+          thickness: 30,
           blur: 2,
-          chromaticAberration: 0.15,
+          chromaticAberration: .01,
           lightAngle: GlassDefaults.lightAngle,
-          lightIntensity: .3,
+          lightIntensity: 0.2,
           ambientStrength: 0,
           refractiveIndex: 1.2,
+          fresnelStrength: 0.0,
           saturation: 1.2,
           specularSharpness: GlassSpecularSharpness.medium,
         ),
+        quality: GlassQuality.premium,
         tabs: const [
           GlassTab(
             icon: Icon(CupertinoIcons.square_grid_2x2_fill),
@@ -572,6 +519,8 @@ class BoardListState extends State<BoardList> {
           ),
           GlassTab(icon: Icon(CupertinoIcons.settings), label: 'Settings'),
         ],
+        selectedIndex: currentIndex,
+        onTabSelected: (i) => setState(() => currentIndex = i),
       ),
       body: buildPageContent(),
     );

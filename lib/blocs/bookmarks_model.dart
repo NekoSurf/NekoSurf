@@ -42,9 +42,7 @@ class BookmarksProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> removeBookmarks(
-    Bookmark? favorite,
-  ) async {
+  Future<void> removeBookmarks(Bookmark? favorite) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
 
     list.remove(json.encode(favorite));

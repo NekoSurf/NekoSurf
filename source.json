@@ -22,6 +22,15 @@
       ],
       "versions": [
         {
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.11.5-6/Runner.ipa",
+          "size": 32500000,
+          "version": "0.11.5",
+          "buildVersion": "289",
+          "date": "2026-10-03T00:20:00+02:00",
+          "localizedDescription": "Video improvements and interface fixes.",
+          "minOSVersion": "17.6"
+        },
+        {
           "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.11.5-5/Runner.ipa",
           "size": 32500000,
           "version": "0.11.5",

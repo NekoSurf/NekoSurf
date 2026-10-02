@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 
 class ThemeChanger with ChangeNotifier {
   ThemeChanger(this._themeData) {
@@ -9,7 +8,8 @@ class ThemeChanger with ChangeNotifier {
   ThemeData _themeData;
 
   Future<void> loadPreferences() async {
-    final brightness = SchedulerBinding.instance.window.platformBrightness;
+    final brightness =
+        WidgetsBinding.instance.platformDispatcher.platformBrightness;
     final bool isDarkMode = brightness == Brightness.dark;
 
     setTheme(isDarkMode ? ThemeData.dark() : ThemeData.light());

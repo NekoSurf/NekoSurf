@@ -1,8 +1,9 @@
 import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_chan/widgets/feed_player_pool.dart';
-import 'package:liquid_glass_widgets/widgets/interactive/glass_button.dart';
+import 'package:flutter_chan/widgets/feed_player_recycler.dart';
+import 'package:flutter_chan/widgets/video_scrub_gesture.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:visibility_detector/visibility_detector.dart';
@@ -13,29 +14,38 @@ class FeedVideoPlayer extends StatefulWidget {
     required this.videoUrl,
     required this.thumbnailUrl,
     required this.aspectRatio,
-    this.eagerInitialize = false,
-    this.pool,
+    this.preload = false,
+    this.recycler,
+    this.onTap,
   });
 
   final String videoUrl;
   final String thumbnailUrl;
   final double aspectRatio;
-  final bool eagerInitialize;
-  final FeedPlayerPool? pool;
+  final bool preload;
+  final FeedPlayerRecycler? recycler;
+
+  /// Receives the live player (if loaded) to show fullscreen; it is reclaimed
+  /// when the returned future completes.
+  final Future<void> Function(RecycledPlayer? handoff)? onTap;
 
   @override
   State<FeedVideoPlayer> createState() => _FeedVideoPlayerState();
 }
 
 class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
-  static const double _preloadVisibilityThreshold = 0.02;
+  static const double _playVisibilityThreshold = 0.02;
   static const double _pauseVisibilityThreshold = 0.01;
   static const Duration _pauseDebounce = Duration(milliseconds: 550);
+  // Longer than VisibilityDetector's update interval so it can report first.
+  static const Duration _reclaimVisibilityGrace = Duration(milliseconds: 1200);
 
   Player? _player;
   VideoController? _controller;
-  FeedPlayerPoolLease? _poolLease;
+  RecycledPlayer? _recycled;
   bool _isDisposing = false;
+  bool _isLentOut = false;
+  double _visibleFraction = 0;
   int _opToken = 0;
 
   bool _visible = false;
@@ -47,22 +57,24 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   final ValueNotifier<bool> _hasDuration = ValueNotifier<bool>(false);
   Duration _lastProgressUiPosition = Duration.zero;
   int _durationMicros = 0;
+  bool _isScrubbing = false;
 
   StreamSubscription<Duration>? _positionSub;
   StreamSubscription<Duration>? _durationSub;
   Timer? _pauseDebounceTimer;
+  Timer? _reclaimVisibilityTimer;
 
   @override
   void initState() {
     super.initState();
 
-    if (widget.eagerInitialize) {
+    if (widget.preload) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || _isDisposing || _player != null || _initialized) {
           return;
         }
 
-        _initAndPlay(allowHiddenWarmup: true);
+        _initAndPlay(preloadWhileHidden: true);
       });
     }
   }
@@ -71,14 +83,18 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   void didUpdateWidget(covariant FeedVideoPlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (!oldWidget.eagerInitialize && widget.eagerInitialize) {
+    if (_isLentOut) {
+      return;
+    }
+
+    if (!oldWidget.preload && widget.preload) {
       if (_player == null && !_isDisposing) {
-        _initAndPlay(allowHiddenWarmup: true);
+        _initAndPlay(preloadWhileHidden: true);
       }
       return;
     }
 
-    if (oldWidget.eagerInitialize && !widget.eagerInitialize && !_visible) {
+    if (oldWidget.preload && !widget.preload && !_visible) {
       _schedulePauseAndDispose();
     }
   }
@@ -87,7 +103,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   // Lifecycle
   // ---------------------------
 
-  Future<void> _initAndPlay({bool allowHiddenWarmup = false}) async {
+  Future<void> _initAndPlay({bool preloadWhileHidden = false}) async {
     if (_isDisposing) {
       return;
     }
@@ -101,27 +117,13 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
     final token = ++_opToken;
 
-    // Try to borrow from pool; fall back to creating a new player.
-    Player player;
-    VideoController controller;
-    FeedPlayerPoolLease? lease;
-
-    final pool = widget.pool;
-    if (pool != null) {
-      lease = pool.acquire(source: widget.videoUrl);
-    }
-
-    if (lease != null) {
-      player = lease.player;
-      controller = lease.controller;
-      _poolLease = lease;
-    } else {
-      player = Player();
-      controller = VideoController(player);
-    }
+    final RecycledPlayer? recycled = widget.recycler?.acquire();
+    final player = recycled?.player ?? Player();
+    final controller = recycled?.controller ?? VideoController(player);
 
     _player = player;
     _controller = controller;
+    _recycled = recycled;
 
     if (mounted) {
       setState(() {
@@ -135,20 +137,15 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
           _isDisposing ||
           token != _opToken ||
           _player != player ||
-          (!_visible && !allowHiddenWarmup);
+          (!_visible && !preloadWhileHidden);
+
       if (shouldAbortOpen) {
-        final abortLease = _poolLease;
+        // If we no longer own it, _pauseAndDispose/dispose already released it.
         if (_player == player) {
           _player = null;
           _controller = null;
-          _poolLease = null;
-        }
-        if (abortLease != null) {
-          await abortLease.release();
-        } else {
-          try {
-            await player.dispose();
-          } catch (_) {}
+          _recycled = null;
+          await _releasePlayer(player, recycled);
         }
         return;
       }
@@ -170,13 +167,13 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
         }
 
         final durationMicros = _durationMicros;
-        if (durationMicros <= 0) {
+        if (durationMicros <= 0 || _isScrubbing) {
           return;
         }
 
         final shouldUpdateUi =
             pos == Duration.zero ||
-            (pos - _lastProgressUiPosition).inMilliseconds >= 100;
+            (pos - _lastProgressUiPosition).inMilliseconds.abs() >= 100;
         if (!shouldUpdateUi) {
           return;
         }
@@ -195,19 +192,16 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
           return;
         }
 
-        final micros = dur.inMicroseconds;
-        _durationMicros = micros;
-        final hasDurationNow = micros > 0;
-        if (_hasDuration.value != hasDurationNow) {
-          _hasDuration.value = hasDurationNow;
-        }
+        _applyDuration(dur);
       });
+      // The stream only emits changes, which may have fired during open().
+      _applyDuration(player.state.duration);
 
       if (!mounted ||
           _isDisposing ||
           token != _opToken ||
           _player != player ||
-          (!_visible && !allowHiddenWarmup)) {
+          (!_visible && !preloadWhileHidden)) {
         return;
       }
 
@@ -220,25 +214,39 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       }
     } catch (_) {
       // keep it simple: fail silently for feed
-      final currentLease = _poolLease;
       if (_player == player) {
         _player = null;
         _controller = null;
-        _poolLease = null;
-      }
-      _positionSub?.cancel();
-      _positionSub = null;
-      _durationSub?.cancel();
-      _durationSub = null;
-
-      if (currentLease != null) {
-        await currentLease.release();
-      } else if (player != null) {
-        try {
-          await player.dispose();
-        } catch (_) {}
+        _recycled = null;
+        _positionSub?.cancel();
+        _positionSub = null;
+        _durationSub?.cancel();
+        _durationSub = null;
+        await _releasePlayer(player, recycled);
       }
     }
+  }
+
+  void _applyDuration(Duration duration) {
+    final micros = duration.inMicroseconds;
+    _durationMicros = micros;
+    final hasDurationNow = micros > 0;
+    if (_hasDuration.value != hasDurationNow) {
+      _hasDuration.value = hasDurationNow;
+    }
+  }
+
+  Future<void> _releasePlayer(Player player, RecycledPlayer? recycled) async {
+    final recycler = widget.recycler;
+    if (recycled != null && recycler != null) {
+      await recycler.release(recycled);
+      return;
+    }
+
+    try {
+      await player.pause();
+      await player.dispose();
+    } catch (_) {}
   }
 
   Future<void> _pauseAndDispose() async {
@@ -252,14 +260,13 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     ++_opToken;
 
     final player = _player;
-    final lease = _poolLease;
-
+    final recycled = _recycled;
     final positionSub = _positionSub;
     final durationSub = _durationSub;
 
     _player = null;
     _controller = null;
-    _poolLease = null;
+    _recycled = null;
     _positionSub = null;
     _durationSub = null;
 
@@ -278,13 +285,8 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     await positionSub?.cancel();
     await durationSub?.cancel();
 
-    if (lease != null) {
-      await lease.release();
-    } else if (player != null) {
-      try {
-        await player.pause();
-        await player.dispose();
-      } catch (_) {}
+    if (player != null) {
+      await _releasePlayer(player, recycled);
     }
   }
 
@@ -300,18 +302,115 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   }
 
   // ---------------------------
+  // Fullscreen handoff
+  // ---------------------------
+
+  void _handleScrubPreview(Duration? preview) {
+    _isScrubbing = preview != null;
+    final durationMicros = _durationMicros;
+    if (preview == null || durationMicros <= 0) {
+      return;
+    }
+
+    _lastProgressUiPosition = preview;
+    _progressValue.value = (preview.inMicroseconds / durationMicros).clamp(
+      0.0,
+      1.0,
+    );
+  }
+
+  Future<void> _handleTap() async {
+    final onTap = widget.onTap;
+    if (onTap == null || _isLentOut) {
+      return;
+    }
+
+    final player = _player;
+    final controller = _controller;
+    if (player == null || controller == null || !_initialized) {
+      await onTap(null);
+      return;
+    }
+
+    final recycler = widget.recycler;
+    final recycled = _recycled;
+    final handoff = recycled ?? RecycledPlayer(player, controller);
+
+    _isLentOut = true;
+    _pauseDebounceTimer?.cancel();
+    _pauseDebounceTimer = null;
+    _reclaimVisibilityTimer?.cancel();
+
+    try {
+      await onTap(handoff);
+    } finally {
+      _isLentOut = false;
+      if (mounted && !_isDisposing && _player == player) {
+        unawaited(_reclaim(player));
+      } else if (recycled != null && recycler != null) {
+        // dispose() ran while lent out and left the player to us.
+        unawaited(recycler.release(recycled));
+      } else {
+        unawaited(() async {
+          try {
+            await player.dispose();
+          } catch (_) {}
+        }());
+      }
+    }
+  }
+
+  Future<void> _reclaim(Player player) async {
+    final playlist = player.state.playlist;
+    final index = playlist.index;
+    final stillOurMedia =
+        index >= 0 &&
+        index < playlist.medias.length &&
+        playlist.medias[index].uri == widget.videoUrl;
+
+    if (stillOurMedia) {
+      try {
+        await player.setAudioTrack(
+          _isMuted ? AudioTrack.no() : AudioTrack.auto(),
+        );
+        if (_visible && _player == player) {
+          await player.play();
+        }
+      } catch (_) {}
+    } else {
+      // The viewer switched to another video; reopen ours.
+      await _pauseAndDispose();
+      if (mounted && !_isDisposing && _visible) {
+        unawaited(_initAndPlay());
+      }
+    }
+
+    _reclaimVisibilityTimer?.cancel();
+    _reclaimVisibilityTimer = Timer(_reclaimVisibilityGrace, () {
+      if (!mounted || _isDisposing || _isLentOut) {
+        return;
+      }
+      _handleVisibility(_visibleFraction);
+    });
+  }
+
+  // ---------------------------
   // Visibility
   // ---------------------------
 
   void _schedulePauseAndDispose() {
-    if (widget.eagerInitialize) {
+    if (_isLentOut) {
+      return;
+    }
+
+    if (widget.preload) {
       unawaited(_pauseOnly());
       return;
     }
 
     _pauseDebounceTimer?.cancel();
     _pauseDebounceTimer = Timer(_pauseDebounce, () {
-      if (_isDisposing || _visible || widget.eagerInitialize) {
+      if (_isDisposing || _visible || widget.preload) {
         return;
       }
 
@@ -320,9 +419,14 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   }
 
   void _handleVisibility(double fraction) {
-    final shouldKeepWarm = fraction >= _preloadVisibilityThreshold;
+    _visibleFraction = fraction;
+    if (_isLentOut) {
+      return;
+    }
 
-    if (shouldKeepWarm) {
+    final isVisible = fraction >= _playVisibilityThreshold;
+
+    if (isVisible) {
       _pauseDebounceTimer?.cancel();
       _pauseDebounceTimer = null;
 
@@ -360,105 +464,117 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
   @override
   Widget build(BuildContext context) {
-    return VisibilityDetector(
-      key: ValueKey(widget.videoUrl),
-      onVisibilityChanged: (info) {
-        _handleVisibility(info.visibleFraction);
-      },
-      child: AspectRatio(
-        aspectRatio: widget.aspectRatio,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Image.network(widget.thumbnailUrl, fit: BoxFit.cover),
+    return GestureDetector(
+      onTap: widget.onTap == null ? null : _handleTap,
+      child: VisibilityDetector(
+        key: ValueKey(widget.videoUrl),
+        onVisibilityChanged: (info) {
+          _handleVisibility(info.visibleFraction);
+        },
+        child: VideoScrubGesture(
+          player: _player,
+          onPreviewChanged: _handleScrubPreview,
+          child: _buildContent(),
+        ),
+      ),
+    );
+  }
 
-              if (_controller != null)
-                AnimatedOpacity(
-                  opacity: _hasFirstFrame ? 1 : 0,
-                  duration: const Duration(milliseconds: 150),
-                  child: Video(
-                    controller: _controller!,
-                    fit: BoxFit.cover,
-                    controls: NoVideoControls,
-                  ),
+  Widget _buildContent() {
+    return AspectRatio(
+      aspectRatio: widget.aspectRatio,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.network(widget.thumbnailUrl, fit: BoxFit.cover),
+
+            if (_controller != null)
+              AnimatedOpacity(
+                opacity: _hasFirstFrame ? 1 : 0,
+                duration: const Duration(milliseconds: 150),
+                child: Video(
+                  controller: _controller!,
+                  fit: BoxFit.cover,
+                  controls: NoVideoControls,
                 ),
+              ),
 
-              if (_visible && !_hasFirstFrame)
-                const Center(child: CupertinoActivityIndicator()),
+            if (_visible && !_hasFirstFrame)
+              const Center(child: CupertinoActivityIndicator()),
 
-              if (_controller != null)
-                Positioned(
-                  bottom: 8,
-                  left: 8,
-                  child: GlassButton(
-                    icon: Icon(
-                      _isMuted
-                          ? CupertinoIcons.volume_off
-                          : CupertinoIcons.volume_up,
-                      color: Colors.white,
-                      size: 16,
-                    ),
-                    onTap: () async {
-                      final player = _player;
-                      if (player == null) {
+            if (_controller != null)
+              Positioned(
+                bottom: 8,
+                left: 8,
+                child: GestureDetector(
+                  onTap: () async {
+                    final player = _player;
+                    if (player == null) {
+                      return;
+                    }
+
+                    final nextMuted = !_isMuted;
+
+                    try {
+                      await player.setAudioTrack(
+                        nextMuted ? AudioTrack.no() : AudioTrack.auto(),
+                      );
+
+                      if (!mounted) {
                         return;
                       }
 
-                      final nextMuted = !_isMuted;
+                      setState(() {
+                        _isMuted = nextMuted;
+                      });
+                    } catch (_) {}
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Icon(
+                      _isMuted ? Icons.volume_off : Icons.volume_up,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                ),
+              ),
 
-                      try {
-                        await player.setAudioTrack(
-                          nextMuted ? AudioTrack.no() : AudioTrack.auto(),
+            if (_controller != null && _hasFirstFrame)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: ValueListenableBuilder<bool>(
+                  valueListenable: _hasDuration,
+                  builder: (context, hasDuration, _) {
+                    if (!hasDuration) {
+                      return const SizedBox.shrink();
+                    }
+
+                    return ValueListenableBuilder<double>(
+                      valueListenable: _progressValue,
+                      builder: (context, progress, _) {
+                        return LinearProgressIndicator(
+                          value: progress,
+                          backgroundColor: Colors.white.withValues(alpha: 0.25),
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                          minHeight: 3,
                         );
-
-                        if (!mounted) {
-                          return;
-                        }
-
-                        setState(() {
-                          _isMuted = nextMuted;
-                        });
-                      } catch (_) {}
-                    },
-                    width: 40,
-                    height: 40,
-                  ),
+                      },
+                    );
+                  },
                 ),
-
-              if (_controller != null && _hasFirstFrame)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: ValueListenableBuilder<bool>(
-                    valueListenable: _hasDuration,
-                    builder: (context, hasDuration, _) {
-                      if (!hasDuration) {
-                        return const SizedBox.shrink();
-                      }
-
-                      return ValueListenableBuilder<double>(
-                        valueListenable: _progressValue,
-                        builder: (context, progress, _) {
-                          return LinearProgressIndicator(
-                            value: progress,
-                            backgroundColor: Colors.white.withValues(
-                              alpha: 0.25,
-                            ),
-                            valueColor: const AlwaysStoppedAnimation<Color>(
-                              Colors.white,
-                            ),
-                            minHeight: 3,
-                          );
-                        },
-                      );
-                    },
-                  ),
-                ),
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );
@@ -471,29 +587,25 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
     _pauseDebounceTimer?.cancel();
     _pauseDebounceTimer = null;
+    _reclaimVisibilityTimer?.cancel();
 
     final player = _player;
-    final lease = _poolLease;
+    final recycled = _recycled;
+    final positionSub = _positionSub;
+    final durationSub = _durationSub;
 
     _player = null;
     _controller = null;
-    _poolLease = null;
-
-    _positionSub?.cancel();
+    _recycled = null;
     _positionSub = null;
-
-    _durationSub?.cancel();
     _durationSub = null;
 
-    if (lease != null) {
-      unawaited(lease.release());
-    } else if (player != null) {
-      unawaited(() async {
-        try {
-          await player.pause();
-          await player.dispose();
-        } catch (_) {}
-      }());
+    unawaited(positionSub?.cancel());
+    unawaited(durationSub?.cancel());
+
+    // While lent out, _handleTap releases the player once the viewer returns it.
+    if (player != null && !_isLentOut) {
+      unawaited(_releasePlayer(player, recycled));
     }
 
     _progressValue.dispose();

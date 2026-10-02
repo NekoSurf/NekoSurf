@@ -7,6 +7,7 @@ import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/saved_attachments_model.dart';
 import 'package:flutter_chan/pages/media/shared_media_viewer.dart';
 import 'package:flutter_chan/services/cached_video.dart';
+import 'package:flutter_chan/widgets/feed_player_recycler.dart';
 import 'package:provider/provider.dart';
 
 class ThreadMediaViewerRoute extends MaterialPageRoute<int> {
@@ -15,11 +16,15 @@ class ThreadMediaViewerRoute extends MaterialPageRoute<int> {
     required int initialIndex,
     required String board,
     required int thread,
+    RecycledPlayer? handoff,
+    FeedPlayerRecycler? recycler,
   }) : this._(
          mediaPosts: mediaPosts,
          initialIndex: initialIndex,
          board: board,
          thread: thread,
+         handoff: handoff,
+         recycler: recycler,
          currentPostId: ValueNotifier<int?>(
            _resolveInitialPostId(mediaPosts, initialIndex),
          ),
@@ -30,6 +35,8 @@ class ThreadMediaViewerRoute extends MaterialPageRoute<int> {
     required int initialIndex,
     required String board,
     required int thread,
+    required RecycledPlayer? handoff,
+    required FeedPlayerRecycler? recycler,
     required ValueNotifier<int?> currentPostId,
   }) : _currentPostId = currentPostId,
        super(
@@ -39,6 +46,8 @@ class ThreadMediaViewerRoute extends MaterialPageRoute<int> {
            board: board,
            thread: thread,
            currentPostIdNotifier: currentPostId,
+           handoff: handoff,
+           recycler: recycler,
          ),
        );
 
@@ -72,6 +81,8 @@ class ThreadMediaViewerPage extends StatefulWidget {
     required this.board,
     required this.thread,
     required this.currentPostIdNotifier,
+    this.handoff,
+    this.recycler,
   }) : super(key: key);
 
   final List<Post> mediaPosts;
@@ -79,6 +90,10 @@ class ThreadMediaViewerPage extends StatefulWidget {
   final String board;
   final int thread;
   final ValueNotifier<int?> currentPostIdNotifier;
+
+  /// Player already showing the initial video; owned by the caller.
+  final RecycledPlayer? handoff;
+  final FeedPlayerRecycler? recycler;
 
   @override
   State<ThreadMediaViewerPage> createState() => _ThreadMediaViewerPageState();
@@ -274,6 +289,8 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
       items: _items,
       initialIndex: _currentIndex,
       onClose: _closeWithCurrentPost,
+      handoff: widget.handoff,
+      recycler: widget.recycler,
       mediaNameBuilder: (int index) => _fileName(widget.mediaPosts[index]),
       onIndexChanged: (int index) {
         if (index == _currentIndex) {

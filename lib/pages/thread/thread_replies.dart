@@ -5,9 +5,6 @@ import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/pages/thread/thread_page_post.dart';
-import 'package:liquid_glass_widgets/widgets/interactive/glass_button.dart';
-import 'package:liquid_glass_widgets/widgets/surfaces/glass_app_bar.dart';
-import 'package:liquid_glass_widgets/widgets/surfaces/glass_scaffold.dart';
 import 'package:provider/provider.dart';
 
 class _ReplyTreeEntry {
@@ -233,41 +230,23 @@ class _ThreadRepliesState extends State<ThreadReplies> {
       widget.allPosts,
     );
 
-    return GlassScaffold(
+    return CupertinoPageScaffold(
       backgroundColor: AppColors.pageBackground(
         Theme.of(context).brightness == Brightness.dark,
       ),
-      appBar: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12.0),
-        child: GlassAppBar(
-          title: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: Text(
-              'Replies to #${widget.post.no}',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                overflow: TextOverflow.ellipsis,
-                color: CupertinoColors.label.resolveFrom(context),
-              ),
-            ),
-          ),
-          leading: GlassButton(
-            icon: const Icon(CupertinoIcons.back),
-            onTap: () => Navigator.of(context).pop(),
-            width: 40,
-            height: 40,
-            iconSize: 20,
-          ),
+      navigationBar: CupertinoNavigationBar(
+        middle: Text(
+          'Replies to #${widget.post.no}',
+          overflow: TextOverflow.ellipsis,
         ),
       ),
-      body: Scrollbar(
+      child: Scrollbar(
         controller: scrollController,
         child: replyEntries.isEmpty
             ? Padding(
                 padding: EdgeInsets.fromLTRB(
                   20,
-                  MediaQuery.paddingOf(context).top + 44 + 8,
+                  MediaQuery.paddingOf(context).top + 8,
                   20,
                   24,
                 ),
@@ -286,7 +265,7 @@ class _ThreadRepliesState extends State<ThreadReplies> {
                     padding: EdgeInsets.only(
                       left: 8.0,
                       top: index == 0
-                          ? MediaQuery.paddingOf(context).top + 44 + 8
+                          ? MediaQuery.paddingOf(context).top + 8
                           : 0,
                     ),
                     child: GestureDetector(

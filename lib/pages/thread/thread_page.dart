@@ -11,14 +11,9 @@ import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/pages/bookmark_button.dart';
 import 'package:flutter_chan/pages/thread/thread_page_post.dart';
 import 'package:flutter_chan/services/string.dart';
-import 'package:flutter_chan/widgets/feed_player_pool.dart';
+import 'package:flutter_chan/widgets/cupertino_menu.dart';
+import 'package:flutter_chan/widgets/feed_player_recycler.dart';
 import 'package:flutter_chan/widgets/reload.dart';
-import 'package:liquid_glass_widgets/widgets/interactive/glass_button.dart';
-import 'package:liquid_glass_widgets/widgets/overlays/glass_menu.dart';
-import 'package:liquid_glass_widgets/widgets/overlays/glass_menu_item.dart';
-import 'package:liquid_glass_widgets/widgets/shared/adaptive_liquid_glass_layer.dart';
-import 'package:liquid_glass_widgets/widgets/surfaces/glass_app_bar.dart';
-import 'package:liquid_glass_widgets/widgets/surfaces/glass_scaffold.dart';
 import 'package:provider/provider.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:share_plus/share_plus.dart';
@@ -44,11 +39,9 @@ class ThreadPage extends StatefulWidget {
 }
 
 class ThreadPageState extends State<ThreadPage> {
-  static const int _offscreenVideoWarmupEachSide = 3;
-  static const int _maxOffscreenWarmVideos = 6;
-  static const int _thumbWarmupMaxPerPass = _maxOffscreenWarmVideos;
-  // Pool size = warm-window cap + a couple for currently-visible items.
-  static const int _playerPoolSize = _maxOffscreenWarmVideos + 4;
+  static const int _preloadVideosEachSide = 3;
+  static const int _maxPreloadedVideos = 6;
+  static const int _maxThumbnailPreloadsPerPass = _maxPreloadedVideos;
 
   final ScrollController scrollController = ScrollController();
   final ItemScrollController itemScrollController = ItemScrollController();
@@ -56,15 +49,14 @@ class ThreadPageState extends State<ThreadPage> {
       ItemPositionsListener.create();
 
   late Future<List<Post>> _fetchAllPostsFromThread;
-  late final FeedPlayerPool _playerPool;
-
+  final FeedPlayerRecycler _playerRecycler = FeedPlayerRecycler();
   List<Post> allPosts = [];
   Map<int, int> _replyDescendantCountByPost = const <int, int>{};
-  Set<int> _eagerVideoPostIds = const <int>{};
+  Set<int> _preloadVideoPostIds = const <int>{};
   bool _hasScrolledToLastWatched = false;
-  bool _didPrimeEagerWindow = false;
-  Timer? _eagerWindowDebounce;
-  final Set<int> _prefetchedThumbnailMediaIds = <int>{};
+  bool _didStartPreloading = false;
+  Timer? _preloadDebounce;
+  final Set<int> _preloadedThumbnailIds = <int>{};
 
   late Bookmark favorite;
   void _markVisiblePostsAsWatched() {
@@ -92,14 +84,13 @@ class ThreadPageState extends State<ThreadPage> {
       watchedPosts.markAsWatched(postIndex: index, thread: widget.thread);
     }
 
-    _scheduleEagerWindowRefresh();
+    _schedulePreloadRefresh();
   }
 
   @override
   void initState() {
     super.initState();
 
-    _playerPool = FeedPlayerPool(poolSize: _playerPoolSize);
     loadThread();
 
     favorite = Bookmark(
@@ -118,20 +109,20 @@ class ThreadPageState extends State<ThreadPage> {
     itemPositionsListener.itemPositions.removeListener(
       _markVisiblePostsAsWatched,
     );
-    _eagerWindowDebounce?.cancel();
-    _eagerWindowDebounce = null;
+    _preloadDebounce?.cancel();
+    _preloadDebounce = null;
     scrollController.dispose();
-    unawaited(_playerPool.dispose());
+    unawaited(_playerRecycler.dispose());
     super.dispose();
   }
 
   void loadThread() {
     _hasScrolledToLastWatched = false;
-    _didPrimeEagerWindow = false;
-    _eagerWindowDebounce?.cancel();
-    _eagerWindowDebounce = null;
-    _prefetchedThumbnailMediaIds.clear();
-    _eagerVideoPostIds = const <int>{};
+    _didStartPreloading = false;
+    _preloadDebounce?.cancel();
+    _preloadDebounce = null;
+    _preloadedThumbnailIds.clear();
+    _preloadVideoPostIds = const <int>{};
     setState(() {
       _fetchAllPostsFromThread =
           fetchAllPostsFromThread(widget.board, widget.thread).then((posts) {
@@ -181,7 +172,7 @@ class ThreadPageState extends State<ThreadPage> {
     return true;
   }
 
-  ({Set<int> ids, List<Post> posts}) _collectOffscreenVideoWindow() {
+  ({Set<int> ids, List<Post> posts}) _collectPreloadWindow() {
     if (allPosts.isEmpty) {
       return (ids: <int>{}, posts: const <Post>[]);
     }
@@ -217,10 +208,10 @@ class ThreadPageState extends State<ThreadPage> {
     int previousCollected = 0;
     for (
       int index = minVisibleIndex - 1;
-      index >= 0 && previousCollected < _offscreenVideoWarmupEachSide;
+      index >= 0 && previousCollected < _preloadVideosEachSide;
       index--
     ) {
-      if (ids.length >= _maxOffscreenWarmVideos) {
+      if (ids.length >= _maxPreloadedVideos) {
         break;
       }
 
@@ -241,10 +232,10 @@ class ThreadPageState extends State<ThreadPage> {
     int nextCollected = 0;
     for (
       int index = maxVisibleIndex + 1;
-      index < allPosts.length && nextCollected < _offscreenVideoWarmupEachSide;
+      index < allPosts.length && nextCollected < _preloadVideosEachSide;
       index++
     ) {
-      if (ids.length >= _maxOffscreenWarmVideos) {
+      if (ids.length >= _maxPreloadedVideos) {
         break;
       }
 
@@ -265,16 +256,16 @@ class ThreadPageState extends State<ThreadPage> {
     return (ids: ids, posts: posts);
   }
 
-  Future<void> _precacheThumbnails(List<Post> posts) async {
-    int warmed = 0;
+  Future<void> _preloadThumbnails(List<Post> posts) async {
+    int preloaded = 0;
 
     for (final Post post in posts) {
-      if (warmed >= _thumbWarmupMaxPerPass) {
+      if (preloaded >= _maxThumbnailPreloadsPerPass) {
         break;
       }
 
       final int? tim = post.tim;
-      if (tim == null || !_prefetchedThumbnailMediaIds.add(tim)) {
+      if (tim == null || !_preloadedThumbnailIds.add(tim)) {
         continue;
       }
 
@@ -286,49 +277,49 @@ class ThreadPageState extends State<ThreadPage> {
         await precacheImage(thumbnailProvider, context);
       } catch (_) {}
 
-      warmed++;
+      preloaded++;
     }
   }
 
-  void _refreshEagerVideoWindow() {
+  void _refreshPreloadWindow() {
     if (!mounted || allPosts.isEmpty) {
       return;
     }
 
-    final offscreenWindow = _collectOffscreenVideoWindow();
+    final preloadWindow = _collectPreloadWindow();
 
-    if (!_sameIdSet(_eagerVideoPostIds, offscreenWindow.ids)) {
+    if (!_sameIdSet(_preloadVideoPostIds, preloadWindow.ids)) {
       setState(() {
-        _eagerVideoPostIds = offscreenWindow.ids;
+        _preloadVideoPostIds = preloadWindow.ids;
       });
     }
 
-    unawaited(_precacheThumbnails(offscreenWindow.posts));
+    unawaited(_preloadThumbnails(preloadWindow.posts));
   }
 
-  void _scheduleEagerWindowRefresh() {
+  void _schedulePreloadRefresh() {
     if (allPosts.isEmpty || !mounted) {
       return;
     }
 
-    _eagerWindowDebounce?.cancel();
-    _eagerWindowDebounce = Timer(const Duration(milliseconds: 140), () {
-      _refreshEagerVideoWindow();
+    _preloadDebounce?.cancel();
+    _preloadDebounce = Timer(const Duration(milliseconds: 140), () {
+      _refreshPreloadWindow();
     });
   }
 
-  void _primeEagerWindowIfNeeded() {
-    if (_didPrimeEagerWindow || allPosts.isEmpty) {
+  void _startPreloadingIfNeeded() {
+    if (_didStartPreloading || allPosts.isEmpty) {
       return;
     }
 
-    _didPrimeEagerWindow = true;
+    _didStartPreloading = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
         return;
       }
 
-      _scheduleEagerWindowRefresh();
+      _schedulePreloadRefresh();
     });
   }
 
@@ -365,64 +356,48 @@ class ThreadPageState extends State<ThreadPage> {
 
   @override
   Widget build(BuildContext context) {
-    return GlassScaffold(
+    return CupertinoPageScaffold(
       backgroundColor: AppColors.pageBackground(
         Theme.of(context).brightness == Brightness.dark,
       ),
-      appBar: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12.0),
-        child: GlassAppBar(
-          title: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: Text(
-              unescape(cleanTags(widget.threadName)),
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                overflow: TextOverflow.ellipsis,
-                color: CupertinoColors.label.resolveFrom(context),
-              ),
-            ),
-          ),
-          leading: GlassButton(
-            icon: const Icon(CupertinoIcons.back),
-            onTap: () => Navigator.of(context).pop(),
-            width: 40,
-            height: 40,
-            iconSize: 20,
-          ),
-          actions: [
+      navigationBar: CupertinoNavigationBar(
+        middle: Text(
+          unescape(cleanTags(widget.threadName)),
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
             BookmarkButton(favorite: favorite),
-            GlassMenu(
-              menuAlignment: GlassMenuAlignment.bottomRight,
-              autoAdjustToScreen: true,
-              menuWidth: 250,
-              items: [
-                GlassMenuItem(
+            CupertinoMenuButton(
+              icon: CupertinoIcons.ellipsis_circle,
+              menuChildren: [
+                buildMenuItem(
                   title: 'Share',
-                  icon: const Icon(CupertinoIcons.share),
-                  isDestructive: false,
-                  onTap: () {
-                    Share.share(
-                      'https://boards.4chan.org/${widget.board}/thread/${widget.thread}',
+                  icon: CupertinoIcons.share,
+                  onPressed: () {
+                    SharePlus.instance.share(
+                      ShareParams(
+                        uri: Uri.parse(
+                          'https://boards.4chan.org/${widget.board}/thread/${widget.thread}',
+                        ),
+                      ),
                     );
                   },
                 ),
-                GlassMenuItem(
+                buildMenuItem(
                   title: 'Open in Browser',
-                  icon: const Icon(CupertinoIcons.globe),
-                  isDestructive: false,
-                  onTap: () {
+                  icon: CupertinoIcons.globe,
+                  onPressed: () {
                     launchURL(
                       'https://boards.4chan.org/${widget.board}/thread/${widget.thread}',
                     );
                   },
                 ),
-                GlassMenuItem(
+                buildMenuItem(
                   title: 'Scroll to Top',
-                  icon: const Icon(CupertinoIcons.arrow_up),
-                  isDestructive: false,
-                  onTap: () {
+                  icon: CupertinoIcons.arrow_up,
+                  onPressed: () {
                     if (itemScrollController.isAttached) {
                       itemScrollController.scrollTo(
                         index: 0,
@@ -433,11 +408,10 @@ class ThreadPageState extends State<ThreadPage> {
                     }
                   },
                 ),
-                GlassMenuItem(
+                buildMenuItem(
                   title: 'Scroll to Bottom',
-                  icon: const Icon(CupertinoIcons.arrow_down),
-                  isDestructive: false,
-                  onTap: () {
+                  icon: CupertinoIcons.arrow_down,
+                  onPressed: () {
                     if (itemScrollController.isAttached) {
                       itemScrollController.scrollTo(
                         index: allPosts.length - 1,
@@ -449,20 +423,11 @@ class ThreadPageState extends State<ThreadPage> {
                   },
                 ),
               ],
-              triggerBuilder: (ctx, toggle) => AdaptiveLiquidGlassLayer(
-                child: GlassButton(
-                  icon: const Icon(Icons.more_vert),
-                  onTap: toggle,
-                  width: 40,
-                  height: 40,
-                  iconSize: 20,
-                ),
-              ),
             ),
           ],
         ),
       ),
-      body: FutureBuilder(
+      child: FutureBuilder(
         future: _fetchAllPostsFromThread,
         builder: (BuildContext context, AsyncSnapshot<List<Post>> snapshot) {
           switch (snapshot.connectionState) {
@@ -473,7 +438,7 @@ class ThreadPageState extends State<ThreadPage> {
                 return ReloadWidget(onReload: () => loadThread());
               } else {
                 allPosts = snapshot.data ?? [];
-                _primeEagerWindowIfNeeded();
+                _startPreloadingIfNeeded();
 
                 if (!_hasScrolledToLastWatched) {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -493,7 +458,7 @@ class ThreadPageState extends State<ThreadPage> {
                   itemBuilder: (context, index) => Padding(
                     padding: EdgeInsets.only(
                       top: index == 0
-                          ? MediaQuery.paddingOf(context).top + 44 + 8
+                          ? MediaQuery.paddingOf(context).top + 8
                           : 0,
                     ),
                     child: ThreadPagePost(
@@ -503,10 +468,10 @@ class ThreadPageState extends State<ThreadPage> {
                       allPosts: allPosts,
                       replyCount:
                           _replyDescendantCountByPost[allPosts[index].no] ?? 0,
-                      eagerVideoInit: _eagerVideoPostIds.contains(
+                      preloadVideo: _preloadVideoPostIds.contains(
                         allPosts[index].no ?? allPosts[index].tim,
                       ),
-                      playerPool: _playerPool,
+                      playerRecycler: _playerRecycler,
                       onDismiss: (postId) {
                         if (postId == null ||
                             !itemScrollController.isAttached) {

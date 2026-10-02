@@ -5,9 +5,6 @@ import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/pages/thread/thread_page_post.dart';
 import 'package:flutter_chan/widgets/reload.dart';
-import 'package:liquid_glass_widgets/widgets/interactive/glass_button.dart';
-import 'package:liquid_glass_widgets/widgets/surfaces/glass_app_bar.dart';
-import 'package:liquid_glass_widgets/widgets/surfaces/glass_scaffold.dart';
 
 class ThreadRepliesTo extends StatefulWidget {
   const ThreadRepliesTo({
@@ -47,35 +44,17 @@ class _ThreadRepliesToState extends State<ThreadRepliesTo> {
 
   @override
   Widget build(BuildContext context) {
-    return GlassScaffold(
+    return CupertinoPageScaffold(
       backgroundColor: AppColors.pageBackground(
         Theme.of(context).brightness == Brightness.dark,
       ),
-      appBar: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12.0),
-        child: GlassAppBar(
-          title: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: Text(
-              'Replies to #${widget.post}',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                overflow: TextOverflow.ellipsis,
-                color: CupertinoColors.label.resolveFrom(context),
-              ),
-            ),
-          ),
-          leading: GlassButton(
-            icon: const Icon(CupertinoIcons.back),
-            onTap: () => Navigator.of(context).pop(),
-            width: 40,
-            height: 40,
-            iconSize: 20,
-          ),
+      navigationBar: CupertinoNavigationBar(
+        middle: Text(
+          'Replies to #${widget.post}',
+          overflow: TextOverflow.ellipsis,
         ),
       ),
-      body: FutureBuilder(
+      child: FutureBuilder(
         future: _fetchPost,
         builder: (BuildContext context, snapshot) {
           switch (snapshot.connectionState) {
@@ -91,9 +70,7 @@ class _ThreadRepliesToState extends State<ThreadRepliesTo> {
               } else {
                 return Column(
                   children: [
-                    SizedBox(
-                      height: MediaQuery.paddingOf(context).top + 44 + 8,
-                    ),
+                    SizedBox(height: MediaQuery.paddingOf(context).top + 8),
 
                     ThreadPagePost(
                       board: widget.board,

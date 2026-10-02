@@ -1,15 +1,13 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
-import 'package:liquid_glass_widgets/widgets/containers/glass_card.dart';
-import 'package:liquid_glass_widgets/widgets/interactive/glass_button.dart';
-import 'package:liquid_glass_widgets/widgets/interactive/glass_chip.dart';
+import 'package:flutter_chan/widgets/feed_player_recycler.dart';
+import 'package:flutter_chan/widgets/video_scrub_gesture.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:preload_page_view/preload_page_view.dart';
 
 typedef MediaSourceResolver = Future<String> Function(String source);
 
@@ -113,6 +111,8 @@ class SharedMediaViewer extends StatefulWidget {
     this.mediaNameBuilder,
     this.actions,
     this.onIndexChanged,
+    this.handoff,
+    this.recycler,
   }) : super(key: key);
 
   final List<SharedMediaViewerItem> items;
@@ -120,6 +120,12 @@ class SharedMediaViewer extends StatefulWidget {
   final VoidCallback onClose;
   final SharedMediaViewerTopBarActions? actions;
   final ValueChanged<int>? onIndexChanged;
+
+  /// Player already showing the initial item; owned by the caller.
+  final RecycledPlayer? handoff;
+
+  /// Source of players for video pages; without it each page creates its own.
+  final FeedPlayerRecycler? recycler;
 
   final String? mediaName;
   final String Function(int index)? mediaNameBuilder;
@@ -129,9 +135,8 @@ class SharedMediaViewer extends StatefulWidget {
 }
 
 class _SharedMediaViewerState extends State<SharedMediaViewer> {
-  late final PageController _pageController;
-  late final Player _viewerPlayer;
-  late final VideoController _viewerController;
+  late final PreloadPageController _pageController;
+  String? _handoffItemId;
   late int _currentIndex;
   bool _isVideoScrubbing = false;
 
@@ -139,11 +144,10 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
   void initState() {
     super.initState();
     _currentIndex = _sanitizeIndex(widget.initialIndex, widget.items.length);
-    _pageController = PageController(initialPage: _currentIndex);
-    _viewerPlayer = Player();
-    _viewerController = VideoController(_viewerPlayer);
-    _viewerPlayer.setPlaylistMode(PlaylistMode.loop);
-    _viewerPlayer.setVolume(100.0);
+    _pageController = PreloadPageController(initialPage: _currentIndex);
+    if (widget.handoff != null && widget.items.isNotEmpty) {
+      _handoffItemId = widget.items[_currentIndex].id;
+    }
   }
 
   @override
@@ -175,7 +179,6 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
   @override
   void dispose() {
     _pageController.dispose();
-    _viewerPlayer.dispose();
     super.dispose();
   }
 
@@ -197,48 +200,23 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
     final String mediaTitle = _resolveMediaTitle(itemCount);
 
     void showFileInfo() {
-      GlassDialog.show(
+      showCupertinoDialog<void>(
         context: context,
-        actions: [
-          GlassDialogAction(
-            label: 'Close',
-            onPressed: () => Navigator.pop(context),
-            isPrimary: true,
-          ),
-        ],
         barrierDismissible: true,
-        barrierColor: Colors.black.withValues(alpha: 0.7),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const Text(
-              'File Information',
-              style: TextStyle(
-                color: CupertinoColors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Filename: $mediaTitle',
-              style: const TextStyle(
-                color: CupertinoColors.white,
-                fontSize: 14,
-              ),
+        builder: (dialogContext) => CupertinoAlertDialog(
+          title: const Text('File Information'),
+          content: Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text('Filename: $mediaTitle'),
+          ),
+          actions: [
+            CupertinoDialogAction(
+              isDefaultAction: true,
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Close'),
             ),
           ],
         ),
-        settings: LiquidGlassSettings(
-          blur: 12,
-          thickness: 5,
-          ambientStrength: 0.5,
-          lightIntensity: 0.6,
-          lightAngle: 0.75 * math.pi,
-          glassColor: CupertinoColors.white.withValues(alpha: 0.08),
-        ),
-        quality: GlassQuality.premium,
       );
     }
 
@@ -247,9 +225,10 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
       body: Stack(
         children: [
           Positioned.fill(child: _buildPagedBackdrop()),
-          PageView.builder(
+          PreloadPageView.builder(
             controller: _pageController,
             scrollDirection: Axis.vertical,
+            preloadPagesCount: 3,
             physics: _isVideoScrubbing
                 ? const NeverScrollableScrollPhysics()
                 : const ClampingScrollPhysics(),
@@ -268,8 +247,8 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
                 return _SharedMediaVideoPage(
                   key: ValueKey('shared-media-video-${item.id}'),
                   item: item,
-                  player: _viewerPlayer,
-                  controller: _viewerController,
+                  handoff: item.id == _handoffItemId ? widget.handoff : null,
+                  recycler: widget.recycler,
                   isActive: _currentIndex == index,
                   thumbnail: item.thumbnail,
                   onScrubStateChanged: (isScrubbing) {
@@ -297,12 +276,13 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                GlassButton(
-                  icon: const Icon(CupertinoIcons.back, color: Colors.white),
-                  onTap: widget.onClose,
-                  width: 36,
-                  height: 36,
-                  iconSize: 18,
+                _OverlayButton(
+                  onPressed: widget.onClose,
+                  child: const Icon(
+                    CupertinoIcons.back,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                 ),
                 Expanded(
                   child: GestureDetector(
@@ -331,16 +311,19 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
                       const SizedBox(width: 8),
                     ],
 
-                    GlassChip(
-                      label: itemCount == 0
-                          ? '0 / 0'
-                          : '${_currentIndex + 1} / $itemCount',
-                      labelStyle: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                    _OverlayButton(
+                      onPressed: showFileInfo,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        itemCount == 0
+                            ? '0 / 0'
+                            : '${_currentIndex + 1} / $itemCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                      onTap: showFileInfo,
                     ),
                   ],
                 ),
@@ -495,8 +478,9 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
         ? null
         : action.onPressed;
 
-    return GlassButton(
-      icon: action.isBusy
+    return _OverlayButton(
+      onPressed: onPressed,
+      child: action.isBusy
           ? const CupertinoActivityIndicator(radius: 9)
           : Icon(
               action.isCompleted && action.completedIcon != null
@@ -505,10 +489,31 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
               color: Colors.white,
               size: 18,
             ),
-      onTap: onPressed ?? () {},
-      width: 36,
-      height: 36,
-      iconSize: 18,
+    );
+  }
+}
+
+class _OverlayButton extends StatelessWidget {
+  const _OverlayButton({
+    required this.onPressed,
+    required this.child,
+    this.padding = EdgeInsets.zero,
+  });
+
+  final VoidCallback? onPressed;
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoButton(
+      padding: padding,
+      minimumSize: const Size(36, 36),
+      color: Colors.black.withValues(alpha: 0.45),
+      disabledColor: Colors.black.withValues(alpha: 0.45),
+      borderRadius: BorderRadius.circular(18),
+      onPressed: onPressed,
+      child: child,
     );
   }
 }
@@ -517,16 +522,16 @@ class _SharedMediaVideoPage extends StatefulWidget {
   const _SharedMediaVideoPage({
     Key? key,
     required this.item,
-    required this.player,
-    required this.controller,
     required this.isActive,
     required this.onScrubStateChanged,
+    this.handoff,
+    this.recycler,
     this.thumbnail,
   }) : super(key: key);
 
   final SharedMediaViewerItem item;
-  final Player player;
-  final VideoController controller;
+  final RecycledPlayer? handoff;
+  final FeedPlayerRecycler? recycler;
   final bool isActive;
   final ValueChanged<bool> onScrubStateChanged;
   final ImageProvider<Object>? thumbnail;
@@ -536,7 +541,10 @@ class _SharedMediaVideoPage extends StatefulWidget {
 }
 
 class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
-  static const double _backSwipeEdgeInset = 24;
+  late final Player _player;
+  late final VideoController _controller;
+  RecycledPlayer? _leased;
+  bool _ownsPlayer = false;
 
   StreamSubscription<String>? _errorSub;
   StreamSubscription<bool>? _playingSub;
@@ -549,53 +557,70 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
   bool _hasVideoFrame = false;
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
-  double _dragSeekPreviewMs = 0;
-  bool _isHorizontalSeeking = false;
+  Duration? _scrubPreview;
 
+  Duration get _displayPosition => _scrubPreview ?? _position;
   @override
   void initState() {
     super.initState();
 
-    if (widget.isActive) {
-      _attachSubscriptions();
-      _openAndPlay();
+    final RecycledPlayer? handoff = widget.handoff;
+    final FeedPlayerRecycler? recycler = widget.recycler;
+    if (handoff != null) {
+      _player = handoff.player;
+      _controller = handoff.controller;
+    } else if (recycler != null) {
+      final RecycledPlayer leased = recycler.acquire();
+      _leased = leased;
+      _player = leased.player;
+      _controller = leased.controller;
+    } else {
+      _ownsPlayer = true;
+      _player = Player();
+      _controller = VideoController(_player);
     }
+
+    _attachSubscriptions();
+    _load();
   }
 
   @override
   void didUpdateWidget(covariant _SharedMediaVideoPage oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (oldWidget.item.id != widget.item.id) {
-      _cancelSubscriptions();
-      _resetPlaybackState();
-      if (widget.isActive) {
-        _attachSubscriptions();
-        _openAndPlay();
-      }
-      return;
-    }
-
     if (!oldWidget.isActive && widget.isActive) {
-      _attachSubscriptions();
-      _openAndPlay();
+      _player.play().catchError((_) {});
     } else if (oldWidget.isActive && !widget.isActive) {
-      widget.player.pause();
-      _cancelSubscriptions();
-      _resetPlaybackState();
+      _player.pause().catchError((_) {});
     }
   }
 
   @override
   void dispose() {
     _cancelSubscriptions();
+
+    final RecycledPlayer? leased = _leased;
+    if (leased != null) {
+      unawaited(widget.recycler!.release(leased));
+    } else if (_ownsPlayer) {
+      unawaited(_player.dispose());
+    }
     super.dispose();
   }
 
   void _attachSubscriptions() {
     _cancelSubscriptions();
 
-    _playingSub = widget.player.stream.playing.listen((playing) {
+    if (_isItemLoaded()) {
+      final PlayerState state = _player.state;
+      _isPlaying = state.playing;
+      _isBuffering = state.buffering;
+      _position = state.position;
+      _duration = state.duration;
+      _hasVideoFrame = state.position > const Duration(milliseconds: 100);
+    }
+
+    _playingSub = _player.stream.playing.listen((playing) {
       if (!mounted) {
         return;
       }
@@ -604,7 +629,7 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
         _isPlaying = playing;
       });
     });
-    _positionSub = widget.player.stream.position.listen((position) {
+    _positionSub = _player.stream.position.listen((position) {
       if (!mounted) {
         return;
       }
@@ -619,14 +644,14 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
         }
       });
     });
-    _durationSub = widget.player.stream.duration.listen((duration) {
+    _durationSub = _player.stream.duration.listen((duration) {
       if (!mounted) {
         return;
       }
 
       setState(() => _duration = duration);
     });
-    _bufferingSub = widget.player.stream.buffering.listen((buffering) {
+    _bufferingSub = _player.stream.buffering.listen((buffering) {
       if (!mounted) {
         return;
       }
@@ -648,56 +673,61 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
     _bufferingSub = null;
   }
 
-  void _resetPlaybackState() {
-    setState(() {
-      _isPlaying = false;
-      _isBuffering = false;
-      _hasVideoFrame = false;
-      _position = Duration.zero;
-      _duration = Duration.zero;
-      _isHorizontalSeeking = false;
-    });
+  bool _isItemLoaded() {
+    final Playlist playlist = _player.state.playlist;
+    final int index = playlist.index;
+    return index >= 0 &&
+        index < playlist.medias.length &&
+        playlist.medias[index].uri == widget.item.source;
   }
 
-  Future<void> _openAndPlay() async {
-    final String snapshotSource = widget.item.source;
+  /// Opens the media paused; it only plays while the page is active.
+  Future<void> _load() async {
+    final String source = widget.item.source;
     final MediaSourceResolver? resolveSource = widget.item.resolveVideoSource;
-    if (resolveSource == null) {
-      return;
-    }
 
     try {
-      final String resolvedSource = await resolveSource(snapshotSource);
-      if (!mounted ||
-          !widget.isActive ||
-          widget.item.source != snapshotSource) {
+      // Handed-off players already have this media open.
+      if (!_isItemLoaded()) {
+        final String resolvedSource = resolveSource == null
+            ? source
+            : await resolveSource(source);
+        if (!mounted) {
+          return;
+        }
+
+        await _player.open(Media(resolvedSource), play: false);
+        if (!mounted) {
+          return;
+        }
+
+        // Recycled players don't re-emit an unchanged duration.
+        setState(() => _duration = _player.state.duration);
+      }
+
+      await _player.setPlaylistMode(PlaylistMode.loop);
+      await _player.setVolume(100.0);
+      // Recycled feed players may still have audio disabled.
+      await _player.setAudioTrack(AudioTrack.auto());
+      if (!mounted) {
         return;
       }
 
-      await widget.player.open(Media(resolvedSource), play: false);
-      if (!mounted || !widget.isActive) {
-        return;
+      if (widget.isActive) {
+        await _player.play();
+      } else {
+        await _player.pause();
       }
-
-      if (!mounted || !widget.isActive) {
-        return;
-      }
-
-      await widget.player.play();
-    } catch (error) {
-      // ignore: empty_catches
-    }
+    } catch (_) {}
   }
 
   Future<void> _togglePlayPause() async {
-    await widget.player.playOrPause();
+    await _player.playOrPause();
   }
 
   Future<void> _seekTo(double value) async {
     try {
-      await widget.player.seek(
-        _clampDuration(Duration(milliseconds: value.round())),
-      );
+      await _player.seek(_clampDuration(Duration(milliseconds: value.round())));
     } catch (_) {
       // Ignore transient seek races.
     }
@@ -737,59 +767,6 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
     return value;
   }
 
-  void _handleScrubPanStart(DragStartDetails details) {
-    if (details.globalPosition.dx <= _backSwipeEdgeInset) {
-      return;
-    }
-
-    if (_duration <= Duration.zero) {
-      return;
-    }
-
-    _dragSeekPreviewMs = _position.inMilliseconds.toDouble();
-    setState(() {
-      _isHorizontalSeeking = true;
-    });
-    widget.onScrubStateChanged(true);
-  }
-
-  void _handleScrubPanUpdate(DragUpdateDetails details) {
-    if (!_isHorizontalSeeking) {
-      return;
-    }
-
-    final double width =
-        MediaQuery.of(context).size.width - _backSwipeEdgeInset;
-    if (width <= 0) {
-      return;
-    }
-
-    final double durationMs = _duration.inMilliseconds.toDouble();
-    if (durationMs <= 0) {
-      return;
-    }
-
-    final double msPerScreen = durationMs.clamp(15000.0, 90000.0);
-    _dragSeekPreviewMs += details.delta.dx / width * msPerScreen;
-    _dragSeekPreviewMs = _dragSeekPreviewMs.clamp(0.0, durationMs);
-    setState(() {});
-  }
-
-  Future<void> _handleScrubPanEnd(DragEndDetails details) async {
-    if (!_isHorizontalSeeking) {
-      return;
-    }
-
-    final Duration target = _clampDuration(
-      Duration(milliseconds: _dragSeekPreviewMs.round()),
-    );
-    setState(() {
-      _isHorizontalSeeking = false;
-    });
-    widget.onScrubStateChanged(false);
-    await _seekTo(target.inMilliseconds.toDouble());
-  }
-
   @override
   void deactivate() {
     widget.onScrubStateChanged(false);
@@ -801,13 +778,20 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        if (widget.isActive)
-          Positioned.fill(
+        Positioned.fill(
+          child: VideoScrubGesture(
+            player: _player,
+            onScrubStateChanged: widget.onScrubStateChanged,
+            onPreviewChanged: (preview) {
+              setState(() => _scrubPreview = preview);
+            },
             child: StreamBuilder<int?>(
-              stream: widget.player.stream.width,
+              stream: _player.stream.width,
+              initialData: _player.state.width,
               builder: (context, widthSnapshot) {
                 return StreamBuilder<int?>(
-                  stream: widget.player.stream.height,
+                  stream: _player.stream.height,
+                  initialData: _player.state.height,
                   builder: (context, heightSnapshot) {
                     final int width = widthSnapshot.data ?? 0;
                     final int height = heightSnapshot.data ?? 0;
@@ -818,9 +802,20 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
 
                     final bool showVideo =
                         hasValidDimensions && _hasVideoFrame && !_isBuffering;
+                    final ImageProvider<Object>? thumbnail = widget.thumbnail;
 
                     return Stack(
                       children: [
+                        // Kept underneath so the video fades in over it.
+                        if (thumbnail != null)
+                          Positioned.fill(
+                            child: Image(
+                              image: thumbnail,
+                              fit: BoxFit.contain,
+                              gaplessPlayback: true,
+                            ),
+                          ),
+
                         AnimatedOpacity(
                           opacity: showVideo ? 1 : 0,
                           duration: const Duration(milliseconds: 200),
@@ -829,7 +824,7 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
                             child: AspectRatio(
                               aspectRatio: aspectRatio,
                               child: Video(
-                                controller: widget.controller,
+                                controller: _controller,
                                 controls: NoVideoControls,
                                 fit: BoxFit.fill,
                               ),
@@ -838,7 +833,7 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
                         ),
 
                         AnimatedOpacity(
-                          opacity: showVideo ? 0 : 1,
+                          opacity: widget.isActive && !showVideo ? 1 : 0,
                           duration: const Duration(milliseconds: 200),
                           curve: Curves.easeOut,
                           child: const Center(
@@ -852,41 +847,6 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
               },
             ),
           ),
-        if (_isHorizontalSeeking)
-          Center(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.58),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Text(
-                '${_formatDuration(_clampDuration(Duration(milliseconds: _dragSeekPreviewMs.round())))} / ${_formatDuration(_duration)}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-        Positioned.fill(
-          left: _backSwipeEdgeInset,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onPanStart: _handleScrubPanStart,
-            onPanUpdate: _handleScrubPanUpdate,
-            onPanEnd: _handleScrubPanEnd,
-            onPanCancel: () {
-              if (_isHorizontalSeeking) {
-                widget.onScrubStateChanged(false);
-                setState(() {
-                  _isHorizontalSeeking = false;
-                });
-              }
-            },
-            child: const SizedBox.expand(),
-          ),
         ),
         Positioned(
           left: 0,
@@ -894,8 +854,12 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
           bottom: 0,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(8, 8, 8, 14),
-            child: GlassCard(
+            child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.45),
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Row(
                 children: [
                   CupertinoButton(
@@ -912,7 +876,7 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
                   ),
                   Expanded(
                     child: Slider(
-                      value: _position.inMilliseconds.toDouble().clamp(
+                      value: _displayPosition.inMilliseconds.toDouble().clamp(
                         0,
                         (_duration.inMilliseconds <= 0
                                 ? 1
@@ -931,7 +895,7 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
                     ),
                   ),
                   Text(
-                    '${_formatDuration(_position)} / ${_formatDuration(_duration)}',
+                    '${_formatDuration(_displayPosition)} / ${_formatDuration(_duration)}',
                     style: const TextStyle(color: Colors.white, fontSize: 12),
                   ),
                 ],

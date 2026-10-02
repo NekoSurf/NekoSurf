@@ -1,11 +1,5 @@
 class Bookmark {
-  Bookmark({
-    this.no,
-    this.sub,
-    this.com,
-    this.imageUrl,
-    this.board,
-  });
+  Bookmark({this.no, this.sub, this.com, this.imageUrl, this.board});
 
   factory Bookmark.fromJson(Map<String, dynamic> json) {
     return Bookmark(

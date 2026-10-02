@@ -3,12 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/constants.dart';
-import 'package:liquid_glass_widgets/widgets/interactive/glass_button.dart';
-import 'package:liquid_glass_widgets/widgets/overlays/glass_menu.dart';
-import 'package:liquid_glass_widgets/widgets/overlays/glass_menu_item.dart';
-import 'package:liquid_glass_widgets/widgets/shared/adaptive_liquid_glass_layer.dart';
-import 'package:liquid_glass_widgets/widgets/surfaces/glass_app_bar.dart';
-import 'package:liquid_glass_widgets/widgets/surfaces/glass_scaffold.dart';
+import 'package:flutter_chan/widgets/cupertino_menu.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
@@ -121,32 +116,12 @@ class DataSettingsState extends State<DataSettings> {
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
 
-    return GlassScaffold(
+    return CupertinoPageScaffold(
       backgroundColor: AppColors.pageBackground(
         Theme.of(context).brightness == Brightness.dark,
       ),
-      appBar: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12.0),
-        child: GlassAppBar(
-          title: Text(
-            'Data',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: CupertinoColors.label.resolveFrom(context),
-            ),
-          ),
-          leading: GlassButton(
-            icon: const Icon(CupertinoIcons.back),
-            onTap: () => Navigator.of(context).pop(),
-            width: 40,
-            height: 40,
-            iconSize: 20,
-          ),
-        ),
-      ),
-      extendBody: false,
-      body: Column(
+      navigationBar: const CupertinoNavigationBar(middle: Text('Data')),
+      child: ListView(
         children: [
           CupertinoListSection.insetGrouped(
             backgroundColor: Colors.transparent,
@@ -203,33 +178,28 @@ class DataSettingsState extends State<DataSettings> {
           CupertinoListSection.insetGrouped(
             backgroundColor: Colors.transparent,
             children: [
-              GlassMenu(
-                menuAlignment: GlassMenuAlignment.center,
-                autoAdjustToScreen: true,
-                items: [
+              CupertinoMenuAnchor(
+                menuChildren: [
                   for (final days in [3, 7, 14, 30])
-                    GlassMenuItem(
+                    buildMenuItem(
                       title: '$days days',
-                      icon: const Icon(CupertinoIcons.clock),
-                      isDestructive: false,
-                      onTap: () => settings.setWatchedPostsRetentionDays(days),
-                      trailing: settings.getWatchedPostsRetentionDays() == days
-                          ? const Icon(CupertinoIcons.check_mark)
-                          : null,
+                      icon: CupertinoIcons.clock,
+                      isSelected:
+                          settings.getWatchedPostsRetentionDays() == days,
+                      onPressed: () =>
+                          settings.setWatchedPostsRetentionDays(days),
                     ),
                 ],
-                triggerBuilder: (ctx, toggle) => AdaptiveLiquidGlassLayer(
-                  child: CupertinoListTile(
-                    title: const Text('Watched Posts Retention Period'),
-                    subtitle: const Text(
-                      'The number of days watched status of all posts will be kept.',
-                    ),
-                    trailing: Text(
-                      '${settings.getWatchedPostsRetentionDays()} days',
-                      style: const TextStyle(color: CupertinoColors.systemGrey),
-                    ),
-                    onTap: toggle,
+                builder: (context, controller, _) => CupertinoListTile(
+                  title: const Text('Watched Posts Retention Period'),
+                  subtitle: const Text(
+                    'The number of days watched status of all posts will be kept.',
                   ),
+                  trailing: Text(
+                    '${settings.getWatchedPostsRetentionDays()} days',
+                    style: const TextStyle(color: CupertinoColors.systemGrey),
+                  ),
+                  onTap: controller.open,
                 ),
               ),
 

@@ -10,7 +10,7 @@ import 'package:flutter_chan/pages/thread/thread_media_viewer_page.dart';
 import 'package:flutter_chan/pages/thread/thread_post_comment.dart';
 import 'package:flutter_chan/pages/thread/thread_replies.dart';
 import 'package:flutter_chan/services/string.dart';
-import 'package:flutter_chan/widgets/feed_player_pool.dart';
+import 'package:flutter_chan/widgets/feed_player_recycler.dart';
 import 'package:flutter_chan/widgets/feed_video_player.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -25,8 +25,8 @@ class ThreadPagePost extends StatefulWidget {
     required this.onDismiss,
     this.replies,
     this.replyCount = 0,
-    this.eagerVideoInit = false,
-    this.playerPool,
+    this.preloadVideo = false,
+    this.playerRecycler,
   }) : super(key: key);
 
   final String board;
@@ -36,8 +36,8 @@ class ThreadPagePost extends StatefulWidget {
   final Function(int? postId) onDismiss;
   final List<Post>? replies;
   final int replyCount;
-  final bool eagerVideoInit;
-  final FeedPlayerPool? playerPool;
+  final bool preloadVideo;
+  final FeedPlayerRecycler? playerRecycler;
 
   static String formatBytes(int bytes, int decimals) {
     if (bytes <= 0) {
@@ -89,7 +89,11 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     return widget.post.tim != null && widget.post.ext != null;
   }
 
-  Future<void> _openMediaViewer(List<Post> allPosts, Post thisPost) async {
+  Future<void> _openMediaViewer(
+    List<Post> allPosts,
+    Post thisPost, {
+    RecycledPlayer? handoff,
+  }) async {
     final mediaPosts = allPosts
         .where((p) => p.tim != null && p.ext != null)
         .toList();
@@ -103,6 +107,8 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
         initialIndex: index,
         board: widget.board,
         thread: widget.thread,
+        handoff: handoff,
+        recycler: widget.playerRecycler,
       ),
     );
     if (!mounted) {
@@ -201,16 +207,17 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     final itemKey = widget.post.no ?? mediaId;
 
     try {
-      return GestureDetector(
-        onTap: () =>
-            _openMediaViewer(widget.replies ?? widget.allPosts, widget.post),
-        child: FeedVideoPlayer(
-          key: ValueKey('feed-player-${widget.board}-$itemKey'),
-          videoUrl: mediaUrl,
-          thumbnailUrl: _thumbnailUrl(),
-          aspectRatio: _mediaAspectRatio(),
-          eagerInitialize: widget.eagerVideoInit,
-          pool: widget.playerPool,
+      return FeedVideoPlayer(
+        key: ValueKey('feed-player-${widget.board}-$itemKey'),
+        videoUrl: mediaUrl,
+        thumbnailUrl: _thumbnailUrl(),
+        aspectRatio: _mediaAspectRatio(),
+        preload: widget.preloadVideo,
+        recycler: widget.playerRecycler,
+        onTap: (handoff) => _openMediaViewer(
+          widget.replies ?? widget.allPosts,
+          widget.post,
+          handoff: handoff,
         ),
       );
     } catch (_) {
