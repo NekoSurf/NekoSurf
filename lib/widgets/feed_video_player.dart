@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/widgets/feed_player_recycler.dart';
+import 'package:flutter_chan/widgets/video_scrub_gesture.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:visibility_detector/visibility_detector.dart';
@@ -56,6 +57,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   final ValueNotifier<bool> _hasDuration = ValueNotifier<bool>(false);
   Duration _lastProgressUiPosition = Duration.zero;
   int _durationMicros = 0;
+  bool _isScrubbing = false;
 
   StreamSubscription<Duration>? _positionSub;
   StreamSubscription<Duration>? _durationSub;
@@ -165,13 +167,13 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
         }
 
         final durationMicros = _durationMicros;
-        if (durationMicros <= 0) {
+        if (durationMicros <= 0 || _isScrubbing) {
           return;
         }
 
         final shouldUpdateUi =
             pos == Duration.zero ||
-            (pos - _lastProgressUiPosition).inMilliseconds >= 100;
+            (pos - _lastProgressUiPosition).inMilliseconds.abs() >= 100;
         if (!shouldUpdateUi) {
           return;
         }
@@ -190,13 +192,10 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
           return;
         }
 
-        final micros = dur.inMicroseconds;
-        _durationMicros = micros;
-        final hasDurationNow = micros > 0;
-        if (_hasDuration.value != hasDurationNow) {
-          _hasDuration.value = hasDurationNow;
-        }
+        _applyDuration(dur);
       });
+      // The stream only emits changes, which may have fired during open().
+      _applyDuration(player.state.duration);
 
       if (!mounted ||
           _isDisposing ||
@@ -225,6 +224,15 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
         _durationSub = null;
         await _releasePlayer(player, recycled);
       }
+    }
+  }
+
+  void _applyDuration(Duration duration) {
+    final micros = duration.inMicroseconds;
+    _durationMicros = micros;
+    final hasDurationNow = micros > 0;
+    if (_hasDuration.value != hasDurationNow) {
+      _hasDuration.value = hasDurationNow;
     }
   }
 
@@ -296,6 +304,20 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   // ---------------------------
   // Fullscreen handoff
   // ---------------------------
+
+  void _handleScrubPreview(Duration? preview) {
+    _isScrubbing = preview != null;
+    final durationMicros = _durationMicros;
+    if (preview == null || durationMicros <= 0) {
+      return;
+    }
+
+    _lastProgressUiPosition = preview;
+    _progressValue.value = (preview.inMicroseconds / durationMicros).clamp(
+      0.0,
+      1.0,
+    );
+  }
 
   Future<void> _handleTap() async {
     final onTap = widget.onTap;
@@ -449,7 +471,11 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
         onVisibilityChanged: (info) {
           _handleVisibility(info.visibleFraction);
         },
-        child: _buildContent(),
+        child: VideoScrubGesture(
+          player: _player,
+          onPreviewChanged: _handleScrubPreview,
+          child: _buildContent(),
+        ),
       ),
     );
   }

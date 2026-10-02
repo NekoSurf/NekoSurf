@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/widgets/feed_player_recycler.dart';
+import 'package:flutter_chan/widgets/video_scrub_gesture.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:preload_page_view/preload_page_view.dart';
@@ -540,8 +541,6 @@ class _SharedMediaVideoPage extends StatefulWidget {
 }
 
 class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
-  static const double _backSwipeEdgeInset = 24;
-
   late final Player _player;
   late final VideoController _controller;
   RecycledPlayer? _leased;
@@ -558,9 +557,9 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
   bool _hasVideoFrame = false;
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
-  double _dragSeekPreviewMs = 0;
-  bool _isHorizontalSeeking = false;
+  Duration? _scrubPreview;
 
+  Duration get _displayPosition => _scrubPreview ?? _position;
   @override
   void initState() {
     super.initState();
@@ -593,9 +592,6 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
       _player.play().catchError((_) {});
     } else if (oldWidget.isActive && !widget.isActive) {
       _player.pause().catchError((_) {});
-      if (_isHorizontalSeeking) {
-        setState(() => _isHorizontalSeeking = false);
-      }
     }
   }
 
@@ -704,6 +700,9 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
         if (!mounted) {
           return;
         }
+
+        // Recycled players don't re-emit an unchanged duration.
+        setState(() => _duration = _player.state.duration);
       }
 
       await _player.setPlaylistMode(PlaylistMode.loop);
@@ -768,59 +767,6 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
     return value;
   }
 
-  void _handleScrubPanStart(DragStartDetails details) {
-    if (details.globalPosition.dx <= _backSwipeEdgeInset) {
-      return;
-    }
-
-    if (_duration <= Duration.zero) {
-      return;
-    }
-
-    _dragSeekPreviewMs = _position.inMilliseconds.toDouble();
-    setState(() {
-      _isHorizontalSeeking = true;
-    });
-    widget.onScrubStateChanged(true);
-  }
-
-  void _handleScrubPanUpdate(DragUpdateDetails details) {
-    if (!_isHorizontalSeeking) {
-      return;
-    }
-
-    final double width =
-        MediaQuery.of(context).size.width - _backSwipeEdgeInset;
-    if (width <= 0) {
-      return;
-    }
-
-    final double durationMs = _duration.inMilliseconds.toDouble();
-    if (durationMs <= 0) {
-      return;
-    }
-
-    final double msPerScreen = durationMs.clamp(15000.0, 90000.0);
-    _dragSeekPreviewMs += details.delta.dx / width * msPerScreen;
-    _dragSeekPreviewMs = _dragSeekPreviewMs.clamp(0.0, durationMs);
-    setState(() {});
-  }
-
-  Future<void> _handleScrubPanEnd(DragEndDetails details) async {
-    if (!_isHorizontalSeeking) {
-      return;
-    }
-
-    final Duration target = _clampDuration(
-      Duration(milliseconds: _dragSeekPreviewMs.round()),
-    );
-    setState(() {
-      _isHorizontalSeeking = false;
-    });
-    widget.onScrubStateChanged(false);
-    await _seekTo(target.inMilliseconds.toDouble());
-  }
-
   @override
   void deactivate() {
     widget.onScrubStateChanged(false);
@@ -833,102 +779,73 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
       fit: StackFit.expand,
       children: [
         Positioned.fill(
-          child: StreamBuilder<int?>(
-            stream: _player.stream.width,
-            initialData: _player.state.width,
-            builder: (context, widthSnapshot) {
-              return StreamBuilder<int?>(
-                stream: _player.stream.height,
-                initialData: _player.state.height,
-                builder: (context, heightSnapshot) {
-                  final int width = widthSnapshot.data ?? 0;
-                  final int height = heightSnapshot.data ?? 0;
-                  final bool hasValidDimensions = width > 0 && height > 0;
-                  final double aspectRatio = hasValidDimensions
-                      ? width / height
-                      : 16 / 9;
+          child: VideoScrubGesture(
+            player: _player,
+            onScrubStateChanged: widget.onScrubStateChanged,
+            onPreviewChanged: (preview) {
+              setState(() => _scrubPreview = preview);
+            },
+            child: StreamBuilder<int?>(
+              stream: _player.stream.width,
+              initialData: _player.state.width,
+              builder: (context, widthSnapshot) {
+                return StreamBuilder<int?>(
+                  stream: _player.stream.height,
+                  initialData: _player.state.height,
+                  builder: (context, heightSnapshot) {
+                    final int width = widthSnapshot.data ?? 0;
+                    final int height = heightSnapshot.data ?? 0;
+                    final bool hasValidDimensions = width > 0 && height > 0;
+                    final double aspectRatio = hasValidDimensions
+                        ? width / height
+                        : 16 / 9;
 
-                  final bool showVideo =
-                      hasValidDimensions && _hasVideoFrame && !_isBuffering;
-                  final ImageProvider<Object>? thumbnail = widget.thumbnail;
+                    final bool showVideo =
+                        hasValidDimensions && _hasVideoFrame && !_isBuffering;
+                    final ImageProvider<Object>? thumbnail = widget.thumbnail;
 
-                  return Stack(
-                    children: [
-                      // Kept underneath so the video fades in over it.
-                      if (thumbnail != null)
-                        Positioned.fill(
-                          child: Image(
-                            image: thumbnail,
-                            fit: BoxFit.contain,
-                            gaplessPlayback: true,
+                    return Stack(
+                      children: [
+                        // Kept underneath so the video fades in over it.
+                        if (thumbnail != null)
+                          Positioned.fill(
+                            child: Image(
+                              image: thumbnail,
+                              fit: BoxFit.contain,
+                              gaplessPlayback: true,
+                            ),
                           ),
-                        ),
 
-                      AnimatedOpacity(
-                        opacity: showVideo ? 1 : 0,
-                        duration: const Duration(milliseconds: 200),
-                        curve: Curves.easeOut,
-                        child: Center(
-                          child: AspectRatio(
-                            aspectRatio: aspectRatio,
-                            child: Video(
-                              controller: _controller,
-                              controls: NoVideoControls,
-                              fit: BoxFit.fill,
+                        AnimatedOpacity(
+                          opacity: showVideo ? 1 : 0,
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeOut,
+                          child: Center(
+                            child: AspectRatio(
+                              aspectRatio: aspectRatio,
+                              child: Video(
+                                controller: _controller,
+                                controls: NoVideoControls,
+                                fit: BoxFit.fill,
+                              ),
                             ),
                           ),
                         ),
-                      ),
 
-                      AnimatedOpacity(
-                        opacity: widget.isActive && !showVideo ? 1 : 0,
-                        duration: const Duration(milliseconds: 200),
-                        curve: Curves.easeOut,
-                        child: const Center(
-                          child: CupertinoActivityIndicator(radius: 14),
+                        AnimatedOpacity(
+                          opacity: widget.isActive && !showVideo ? 1 : 0,
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeOut,
+                          child: const Center(
+                            child: CupertinoActivityIndicator(radius: 14),
+                          ),
                         ),
-                      ),
-                    ],
-                  );
-                },
-              );
-            },
-          ),
-        ),
-        if (_isHorizontalSeeking)
-          Center(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.58),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Text(
-                '${_formatDuration(_clampDuration(Duration(milliseconds: _dragSeekPreviewMs.round())))} / ${_formatDuration(_duration)}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+                      ],
+                    );
+                  },
+                );
+              },
             ),
-          ),
-        Positioned.fill(
-          left: _backSwipeEdgeInset,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onPanStart: _handleScrubPanStart,
-            onPanUpdate: _handleScrubPanUpdate,
-            onPanEnd: _handleScrubPanEnd,
-            onPanCancel: () {
-              if (_isHorizontalSeeking) {
-                widget.onScrubStateChanged(false);
-                setState(() {
-                  _isHorizontalSeeking = false;
-                });
-              }
-            },
-            child: const SizedBox.expand(),
           ),
         ),
         Positioned(
@@ -959,7 +876,7 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
                   ),
                   Expanded(
                     child: Slider(
-                      value: _position.inMilliseconds.toDouble().clamp(
+                      value: _displayPosition.inMilliseconds.toDouble().clamp(
                         0,
                         (_duration.inMilliseconds <= 0
                                 ? 1
@@ -978,7 +895,7 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
                     ),
                   ),
                   Text(
-                    '${_formatDuration(_position)} / ${_formatDuration(_duration)}',
+                    '${_formatDuration(_displayPosition)} / ${_formatDuration(_duration)}',
                     style: const TextStyle(color: Colors.white, fontSize: 12),
                   ),
                 ],
