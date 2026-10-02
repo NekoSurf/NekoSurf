@@ -3,8 +3,10 @@ import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_chan/widgets/feed_player_recycler.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:preload_page_view/preload_page_view.dart';
 
 typedef MediaSourceResolver = Future<String> Function(String source);
 
@@ -108,6 +110,8 @@ class SharedMediaViewer extends StatefulWidget {
     this.mediaNameBuilder,
     this.actions,
     this.onIndexChanged,
+    this.handoff,
+    this.recycler,
   }) : super(key: key);
 
   final List<SharedMediaViewerItem> items;
@@ -115,6 +119,12 @@ class SharedMediaViewer extends StatefulWidget {
   final VoidCallback onClose;
   final SharedMediaViewerTopBarActions? actions;
   final ValueChanged<int>? onIndexChanged;
+
+  /// Player already showing the initial item; owned by the caller.
+  final RecycledPlayer? handoff;
+
+  /// Source of players for video pages; without it each page creates its own.
+  final FeedPlayerRecycler? recycler;
 
   final String? mediaName;
   final String Function(int index)? mediaNameBuilder;
@@ -124,9 +134,8 @@ class SharedMediaViewer extends StatefulWidget {
 }
 
 class _SharedMediaViewerState extends State<SharedMediaViewer> {
-  late final PageController _pageController;
-  late final Player _viewerPlayer;
-  late final VideoController _viewerController;
+  late final PreloadPageController _pageController;
+  String? _handoffItemId;
   late int _currentIndex;
   bool _isVideoScrubbing = false;
 
@@ -134,11 +143,10 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
   void initState() {
     super.initState();
     _currentIndex = _sanitizeIndex(widget.initialIndex, widget.items.length);
-    _pageController = PageController(initialPage: _currentIndex);
-    _viewerPlayer = Player();
-    _viewerController = VideoController(_viewerPlayer);
-    _viewerPlayer.setPlaylistMode(PlaylistMode.loop);
-    _viewerPlayer.setVolume(100.0);
+    _pageController = PreloadPageController(initialPage: _currentIndex);
+    if (widget.handoff != null && widget.items.isNotEmpty) {
+      _handoffItemId = widget.items[_currentIndex].id;
+    }
   }
 
   @override
@@ -170,7 +178,6 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
   @override
   void dispose() {
     _pageController.dispose();
-    _viewerPlayer.dispose();
     super.dispose();
   }
 
@@ -217,9 +224,10 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
       body: Stack(
         children: [
           Positioned.fill(child: _buildPagedBackdrop()),
-          PageView.builder(
+          PreloadPageView.builder(
             controller: _pageController,
             scrollDirection: Axis.vertical,
+            preloadPagesCount: 3,
             physics: _isVideoScrubbing
                 ? const NeverScrollableScrollPhysics()
                 : const ClampingScrollPhysics(),
@@ -238,8 +246,8 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
                 return _SharedMediaVideoPage(
                   key: ValueKey('shared-media-video-${item.id}'),
                   item: item,
-                  player: _viewerPlayer,
-                  controller: _viewerController,
+                  handoff: item.id == _handoffItemId ? widget.handoff : null,
+                  recycler: widget.recycler,
                   isActive: _currentIndex == index,
                   thumbnail: item.thumbnail,
                   onScrubStateChanged: (isScrubbing) {
@@ -513,16 +521,16 @@ class _SharedMediaVideoPage extends StatefulWidget {
   const _SharedMediaVideoPage({
     Key? key,
     required this.item,
-    required this.player,
-    required this.controller,
     required this.isActive,
     required this.onScrubStateChanged,
+    this.handoff,
+    this.recycler,
     this.thumbnail,
   }) : super(key: key);
 
   final SharedMediaViewerItem item;
-  final Player player;
-  final VideoController controller;
+  final RecycledPlayer? handoff;
+  final FeedPlayerRecycler? recycler;
   final bool isActive;
   final ValueChanged<bool> onScrubStateChanged;
   final ImageProvider<Object>? thumbnail;
@@ -533,6 +541,11 @@ class _SharedMediaVideoPage extends StatefulWidget {
 
 class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
   static const double _backSwipeEdgeInset = 24;
+
+  late final Player _player;
+  late final VideoController _controller;
+  RecycledPlayer? _leased;
+  bool _ownsPlayer = false;
 
   StreamSubscription<String>? _errorSub;
   StreamSubscription<bool>? _playingSub;
@@ -552,46 +565,66 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
   void initState() {
     super.initState();
 
-    if (widget.isActive) {
-      _attachSubscriptions();
-      _openAndPlay();
+    final RecycledPlayer? handoff = widget.handoff;
+    final FeedPlayerRecycler? recycler = widget.recycler;
+    if (handoff != null) {
+      _player = handoff.player;
+      _controller = handoff.controller;
+    } else if (recycler != null) {
+      final RecycledPlayer leased = recycler.acquire();
+      _leased = leased;
+      _player = leased.player;
+      _controller = leased.controller;
+    } else {
+      _ownsPlayer = true;
+      _player = Player();
+      _controller = VideoController(_player);
     }
+
+    _attachSubscriptions();
+    _load();
   }
 
   @override
   void didUpdateWidget(covariant _SharedMediaVideoPage oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (oldWidget.item.id != widget.item.id) {
-      _cancelSubscriptions();
-      _resetPlaybackState();
-      if (widget.isActive) {
-        _attachSubscriptions();
-        _openAndPlay();
-      }
-      return;
-    }
-
     if (!oldWidget.isActive && widget.isActive) {
-      _attachSubscriptions();
-      _openAndPlay();
+      _player.play().catchError((_) {});
     } else if (oldWidget.isActive && !widget.isActive) {
-      widget.player.pause();
-      _cancelSubscriptions();
-      _resetPlaybackState();
+      _player.pause().catchError((_) {});
+      if (_isHorizontalSeeking) {
+        setState(() => _isHorizontalSeeking = false);
+      }
     }
   }
 
   @override
   void dispose() {
     _cancelSubscriptions();
+
+    final RecycledPlayer? leased = _leased;
+    if (leased != null) {
+      unawaited(widget.recycler!.release(leased));
+    } else if (_ownsPlayer) {
+      unawaited(_player.dispose());
+    }
     super.dispose();
   }
 
   void _attachSubscriptions() {
     _cancelSubscriptions();
 
-    _playingSub = widget.player.stream.playing.listen((playing) {
+    if (_isItemLoaded()) {
+      final PlayerState state = _player.state;
+      _isPlaying = state.playing;
+      _isBuffering = state.buffering;
+      _position = state.position;
+      _duration = state.duration;
+      _hasVideoFrame = state.position > const Duration(milliseconds: 100);
+    }
+
+    _playingSub = _player.stream.playing.listen((playing) {
       if (!mounted) {
         return;
       }
@@ -600,7 +633,7 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
         _isPlaying = playing;
       });
     });
-    _positionSub = widget.player.stream.position.listen((position) {
+    _positionSub = _player.stream.position.listen((position) {
       if (!mounted) {
         return;
       }
@@ -615,14 +648,14 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
         }
       });
     });
-    _durationSub = widget.player.stream.duration.listen((duration) {
+    _durationSub = _player.stream.duration.listen((duration) {
       if (!mounted) {
         return;
       }
 
       setState(() => _duration = duration);
     });
-    _bufferingSub = widget.player.stream.buffering.listen((buffering) {
+    _bufferingSub = _player.stream.buffering.listen((buffering) {
       if (!mounted) {
         return;
       }
@@ -644,56 +677,58 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
     _bufferingSub = null;
   }
 
-  void _resetPlaybackState() {
-    setState(() {
-      _isPlaying = false;
-      _isBuffering = false;
-      _hasVideoFrame = false;
-      _position = Duration.zero;
-      _duration = Duration.zero;
-      _isHorizontalSeeking = false;
-    });
+  bool _isItemLoaded() {
+    final Playlist playlist = _player.state.playlist;
+    final int index = playlist.index;
+    return index >= 0 &&
+        index < playlist.medias.length &&
+        playlist.medias[index].uri == widget.item.source;
   }
 
-  Future<void> _openAndPlay() async {
-    final String snapshotSource = widget.item.source;
+  /// Opens the media paused; it only plays while the page is active.
+  Future<void> _load() async {
+    final String source = widget.item.source;
     final MediaSourceResolver? resolveSource = widget.item.resolveVideoSource;
-    if (resolveSource == null) {
-      return;
-    }
 
     try {
-      final String resolvedSource = await resolveSource(snapshotSource);
-      if (!mounted ||
-          !widget.isActive ||
-          widget.item.source != snapshotSource) {
+      // Handed-off players already have this media open.
+      if (!_isItemLoaded()) {
+        final String resolvedSource = resolveSource == null
+            ? source
+            : await resolveSource(source);
+        if (!mounted) {
+          return;
+        }
+
+        await _player.open(Media(resolvedSource), play: false);
+        if (!mounted) {
+          return;
+        }
+      }
+
+      await _player.setPlaylistMode(PlaylistMode.loop);
+      await _player.setVolume(100.0);
+      // Recycled feed players may still have audio disabled.
+      await _player.setAudioTrack(AudioTrack.auto());
+      if (!mounted) {
         return;
       }
 
-      await widget.player.open(Media(resolvedSource), play: false);
-      if (!mounted || !widget.isActive) {
-        return;
+      if (widget.isActive) {
+        await _player.play();
+      } else {
+        await _player.pause();
       }
-
-      if (!mounted || !widget.isActive) {
-        return;
-      }
-
-      await widget.player.play();
-    } catch (error) {
-      // ignore: empty_catches
-    }
+    } catch (_) {}
   }
 
   Future<void> _togglePlayPause() async {
-    await widget.player.playOrPause();
+    await _player.playOrPause();
   }
 
   Future<void> _seekTo(double value) async {
     try {
-      await widget.player.seek(
-        _clampDuration(Duration(milliseconds: value.round())),
-      );
+      await _player.seek(_clampDuration(Duration(milliseconds: value.round())));
     } catch (_) {
       // Ignore transient seek races.
     }
@@ -797,57 +832,69 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        if (widget.isActive)
-          Positioned.fill(
-            child: StreamBuilder<int?>(
-              stream: widget.player.stream.width,
-              builder: (context, widthSnapshot) {
-                return StreamBuilder<int?>(
-                  stream: widget.player.stream.height,
-                  builder: (context, heightSnapshot) {
-                    final int width = widthSnapshot.data ?? 0;
-                    final int height = heightSnapshot.data ?? 0;
-                    final bool hasValidDimensions = width > 0 && height > 0;
-                    final double aspectRatio = hasValidDimensions
-                        ? width / height
-                        : 16 / 9;
+        Positioned.fill(
+          child: StreamBuilder<int?>(
+            stream: _player.stream.width,
+            initialData: _player.state.width,
+            builder: (context, widthSnapshot) {
+              return StreamBuilder<int?>(
+                stream: _player.stream.height,
+                initialData: _player.state.height,
+                builder: (context, heightSnapshot) {
+                  final int width = widthSnapshot.data ?? 0;
+                  final int height = heightSnapshot.data ?? 0;
+                  final bool hasValidDimensions = width > 0 && height > 0;
+                  final double aspectRatio = hasValidDimensions
+                      ? width / height
+                      : 16 / 9;
 
-                    final bool showVideo =
-                        hasValidDimensions && _hasVideoFrame && !_isBuffering;
+                  final bool showVideo =
+                      hasValidDimensions && _hasVideoFrame && !_isBuffering;
+                  final ImageProvider<Object>? thumbnail = widget.thumbnail;
 
-                    return Stack(
-                      children: [
-                        AnimatedOpacity(
-                          opacity: showVideo ? 1 : 0,
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeOut,
-                          child: Center(
-                            child: AspectRatio(
-                              aspectRatio: aspectRatio,
-                              child: Video(
-                                controller: widget.controller,
-                                controls: NoVideoControls,
-                                fit: BoxFit.fill,
-                              ),
+                  return Stack(
+                    children: [
+                      // Kept underneath so the video fades in over it.
+                      if (thumbnail != null)
+                        Positioned.fill(
+                          child: Image(
+                            image: thumbnail,
+                            fit: BoxFit.contain,
+                            gaplessPlayback: true,
+                          ),
+                        ),
+
+                      AnimatedOpacity(
+                        opacity: showVideo ? 1 : 0,
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeOut,
+                        child: Center(
+                          child: AspectRatio(
+                            aspectRatio: aspectRatio,
+                            child: Video(
+                              controller: _controller,
+                              controls: NoVideoControls,
+                              fit: BoxFit.fill,
                             ),
                           ),
                         ),
+                      ),
 
-                        AnimatedOpacity(
-                          opacity: showVideo ? 0 : 1,
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeOut,
-                          child: const Center(
-                            child: CupertinoActivityIndicator(radius: 14),
-                          ),
+                      AnimatedOpacity(
+                        opacity: widget.isActive && !showVideo ? 1 : 0,
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeOut,
+                        child: const Center(
+                          child: CupertinoActivityIndicator(radius: 14),
                         ),
-                      ],
-                    );
-                  },
-                );
-              },
-            ),
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
           ),
+        ),
         if (_isHorizontalSeeking)
           Center(
             child: Container(

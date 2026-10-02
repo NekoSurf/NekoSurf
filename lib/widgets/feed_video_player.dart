@@ -15,6 +15,7 @@ class FeedVideoPlayer extends StatefulWidget {
     required this.aspectRatio,
     this.preload = false,
     this.recycler,
+    this.onTap,
   });
 
   final String videoUrl;
@@ -22,6 +23,10 @@ class FeedVideoPlayer extends StatefulWidget {
   final double aspectRatio;
   final bool preload;
   final FeedPlayerRecycler? recycler;
+
+  /// Receives the live player (if loaded) to show fullscreen; it is reclaimed
+  /// when the returned future completes.
+  final Future<void> Function(RecycledPlayer? handoff)? onTap;
 
   @override
   State<FeedVideoPlayer> createState() => _FeedVideoPlayerState();
@@ -31,11 +36,15 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   static const double _playVisibilityThreshold = 0.02;
   static const double _pauseVisibilityThreshold = 0.01;
   static const Duration _pauseDebounce = Duration(milliseconds: 550);
+  // Longer than VisibilityDetector's update interval so it can report first.
+  static const Duration _reclaimVisibilityGrace = Duration(milliseconds: 1200);
 
   Player? _player;
   VideoController? _controller;
   RecycledPlayer? _recycled;
   bool _isDisposing = false;
+  bool _isLentOut = false;
+  double _visibleFraction = 0;
   int _opToken = 0;
 
   bool _visible = false;
@@ -51,6 +60,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   StreamSubscription<Duration>? _positionSub;
   StreamSubscription<Duration>? _durationSub;
   Timer? _pauseDebounceTimer;
+  Timer? _reclaimVisibilityTimer;
 
   @override
   void initState() {
@@ -70,6 +80,10 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   @override
   void didUpdateWidget(covariant FeedVideoPlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
+
+    if (_isLentOut) {
+      return;
+    }
 
     if (!oldWidget.preload && widget.preload) {
       if (_player == null && !_isDisposing) {
@@ -280,10 +294,93 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   }
 
   // ---------------------------
+  // Fullscreen handoff
+  // ---------------------------
+
+  Future<void> _handleTap() async {
+    final onTap = widget.onTap;
+    if (onTap == null || _isLentOut) {
+      return;
+    }
+
+    final player = _player;
+    final controller = _controller;
+    if (player == null || controller == null || !_initialized) {
+      await onTap(null);
+      return;
+    }
+
+    final recycler = widget.recycler;
+    final recycled = _recycled;
+    final handoff = recycled ?? RecycledPlayer(player, controller);
+
+    _isLentOut = true;
+    _pauseDebounceTimer?.cancel();
+    _pauseDebounceTimer = null;
+    _reclaimVisibilityTimer?.cancel();
+
+    try {
+      await onTap(handoff);
+    } finally {
+      _isLentOut = false;
+      if (mounted && !_isDisposing && _player == player) {
+        unawaited(_reclaim(player));
+      } else if (recycled != null && recycler != null) {
+        // dispose() ran while lent out and left the player to us.
+        unawaited(recycler.release(recycled));
+      } else {
+        unawaited(() async {
+          try {
+            await player.dispose();
+          } catch (_) {}
+        }());
+      }
+    }
+  }
+
+  Future<void> _reclaim(Player player) async {
+    final playlist = player.state.playlist;
+    final index = playlist.index;
+    final stillOurMedia =
+        index >= 0 &&
+        index < playlist.medias.length &&
+        playlist.medias[index].uri == widget.videoUrl;
+
+    if (stillOurMedia) {
+      try {
+        await player.setAudioTrack(
+          _isMuted ? AudioTrack.no() : AudioTrack.auto(),
+        );
+        if (_visible && _player == player) {
+          await player.play();
+        }
+      } catch (_) {}
+    } else {
+      // The viewer switched to another video; reopen ours.
+      await _pauseAndDispose();
+      if (mounted && !_isDisposing && _visible) {
+        unawaited(_initAndPlay());
+      }
+    }
+
+    _reclaimVisibilityTimer?.cancel();
+    _reclaimVisibilityTimer = Timer(_reclaimVisibilityGrace, () {
+      if (!mounted || _isDisposing || _isLentOut) {
+        return;
+      }
+      _handleVisibility(_visibleFraction);
+    });
+  }
+
+  // ---------------------------
   // Visibility
   // ---------------------------
 
   void _schedulePauseAndDispose() {
+    if (_isLentOut) {
+      return;
+    }
+
     if (widget.preload) {
       unawaited(_pauseOnly());
       return;
@@ -300,6 +397,11 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   }
 
   void _handleVisibility(double fraction) {
+    _visibleFraction = fraction;
+    if (_isLentOut) {
+      return;
+    }
+
     final isVisible = fraction >= _playVisibilityThreshold;
 
     if (isVisible) {
@@ -340,108 +442,113 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
   @override
   Widget build(BuildContext context) {
-    return VisibilityDetector(
-      key: ValueKey(widget.videoUrl),
-      onVisibilityChanged: (info) {
-        _handleVisibility(info.visibleFraction);
-      },
-      child: AspectRatio(
-        aspectRatio: widget.aspectRatio,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Image.network(widget.thumbnailUrl, fit: BoxFit.cover),
+    return GestureDetector(
+      onTap: widget.onTap == null ? null : _handleTap,
+      child: VisibilityDetector(
+        key: ValueKey(widget.videoUrl),
+        onVisibilityChanged: (info) {
+          _handleVisibility(info.visibleFraction);
+        },
+        child: _buildContent(),
+      ),
+    );
+  }
 
-              if (_controller != null)
-                AnimatedOpacity(
-                  opacity: _hasFirstFrame ? 1 : 0,
-                  duration: const Duration(milliseconds: 150),
-                  child: Video(
-                    controller: _controller!,
-                    fit: BoxFit.cover,
-                    controls: NoVideoControls,
-                  ),
+  Widget _buildContent() {
+    return AspectRatio(
+      aspectRatio: widget.aspectRatio,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.network(widget.thumbnailUrl, fit: BoxFit.cover),
+
+            if (_controller != null)
+              AnimatedOpacity(
+                opacity: _hasFirstFrame ? 1 : 0,
+                duration: const Duration(milliseconds: 150),
+                child: Video(
+                  controller: _controller!,
+                  fit: BoxFit.cover,
+                  controls: NoVideoControls,
                 ),
+              ),
 
-              if (_visible && !_hasFirstFrame)
-                const Center(child: CupertinoActivityIndicator()),
+            if (_visible && !_hasFirstFrame)
+              const Center(child: CupertinoActivityIndicator()),
 
-              if (_controller != null)
-                Positioned(
-                  bottom: 8,
-                  left: 8,
-                  child: GestureDetector(
-                    onTap: () async {
-                      final player = _player;
-                      if (player == null) {
+            if (_controller != null)
+              Positioned(
+                bottom: 8,
+                left: 8,
+                child: GestureDetector(
+                  onTap: () async {
+                    final player = _player;
+                    if (player == null) {
+                      return;
+                    }
+
+                    final nextMuted = !_isMuted;
+
+                    try {
+                      await player.setAudioTrack(
+                        nextMuted ? AudioTrack.no() : AudioTrack.auto(),
+                      );
+
+                      if (!mounted) {
                         return;
                       }
 
-                      final nextMuted = !_isMuted;
-
-                      try {
-                        await player.setAudioTrack(
-                          nextMuted ? AudioTrack.no() : AudioTrack.auto(),
-                        );
-
-                        if (!mounted) {
-                          return;
-                        }
-
-                        setState(() {
-                          _isMuted = nextMuted;
-                        });
-                      } catch (_) {}
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.black54,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Icon(
-                        _isMuted ? Icons.volume_off : Icons.volume_up,
-                        color: Colors.white,
-                        size: 16,
-                      ),
+                      setState(() {
+                        _isMuted = nextMuted;
+                      });
+                    } catch (_) {}
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Icon(
+                      _isMuted ? Icons.volume_off : Icons.volume_up,
+                      color: Colors.white,
+                      size: 16,
                     ),
                   ),
                 ),
+              ),
 
-              if (_controller != null && _hasFirstFrame)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: ValueListenableBuilder<bool>(
-                    valueListenable: _hasDuration,
-                    builder: (context, hasDuration, _) {
-                      if (!hasDuration) {
-                        return const SizedBox.shrink();
-                      }
+            if (_controller != null && _hasFirstFrame)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: ValueListenableBuilder<bool>(
+                  valueListenable: _hasDuration,
+                  builder: (context, hasDuration, _) {
+                    if (!hasDuration) {
+                      return const SizedBox.shrink();
+                    }
 
-                      return ValueListenableBuilder<double>(
-                        valueListenable: _progressValue,
-                        builder: (context, progress, _) {
-                          return LinearProgressIndicator(
-                            value: progress,
-                            backgroundColor: Colors.white.withValues(
-                              alpha: 0.25,
-                            ),
-                            valueColor: const AlwaysStoppedAnimation<Color>(
-                              Colors.white,
-                            ),
-                            minHeight: 3,
-                          );
-                        },
-                      );
-                    },
-                  ),
+                    return ValueListenableBuilder<double>(
+                      valueListenable: _progressValue,
+                      builder: (context, progress, _) {
+                        return LinearProgressIndicator(
+                          value: progress,
+                          backgroundColor: Colors.white.withValues(alpha: 0.25),
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                          minHeight: 3,
+                        );
+                      },
+                    );
+                  },
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );
@@ -454,6 +561,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
     _pauseDebounceTimer?.cancel();
     _pauseDebounceTimer = null;
+    _reclaimVisibilityTimer?.cancel();
 
     final player = _player;
     final recycled = _recycled;
@@ -469,7 +577,8 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     unawaited(positionSub?.cancel());
     unawaited(durationSub?.cancel());
 
-    if (player != null) {
+    // While lent out, _handleTap releases the player once the viewer returns it.
+    if (player != null && !_isLentOut) {
       unawaited(_releasePlayer(player, recycled));
     }
 

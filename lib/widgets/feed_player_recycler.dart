@@ -4,7 +4,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 class RecycledPlayer {
-  RecycledPlayer._(this.player, this.controller);
+  RecycledPlayer(this.player, this.controller);
 
   final Player player;
   final VideoController controller;
@@ -70,16 +70,10 @@ class FeedPlayerRecycler {
 
   RecycledPlayer _create() {
     final Player player = Player();
-    print('Created new RecycledPlayer');
-    print('Current idle count: ${_idle.length}');
-    print('Current leased count: ${_leased.length}');
-    return RecycledPlayer._(player, VideoController(player));
+    return RecycledPlayer(player, VideoController(player));
   }
 
   Future<void> _dispose(RecycledPlayer entry) async {
-    print('Disposing RecycledPlayer');
-    print('Current idle count: ${_idle.length}');
-    print('Current leased count: ${_leased.length}');
     try {
       await entry.player.dispose();
     } catch (_) {}

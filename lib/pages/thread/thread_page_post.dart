@@ -89,7 +89,11 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     return widget.post.tim != null && widget.post.ext != null;
   }
 
-  Future<void> _openMediaViewer(List<Post> allPosts, Post thisPost) async {
+  Future<void> _openMediaViewer(
+    List<Post> allPosts,
+    Post thisPost, {
+    RecycledPlayer? handoff,
+  }) async {
     final mediaPosts = allPosts
         .where((p) => p.tim != null && p.ext != null)
         .toList();
@@ -103,6 +107,8 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
         initialIndex: index,
         board: widget.board,
         thread: widget.thread,
+        handoff: handoff,
+        recycler: widget.playerRecycler,
       ),
     );
     if (!mounted) {
@@ -201,16 +207,17 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     final itemKey = widget.post.no ?? mediaId;
 
     try {
-      return GestureDetector(
-        onTap: () =>
-            _openMediaViewer(widget.replies ?? widget.allPosts, widget.post),
-        child: FeedVideoPlayer(
-          key: ValueKey('feed-player-${widget.board}-$itemKey'),
-          videoUrl: mediaUrl,
-          thumbnailUrl: _thumbnailUrl(),
-          aspectRatio: _mediaAspectRatio(),
-          preload: widget.preloadVideo,
-          recycler: widget.playerRecycler,
+      return FeedVideoPlayer(
+        key: ValueKey('feed-player-${widget.board}-$itemKey'),
+        videoUrl: mediaUrl,
+        thumbnailUrl: _thumbnailUrl(),
+        aspectRatio: _mediaAspectRatio(),
+        preload: widget.preloadVideo,
+        recycler: widget.playerRecycler,
+        onTap: (handoff) => _openMediaViewer(
+          widget.replies ?? widget.allPosts,
+          widget.post,
+          handoff: handoff,
         ),
       );
     } catch (_) {
