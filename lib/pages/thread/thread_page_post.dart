@@ -10,6 +10,7 @@ import 'package:flutter_chan/pages/thread/thread_media_viewer_page.dart';
 import 'package:flutter_chan/pages/thread/thread_post_comment.dart';
 import 'package:flutter_chan/pages/thread/thread_replies.dart';
 import 'package:flutter_chan/services/string.dart';
+import 'package:flutter_chan/widgets/feed_player_recycler.dart';
 import 'package:flutter_chan/widgets/feed_video_player.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -24,7 +25,8 @@ class ThreadPagePost extends StatefulWidget {
     required this.onDismiss,
     this.replies,
     this.replyCount = 0,
-    this.eagerVideoInit = false,
+    this.preloadVideo = false,
+    this.playerRecycler,
   }) : super(key: key);
 
   final String board;
@@ -34,7 +36,8 @@ class ThreadPagePost extends StatefulWidget {
   final Function(int? postId) onDismiss;
   final List<Post>? replies;
   final int replyCount;
-  final bool eagerVideoInit;
+  final bool preloadVideo;
+  final FeedPlayerRecycler? playerRecycler;
 
   static String formatBytes(int bytes, int decimals) {
     if (bytes <= 0) {
@@ -206,7 +209,8 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
           videoUrl: mediaUrl,
           thumbnailUrl: _thumbnailUrl(),
           aspectRatio: _mediaAspectRatio(),
-          eagerInitialize: widget.eagerVideoInit,
+          preload: widget.preloadVideo,
+          recycler: widget.playerRecycler,
         ),
       );
     } catch (_) {

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_chan/widgets/feed_player_recycler.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:visibility_detector/visibility_detector.dart';
@@ -12,25 +13,28 @@ class FeedVideoPlayer extends StatefulWidget {
     required this.videoUrl,
     required this.thumbnailUrl,
     required this.aspectRatio,
-    this.eagerInitialize = false,
+    this.preload = false,
+    this.recycler,
   });
 
   final String videoUrl;
   final String thumbnailUrl;
   final double aspectRatio;
-  final bool eagerInitialize;
+  final bool preload;
+  final FeedPlayerRecycler? recycler;
 
   @override
   State<FeedVideoPlayer> createState() => _FeedVideoPlayerState();
 }
 
 class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
-  static const double _preloadVisibilityThreshold = 0.02;
+  static const double _playVisibilityThreshold = 0.02;
   static const double _pauseVisibilityThreshold = 0.01;
   static const Duration _pauseDebounce = Duration(milliseconds: 550);
 
   Player? _player;
   VideoController? _controller;
+  RecycledPlayer? _recycled;
   bool _isDisposing = false;
   int _opToken = 0;
 
@@ -52,13 +56,13 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   void initState() {
     super.initState();
 
-    if (widget.eagerInitialize) {
+    if (widget.preload) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || _isDisposing || _player != null || _initialized) {
           return;
         }
 
-        _initAndPlay(allowHiddenWarmup: true);
+        _initAndPlay(preloadWhileHidden: true);
       });
     }
   }
@@ -67,14 +71,14 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   void didUpdateWidget(covariant FeedVideoPlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (!oldWidget.eagerInitialize && widget.eagerInitialize) {
+    if (!oldWidget.preload && widget.preload) {
       if (_player == null && !_isDisposing) {
-        _initAndPlay(allowHiddenWarmup: true);
+        _initAndPlay(preloadWhileHidden: true);
       }
       return;
     }
 
-    if (oldWidget.eagerInitialize && !widget.eagerInitialize && !_visible) {
+    if (oldWidget.preload && !widget.preload && !_visible) {
       _schedulePauseAndDispose();
     }
   }
@@ -83,7 +87,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   // Lifecycle
   // ---------------------------
 
-  Future<void> _initAndPlay({bool allowHiddenWarmup = false}) async {
+  Future<void> _initAndPlay({bool preloadWhileHidden = false}) async {
     if (_isDisposing) {
       return;
     }
@@ -97,11 +101,13 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
     final token = ++_opToken;
 
-    final player = Player();
-    final controller = VideoController(player);
+    final RecycledPlayer? recycled = widget.recycler?.acquire();
+    final player = recycled?.player ?? Player();
+    final controller = recycled?.controller ?? VideoController(player);
 
     _player = player;
     _controller = controller;
+    _recycled = recycled;
 
     if (mounted) {
       setState(() {
@@ -115,16 +121,16 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
           _isDisposing ||
           token != _opToken ||
           _player != player ||
-          (!_visible && !allowHiddenWarmup);
+          (!_visible && !preloadWhileHidden);
 
       if (shouldAbortOpen) {
+        // If we no longer own it, _pauseAndDispose/dispose already released it.
         if (_player == player) {
           _player = null;
           _controller = null;
+          _recycled = null;
+          await _releasePlayer(player, recycled);
         }
-        try {
-          await player.dispose();
-        } catch (_) {}
         return;
       }
 
@@ -182,7 +188,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
           _isDisposing ||
           token != _opToken ||
           _player != player ||
-          (!_visible && !allowHiddenWarmup)) {
+          (!_visible && !preloadWhileHidden)) {
         return;
       }
 
@@ -198,16 +204,27 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       if (_player == player) {
         _player = null;
         _controller = null;
+        _recycled = null;
+        _positionSub?.cancel();
+        _positionSub = null;
+        _durationSub?.cancel();
+        _durationSub = null;
+        await _releasePlayer(player, recycled);
       }
-      _positionSub?.cancel();
-      _positionSub = null;
-      _durationSub?.cancel();
-      _durationSub = null;
-
-      try {
-        await player.dispose();
-      } catch (_) {}
     }
+  }
+
+  Future<void> _releasePlayer(Player player, RecycledPlayer? recycled) async {
+    final recycler = widget.recycler;
+    if (recycled != null && recycler != null) {
+      await recycler.release(recycled);
+      return;
+    }
+
+    try {
+      await player.pause();
+      await player.dispose();
+    } catch (_) {}
   }
 
   Future<void> _pauseAndDispose() async {
@@ -221,11 +238,13 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     ++_opToken;
 
     final player = _player;
+    final recycled = _recycled;
     final positionSub = _positionSub;
     final durationSub = _durationSub;
 
     _player = null;
     _controller = null;
+    _recycled = null;
     _positionSub = null;
     _durationSub = null;
 
@@ -245,10 +264,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     await durationSub?.cancel();
 
     if (player != null) {
-      try {
-        await player.pause();
-        await player.dispose();
-      } catch (_) {}
+      await _releasePlayer(player, recycled);
     }
   }
 
@@ -268,14 +284,14 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   // ---------------------------
 
   void _schedulePauseAndDispose() {
-    if (widget.eagerInitialize) {
+    if (widget.preload) {
       unawaited(_pauseOnly());
       return;
     }
 
     _pauseDebounceTimer?.cancel();
     _pauseDebounceTimer = Timer(_pauseDebounce, () {
-      if (_isDisposing || _visible || widget.eagerInitialize) {
+      if (_isDisposing || _visible || widget.preload) {
         return;
       }
 
@@ -284,9 +300,9 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   }
 
   void _handleVisibility(double fraction) {
-    final shouldKeepWarm = fraction >= _preloadVisibilityThreshold;
+    final isVisible = fraction >= _playVisibilityThreshold;
 
-    if (shouldKeepWarm) {
+    if (isVisible) {
       _pauseDebounceTimer?.cancel();
       _pauseDebounceTimer = null;
 
@@ -440,11 +456,13 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _pauseDebounceTimer = null;
 
     final player = _player;
+    final recycled = _recycled;
     final positionSub = _positionSub;
     final durationSub = _durationSub;
 
     _player = null;
     _controller = null;
+    _recycled = null;
     _positionSub = null;
     _durationSub = null;
 
@@ -452,12 +470,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     unawaited(durationSub?.cancel());
 
     if (player != null) {
-      unawaited(() async {
-        try {
-          await player.pause();
-          await player.dispose();
-        } catch (_) {}
-      }());
+      unawaited(_releasePlayer(player, recycled));
     }
 
     _progressValue.dispose();

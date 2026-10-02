@@ -12,6 +12,7 @@ import 'package:flutter_chan/pages/bookmark_button.dart';
 import 'package:flutter_chan/pages/thread/thread_page_post.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/cupertino_menu.dart';
+import 'package:flutter_chan/widgets/feed_player_recycler.dart';
 import 'package:flutter_chan/widgets/reload.dart';
 import 'package:provider/provider.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
@@ -38,9 +39,9 @@ class ThreadPage extends StatefulWidget {
 }
 
 class ThreadPageState extends State<ThreadPage> {
-  static const int _offscreenVideoWarmupEachSide = 3;
-  static const int _maxOffscreenWarmVideos = 6;
-  static const int _thumbWarmupMaxPerPass = _maxOffscreenWarmVideos;
+  static const int _preloadVideosEachSide = 3;
+  static const int _maxPreloadedVideos = 6;
+  static const int _maxThumbnailPreloadsPerPass = _maxPreloadedVideos;
 
   final ScrollController scrollController = ScrollController();
   final ItemScrollController itemScrollController = ItemScrollController();
@@ -48,13 +49,14 @@ class ThreadPageState extends State<ThreadPage> {
       ItemPositionsListener.create();
 
   late Future<List<Post>> _fetchAllPostsFromThread;
+  final FeedPlayerRecycler _playerRecycler = FeedPlayerRecycler();
   List<Post> allPosts = [];
   Map<int, int> _replyDescendantCountByPost = const <int, int>{};
-  Set<int> _eagerVideoPostIds = const <int>{};
+  Set<int> _preloadVideoPostIds = const <int>{};
   bool _hasScrolledToLastWatched = false;
-  bool _didPrimeEagerWindow = false;
-  Timer? _eagerWindowDebounce;
-  final Set<int> _prefetchedThumbnailMediaIds = <int>{};
+  bool _didStartPreloading = false;
+  Timer? _preloadDebounce;
+  final Set<int> _preloadedThumbnailIds = <int>{};
 
   late Bookmark favorite;
   void _markVisiblePostsAsWatched() {
@@ -82,7 +84,7 @@ class ThreadPageState extends State<ThreadPage> {
       watchedPosts.markAsWatched(postIndex: index, thread: widget.thread);
     }
 
-    _scheduleEagerWindowRefresh();
+    _schedulePreloadRefresh();
   }
 
   @override
@@ -107,19 +109,20 @@ class ThreadPageState extends State<ThreadPage> {
     itemPositionsListener.itemPositions.removeListener(
       _markVisiblePostsAsWatched,
     );
-    _eagerWindowDebounce?.cancel();
-    _eagerWindowDebounce = null;
+    _preloadDebounce?.cancel();
+    _preloadDebounce = null;
     scrollController.dispose();
+    unawaited(_playerRecycler.dispose());
     super.dispose();
   }
 
   void loadThread() {
     _hasScrolledToLastWatched = false;
-    _didPrimeEagerWindow = false;
-    _eagerWindowDebounce?.cancel();
-    _eagerWindowDebounce = null;
-    _prefetchedThumbnailMediaIds.clear();
-    _eagerVideoPostIds = const <int>{};
+    _didStartPreloading = false;
+    _preloadDebounce?.cancel();
+    _preloadDebounce = null;
+    _preloadedThumbnailIds.clear();
+    _preloadVideoPostIds = const <int>{};
     setState(() {
       _fetchAllPostsFromThread =
           fetchAllPostsFromThread(widget.board, widget.thread).then((posts) {
@@ -169,7 +172,7 @@ class ThreadPageState extends State<ThreadPage> {
     return true;
   }
 
-  ({Set<int> ids, List<Post> posts}) _collectOffscreenVideoWindow() {
+  ({Set<int> ids, List<Post> posts}) _collectPreloadWindow() {
     if (allPosts.isEmpty) {
       return (ids: <int>{}, posts: const <Post>[]);
     }
@@ -205,10 +208,10 @@ class ThreadPageState extends State<ThreadPage> {
     int previousCollected = 0;
     for (
       int index = minVisibleIndex - 1;
-      index >= 0 && previousCollected < _offscreenVideoWarmupEachSide;
+      index >= 0 && previousCollected < _preloadVideosEachSide;
       index--
     ) {
-      if (ids.length >= _maxOffscreenWarmVideos) {
+      if (ids.length >= _maxPreloadedVideos) {
         break;
       }
 
@@ -229,10 +232,10 @@ class ThreadPageState extends State<ThreadPage> {
     int nextCollected = 0;
     for (
       int index = maxVisibleIndex + 1;
-      index < allPosts.length && nextCollected < _offscreenVideoWarmupEachSide;
+      index < allPosts.length && nextCollected < _preloadVideosEachSide;
       index++
     ) {
-      if (ids.length >= _maxOffscreenWarmVideos) {
+      if (ids.length >= _maxPreloadedVideos) {
         break;
       }
 
@@ -253,16 +256,16 @@ class ThreadPageState extends State<ThreadPage> {
     return (ids: ids, posts: posts);
   }
 
-  Future<void> _precacheThumbnails(List<Post> posts) async {
-    int warmed = 0;
+  Future<void> _preloadThumbnails(List<Post> posts) async {
+    int preloaded = 0;
 
     for (final Post post in posts) {
-      if (warmed >= _thumbWarmupMaxPerPass) {
+      if (preloaded >= _maxThumbnailPreloadsPerPass) {
         break;
       }
 
       final int? tim = post.tim;
-      if (tim == null || !_prefetchedThumbnailMediaIds.add(tim)) {
+      if (tim == null || !_preloadedThumbnailIds.add(tim)) {
         continue;
       }
 
@@ -274,49 +277,49 @@ class ThreadPageState extends State<ThreadPage> {
         await precacheImage(thumbnailProvider, context);
       } catch (_) {}
 
-      warmed++;
+      preloaded++;
     }
   }
 
-  void _refreshEagerVideoWindow() {
+  void _refreshPreloadWindow() {
     if (!mounted || allPosts.isEmpty) {
       return;
     }
 
-    final offscreenWindow = _collectOffscreenVideoWindow();
+    final preloadWindow = _collectPreloadWindow();
 
-    if (!_sameIdSet(_eagerVideoPostIds, offscreenWindow.ids)) {
+    if (!_sameIdSet(_preloadVideoPostIds, preloadWindow.ids)) {
       setState(() {
-        _eagerVideoPostIds = offscreenWindow.ids;
+        _preloadVideoPostIds = preloadWindow.ids;
       });
     }
 
-    unawaited(_precacheThumbnails(offscreenWindow.posts));
+    unawaited(_preloadThumbnails(preloadWindow.posts));
   }
 
-  void _scheduleEagerWindowRefresh() {
+  void _schedulePreloadRefresh() {
     if (allPosts.isEmpty || !mounted) {
       return;
     }
 
-    _eagerWindowDebounce?.cancel();
-    _eagerWindowDebounce = Timer(const Duration(milliseconds: 140), () {
-      _refreshEagerVideoWindow();
+    _preloadDebounce?.cancel();
+    _preloadDebounce = Timer(const Duration(milliseconds: 140), () {
+      _refreshPreloadWindow();
     });
   }
 
-  void _primeEagerWindowIfNeeded() {
-    if (_didPrimeEagerWindow || allPosts.isEmpty) {
+  void _startPreloadingIfNeeded() {
+    if (_didStartPreloading || allPosts.isEmpty) {
       return;
     }
 
-    _didPrimeEagerWindow = true;
+    _didStartPreloading = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
         return;
       }
 
-      _scheduleEagerWindowRefresh();
+      _schedulePreloadRefresh();
     });
   }
 
@@ -435,7 +438,7 @@ class ThreadPageState extends State<ThreadPage> {
                 return ReloadWidget(onReload: () => loadThread());
               } else {
                 allPosts = snapshot.data ?? [];
-                _primeEagerWindowIfNeeded();
+                _startPreloadingIfNeeded();
 
                 if (!_hasScrolledToLastWatched) {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -465,9 +468,10 @@ class ThreadPageState extends State<ThreadPage> {
                       allPosts: allPosts,
                       replyCount:
                           _replyDescendantCountByPost[allPosts[index].no] ?? 0,
-                      eagerVideoInit: _eagerVideoPostIds.contains(
+                      preloadVideo: _preloadVideoPostIds.contains(
                         allPosts[index].no ?? allPosts[index].tim,
                       ),
+                      playerRecycler: _playerRecycler,
                       onDismiss: (postId) {
                         if (postId == null ||
                             !itemScrollController.isAttached) {
