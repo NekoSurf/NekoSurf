@@ -10,7 +10,6 @@ import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/pages/bookmark_button.dart';
 import 'package:flutter_chan/pages/thread/thread_page_post.dart';
-import 'package:flutter_chan/services/cached_image_provider.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/cupertino_menu.dart';
 import 'package:flutter_chan/widgets/feed_player_recycler.dart';
@@ -299,10 +298,9 @@ class ThreadPageState extends State<ThreadPage> {
         continue;
       }
 
-      final CachedNetworkImageProvider thumbnailProvider =
-          CachedNetworkImageProvider(
-            'https://i.4cdn.org/${widget.board}/${tim}s.jpg',
-          );
+      final NetworkImage thumbnailProvider = NetworkImage(
+        'https://i.4cdn.org/${widget.board}/${tim}s.jpg',
+      );
 
       try {
         await precacheImage(thumbnailProvider, context);

@@ -2,8 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_chan/services/cached_image_provider.dart';
-import 'package:flutter_chan/services/cached_video.dart';
 import 'package:flutter_chan/widgets/feed_player_recycler.dart';
 import 'package:flutter_chan/widgets/video_scrub_gesture.dart';
 import 'package:media_kit/media_kit.dart';
@@ -177,18 +175,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     }
 
     final token = ++_opToken;
-    final source = widget.videoUrl;
-
-    // Downloads into the disk cache (shared with in-flight preloads) so
-    // revisiting a video doesn't fetch it again.
-    final resolvedSource = await resolveCachedVideoSource(source);
-    if (!mounted ||
-        _isDisposing ||
-        token != _opToken ||
-        _player != null ||
-        (!_visible && !preloadWhileHidden && !widget.preload)) {
-      return;
-    }
 
     final RecycledPlayer? recycled = widget.recycler?.acquire();
     final player = recycled?.player ?? Player();
@@ -205,12 +191,12 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     }
 
     try {
-      await player.open(cachedMedia(source, resolvedSource), play: false);
+      await player.open(Media(widget.videoUrl), play: false);
       final shouldAbortOpen =
           _isDisposing ||
           token != _opToken ||
           _player != player ||
-          (!_visible && !preloadWhileHidden && !widget.preload);
+          (!_visible && !preloadWhileHidden);
 
       if (shouldAbortOpen) {
         // If we no longer own it, _pauseAndDispose/dispose already released it.
@@ -276,7 +262,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
           _isDisposing ||
           token != _opToken ||
           _player != player ||
-          (!_visible && !preloadWhileHidden && !widget.preload)) {
+          (!_visible && !preloadWhileHidden)) {
         return;
       }
 
@@ -436,7 +422,12 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   }
 
   Future<void> _reclaim(Player player) async {
-    final stillOurMedia = playerHasSource(player, widget.videoUrl);
+    final playlist = player.state.playlist;
+    final index = playlist.index;
+    final stillOurMedia =
+        index >= 0 &&
+        index < playlist.medias.length &&
+        playlist.medias[index].uri == widget.videoUrl;
     // _visible may be stale: updates are ignored while lent out and the feed
     // may have scrolled to another post when the viewer closed.
     final bool showing =
@@ -578,10 +569,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Image(
-              image: CachedNetworkImageProvider(widget.thumbnailUrl),
-              fit: BoxFit.cover,
-            ),
+            Image.network(widget.thumbnailUrl, fit: BoxFit.cover),
 
             if (_controller != null)
               AnimatedOpacity(

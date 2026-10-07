@@ -3,7 +3,6 @@ import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_chan/services/cached_video.dart';
 import 'package:flutter_chan/widgets/feed_player_recycler.dart';
 import 'package:flutter_chan/widgets/video_scrub_gesture.dart';
 import 'package:media_kit/media_kit.dart';
@@ -675,7 +674,11 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
   }
 
   bool _isItemLoaded() {
-    return playerHasSource(_player, widget.item.source);
+    final Playlist playlist = _player.state.playlist;
+    final int index = playlist.index;
+    return index >= 0 &&
+        index < playlist.medias.length &&
+        playlist.medias[index].uri == widget.item.source;
   }
 
   /// Opens the media paused; it only plays while the page is active.
@@ -693,7 +696,7 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
           return;
         }
 
-        await _player.open(cachedMedia(source, resolvedSource), play: false);
+        await _player.open(Media(resolvedSource), play: false);
         if (!mounted) {
           return;
         }

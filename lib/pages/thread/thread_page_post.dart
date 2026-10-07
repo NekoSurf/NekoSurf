@@ -10,7 +10,6 @@ import 'package:flutter_chan/pages/replies_row.dart';
 import 'package:flutter_chan/pages/thread/thread_media_viewer_page.dart';
 import 'package:flutter_chan/pages/thread/thread_post_comment.dart';
 import 'package:flutter_chan/pages/thread/thread_replies.dart';
-import 'package:flutter_chan/services/cached_image_provider.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/feed_player_recycler.dart';
 import 'package:flutter_chan/widgets/feed_video_player.dart';
@@ -143,8 +142,8 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: Image(
-              image: CachedNetworkImageProvider(_thumbnailUrl()),
+            child: Image.network(
+              _thumbnailUrl(),
               fit: BoxFit.cover,
               loadingBuilder: (context, child, loadingProgress) {
                 if (loadingProgress == null) {
@@ -160,8 +159,8 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
           ),
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: Image(
-              image: CachedNetworkImageProvider(_fullMediaUrl()),
+            child: Image.network(
+              _fullMediaUrl(),
               fit: BoxFit.cover,
               loadingBuilder: (context, child, loadingProgress) {
                 if (loadingProgress == null) {
