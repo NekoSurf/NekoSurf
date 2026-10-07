@@ -1,6 +1,8 @@
 import 'dart:io';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/widgets/cupertino_menu.dart';
@@ -68,6 +70,9 @@ class DataSettingsState extends State<DataSettings> {
     Directory temporaryDirectory;
 
     try {
+      // Also drops the cache index so it doesn't point at deleted files.
+      await DefaultCacheManager().emptyCache();
+
       applicationDocumentsDirectory = await getApplicationDocumentsDirectory();
       temporaryDirectory = Directory(
         '${(await getTemporaryDirectory()).path}/libCachedImageData',

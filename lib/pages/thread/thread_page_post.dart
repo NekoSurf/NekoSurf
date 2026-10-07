@@ -4,11 +4,13 @@ import 'package:country_flags/country_flags.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/Models/post.dart';
+import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/pages/replies_row.dart';
 import 'package:flutter_chan/pages/thread/thread_media_viewer_page.dart';
 import 'package:flutter_chan/pages/thread/thread_post_comment.dart';
 import 'package:flutter_chan/pages/thread/thread_replies.dart';
+import 'package:flutter_chan/services/cached_image_provider.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/feed_player_recycler.dart';
 import 'package:flutter_chan/widgets/feed_video_player.dart';
@@ -26,6 +28,7 @@ class ThreadPagePost extends StatefulWidget {
     this.replies,
     this.replyCount = 0,
     this.preloadVideo = false,
+    this.isOnScreen = true,
     this.playerRecycler,
   }) : super(key: key);
 
@@ -37,6 +40,7 @@ class ThreadPagePost extends StatefulWidget {
   final List<Post>? replies;
   final int replyCount;
   final bool preloadVideo;
+  final bool isOnScreen;
   final FeedPlayerRecycler? playerRecycler;
 
   static String formatBytes(int bytes, int decimals) {
@@ -139,8 +143,8 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: Image.network(
-              _thumbnailUrl(),
+            child: Image(
+              image: CachedNetworkImageProvider(_thumbnailUrl()),
               fit: BoxFit.cover,
               loadingBuilder: (context, child, loadingProgress) {
                 if (loadingProgress == null) {
@@ -156,8 +160,8 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
           ),
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: Image.network(
-              _fullMediaUrl(),
+            child: Image(
+              image: CachedNetworkImageProvider(_fullMediaUrl()),
               fit: BoxFit.cover,
               loadingBuilder: (context, child, loadingProgress) {
                 if (loadingProgress == null) {
@@ -213,6 +217,9 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
         thumbnailUrl: _thumbnailUrl(),
         aspectRatio: _mediaAspectRatio(),
         preload: widget.preloadVideo,
+        startMuted: Provider.of<SettingsProvider>(context)
+            .getFeedVideosStartMuted(),
+        isOnScreen: widget.isOnScreen,
         recycler: widget.playerRecycler,
         onTap: (handoff) => _openMediaViewer(
           widget.replies ?? widget.allPosts,

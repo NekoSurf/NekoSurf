@@ -14,6 +14,7 @@ class SettingsProvider with ChangeNotifier {
   int watchedPostsRetentionDays = 7;
   bool autoScrollToLastSeen = false;
   bool showStickyThreads = true;
+  bool feedVideosStartMuted = true;
 
   Future<void> loadPreferences() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -56,6 +57,10 @@ class SettingsProvider with ChangeNotifier {
 
     if (prefs.getBool('showStickyThreads') != null) {
       showStickyThreads = prefs.getBool('showStickyThreads')!;
+    }
+
+    if (prefs.getBool('feedVideosStartMuted') != null) {
+      feedVideosStartMuted = prefs.getBool('feedVideosStartMuted')!;
     }
 
     await prefs.remove('inlineMediaInThreadFeed');
@@ -145,6 +150,17 @@ class SettingsProvider with ChangeNotifier {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     showStickyThreads = value;
     prefs.setBool('showStickyThreads', value);
+    notifyListeners();
+  }
+
+  bool getFeedVideosStartMuted() {
+    return feedVideosStartMuted;
+  }
+
+  Future<void> setFeedVideosStartMuted(bool value) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    feedVideosStartMuted = value;
+    prefs.setBool('feedVideosStartMuted', value);
     notifyListeners();
   }
 }

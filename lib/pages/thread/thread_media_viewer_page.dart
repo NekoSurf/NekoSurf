@@ -6,6 +6,7 @@ import 'package:flutter_chan/API/save_videos.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/saved_attachments_model.dart';
 import 'package:flutter_chan/pages/media/shared_media_viewer.dart';
+import 'package:flutter_chan/services/cached_image_provider.dart';
 import 'package:flutter_chan/services/cached_video.dart';
 import 'package:flutter_chan/widgets/feed_player_recycler.dart';
 import 'package:provider/provider.dart';
@@ -158,9 +159,9 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
             id: '${post.no ?? post.tim}',
             source: mediaUrl,
             isVideo: _isVideo(post),
-            imageProvider: NetworkImage(mediaUrl),
+            imageProvider: CachedNetworkImageProvider(mediaUrl),
             resolveVideoSource: resolveCachedVideoSource,
-            thumbnail: NetworkImage(
+            thumbnail: CachedNetworkImageProvider(
               'https://i.4cdn.org/${widget.board}/${post.tim}s.jpg',
             ),
           );
