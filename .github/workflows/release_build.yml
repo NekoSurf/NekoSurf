@@ -58,8 +58,15 @@ jobs:
         run: flutter pub get
 
       - name: "🏗️ Build iOS app"
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || github.event.inputs.release_tag }}
         run: |
-          flutter build ios --release --no-codesign --verbose
+          VERSION_ARGS=""
+          if [[ "$RELEASE_TAG" =~ ^v?([0-9]+\.[0-9]+\.[0-9]+)\+([0-9]+)$ ]]; then
+            VERSION_ARGS="--build-name=${BASH_REMATCH[1]} --build-number=${BASH_REMATCH[2]}"
+          fi
+          flutter build ios --release --no-codesign --verbose $VERSION_ARGS
+        shell: bash
 
       - name: "🔨 Create IPA"
         run: |
@@ -130,7 +137,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || github.event.inputs.release_tag }}
         run: |
-          flutter build apk --split-per-abi
+          VERSION_ARGS=""
+          if [[ "$RELEASE_TAG" =~ ^v?([0-9]+\.[0-9]+\.[0-9]+)\+([0-9]+)$ ]]; then
+            VERSION_ARGS="--build-name=${BASH_REMATCH[1]} --build-number=${BASH_REMATCH[2]}"
+          fi
+          flutter build apk --split-per-abi $VERSION_ARGS
 
           if [ -z "$RELEASE_TAG" ]; then
             echo "No release tag provided; skipping APK upload."
