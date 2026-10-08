@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/Models/bookmark.dart';
@@ -53,8 +54,6 @@ class ThreadPageState extends State<ThreadPage> {
   List<Post> allPosts = [];
   Map<int, int> _replyDescendantCountByPost = const <int, int>{};
   Set<int> _preloadVideoPostIds = const <int>{};
-  // Null until the list reports positions; every post counts as on screen.
-  Set<int>? _onScreenPostIds;
   bool _hasScrolledToLastWatched = false;
   bool _didStartPreloading = false;
   Timer? _preloadDebounce;
@@ -86,33 +85,7 @@ class ThreadPageState extends State<ThreadPage> {
       watchedPosts.markAsWatched(postIndex: index, thread: widget.thread);
     }
 
-    _refreshOnScreenPosts();
     _schedulePreloadRefresh();
-  }
-
-  void _refreshOnScreenPosts() {
-    final Set<int> onScreen = <int>{};
-    for (final position in _visiblePositions()) {
-      if (position.index < 0 || position.index >= allPosts.length) {
-        continue;
-      }
-      final Post post = allPosts[position.index];
-      final int? postId = post.no ?? post.tim;
-      if (postId != null) {
-        onScreen.add(postId);
-      }
-    }
-
-    final Set<int>? current = _onScreenPostIds;
-    if (!mounted ||
-        onScreen.isEmpty ||
-        (current != null && _sameIdSet(current, onScreen))) {
-      return;
-    }
-
-    setState(() {
-      _onScreenPostIds = onScreen;
-    });
   }
 
   @override
@@ -151,7 +124,6 @@ class ThreadPageState extends State<ThreadPage> {
     _preloadDebounce = null;
     _preloadedThumbnailIds.clear();
     _preloadVideoPostIds = const <int>{};
-    _onScreenPostIds = null;
     setState(() {
       _fetchAllPostsFromThread =
           fetchAllPostsFromThread(widget.board, widget.thread).then((posts) {
@@ -500,11 +472,6 @@ class ThreadPageState extends State<ThreadPage> {
                       preloadVideo: _preloadVideoPostIds.contains(
                         allPosts[index].no ?? allPosts[index].tim,
                       ),
-                      isOnScreen:
-                          _onScreenPostIds?.contains(
-                            allPosts[index].no ?? allPosts[index].tim,
-                          ) ??
-                          true,
                       playerRecycler: _playerRecycler,
                       onDismiss: (postId) {
                         if (postId == null ||

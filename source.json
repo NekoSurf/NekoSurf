@@ -22,7 +22,16 @@
       ],
       "versions": [
         {
-          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.11.5-7/Runner.ipa",
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.11.5-284/Runner.ipa",
+          "size": 32500000,
+          "version": "0.11.5",
+          "buildVersion": "284",
+          "date": "2026-10-08T00:11:45+02:00",
+          "localizedDescription": "Improved scrolling smoothness in threads with inline videos.",
+          "minOSVersion": "17.6"
+        },
+        {
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.11.5-282/Runner.ipa",
           "size": 32500000,
           "version": "0.11.5",
           "buildVersion": "282",

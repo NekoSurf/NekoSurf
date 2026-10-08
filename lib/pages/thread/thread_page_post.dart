@@ -27,7 +27,6 @@ class ThreadPagePost extends StatefulWidget {
     this.replies,
     this.replyCount = 0,
     this.preloadVideo = false,
-    this.isOnScreen = true,
     this.playerRecycler,
   }) : super(key: key);
 
@@ -39,7 +38,6 @@ class ThreadPagePost extends StatefulWidget {
   final List<Post>? replies;
   final int replyCount;
   final bool preloadVideo;
-  final bool isOnScreen;
   final FeedPlayerRecycler? playerRecycler;
 
   static String formatBytes(int bytes, int decimals) {
@@ -216,9 +214,9 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
         thumbnailUrl: _thumbnailUrl(),
         aspectRatio: _mediaAspectRatio(),
         preload: widget.preloadVideo,
-        startMuted: Provider.of<SettingsProvider>(context)
-            .getFeedVideosStartMuted(),
-        isOnScreen: widget.isOnScreen,
+        startMuted: Provider.of<SettingsProvider>(
+          context,
+        ).getFeedVideosStartMuted(),
         recycler: widget.playerRecycler,
         onTap: (handoff) => _openMediaViewer(
           widget.replies ?? widget.allPosts,

@@ -16,7 +16,6 @@ class FeedVideoPlayer extends StatefulWidget {
     required this.aspectRatio,
     this.preload = false,
     this.startMuted = true,
-    this.isOnScreen = true,
     this.recycler,
     this.onTap,
   });
@@ -26,11 +25,6 @@ class FeedVideoPlayer extends StatefulWidget {
   final double aspectRatio;
   final bool preload;
   final bool startMuted;
-
-  /// Set to false by the feed once the item has scrolled out of the viewport.
-  /// Visibility callbacks can be missed when an item stops being painted
-  /// between frames, so this forces the video to pause.
-  final bool isOnScreen;
   final FeedPlayerRecycler? recycler;
 
   /// Receives the live player (if loaded) to show fullscreen; it is reclaimed
@@ -140,10 +134,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
     if (_isLentOut) {
       return;
-    }
-
-    if (oldWidget.isOnScreen != widget.isOnScreen) {
-      _updateVisibility();
     }
 
     if (!oldWidget.preload && widget.preload) {
@@ -488,7 +478,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   }
 
   double get _effectiveVisibleFraction {
-    if (!widget.isOnScreen || !_tickerEnabled || !_appInForeground) {
+    if (!_tickerEnabled || !_appInForeground) {
       return 0;
     }
     return _visibleFraction;
@@ -505,35 +495,25 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     }
 
     final fraction = _effectiveVisibleFraction;
-    final isVisible = fraction >= _playVisibilityThreshold;
-
-    if (isVisible) {
+    if (fraction >= _playVisibilityThreshold) {
       _pauseDebounceTimer?.cancel();
       _pauseDebounceTimer = null;
 
-      if (!_visible) {
-        _visible = true;
-        if (_player == null || !_initialized) {
-          _initAndPlay();
-        } else {
-          unawaited(() async {
-            try {
-              await _player?.play();
-            } catch (_) {}
-          }());
-        }
+      if (_visible) {
+        return;
       }
 
-      return;
-    }
-
-    final shouldPause = fraction <= _pauseVisibilityThreshold;
-
-    if (!shouldPause) {
-      return;
-    }
-
-    if (_visible) {
+      _visible = true;
+      if (_player == null || !_initialized) {
+        _initAndPlay();
+      } else {
+        unawaited(() async {
+          try {
+            await _player?.play();
+          } catch (_) {}
+        }());
+      }
+    } else if (fraction <= _pauseVisibilityThreshold && _visible) {
       _visible = false;
       _schedulePauseAndDispose();
     }
