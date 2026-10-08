@@ -15,6 +15,8 @@ class FeedVideoPlayer extends StatefulWidget {
     required this.thumbnailUrl,
     required this.aspectRatio,
     this.preload = false,
+    this.startMuted = true,
+    this.isOnScreen = true,
     this.recycler,
     this.onTap,
   });
@@ -23,6 +25,12 @@ class FeedVideoPlayer extends StatefulWidget {
   final String thumbnailUrl;
   final double aspectRatio;
   final bool preload;
+  final bool startMuted;
+
+  /// Set to false by the feed once the item has scrolled out of the viewport.
+  /// Visibility callbacks can be missed when an item stops being painted
+  /// between frames, so this forces the video to pause.
+  final bool isOnScreen;
   final FeedPlayerRecycler? recycler;
 
   /// Receives the live player (if loaded) to show fullscreen; it is reclaimed
@@ -46,12 +54,15 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   bool _isDisposing = false;
   bool _isLentOut = false;
   double _visibleFraction = 0;
+  bool _tickerEnabled = true;
+  bool _appInForeground = true;
+  AppLifecycleListener? _lifecycleListener;
   int _opToken = 0;
 
   bool _visible = false;
   bool _initialized = false;
   bool _hasFirstFrame = false;
-  bool _isMuted = true;
+  late bool _isMuted;
 
   final ValueNotifier<double> _progressValue = ValueNotifier<double>(0.0);
   final ValueNotifier<bool> _hasDuration = ValueNotifier<bool>(false);
@@ -68,6 +79,20 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   void initState() {
     super.initState();
 
+    _isMuted = widget.startMuted;
+    _lifecycleListener = AppLifecycleListener(
+      onStateChange: (AppLifecycleState state) {
+        final bool inForeground =
+            state == AppLifecycleState.resumed ||
+            state == AppLifecycleState.inactive;
+        if (inForeground == _appInForeground) {
+          return;
+        }
+        _appInForeground = inForeground;
+        _updateVisibility();
+      },
+    );
+
     if (widget.preload) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || _isDisposing || _player != null || _initialized) {
@@ -80,11 +105,45 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // Routes covered by an opaque route stop painting, so VisibilityDetector
+    // never reports them as hidden; the Overlay disables their TickerMode.
+    final bool tickerEnabled = TickerMode.of(context);
+    if (tickerEnabled == _tickerEnabled) {
+      return;
+    }
+    _tickerEnabled = tickerEnabled;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _updateVisibility();
+      }
+    });
+  }
+
+  @override
   void didUpdateWidget(covariant FeedVideoPlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
 
+    if (oldWidget.startMuted != widget.startMuted) {
+      _isMuted = widget.startMuted;
+      final player = _player;
+      if (player != null && !_isLentOut) {
+        unawaited(
+          player
+              .setAudioTrack(_isMuted ? AudioTrack.no() : AudioTrack.auto())
+              .catchError((_) {}),
+        );
+      }
+    }
+
     if (_isLentOut) {
       return;
+    }
+
+    if (oldWidget.isOnScreen != widget.isOnScreen) {
+      _updateVisibility();
     }
 
     if (!oldWidget.preload && widget.preload) {
@@ -150,7 +209,9 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
         return;
       }
 
-      await player.setAudioTrack(AudioTrack.no());
+      await player.setAudioTrack(
+        _isMuted ? AudioTrack.no() : AudioTrack.auto(),
+      );
       await player.setPlaylistMode(PlaylistMode.loop);
 
       _positionSub = player.stream.position.listen((pos) {
@@ -367,20 +428,26 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
         index >= 0 &&
         index < playlist.medias.length &&
         playlist.medias[index].uri == widget.videoUrl;
+    // _visible may be stale: updates are ignored while lent out and the feed
+    // may have scrolled to another post when the viewer closed.
+    final bool showing =
+        _visible && _effectiveVisibleFraction >= _playVisibilityThreshold;
 
     if (stillOurMedia) {
       try {
         await player.setAudioTrack(
           _isMuted ? AudioTrack.no() : AudioTrack.auto(),
         );
-        if (_visible && _player == player) {
+        if (showing && _player == player) {
           await player.play();
+        } else {
+          await player.pause();
         }
       } catch (_) {}
     } else {
       // The viewer switched to another video; reopen ours.
       await _pauseAndDispose();
-      if (mounted && !_isDisposing && _visible) {
+      if (mounted && !_isDisposing && showing) {
         unawaited(_initAndPlay());
       }
     }
@@ -390,7 +457,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       if (!mounted || _isDisposing || _isLentOut) {
         return;
       }
-      _handleVisibility(_visibleFraction);
+      _updateVisibility();
     });
   }
 
@@ -403,8 +470,10 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       return;
     }
 
+    // Pause right away; only releasing the player is debounced.
+    unawaited(_pauseOnly());
+
     if (widget.preload) {
-      unawaited(_pauseOnly());
       return;
     }
 
@@ -418,12 +487,24 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     });
   }
 
+  double get _effectiveVisibleFraction {
+    if (!widget.isOnScreen || !_tickerEnabled || !_appInForeground) {
+      return 0;
+    }
+    return _visibleFraction;
+  }
+
   void _handleVisibility(double fraction) {
     _visibleFraction = fraction;
-    if (_isLentOut) {
+    _updateVisibility();
+  }
+
+  void _updateVisibility() {
+    if (_isLentOut || _isDisposing) {
       return;
     }
 
+    final fraction = _effectiveVisibleFraction;
     final isVisible = fraction >= _playVisibilityThreshold;
 
     if (isVisible) {
@@ -588,6 +669,8 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _pauseDebounceTimer?.cancel();
     _pauseDebounceTimer = null;
     _reclaimVisibilityTimer?.cancel();
+    _lifecycleListener?.dispose();
+    _lifecycleListener = null;
 
     final player = _player;
     final recycled = _recycled;

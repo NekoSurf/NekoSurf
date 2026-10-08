@@ -26,7 +26,9 @@ Future<Uri?> checkForAppUpdate() async {
     }
 
     final latestVersion = _versionParts(release['tag_name'] as String?);
-    final installedVersion = _versionParts(packageInfo.version);
+    final installedVersion = _versionParts(
+      '${packageInfo.version}+${packageInfo.buildNumber}',
+    );
     final releaseUrl = Uri.tryParse(release['html_url'] as String? ?? '');
     final updateUrl = Platform.isIOS
         ? Uri.parse('https://testflight.apple.com/join/ky5bRwMY')
@@ -61,9 +63,10 @@ List<int>? _versionParts(String? version) {
   if (version == null) {
     return null;
   }
+  // Tags look like v0.11.5+290; legacy tags (v0.11.5-6) have no build number.
   final match = RegExp(
-    r'^v?(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$',
-  ).firstMatch(version);
+    r'^v?(\d+)\.(\d+)\.(\d+)(?:\+(\d+))?(?:-.*)?$',
+  ).firstMatch(version.trim());
   if (match == null) {
     return null;
   }
@@ -72,5 +75,6 @@ List<int>? _versionParts(String? version) {
     int.parse(match.group(1)!),
     int.parse(match.group(2)!),
     int.parse(match.group(3)!),
+    int.parse(match.group(4) ?? '0'),
   ];
 }

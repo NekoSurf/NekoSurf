@@ -266,9 +266,11 @@ Future<Post?>? fetchPost(String board, int thread, int post) async {
 }
 
 Future<void> launchURL(String url) async {
-  if (await canLaunchUrl(Uri.parse(url))) {
-    await launchUrl(Uri.parse(url));
-  } else {
+  final bool launched = await launchUrl(
+    Uri.parse(url),
+    mode: LaunchMode.platformDefault,
+  ).catchError((_) => false);
+  if (!launched) {
     print('Could not launch $url');
   }
 }

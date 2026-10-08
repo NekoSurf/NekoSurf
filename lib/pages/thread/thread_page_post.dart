@@ -4,6 +4,7 @@ import 'package:country_flags/country_flags.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/Models/post.dart';
+import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/pages/replies_row.dart';
 import 'package:flutter_chan/pages/thread/thread_media_viewer_page.dart';
@@ -26,6 +27,7 @@ class ThreadPagePost extends StatefulWidget {
     this.replies,
     this.replyCount = 0,
     this.preloadVideo = false,
+    this.isOnScreen = true,
     this.playerRecycler,
   }) : super(key: key);
 
@@ -37,6 +39,7 @@ class ThreadPagePost extends StatefulWidget {
   final List<Post>? replies;
   final int replyCount;
   final bool preloadVideo;
+  final bool isOnScreen;
   final FeedPlayerRecycler? playerRecycler;
 
   static String formatBytes(int bytes, int decimals) {
@@ -213,6 +216,9 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
         thumbnailUrl: _thumbnailUrl(),
         aspectRatio: _mediaAspectRatio(),
         preload: widget.preloadVideo,
+        startMuted: Provider.of<SettingsProvider>(context)
+            .getFeedVideosStartMuted(),
+        isOnScreen: widget.isOnScreen,
         recycler: widget.playerRecycler,
         onTap: (handoff) => _openMediaViewer(
           widget.replies ?? widget.allPosts,

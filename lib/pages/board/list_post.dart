@@ -17,11 +17,16 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 class ListPost extends StatefulWidget {
-  const ListPost({Key? key, required this.board, required this.post})
-    : super(key: key);
+  const ListPost({
+    Key? key,
+    required this.board,
+    required this.post,
+    this.showBoard = false,
+  }) : super(key: key);
 
   final String board;
   final Post post;
+  final bool showBoard;
 
   @override
   State<ListPost> createState() => _ListPostState();
@@ -173,6 +178,34 @@ class _ListPostState extends State<ListPost> {
                                       ),
 
                                       const SizedBox(width: 6),
+
+                                      if (widget.showBoard)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            right: 6,
+                                          ),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: CupertinoColors.activeBlue
+                                                  .withValues(alpha: 0.16),
+                                              borderRadius:
+                                                  BorderRadius.circular(999),
+                                            ),
+                                            child: Text(
+                                              '/${widget.board}/',
+                                              style: const TextStyle(
+                                                color:
+                                                    CupertinoColors.activeBlue,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
 
                                       if (widget.post.sticky == 1)
                                         Container(

@@ -123,6 +123,25 @@ class ThreadsSettingsState extends State<ThreadsSettings> {
               ),
             ],
           ),
+          CupertinoListSection.insetGrouped(
+            backgroundColor: Colors.transparent,
+            children: [
+              CupertinoListTile(
+                leading: const CupertinoSettingsIcon(
+                  icon: CupertinoIcons.speaker_slash_fill,
+                  color: CupertinoColors.systemPink,
+                ),
+                title: const Text('Start feed videos muted'),
+                subtitle: const Text(
+                  'Videos in the thread feed autoplay without sound',
+                ),
+                trailing: CupertinoSwitch(
+                  onChanged: (value) => settings.setFeedVideosStartMuted(value),
+                  value: settings.getFeedVideosStartMuted(),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );

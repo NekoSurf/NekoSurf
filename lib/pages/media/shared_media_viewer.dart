@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/widgets/feed_player_recycler.dart';
 import 'package:flutter_chan/widgets/video_scrub_gesture.dart';
@@ -139,6 +140,7 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
   String? _handoffItemId;
   late int _currentIndex;
   bool _isVideoScrubbing = false;
+  bool _isImageZoomed = false;
 
   @override
   void initState() {
@@ -225,49 +227,67 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
       body: Stack(
         children: [
           Positioned.fill(child: _buildPagedBackdrop()),
-          PreloadPageView.builder(
-            controller: _pageController,
-            scrollDirection: Axis.vertical,
-            preloadPagesCount: 3,
-            physics: _isVideoScrubbing
-                ? const NeverScrollableScrollPhysics()
-                : const ClampingScrollPhysics(),
-            itemCount: itemCount,
-            onPageChanged: (index) {
-              setState(() {
-                _currentIndex = index;
-                _isVideoScrubbing = false;
-              });
-              widget.onIndexChanged?.call(index);
-            },
-            itemBuilder: (context, index) {
-              final SharedMediaViewerItem item = widget.items[index];
+          // Android's smaller platform touch slop lets page drags beat pinch-to-zoom.
+          MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              gestureSettings: const DeviceGestureSettings(
+                touchSlop: kTouchSlop,
+              ),
+            ),
+            child: PreloadPageView.builder(
+              controller: _pageController,
+              scrollDirection: Axis.vertical,
+              preloadPagesCount: 3,
+              physics: _isVideoScrubbing || _isImageZoomed
+                  ? const NeverScrollableScrollPhysics()
+                  : const ClampingScrollPhysics(),
+              itemCount: itemCount,
+              onPageChanged: (index) {
+                setState(() {
+                  _currentIndex = index;
+                  _isVideoScrubbing = false;
+                  _isImageZoomed = false;
+                });
+                widget.onIndexChanged?.call(index);
+              },
+              itemBuilder: (context, index) {
+                final SharedMediaViewerItem item = widget.items[index];
 
-              if (item.isVideo) {
-                return _SharedMediaVideoPage(
-                  key: ValueKey('shared-media-video-${item.id}'),
+                if (item.isVideo) {
+                  return _SharedMediaVideoPage(
+                    key: ValueKey('shared-media-video-${item.id}'),
+                    item: item,
+                    handoff: item.id == _handoffItemId ? widget.handoff : null,
+                    recycler: widget.recycler,
+                    isActive: _currentIndex == index,
+                    thumbnail: item.thumbnail,
+                    onScrubStateChanged: (isScrubbing) {
+                      if (!mounted || _isVideoScrubbing == isScrubbing) {
+                        return;
+                      }
+
+                      setState(() {
+                        _isVideoScrubbing = isScrubbing;
+                      });
+                    },
+                  );
+                }
+
+                return _SharedMediaImagePage(
+                  key: ValueKey('shared-media-image-${item.id}'),
                   item: item,
-                  handoff: item.id == _handoffItemId ? widget.handoff : null,
-                  recycler: widget.recycler,
-                  isActive: _currentIndex == index,
-                  thumbnail: item.thumbnail,
-                  onScrubStateChanged: (isScrubbing) {
-                    if (!mounted || _isVideoScrubbing == isScrubbing) {
+                  onZoomStateChanged: (isZoomed) {
+                    if (!mounted || _isImageZoomed == isZoomed) {
                       return;
                     }
 
                     setState(() {
-                      _isVideoScrubbing = isScrubbing;
+                      _isImageZoomed = isZoomed;
                     });
                   },
                 );
-              }
-
-              return _SharedMediaImagePage(
-                key: ValueKey('shared-media-image-${item.id}'),
-                item: item,
-              );
-            },
+              },
+            ),
           ),
           Positioned(
             top: topInset + 8,
@@ -908,33 +928,78 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
   }
 }
 
-class _SharedMediaImagePage extends StatelessWidget {
-  const _SharedMediaImagePage({Key? key, required this.item}) : super(key: key);
+class _SharedMediaImagePage extends StatefulWidget {
+  const _SharedMediaImagePage({
+    Key? key,
+    required this.item,
+    required this.onZoomStateChanged,
+  }) : super(key: key);
 
   final SharedMediaViewerItem item;
+  final ValueChanged<bool> onZoomStateChanged;
+
+  @override
+  State<_SharedMediaImagePage> createState() => _SharedMediaImagePageState();
+}
+
+class _SharedMediaImagePageState extends State<_SharedMediaImagePage> {
+  final TransformationController _transformationController =
+      TransformationController();
+  int _pointerCount = 0;
+
+  @override
+  void dispose() {
+    _transformationController.dispose();
+    super.dispose();
+  }
+
+  void _updateZoomState() {
+    final bool isZoomed =
+        _pointerCount >= 2 ||
+        _transformationController.value.getMaxScaleOnAxis() > 1.01;
+    widget.onZoomStateChanged(isZoomed);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return InteractiveViewer(
-      minScale: 1,
-      maxScale: 4,
-      child: Center(
-        child: Image(
-          image: item.imageProvider,
-          fit: BoxFit.contain,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) {
-              return child;
-            }
+    return Listener(
+      onPointerDown: (_) {
+        _pointerCount++;
+        _updateZoomState();
+      },
+      onPointerUp: (_) {
+        _pointerCount = (_pointerCount - 1).clamp(0, 10);
+        _updateZoomState();
+      },
+      onPointerCancel: (_) {
+        _pointerCount = (_pointerCount - 1).clamp(0, 10);
+        _updateZoomState();
+      },
+      child: InteractiveViewer(
+        transformationController: _transformationController,
+        minScale: 1,
+        maxScale: 4,
+        onInteractionEnd: (_) => _updateZoomState(),
+        child: Center(
+          child: Image(
+            image: widget.item.imageProvider,
+            fit: BoxFit.contain,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) {
+                return child;
+              }
 
-            return const Center(child: CupertinoActivityIndicator(radius: 14));
-          },
-          errorBuilder: (context, error, stackTrace) {
-            return const Text(
-              'Unable to load image',
-              style: TextStyle(color: Colors.white),
-            );
-          },
+              return const Center(
+                child: CupertinoActivityIndicator(radius: 14),
+              );
+            },
+            errorBuilder: (context, error, stackTrace) {
+              return const Text(
+                'Unable to load image',
+                style: TextStyle(color: Colors.white),
+              );
+            },
+          ),
         ),
       ),
     );

@@ -14,11 +14,16 @@ import 'package:flutter_chan/widgets/image_viewer.dart';
 import 'package:provider/provider.dart';
 
 class GridPost extends StatefulWidget {
-  const GridPost({Key? key, required this.board, required this.post})
-    : super(key: key);
+  const GridPost({
+    Key? key,
+    required this.board,
+    required this.post,
+    this.showBoard = false,
+  }) : super(key: key);
 
   final String board;
   final Post post;
+  final bool showBoard;
 
   @override
   State<GridPost> createState() => _GridPostState();
@@ -120,39 +125,65 @@ class _GridPostState extends State<GridPost> {
                         ),
                       ),
                     ),
-                    if (widget.post.sticky == 1)
+                    if (widget.post.sticky == 1 || widget.showBoard)
                       Positioned(
                         top: 10,
                         left: 10,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: CupertinoColors.systemOrange.withValues(
-                              alpha: 0.65,
-                            ),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Row(
-                            children: [
-                              Icon(
-                                CupertinoIcons.pin,
-                                color: CupertinoColors.white,
-                                size: 12,
-                              ),
-                              SizedBox(width: 4),
-                              Text(
-                                'Sticky',
-                                style: TextStyle(
-                                  color: CupertinoColors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
+                        child: Row(
+                          children: [
+                            if (widget.showBoard)
+                              Container(
+                                margin: const EdgeInsets.only(right: 6),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: CupertinoColors.activeBlue.withValues(
+                                    alpha: 0.65,
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  '/${widget.board}/',
+                                  style: const TextStyle(
+                                    color: CupertinoColors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                               ),
-                            ],
-                          ),
+                            if (widget.post.sticky == 1)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: CupertinoColors.systemOrange
+                                      .withValues(alpha: 0.65),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Row(
+                                  children: [
+                                    Icon(
+                                      CupertinoIcons.pin,
+                                      color: CupertinoColors.white,
+                                      size: 12,
+                                    ),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Sticky',
+                                      style: TextStyle(
+                                        color: CupertinoColors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                     Positioned(

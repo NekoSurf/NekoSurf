@@ -1,10 +1,8 @@
-import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/widgets/cupertino_menu.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 import '../../../blocs/settings_model.dart';
@@ -19,99 +17,6 @@ class DataSettings extends StatefulWidget {
 }
 
 class DataSettingsState extends State<DataSettings> {
-  double _cacheSize = 0.0;
-
-  Future<void> getCacheSize() async {
-    Directory applicationDocumentsDirectory;
-    Directory temporaryDirectory;
-
-    try {
-      applicationDocumentsDirectory = await getApplicationDocumentsDirectory();
-      temporaryDirectory = Directory(
-        '${(await getTemporaryDirectory()).path}/libCachedImageData',
-      );
-
-      final List<FileSystemEntity> entitiesTemp = await temporaryDirectory
-          .list()
-          .toList();
-      for (final entity in entitiesTemp) {
-        if (entity is File) {
-          setState(() {
-            _cacheSize += getFileSize(entity);
-          });
-        }
-      }
-
-      final List<FileSystemEntity> entities =
-          await applicationDocumentsDirectory.list().toList();
-      for (final entity in entities) {
-        if (entity is File) {
-          print(entity.path);
-          setState(() {
-            _cacheSize += getFileSize(entity);
-          });
-        }
-      }
-    } catch (e) {
-      print(e);
-    }
-  }
-
-  double getFileSize(File file) {
-    final int sizeInBytes = file.lengthSync();
-    final double sizeInMb = sizeInBytes / (1024 * 1024);
-    return sizeInMb;
-  }
-
-  Future<void> deleteCache() async {
-    Directory applicationDocumentsDirectory;
-    Directory temporaryDirectory;
-
-    try {
-      applicationDocumentsDirectory = await getApplicationDocumentsDirectory();
-      temporaryDirectory = Directory(
-        '${(await getTemporaryDirectory()).path}/libCachedImageData',
-      );
-
-      final List<FileSystemEntity> entitiesTemp = await temporaryDirectory
-          .list()
-          .toList();
-      for (final entity in entitiesTemp) {
-        if (entity is File) {
-          await entity.delete();
-        }
-      }
-
-      final List<FileSystemEntity> entities =
-          await applicationDocumentsDirectory.list().toList();
-      for (final entity in entities) {
-        if (entity is File) {
-          await entity.delete();
-        }
-      }
-
-      showCupertinoSnackbar(
-        const Duration(milliseconds: 1800),
-        true,
-        context,
-        'Cache deleted!',
-      );
-
-      setState(() {
-        _cacheSize = 0.0;
-      });
-    } catch (e) {
-      print(e);
-    }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-
-    getCacheSize();
-  }
-
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
@@ -141,36 +46,6 @@ class DataSettingsState extends State<DataSettings> {
                   },
                   value: settings.getAutoScrollToLastSeen(),
                 ),
-              ),
-            ],
-          ),
-          CupertinoListSection.insetGrouped(
-            backgroundColor: Colors.transparent,
-            children: [
-              CupertinoListTile(
-                title: const Text('Cache Size'),
-                trailing: Text(
-                  '${_cacheSize.toStringAsFixed(2)} MB',
-                  style: const TextStyle(color: CupertinoColors.systemGrey),
-                ),
-              ),
-            ],
-          ),
-          CupertinoListSection.insetGrouped(
-            backgroundColor: Colors.transparent,
-            children: [
-              CupertinoListTile(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 12,
-                  horizontal: 16,
-                ),
-                leading: const CupertinoSettingsIcon(
-                  color: CupertinoColors.systemRed,
-                  icon: CupertinoIcons.trash,
-                ),
-                title: const Text('Delete Cache'),
-                trailing: const CupertinoListTileChevron(),
-                onTap: () => deleteCache(),
               ),
             ],
           ),

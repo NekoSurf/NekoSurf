@@ -5,7 +5,6 @@ import 'package:dio/dio.dart';
 import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_chan/Models/saved_attachment.dart';
 import 'package:flutter_chan/blocs/saved_attachments_model.dart';
 import 'package:flutter_chan/pages/savedAttachments/permission_denied.dart';
@@ -186,14 +185,14 @@ Future<void> saveVideo(
       return;
     }
 
-    final File videoCache = await DefaultCacheManager().getSingleFile(url);
+    final File downloadedFile = await _downloadToTemp(url, fileName);
     final String ext = '.${fileName.split('.').last}'.toLowerCase();
 
     if (Platform.isIOS && ext == '.webm') {
       final String outputName = toMp4Name(fileName);
-      final File outputFile = File('${directory.path}/$outputName');
+      final File outputFile = File('${downloadedFile.parent.path}/$outputName');
 
-      final returnCode = await convertWebMToMP4(videoCache, outputFile);
+      final returnCode = await convertWebMToMP4(downloadedFile, outputFile);
 
       if (returnCode != 0) {
         throw Exception('webm conversion failed');
@@ -208,7 +207,7 @@ Future<void> saveVideo(
     }
 
     await SaverGallery.saveFile(
-      filePath: videoCache.path,
+      filePath: downloadedFile.path,
       fileName: fileName,
       skipIfExists: false,
     );
@@ -252,13 +251,15 @@ Future<void> shareMedia(
       return;
     }
 
-    final File videoCache = await DefaultCacheManager().getSingleFile(url);
+    final File downloadedFile = await _downloadToTemp(url, fileName);
     final String ext = '.${fileName.split('.').last}'.toLowerCase();
 
     if (Platform.isIOS && ext == '.webm') {
-      final File fileDownloadPath = File('${directory.path}/$fileName');
+      final File fileDownloadPath = File(
+        '${downloadedFile.parent.path}/$fileName',
+      );
       final int returnCode = await convertWebMToMP4(
-        videoCache,
+        downloadedFile,
         fileDownloadPath,
       );
 
@@ -280,7 +281,7 @@ Future<void> shareMedia(
     }
 
     await SharePlus.instance.share(
-      ShareParams(files: [XFile(videoCache.path)]),
+      ShareParams(files: [XFile(downloadedFile.path)]),
     );
   } catch (e) {
     debugPrint('shareMedia error: $e');
@@ -312,7 +313,7 @@ Future<SavedAttachment?> saveAttachment(
       await savedDir.create(recursive: true);
     }
 
-    final File cachedFile = await DefaultCacheManager().getSingleFile(url);
+    final File downloadedFile = await _downloadToTemp(url, fileName, dio: dio);
     final String ext = '.${fileName.split('.').last}'.toLowerCase();
 
     String finalFileName = fileName;
@@ -322,7 +323,7 @@ Future<SavedAttachment?> saveAttachment(
 
     if (Platform.isIOS && ext == '.webm') {
       final File outputFile = File('${savedDir.path}/$fileName');
-      final int returnCode = await convertWebMToMP4(cachedFile, outputFile);
+      final int returnCode = await convertWebMToMP4(downloadedFile, outputFile);
 
       if (returnCode != 0) {
         return null;
@@ -337,7 +338,7 @@ Future<SavedAttachment?> saveAttachment(
       );
     } else {
       final File outputFile = File('${savedDir.path}/$fileName');
-      await cachedFile.copy(outputFile.path);
+      await downloadedFile.copy(outputFile.path);
 
       if (isVideoLike) {
         thumbnailPath = await downloadThumbnail(
@@ -360,6 +361,14 @@ Future<SavedAttachment?> saveAttachment(
     debugPrint('saveAttachment error: $e\n$st');
     return null;
   }
+}
+
+/// Downloads [url] into the temporary directory without any caching.
+Future<File> _downloadToTemp(String url, String fileName, {Dio? dio}) async {
+  final Directory tempDir = await getTemporaryDirectory();
+  final File file = File('${tempDir.path}/$fileName');
+  await (dio ?? Dio()).download(url, file.path);
+  return file;
 }
 
 Future<String> downloadThumbnail(
