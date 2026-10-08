@@ -15,6 +15,7 @@ import 'package:flutter_chan/enums/enums.dart';
 import 'package:flutter_chan/pages/boards/board_list_header.dart';
 import 'package:flutter_chan/pages/boards/board_tile.dart';
 import 'package:flutter_chan/pages/bookmarks/bookmarks.dart';
+import 'package:flutter_chan/pages/feed/feed_page.dart';
 import 'package:flutter_chan/pages/savedAttachments/saved_attachments.dart';
 import 'package:flutter_chan/pages/settings/settings.dart';
 import 'package:flutter_chan/pages/thread/thread_page.dart';
@@ -288,6 +289,30 @@ class BoardListState extends State<BoardList> {
                                         isDark: isDark,
                                       ),
                                       children: [
+                                        CupertinoListTile.notched(
+                                          leading: const Icon(
+                                            CupertinoIcons.rectangle_stack_fill,
+                                            color: CupertinoColors.systemPink,
+                                          ),
+                                          title: const Text(
+                                            'Feed',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          subtitle: const Text(
+                                            'Threads from all favorite boards',
+                                          ),
+                                          trailing:
+                                              const CupertinoListTileChevron(),
+                                          onTap: () =>
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      const FeedPage(),
+                                                ),
+                                              ),
+                                        ),
                                         for (final Board board
                                             in filteredBoards)
                                           if (favorites.getFavorites().contains(

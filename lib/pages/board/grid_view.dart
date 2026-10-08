@@ -6,11 +6,18 @@ import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/pages/board/grid_post.dart';
 
 class BoardGridView extends StatelessWidget {
-  const BoardGridView({Key? key, required this.board, required this.threads})
-    : super(key: key);
+  const BoardGridView({
+    Key? key,
+    required this.board,
+    required this.threads,
+    this.showBoard = false,
+  }) : super(key: key);
 
   final String board;
   final List<Post> threads;
+
+  /// Uses each thread's own `board` and shows it on the tile.
+  final bool showBoard;
 
   @override
   Widget build(BuildContext context) {
@@ -27,10 +34,13 @@ class BoardGridView extends StatelessWidget {
           childAspectRatio: 0.82,
         ),
         itemBuilder: (BuildContext context, int index) {
+          final Post post = threads[index];
+          final String postBoard = showBoard ? post.board ?? board : board;
           return GridPost(
-            key: ValueKey(threads[index].no),
-            board: board,
-            post: threads[index],
+            key: ValueKey('$postBoard-${post.no}'),
+            board: postBoard,
+            post: post,
+            showBoard: showBoard,
           );
         },
       ),
