@@ -6,6 +6,7 @@ class SavedAttachment {
     this.fileName,
     this.thumbnail,
     this.originalName,
+    this.id,
   });
 
   factory SavedAttachment.fromJson(Map<String, dynamic> json) {
@@ -19,6 +20,7 @@ class SavedAttachment {
       fileName: fileName,
       thumbnail: json['thumbnail'] as String?,
       originalName: json['originalName'] as String?,
+      id: json['id'] as String?,
     );
   }
 
@@ -27,6 +29,8 @@ class SavedAttachment {
   String? thumbnail;
   // Uploader's filename, for display only; `fileName` is the unique on-disk name.
   String? originalName;
+  // 4chan upload id (`tim`); stable key even though `fileName` follows the uploader's name.
+  String? id;
 
   Map<String, dynamic> toJson() {
     return {
@@ -34,6 +38,7 @@ class SavedAttachment {
       'fileName': fileName,
       'thumbnail': thumbnail,
       'originalName': originalName,
+      'id': id,
     };
   }
 

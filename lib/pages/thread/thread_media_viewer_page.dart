@@ -142,9 +142,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
   bool _isPostSaved(SavedAttachmentsProvider provider, Post post) {
     final String baseName = post.tim.toString();
     return provider.getSavedAttachments().any(
-      (a) =>
-          getNameWithoutExtension(a.fileName?.split('/').last ?? '') ==
-          baseName,
+      (a) => provider.attachmentId(a) == baseName,
     );
   }
 

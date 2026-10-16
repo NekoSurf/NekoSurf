@@ -15,6 +15,36 @@ class SavedAttachmentsProvider with ChangeNotifier {
 
   bool playing = true;
 
+  bool selecting = false;
+  final Set<String> selected = {};
+
+  void setSelecting(bool value) {
+    selecting = value;
+    selected.clear();
+    notifyListeners();
+  }
+
+  void selectAll() {
+    selected
+      ..clear()
+      ..addAll(
+        getSavedAttachments().map((a) => a.fileName?.split('/').last ?? ''),
+      );
+    notifyListeners();
+  }
+
+  void deselectAll() {
+    selected.clear();
+    notifyListeners();
+  }
+
+  void toggleSelected(String fileName) {
+    if (!selected.remove(fileName)) {
+      selected.add(fileName);
+    }
+    notifyListeners();
+  }
+
   Future<void> loadPreferences() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
 
@@ -69,11 +99,12 @@ class SavedAttachmentsProvider with ChangeNotifier {
       downloadName.lastIndexOf('.'),
     );
 
-    if (!_containsFileName(downloadName)) {
+    if (!_containsId(nameWithoutExtension)) {
       final SavedAttachment? savedAttachment = await saveAttachment(
         'https://i.4cdn.org/$board/$downloadName',
         'https://i.4cdn.org/$board/${nameWithoutExtension}s.jpg',
         downloadName,
+        fileName,
         context,
         this,
       );
@@ -105,12 +136,14 @@ class SavedAttachmentsProvider with ChangeNotifier {
     list = [];
 
     final String pathBaseName = getNameWithoutExtension(path);
+    final List<SavedAttachment> removed = [];
 
     for (final element in savedAttachmentList) {
-      final String elementBaseName = getNameWithoutExtension(element.fileName!);
+      final String elementBaseName = attachmentId(element);
 
       if (elementBaseName == pathBaseName) {
         newList.remove(element);
+        removed.add(element);
       } else {
         list.add(json.encode(element));
       }
@@ -118,23 +151,16 @@ class SavedAttachmentsProvider with ChangeNotifier {
 
     prefs.setStringList('savedAttachments', list);
 
-    Directory directory = Directory('');
-
     try {
+      Directory directory;
       try {
-        directory = await requestDirectory(directory, context);
+        directory = await requestDirectory(Directory(''), context);
       } catch (e) {
         return;
       }
 
-      directory = Directory('${directory.path}/savedAttachments');
-
-      final List<FileSystemEntity> entities = await directory.list().toList();
-      for (final entity in entities) {
-        if (getNameWithoutExtension(entity.uri.pathSegments.last) ==
-            pathBaseName) {
-          await entity.delete();
-        }
+      for (final attachment in removed) {
+        await _deleteFiles(directory.path, attachment);
       }
     } catch (e) {
       print(e);
@@ -146,31 +172,97 @@ class SavedAttachmentsProvider with ChangeNotifier {
   Future<void> clearSavedAttachments(BuildContext context) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
 
+    final List<SavedAttachment> all = getSavedAttachments();
     list = [];
 
     prefs.setStringList('savedAttachments', list);
 
     notifyListeners();
 
-    Directory directory = Directory('');
-
     try {
+      Directory directory;
       try {
-        directory = await requestDirectory(directory, context);
+        directory = await requestDirectory(Directory(''), context);
       } catch (e) {
         return;
       }
 
-      directory = Directory('${directory.path}/savedAttachments');
-
-      final List<FileSystemEntity> entities = await directory.list().toList();
-      for (final entity in entities) {
-        if (entity is File) {
-          await entity.delete();
-        }
+      for (final attachment in all) {
+        await _deleteFiles(directory.path, attachment);
       }
     } catch (e) {
       print(e);
+    }
+  }
+
+  Future<void> _deleteFiles(String base, SavedAttachment attachment) async {
+    final String media = savedMediaPath(base, attachment.fileName!);
+    final String thumb = savedThumbnailPath(base, attachment);
+    for (final p in {media, thumb}) {
+      final File file = File(p);
+      if (await file.exists()) {
+        await file.delete();
+      }
+    }
+  }
+
+  /// Moves thumbnails (and, on iOS, media) out of the old `savedAttachments/`
+  /// layout, and drops entries whose media file was deleted outside the app.
+  Future<void> reconcileWithDisk(String base) async {
+    await _migrateLegacyLayout(base);
+    await _renameToOriginalNames(base);
+
+    final List<SavedAttachment> kept = [];
+    bool changed = false;
+
+    for (final attachment in getSavedAttachments()) {
+      if (await File(savedMediaPath(base, attachment.fileName!)).exists()) {
+        kept.add(attachment);
+        continue;
+      }
+      changed = true;
+      final File thumb = File(savedThumbnailPath(base, attachment));
+      if (attachment.thumbnail != attachment.fileName && await thumb.exists()) {
+        await thumb.delete();
+      }
+    }
+
+    if (changed) {
+      await setList(kept);
+    }
+  }
+
+  Future<void> _migrateLegacyLayout(String base) async {
+    final Directory legacy = Directory('$base/savedAttachments');
+    if (!await legacy.exists()) {
+      return;
+    }
+
+    Future<void> move(File source, String target) async {
+      if (!await source.exists() || await File(target).exists()) {
+        return;
+      }
+      try {
+        await source.rename(target);
+      } catch (_) {
+        await source.copy(target);
+        await source.delete();
+      }
+    }
+
+    for (final attachment in getSavedAttachments()) {
+      final String name = attachment.fileName!;
+      await move(File('${legacy.path}/$name'), savedMediaPath(base, name));
+      if (attachment.thumbnail != null && attachment.thumbnail != name) {
+        await move(
+          File('${legacy.path}/${attachment.thumbnail}'),
+          savedThumbnailPath(base, attachment),
+        );
+      }
+    }
+
+    if (await legacy.list().isEmpty) {
+      await legacy.delete();
     }
   }
 
@@ -230,14 +322,57 @@ class SavedAttachmentsProvider with ChangeNotifier {
     );
   }
 
-  bool _containsFileName(String fileName) {
-    for (final attachment in getSavedAttachments()) {
-      if (attachment.fileName == fileName) {
-        return true;
+  /// Stable upload id; older entries were stored under the id as file name.
+  String attachmentId(SavedAttachment a) =>
+      a.id ?? getNameWithoutExtension(a.fileName!.split('/').last);
+
+  bool _containsId(String id) {
+    return getSavedAttachments().any((a) => attachmentId(a) == id);
+  }
+
+  /// Gives legacy id-named files the uploader's filename.
+  Future<void> _renameToOriginalNames(String base) async {
+    final List<SavedAttachment> all = getSavedAttachments();
+    bool changed = false;
+
+    for (final attachment in all) {
+      final String? original = attachment.originalName;
+      final String name = attachment.fileName!;
+      if (attachment.id != null || original == null || original.isEmpty) {
+        continue;
       }
+      attachment.id = getNameWithoutExtension(name);
+      changed = true;
+
+      final File file = File(savedMediaPath(base, name));
+      if (!await file.exists()) {
+        continue;
+      }
+      final String ext = name.contains('.')
+          ? '.${name.split('.').last.toLowerCase()}'
+          : '';
+      final String? target = await uniqueSavedFileName(
+        savedMediaDirPath(base),
+        original,
+        ext,
+      );
+      if (target == null || target == name) {
+        continue;
+      }
+      try {
+        await file.rename(savedMediaPath(base, target));
+      } catch (_) {
+        continue;
+      }
+      if (attachment.thumbnail == name) {
+        attachment.thumbnail = target;
+      }
+      attachment.fileName = target;
     }
 
-    return false;
+    if (changed) {
+      await setList(all);
+    }
   }
 
   bool _listsEqual(List<String> first, List<String> second) {

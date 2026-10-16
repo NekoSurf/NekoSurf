@@ -28,6 +28,34 @@ Future<bool> _requestPermission(Permission permission) async {
   return false;
 }
 
+// Thumbnails live in the app-private Application Support dir so they never show
+// up in Files / the Download folder. iOS media sits in the Documents root.
+String _thumbnailsDir = '';
+
+String savedMediaDirPath(String base) =>
+    Platform.isIOS ? base : '$base/savedAttachments';
+
+String savedMediaPath(String base, String fileName) =>
+    '${savedMediaDirPath(base)}/$fileName';
+
+/// Images use themselves as thumbnail, so only video thumbnails are relocated.
+String savedThumbnailPath(String base, SavedAttachment attachment) {
+  final String thumb = attachment.thumbnail ?? attachment.fileName ?? '';
+  if (thumb == attachment.fileName) {
+    return savedMediaPath(base, thumb);
+  }
+  return '$_thumbnailsDir/$thumb';
+}
+
+Future<String> _ensureThumbnailsDir() async {
+  if (_thumbnailsDir.isEmpty) {
+    final Directory support = await getApplicationSupportDirectory();
+    _thumbnailsDir = '${support.path}/savedThumbnails';
+  }
+  await Directory(_thumbnailsDir).create(recursive: true);
+  return _thumbnailsDir;
+}
+
 Future<Directory> requestDirectory(
   Directory directory,
   BuildContext context, {
@@ -55,10 +83,12 @@ Future<Directory> requestDirectory(
       }
       newPath = '$newPath/Download/4Chan';
       directory = Directory(newPath);
+      await _ensureThumbnailsDir();
     }
   } else {
     if (await _requestPermission(Permission.photosAddOnly)) {
       directory = await getApplicationDocumentsDirectory();
+      await _ensureThumbnailsDir();
     } else {
       if (showErrorDialog) {
         await showCupertinoModalBottomSheet(
@@ -108,11 +138,30 @@ Future<bool> checkAndRequestPermissions({required bool skipIfExists}) async {
 Future<int> convertWebMToMP4(File webmFile, File mp4File) async {
   mp4File = File(mp4File.path.replaceAll('.webm', '.mp4'));
 
+  // yuv420p + aac keep the mp4 compatible with the Photos library.
   final FFmpegSession session = await FFmpegKit.executeAsync(
-    '-y -i ${webmFile.path} -c:v mpeg4 -qscale 0 ${mp4File.path}',
+    '-y -i "${webmFile.path}" -c:v mpeg4 -qscale 0 -pix_fmt yuv420p -c:a aac "${mp4File.path}"',
   );
 
   return session.getReturnCode();
+}
+
+/// saver_gallery never answers on iOS for videos Photos rejects, so cap the wait.
+Future<bool> _saveToGallery(String path, String name) async {
+  try {
+    final result = await SaverGallery.saveFile(
+      filePath: path,
+      fileName: name,
+      skipIfExists: false,
+    ).timeout(const Duration(seconds: 20));
+    if (!result.isSuccess) {
+      debugPrint('Gallery save failed for $name: ${result.errorMessage}');
+    }
+    return result.isSuccess;
+  } catch (e) {
+    debugPrint('Gallery save failed for $name: $e');
+    return false;
+  }
 }
 
 Future<void> saveVideo(
@@ -164,7 +213,7 @@ Future<void> saveVideo(
       // On iOS, saved attachments are converted from .webm to .mp4
       // On Android, they remain as .webm
       final String savedName = Platform.isIOS ? toMp4Name(fileName) : fileName;
-      final String savedPath = '${directory.path}/savedAttachments/$savedName';
+      final String savedPath = savedMediaPath(directory.path, savedName);
       final File savedFile = File(savedPath);
 
       if (!await savedFile.exists()) {
@@ -177,11 +226,9 @@ Future<void> saveVideo(
         return;
       }
 
-      await SaverGallery.saveFile(
-        filePath: savedPath,
-        fileName: savedName,
-        skipIfExists: false,
-      );
+      if (!await _saveToGallery(savedPath, savedName)) {
+        throw Exception('gallery save failed');
+      }
       return;
     }
 
@@ -198,19 +245,15 @@ Future<void> saveVideo(
         throw Exception('webm conversion failed');
       }
 
-      await SaverGallery.saveFile(
-        filePath: outputFile.path,
-        fileName: outputName,
-        skipIfExists: false,
-      );
+      if (!await _saveToGallery(outputFile.path, outputName)) {
+        throw Exception('gallery save failed');
+      }
       return;
     }
 
-    await SaverGallery.saveFile(
-      filePath: downloadedFile.path,
-      fileName: fileName,
-      skipIfExists: false,
-    );
+    if (!await _saveToGallery(downloadedFile.path, fileName)) {
+      throw Exception('gallery save failed');
+    }
   } catch (e) {
     debugPrint('saveVideo error: $e');
     showCupertinoSnackbar(
@@ -220,6 +263,84 @@ Future<void> saveVideo(
       'Download failed :(',
     );
   }
+}
+
+/// Saves already-saved attachments to Photos/gallery; returns the number that failed.
+Future<int> saveSavedAttachmentsToGallery(
+  List<String> fileNames,
+  BuildContext context,
+) async {
+  if (!await checkAndRequestPermissions(skipIfExists: false)) {
+    if (context.mounted) {
+      showCupertinoSnackbar(
+        const Duration(milliseconds: 1800),
+        true,
+        context,
+        'Permission denied',
+      );
+    }
+    return fileNames.length;
+  }
+
+  final Directory directory;
+  try {
+    directory = await requestDirectory(
+      Directory(''),
+      context,
+      showErrorDialog: false,
+    );
+  } catch (_) {
+    return fileNames.length;
+  }
+
+  int failed = 0;
+  for (final fileName in fileNames) {
+    final String savedName = Platform.isIOS
+        ? fileName.replaceAll('.webm', '.mp4')
+        : fileName;
+    final String savedPath = savedMediaPath(directory.path, savedName);
+    try {
+      if (!await File(savedPath).exists()) {
+        failed++;
+        continue;
+      }
+      if (!await _saveToGallery(savedPath, savedName)) {
+        failed++;
+      }
+    } catch (e) {
+      debugPrint('saveSavedAttachmentsToGallery error: $e');
+      failed++;
+    }
+  }
+  return failed;
+}
+
+/// Opens one share sheet for all given saved attachments (includes "Save to Files").
+Future<void> shareSavedAttachments(
+  List<String> fileNames,
+  BuildContext context,
+) async {
+  final Directory directory;
+  try {
+    directory = await requestDirectory(Directory(''), context);
+  } catch (_) {
+    return;
+  }
+
+  final files = <XFile>[];
+  for (final fileName in fileNames) {
+    final String savedName = Platform.isIOS
+        ? fileName.replaceAll('.webm', '.mp4')
+        : fileName;
+    final String savedPath = savedMediaPath(directory.path, savedName);
+    if (await File(savedPath).exists()) {
+      files.add(XFile(savedPath));
+    }
+  }
+  if (files.isEmpty) {
+    return;
+  }
+  await SharePlus.instance.share(ShareParams(files: files));
 }
 
 Future<void> shareMedia(
@@ -241,7 +362,7 @@ Future<void> shareMedia(
     final String savedName = Platform.isIOS
         ? fileName.replaceAll('.webm', '.mp4')
         : fileName;
-    final String savedPath = '${directory.path}/savedAttachments/$savedName';
+    final String savedPath = savedMediaPath(directory.path, savedName);
     await SharePlus.instance.share(ShareParams(files: [XFile(savedPath)]));
     return;
   }
@@ -292,6 +413,7 @@ Future<SavedAttachment?> saveAttachment(
   String url,
   String thumbnailUrl,
   String fileName,
+  String displayName,
   BuildContext context,
   SavedAttachmentsProvider savedAttachmentsProvider,
 ) async {
@@ -306,12 +428,11 @@ Future<SavedAttachment?> saveAttachment(
       return null;
     }
 
-    final Directory savedDir = Directory(
-      '${baseDirectory.path}/savedAttachments',
-    );
+    final Directory savedDir = Directory(savedMediaDirPath(baseDirectory.path));
     if (!await savedDir.exists()) {
       await savedDir.create(recursive: true);
     }
+    final String thumbsDir = await _ensureThumbnailsDir();
 
     final File downloadedFile = await _downloadToTemp(url, fileName, dio: dio);
     final String ext = '.${fileName.split('.').last}'.toLowerCase();
@@ -320,31 +441,39 @@ Future<SavedAttachment?> saveAttachment(
     String thumbnailPath = fileName;
 
     final bool isVideoLike = ext == '.mp4' || ext == '.webm' || ext == '.gif';
+    final String targetExt = Platform.isIOS && ext == '.webm' ? '.mp4' : ext;
+    final String savedName =
+        await uniqueSavedFileName(savedDir.path, displayName, targetExt) ??
+        fileName.replaceAll('.webm', targetExt);
 
     if (Platform.isIOS && ext == '.webm') {
-      final File outputFile = File('${savedDir.path}/$fileName');
+      final File outputFile = File('${savedDir.path}/$savedName');
       final int returnCode = await convertWebMToMP4(downloadedFile, outputFile);
 
       if (returnCode != 0) {
         return null;
       }
 
-      finalFileName = fileName.replaceAll('.webm', '.mp4');
-      thumbnailPath = await downloadThumbnail(
+      finalFileName = savedName;
+      thumbnailPath = await _videoThumbnail(
+        '${savedDir.path}/$finalFileName',
         fileName,
         thumbnailUrl,
-        '${savedDir.path}/',
+        thumbsDir,
         dio,
       );
     } else {
-      final File outputFile = File('${savedDir.path}/$fileName');
+      final File outputFile = File('${savedDir.path}/$savedName');
       await downloadedFile.copy(outputFile.path);
+      finalFileName = savedName;
+      thumbnailPath = savedName;
 
       if (isVideoLike) {
-        thumbnailPath = await downloadThumbnail(
+        thumbnailPath = await _videoThumbnail(
+          outputFile.path,
           fileName,
           thumbnailUrl,
-          '${savedDir.path}/',
+          thumbsDir,
           dio,
         );
       }
@@ -356,11 +485,61 @@ Future<SavedAttachment?> saveAttachment(
           : SavedAttachmentType.Image,
       fileName: finalFileName,
       thumbnail: thumbnailPath,
+      id: getNameWithoutExtension(fileName),
     );
   } catch (e, st) {
     debugPrint('saveAttachment error: $e\n$st');
     return null;
   }
+}
+
+/// Uploader-facing on-disk name (e.g. "cat.mp4"), unique within [dir]; null if unusable.
+Future<String?> uniqueSavedFileName(
+  String dir,
+  String originalName,
+  String ext,
+) async {
+  final String base = getNameWithoutExtension(
+    originalName,
+  ).replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1f]'), '_').trim();
+  if (base.isEmpty || base.startsWith('.')) {
+    return null;
+  }
+  final String clipped = base.length > 100 ? base.substring(0, 100) : base;
+
+  String candidate = '$clipped$ext';
+  for (int n = 2; await File('$dir/$candidate').exists(); n++) {
+    candidate = '$clipped ($n)$ext';
+  }
+  return candidate;
+}
+
+/// Grabs a frame from the video itself; falls back to 4chan's tiny 125px thumb.
+Future<String> _videoThumbnail(
+  String videoPath,
+  String fileName,
+  String thumbnailUrl,
+  String thumbsDir,
+  Dio dio,
+) async {
+  final String thumbName = '${getNameWithoutExtension(fileName)}.jpg';
+  final File out = File('$thumbsDir/$thumbName');
+  try {
+    // Seeking past the end of very short clips yields no frame, so retry from 0.
+    for (final String seek in ['-ss 0.5', '']) {
+      final FFmpegSession session = await FFmpegKit.executeAsync(
+        '-y $seek -i "$videoPath" -frames:v 1 -vf scale=480:-2 -q:v 3 "${out.path}"',
+      );
+      if (session.getReturnCode() == 0 &&
+          await out.exists() &&
+          await out.length() > 0) {
+        return thumbName;
+      }
+    }
+  } catch (e) {
+    debugPrint('thumbnail extraction failed: $e');
+  }
+  return downloadThumbnail(fileName, thumbnailUrl, '$thumbsDir/', dio);
 }
 
 /// Downloads [url] into the temporary directory without any caching.

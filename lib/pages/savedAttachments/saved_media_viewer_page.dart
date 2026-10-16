@@ -61,7 +61,7 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
 
   String _filePath(SavedAttachment attachment) {
     final fileName = _fileName(attachment);
-    return '${widget.directoryPath}/savedAttachments/$fileName';
+    return savedMediaPath(widget.directoryPath, fileName);
   }
 
   List<SharedMediaViewerItem> get _items {
@@ -80,9 +80,7 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
               return Uri.file(source).toString();
             },
             thumbnail: FileImage(
-              File(
-                '${widget.directoryPath}/savedAttachments/${attachment.thumbnail}',
-              ),
+              File(savedThumbnailPath(widget.directoryPath, attachment)),
             ),
           );
         })
@@ -139,17 +137,38 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
       return;
     }
 
+    final provider = context.read<SavedAttachmentsProvider>();
     final attachment = _attachments[_currentIndex];
-    final fileName = _fileName(attachment);
+    final id = provider.attachmentId(attachment);
+
+    final bool? confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (dialogContext) => CupertinoAlertDialog(
+        title: const Text('Delete attachment?'),
+        content: const Text('This removes it from your saved attachments.'),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            child: const Text('Cancel'),
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            child: const Text('Delete'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
 
     setState(() {
       _isRemoving = true;
     });
 
-    await context.read<SavedAttachmentsProvider>().removeSavedAttachments(
-      fileName,
-      context,
-    );
+    await provider.removeSavedAttachments(id, context);
 
     if (!mounted) {
       return;
