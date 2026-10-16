@@ -6,6 +6,7 @@ import 'package:flutter_chan/blocs/favorite_model.dart';
 import 'package:flutter_chan/blocs/saved_attachments_model.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
+import 'package:flutter_chan/services/quick_page_transitions.dart';
 import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/pages/boards/board_list.dart';
 import 'package:liquid_glass_widgets/liquid_glass_setup.dart';
@@ -104,6 +105,14 @@ class _AppWithThemeState extends State<AppWithTheme>
     return CupertinoApp(
       debugShowCheckedModeBanner: false,
       home: const BoardList(),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          pageTransitionsTheme: const PageTransitionsTheme(
+            builders: {TargetPlatform.android: QuickPageTransitionsBuilder()},
+          ),
+        ),
+        child: child!,
+      ),
       theme: CupertinoThemeData(
         brightness: theme.getTheme() == ThemeData.dark()
             ? Brightness.dark
