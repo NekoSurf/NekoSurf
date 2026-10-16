@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/api.dart';
+import 'package:flutter_chan/API/save_videos.dart';
 import 'package:flutter_chan/Models/board.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/bookmarks_model.dart';
@@ -19,6 +20,7 @@ import 'package:flutter_chan/pages/feed/feed_page.dart';
 import 'package:flutter_chan/pages/savedAttachments/saved_attachments.dart';
 import 'package:flutter_chan/pages/settings/settings.dart';
 import 'package:flutter_chan/pages/thread/thread_page.dart';
+import 'package:flutter_chan/services/show_snackbar.dart';
 import 'package:flutter_chan/services/update_checker.dart';
 import 'package:flutter_chan/widgets/cupertino_menu.dart';
 import 'package:flutter_chan/widgets/reload.dart';
@@ -217,6 +219,12 @@ class BoardListState extends State<BoardList> {
       if (currentIndex == 0) {
         return 'NekoSurf';
       } else if (currentIndex == 1) {
+        final saved = Provider.of<SavedAttachmentsProvider>(context);
+        if (saved.selecting) {
+          return saved.selected.isEmpty
+              ? 'Select Items'
+              : '${saved.selected.length} Selected';
+        }
         return 'Saved Attachments';
       } else if (currentIndex == 2) {
         return 'Bookmarks';
@@ -444,17 +452,101 @@ class BoardListState extends State<BoardList> {
           ),
         ];
       } else if (currentIndex == 1) {
+        if (savedAttachments.selecting) {
+          final bool hasSelection = savedAttachments.selected.isNotEmpty;
+          return [
+            GlassIconButton(
+              icon: const Icon(CupertinoIcons.arrow_down_to_line),
+              onPressed: hasSelection
+                  ? () async {
+                      final names = savedAttachments.selected.toList();
+                      final failed = await saveSavedAttachmentsToGallery(
+                        names,
+                        context,
+                      );
+                      if (!mounted) {
+                        return;
+                      }
+                      showCupertinoSnackbar(
+                        const Duration(milliseconds: 2200),
+                        failed > 0,
+                        context,
+                        failed == 0
+                            ? 'Saved ${names.length} to Photos'
+                            : '$failed of ${names.length} failed to save',
+                      );
+                    }
+                  : () {},
+            ),
+            GlassIconButton(
+              icon: const Icon(CupertinoIcons.share),
+              onPressed: hasSelection
+                  ? () => shareSavedAttachments(
+                      savedAttachments.selected.toList(),
+                      context,
+                    )
+                  : () {},
+            ),
+            CupertinoMenuButton(
+              glassIcon: const Icon(CupertinoIcons.ellipsis_circle),
+              isGlass: true,
+              menuChildren: [
+                buildMenuItem(
+                  title: 'Select all',
+                  icon: CupertinoIcons.checkmark_circle_fill,
+                  onPressed: savedAttachments.selectAll,
+                ),
+                buildMenuItem(
+                  title: 'Deselect all',
+                  icon: CupertinoIcons.circle,
+                  onPressed: savedAttachments.deselectAll,
+                ),
+              ],
+            ),
+            GlassIconButton(
+              icon: const Icon(CupertinoIcons.xmark),
+              onPressed: () => savedAttachments.setSelecting(false),
+            ),
+          ];
+        }
         return [
           CupertinoMenuButton(
             glassIcon: const Icon(CupertinoIcons.ellipsis_circle),
             isGlass: true,
             menuChildren: [
               buildMenuItem(
+                title: 'Select',
+                icon: CupertinoIcons.checkmark_circle,
+                onPressed: () => savedAttachments.setSelecting(true),
+              ),
+              buildMenuItem(
                 title: 'Clear attachments',
                 icon: CupertinoIcons.trash,
                 isDestructive: true,
-                onPressed: () =>
-                    savedAttachments.clearSavedAttachments(context),
+                onPressed: () => showCupertinoDialog<void>(
+                  context: context,
+                  builder: (dialogContext) => CupertinoAlertDialog(
+                    title: const Text('Clear all attachments?'),
+                    content: const Text(
+                      'This permanently deletes all saved attachments from the app.',
+                    ),
+                    actions: [
+                      CupertinoDialogAction(
+                        isDefaultAction: true,
+                        child: const Text('Cancel'),
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                      ),
+                      CupertinoDialogAction(
+                        isDestructiveAction: true,
+                        child: const Text('Clear'),
+                        onPressed: () {
+                          Navigator.of(dialogContext).pop();
+                          savedAttachments.clearSavedAttachments(context);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
@@ -545,7 +637,15 @@ class BoardListState extends State<BoardList> {
           GlassTab(icon: Icon(CupertinoIcons.settings), label: 'Settings'),
         ],
         selectedIndex: currentIndex,
-        onTabSelected: (i) => setState(() => currentIndex = i),
+        onTabSelected: (i) {
+          if (currentIndex == 1 && i != 1) {
+            Provider.of<SavedAttachmentsProvider>(
+              context,
+              listen: false,
+            ).setSelecting(false);
+          }
+          setState(() => currentIndex = i);
+        },
       ),
       body: buildPageContent(),
     );
