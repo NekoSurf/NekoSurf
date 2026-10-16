@@ -343,11 +343,9 @@ class ThreadPageState extends State<ThreadPage> {
       if (latestWatchedPosts.postIndex != -1) {
         Future.delayed(const Duration(milliseconds: 50), () {
           if (mounted && itemScrollController.isAttached) {
-            itemScrollController.scrollTo(
+            itemScrollController.jumpTo(
               index: latestWatchedPosts.postIndex,
               alignment: 0,
-              duration: const Duration(milliseconds: 500),
-              curve: Curves.easeInOutCubic,
             );
           }
         });
