@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 import 'package:flutter_chan/widgets/feed_player_recycler.dart';
 import 'package:flutter_chan/widgets/video_scrub_gesture.dart';
 import 'package:media_kit/media_kit.dart';
@@ -100,6 +101,23 @@ class SharedMediaViewerItem {
   final ImageProvider<Object> imageProvider;
   final MediaSourceResolver? resolveVideoSource;
   final ImageProvider<Object>? thumbnail;
+}
+
+/// A scrollable ignores touches while its page settles, which blocks zoom;
+/// a stiffer spring keeps that window short.
+class _SnappyPagePhysics extends ClampingScrollPhysics {
+  const _SnappyPagePhysics({super.parent});
+
+  @override
+  _SnappyPagePhysics applyTo(ScrollPhysics? ancestor) =>
+      _SnappyPagePhysics(parent: buildParent(ancestor));
+
+  @override
+  SpringDescription get spring => SpringDescription.withDampingRatio(
+    mass: 0.5,
+    stiffness: 1400,
+    ratio: 1.0,
+  );
 }
 
 class SharedMediaViewer extends StatefulWidget {
@@ -240,7 +258,7 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
               preloadPagesCount: 3,
               physics: _isVideoScrubbing || _isImageZoomed
                   ? const NeverScrollableScrollPhysics()
-                  : const ClampingScrollPhysics(),
+                  : const _SnappyPagePhysics(),
               itemCount: itemCount,
               onPageChanged: (index) {
                 setState(() {
@@ -942,15 +960,63 @@ class _SharedMediaImagePage extends StatefulWidget {
   State<_SharedMediaImagePage> createState() => _SharedMediaImagePageState();
 }
 
-class _SharedMediaImagePageState extends State<_SharedMediaImagePage> {
+class _SharedMediaImagePageState extends State<_SharedMediaImagePage>
+    with SingleTickerProviderStateMixin {
   final TransformationController _transformationController =
       TransformationController();
+  // Created eagerly: a lazy `late` first read in dispose() would create the
+  // ticker on an already deactivated element.
+  late final AnimationController _zoomController;
+  Animation<Matrix4>? _zoomAnimation;
+  Offset _doubleTapPosition = Offset.zero;
   int _pointerCount = 0;
 
   @override
+  void initState() {
+    super.initState();
+    _zoomController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+  }
+
+  @override
   void dispose() {
+    _zoomController.dispose();
     _transformationController.dispose();
     super.dispose();
+  }
+
+  void _handleDoubleTap() {
+    final bool isZoomed =
+        _transformationController.value.getMaxScaleOnAxis() > 1.01;
+    const double zoomScale = 2.5;
+    final Matrix4 target = isZoomed
+        ? Matrix4.identity()
+        : (Matrix4.identity()
+            ..translateByDouble(
+              -_doubleTapPosition.dx * (zoomScale - 1),
+              -_doubleTapPosition.dy * (zoomScale - 1),
+              0,
+              1,
+            )
+            ..scaleByDouble(zoomScale, zoomScale, 1, 1));
+
+    _zoomAnimation?.removeListener(_onZoomTick);
+    _zoomAnimation =
+        Matrix4Tween(
+            begin: _transformationController.value,
+            end: target,
+          ).animate(
+            CurvedAnimation(parent: _zoomController, curve: Curves.easeOut),
+          )
+          ..addListener(_onZoomTick);
+    _zoomController.forward(from: 0);
+  }
+
+  void _onZoomTick() {
+    _transformationController.value = _zoomAnimation!.value;
+    _updateZoomState();
   }
 
   void _updateZoomState() {
@@ -975,30 +1041,35 @@ class _SharedMediaImagePageState extends State<_SharedMediaImagePage> {
         _pointerCount = (_pointerCount - 1).clamp(0, 10);
         _updateZoomState();
       },
-      child: InteractiveViewer(
-        transformationController: _transformationController,
-        minScale: 1,
-        maxScale: 4,
-        onInteractionEnd: (_) => _updateZoomState(),
-        child: Center(
-          child: Image(
-            image: widget.item.imageProvider,
-            fit: BoxFit.contain,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) {
-                return child;
-              }
+      child: GestureDetector(
+        onDoubleTapDown: (details) =>
+            _doubleTapPosition = details.localPosition,
+        onDoubleTap: _handleDoubleTap,
+        child: InteractiveViewer(
+          transformationController: _transformationController,
+          minScale: 1,
+          maxScale: 4,
+          onInteractionEnd: (_) => _updateZoomState(),
+          child: Center(
+            child: Image(
+              image: widget.item.imageProvider,
+              fit: BoxFit.contain,
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) {
+                  return child;
+                }
 
-              return const Center(
-                child: CupertinoActivityIndicator(radius: 14),
-              );
-            },
-            errorBuilder: (context, error, stackTrace) {
-              return const Text(
-                'Unable to load image',
-                style: TextStyle(color: Colors.white),
-              );
-            },
+                return const Center(
+                  child: CupertinoActivityIndicator(radius: 14),
+                );
+              },
+              errorBuilder: (context, error, stackTrace) {
+                return const Text(
+                  'Unable to load image',
+                  style: TextStyle(color: Colors.white),
+                );
+              },
+            ),
           ),
         ),
       ),
