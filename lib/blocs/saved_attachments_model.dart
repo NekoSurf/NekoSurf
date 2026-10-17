@@ -6,6 +6,8 @@ import 'package:flutter_chan/API/save_videos.dart';
 import 'package:flutter_chan/Models/saved_attachment.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+enum SavedFilter { all, images, videos }
+
 class SavedAttachmentsProvider with ChangeNotifier {
   SavedAttachmentsProvider(this.list) {
     loadPreferences();
@@ -18,6 +20,43 @@ class SavedAttachmentsProvider with ChangeNotifier {
   bool selecting = false;
   final Set<String> selected = {};
 
+  SavedFilter filter = SavedFilter.all;
+  bool newestFirst = true;
+
+  void setFilter(SavedFilter value) {
+    filter = value;
+    notifyListeners();
+  }
+
+  void setNewestFirst(bool value) {
+    newestFirst = value;
+    notifyListeners();
+  }
+
+  List<SavedAttachment> visibleAttachments() {
+    final List<SavedAttachment> items = getSavedAttachments().where((a) {
+      final bool isVideo = a.savedAttachmentType == SavedAttachmentType.Video;
+      if (filter == SavedFilter.images && isVideo) {
+        return false;
+      }
+      if (filter == SavedFilter.videos && !isVideo) {
+        return false;
+      }
+      return true;
+    }).toList();
+    return newestFirst ? items.reversed.toList() : items;
+  }
+
+  Future<void> removeSelected(BuildContext context) async {
+    final List<SavedAttachment> targets = getSavedAttachments()
+        .where((a) => selected.contains(a.fileName?.split('/').last ?? ''))
+        .toList();
+    for (final a in targets) {
+      await removeSavedAttachments(attachmentId(a), context);
+    }
+    setSelecting(false);
+  }
+
   void setSelecting(bool value) {
     selecting = value;
     selected.clear();
@@ -28,7 +67,7 @@ class SavedAttachmentsProvider with ChangeNotifier {
     selected
       ..clear()
       ..addAll(
-        getSavedAttachments().map((a) => a.fileName?.split('/').last ?? ''),
+        visibleAttachments().map((a) => a.fileName?.split('/').last ?? ''),
       );
     notifyListeners();
   }

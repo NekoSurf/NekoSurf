@@ -1,92 +1,66 @@
 import 'package:app_settings/app_settings.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_chan/blocs/theme.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
+import 'package:flutter_chan/pages/dashboard/dashboard_widgets.dart';
+import 'package:flutter_chan/widgets/dash_dialogs.dart';
 
 class PermissionDenied extends StatelessWidget {
   const PermissionDenied({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Provider.of<ThemeChanger>(context);
-    final bool isDark = theme.getTheme() == ThemeData.dark();
-    final Color cardColor = isDark
-        ? const Color(0xFF13161B)
-        : const Color(0xFFFFFFFF);
+    final bool isDark = CupertinoTheme.brightnessOf(context) == Brightness.dark;
 
-    return SafeArea(
-      top: false,
+    return Material(
+      color: Colors.transparent,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16.0, 32.0, 16.0, 32.0),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: cardColor,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: isDark
-                  ? CupertinoColors.systemGrey.withValues(alpha: 0.25)
-                  : const Color(0x14000000),
-            ),
-            boxShadow: isDark
-                ? []
-                : const [
-                    BoxShadow(
-                      color: Color(0x12000000),
-                      blurRadius: 12,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
-          ),
+        padding: const EdgeInsets.fromLTRB(16, 32, 16, 32),
+        child: DashCard(
+          isDark: isDark,
+          radius: 28,
+          padding: const EdgeInsets.all(24),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                'Permission denied!',
-                style: TextStyle(
-                  fontSize: 26,
-                  color: theme.getTheme() == ThemeData.dark()
-                      ? Colors.white
-                      : Colors.black,
-                  fontWeight: FontWeight.w700,
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: DashColors.nsfw.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Icon(
+                  CupertinoIcons.lock_fill,
+                  color: DashColors.nsfw,
+                  size: 28,
                 ),
               ),
-              const SizedBox(height: 30),
+              const SizedBox(height: 18),
               Text(
-                'To use this feature, you need to grant the app permission to access your storage.',
+                'Storage access needed',
                 style: TextStyle(
-                  fontSize: 16,
-                  color: theme.getTheme() == ThemeData.dark()
-                      ? Colors.white
-                      : Colors.black,
+                  fontSize: 21,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.4,
+                  color: DashColors.text(isDark),
                 ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Allow access to Photos in your device settings so saved attachments can be stored and shown here.',
                 textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Go to your device settings and enable the Full Access permission to the Photos for this app.',
                 style: TextStyle(
-                  fontSize: 16,
-                  color: theme.getTheme() == ThemeData.dark()
-                      ? Colors.white
-                      : Colors.black,
+                  fontSize: 14.5,
+                  height: 1.4,
+                  color: DashColors.muted(isDark),
                 ),
-                textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 30),
-              CupertinoButton(
-                color: CupertinoColors.activeBlue,
-                child: const Text(
-                  'Open System Settings',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                onPressed: () {
-                  AppSettings.openAppSettings(type: AppSettingsType.settings);
-                },
+              const SizedBox(height: 20),
+              DashDialogAction(
+                isDefaultAction: true,
+                onPressed: () =>
+                    AppSettings.openAppSettings(type: AppSettingsType.settings),
+                child: const Text('Open Settings'),
               ),
             ],
           ),

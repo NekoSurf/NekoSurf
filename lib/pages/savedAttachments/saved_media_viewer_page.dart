@@ -7,6 +7,7 @@ import 'package:flutter_chan/API/save_videos.dart';
 import 'package:flutter_chan/Models/saved_attachment.dart';
 import 'package:flutter_chan/blocs/saved_attachments_model.dart';
 import 'package:flutter_chan/pages/media/shared_media_viewer.dart';
+import 'package:flutter_chan/widgets/dash_dialogs.dart';
 import 'package:provider/provider.dart';
 
 class SavedMediaViewerPage extends StatefulWidget {
@@ -141,18 +142,18 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
     final attachment = _attachments[_currentIndex];
     final id = provider.attachmentId(attachment);
 
-    final bool? confirmed = await showCupertinoDialog<bool>(
+    final bool? confirmed = await showDashDialog<bool>(
       context: context,
-      builder: (dialogContext) => CupertinoAlertDialog(
+      builder: (dialogContext) => DashDialog(
         title: const Text('Delete attachment?'),
         content: const Text('This removes it from your saved attachments.'),
         actions: [
-          CupertinoDialogAction(
+          DashDialogAction(
             isDefaultAction: true,
             child: const Text('Cancel'),
             onPressed: () => Navigator.of(dialogContext).pop(false),
           ),
-          CupertinoDialogAction(
+          DashDialogAction(
             isDestructiveAction: true,
             child: const Text('Delete'),
             onPressed: () => Navigator.of(dialogContext).pop(true),
