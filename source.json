@@ -22,6 +22,15 @@
       ],
       "versions": [
         {
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.11.5-286/Runner.ipa",
+          "size": 32500000,
+          "version": "0.11.5",
+          "buildVersion": "286",
+          "date": "2026-10-17T00:13:00+02:00",
+          "localizedDescription": "Full visual redesign with new dashboard, media viewer, and saved attachments interface.",
+          "minOSVersion": "17.6"
+        },
+        {
           "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.11.5-285/Runner.ipa",
           "size": 32500000,
           "version": "0.11.5",
