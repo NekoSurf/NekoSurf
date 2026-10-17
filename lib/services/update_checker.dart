@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 
+const _androidAbiVersionCodeMultiplier = 1000;
+
 Future<Uri?> checkForAppUpdate() async {
   try {
     final packageInfo = await PackageInfo.fromPlatform();
@@ -28,6 +30,7 @@ Future<Uri?> checkForAppUpdate() async {
     final latestVersion = _versionParts(release['tag_name'] as String?);
     final installedVersion = _versionParts(
       '${packageInfo.version}+${packageInfo.buildNumber}',
+      normalizeAndroidBuildNumber: Platform.isAndroid,
     );
     final releaseUrl = Uri.tryParse(release['html_url'] as String? ?? '');
     final updateUrl = Platform.isIOS
@@ -59,7 +62,10 @@ Future<Uri?> checkForAppUpdate() async {
   }
 }
 
-List<int>? _versionParts(String? version) {
+List<int>? _versionParts(
+  String? version, {
+  bool normalizeAndroidBuildNumber = false,
+}) {
   if (version == null) {
     return null;
   }
@@ -71,10 +77,16 @@ List<int>? _versionParts(String? version) {
     return null;
   }
 
+  var buildNumber = int.parse(match.group(4) ?? '0');
+  if (normalizeAndroidBuildNumber &&
+      buildNumber >= _androidAbiVersionCodeMultiplier) {
+    buildNumber %= _androidAbiVersionCodeMultiplier;
+  }
+
   return [
     int.parse(match.group(1)!),
     int.parse(match.group(2)!),
     int.parse(match.group(3)!),
-    int.parse(match.group(4) ?? '0'),
+    buildNumber,
   ];
 }
