@@ -1,164 +1,150 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
-import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/enums/enums.dart';
+import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
+import 'package:flutter_chan/pages/settings/settings_widgets.dart';
 import 'package:flutter_chan/widgets/cupertino_menu.dart';
+import 'package:flutter_chan/widgets/dash_dialogs.dart';
+import 'package:flutter_chan/widgets/dash_scaffold.dart';
 import 'package:provider/provider.dart';
 
-import '../cupertino_settings_icon.dart';
-
-class ThreadsSettings extends StatefulWidget {
+class ThreadsSettings extends StatelessWidget {
   const ThreadsSettings({Key? key}) : super(key: key);
 
-  @override
-  State<ThreadsSettings> createState() => ThreadsSettingsState();
-}
-
-class ThreadsSettingsState extends State<ThreadsSettings> {
-  @override
-  Widget build(BuildContext context) {
-    final settings = Provider.of<SettingsProvider>(context);
-
-    return CupertinoPageScaffold(
-      backgroundColor: AppColors.pageBackground(
-        Theme.of(context).brightness == Brightness.dark,
-      ),
-      navigationBar: const CupertinoNavigationBar(middle: Text('Threads')),
-      child: ListView(
-        children: [
-          CupertinoListSection.insetGrouped(
-            backgroundColor: Colors.transparent,
-            children: [
-              CupertinoMenuAnchor(
-                menuChildren: [
-                  for (final sort in [
-                    Sort.byImagesCount,
-                    Sort.byReplyCount,
-                    Sort.byBumpOrder,
-                    Sort.byNewest,
-                  ])
-                    buildMenuItem(
-                      title: getSortByName(sort),
-                      isSelected: settings.getBoardSort() == sort,
-                      onPressed: () => settings.setBoardSort(sort),
-                    ),
-                ],
-                builder: (context, controller, _) => CupertinoListTile(
-                  leading: const CupertinoSettingsIcon(
-                    icon: CupertinoIcons.sort_down,
-                    color: CupertinoColors.systemOrange,
-                  ),
-                  title: const Text('Default board sort'),
-                  trailing: Text(
-                    getSortByName(settings.getBoardSort()),
-                    style: const TextStyle(color: CupertinoColors.inactiveGray),
-                  ),
-                  onTap: controller.open,
-                ),
-              ),
-              CupertinoMenuAnchor(
-                menuChildren: [
-                  buildMenuItem(
-                    title: 'Descending',
-                    icon: CupertinoIcons.arrow_down,
-                    isSelected:
-                        settings.getBoardSortDirection() == SortDirection.desc,
-                    onPressed: () =>
-                        settings.setBoardSortDirection(SortDirection.desc),
-                  ),
-                  buildMenuItem(
-                    title: 'Ascending',
-                    icon: CupertinoIcons.arrow_up,
-                    isSelected:
-                        settings.getBoardSortDirection() == SortDirection.asc,
-                    onPressed: () =>
-                        settings.setBoardSortDirection(SortDirection.asc),
-                  ),
-                ],
-                builder: (context, controller, _) => CupertinoListTile(
-                  leading: const CupertinoSettingsIcon(
-                    icon: CupertinoIcons.arrow_up_arrow_down,
-                    color: CupertinoColors.systemGreen,
-                  ),
-                  title: const Text('Default sort direction'),
-                  trailing: Text(
-                    settings.getBoardSortDirection() == SortDirection.desc
-                        ? 'Descending'
-                        : 'Ascending',
-                    style: const TextStyle(color: CupertinoColors.inactiveGray),
-                  ),
-                  onTap: controller.open,
-                ),
-              ),
-              CupertinoMenuAnchor(
-                menuChildren: [
-                  buildMenuItem(
-                    title: 'Grid',
-                    icon: CupertinoIcons.square_grid_2x2,
-                    isSelected: settings.getBoardViewMode() == ViewMode.grid,
-                    onPressed: () => settings.setBoardViewMode(ViewMode.grid),
-                  ),
-                  buildMenuItem(
-                    title: 'List',
-                    icon: CupertinoIcons.list_bullet,
-                    isSelected: settings.getBoardViewMode() == ViewMode.list,
-                    onPressed: () => settings.setBoardViewMode(ViewMode.list),
-                  ),
-                ],
-                builder: (context, controller, _) => CupertinoListTile(
-                  leading: const CupertinoSettingsIcon(
-                    icon: CupertinoIcons.square_grid_2x2,
-                    color: CupertinoColors.activeBlue,
-                  ),
-                  title: const Text('Default board view'),
-                  trailing: Text(
-                    settings.getBoardViewMode() == ViewMode.grid
-                        ? 'Grid'
-                        : 'List',
-                    style: const TextStyle(color: CupertinoColors.inactiveGray),
-                  ),
-                  onTap: controller.open,
-                ),
-              ),
-            ],
-          ),
-          CupertinoListSection.insetGrouped(
-            backgroundColor: Colors.transparent,
-            children: [
-              CupertinoListTile(
-                leading: const CupertinoSettingsIcon(
-                  icon: CupertinoIcons.speaker_slash_fill,
-                  color: CupertinoColors.systemPink,
-                ),
-                title: const Text('Start feed videos muted'),
-                subtitle: const Text(
-                  'Videos in the thread feed autoplay without sound',
-                ),
-                trailing: CupertinoSwitch(
-                  onChanged: (value) => settings.setFeedVideosStartMuted(value),
-                  value: settings.getFeedVideosStartMuted(),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  String getSortByName(Sort sort) {
+  static String sortName(Sort sort) {
     switch (sort) {
       case Sort.byImagesCount:
-        return 'Images Count';
+        return 'Images';
       case Sort.byBumpOrder:
-        return 'Bump Order';
+        return 'Bump order';
       case Sort.byReplyCount:
-        return 'Reply Count';
+        return 'Replies';
       case Sort.byNewest:
         return 'Newest';
       case Sort.byOldest:
         return 'Oldest';
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsProvider>(context);
+
+    return DashScaffold(
+      title: 'Threads',
+      subtitle: 'Defaults for boards and feed',
+      slivers: [
+        SliverToBoxAdapter(
+          child: Column(
+            children: [
+              SettingsGroup(
+                title: 'Defaults',
+                children: [
+                  DashMenuAnchor(
+                    menuChildren: [
+                      for (final sort in [
+                        Sort.byImagesCount,
+                        Sort.byReplyCount,
+                        Sort.byBumpOrder,
+                        Sort.byNewest,
+                      ])
+                        buildMenuItem(
+                          title: sortName(sort),
+                          isSelected: settings.getBoardSort() == sort,
+                          onPressed: () => settings.setBoardSort(sort),
+                        ),
+                    ],
+                    builder: (context, open) => SettingsRow(
+                      icon: CupertinoIcons.sort_down,
+                      color: const Color(0xFFFB923C),
+                      title: 'Sort by',
+                      value: sortName(settings.getBoardSort()),
+                      onTap: open,
+                    ),
+                  ),
+                  DashMenuAnchor(
+                    menuChildren: [
+                      buildMenuItem(
+                        title: 'Descending',
+                        icon: CupertinoIcons.arrow_down,
+                        isSelected:
+                            settings.getBoardSortDirection() ==
+                            SortDirection.desc,
+                        onPressed: () =>
+                            settings.setBoardSortDirection(SortDirection.desc),
+                      ),
+                      buildMenuItem(
+                        title: 'Ascending',
+                        icon: CupertinoIcons.arrow_up,
+                        isSelected:
+                            settings.getBoardSortDirection() ==
+                            SortDirection.asc,
+                        onPressed: () =>
+                            settings.setBoardSortDirection(SortDirection.asc),
+                      ),
+                    ],
+                    builder: (context, open) => SettingsRow(
+                      icon: CupertinoIcons.arrow_up_arrow_down,
+                      color: const Color(0xFF34D399),
+                      title: 'Direction',
+                      value:
+                          settings.getBoardSortDirection() == SortDirection.desc
+                          ? 'Descending'
+                          : 'Ascending',
+                      onTap: open,
+                    ),
+                  ),
+                  DashMenuAnchor(
+                    menuChildren: [
+                      buildMenuItem(
+                        title: 'Grid',
+                        icon: CupertinoIcons.square_grid_2x2,
+                        isSelected:
+                            settings.getBoardViewMode() == ViewMode.grid,
+                        onPressed: () =>
+                            settings.setBoardViewMode(ViewMode.grid),
+                      ),
+                      buildMenuItem(
+                        title: 'List',
+                        icon: CupertinoIcons.list_bullet,
+                        isSelected:
+                            settings.getBoardViewMode() == ViewMode.list,
+                        onPressed: () =>
+                            settings.setBoardViewMode(ViewMode.list),
+                      ),
+                    ],
+                    builder: (context, open) => SettingsRow(
+                      icon: CupertinoIcons.square_grid_2x2_fill,
+                      color: DashColors.accent,
+                      title: 'Board view',
+                      value: settings.getBoardViewMode() == ViewMode.grid
+                          ? 'Grid'
+                          : 'List',
+                      onTap: open,
+                    ),
+                  ),
+                ],
+              ),
+              SettingsGroup(
+                title: 'Playback',
+                children: [
+                  SettingsRow(
+                    icon: CupertinoIcons.speaker_slash_fill,
+                    color: const Color(0xFFF472B6),
+                    title: 'Start feed videos muted',
+                    subtitle:
+                        'Videos in the thread feed autoplay without sound',
+                    trailing: SettingsSwitch(
+                      value: settings.getFeedVideosStartMuted(),
+                      onChanged: settings.setFeedVideosStartMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }

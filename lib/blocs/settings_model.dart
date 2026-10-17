@@ -15,6 +15,7 @@ class SettingsProvider with ChangeNotifier {
   bool autoScrollToLastSeen = false;
   bool showStickyThreads = true;
   bool feedVideosStartMuted = true;
+  bool trackHistory = true;
 
   Future<void> loadPreferences() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -61,6 +62,10 @@ class SettingsProvider with ChangeNotifier {
 
     if (prefs.getBool('feedVideosStartMuted') != null) {
       feedVideosStartMuted = prefs.getBool('feedVideosStartMuted')!;
+    }
+
+    if (prefs.getBool('trackHistory') != null) {
+      trackHistory = prefs.getBool('trackHistory')!;
     }
 
     await prefs.remove('inlineMediaInThreadFeed');
@@ -161,6 +166,17 @@ class SettingsProvider with ChangeNotifier {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     feedVideosStartMuted = value;
     prefs.setBool('feedVideosStartMuted', value);
+    notifyListeners();
+  }
+
+  bool getTrackHistory() {
+    return trackHistory;
+  }
+
+  Future<void> setTrackHistory(bool value) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    trackHistory = value;
+    prefs.setBool('trackHistory', value);
     notifyListeners();
   }
 }
