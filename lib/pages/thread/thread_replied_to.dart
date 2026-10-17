@@ -1,9 +1,8 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/Models/post.dart';
-import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/pages/thread/thread_page_post.dart';
+import 'package:flutter_chan/widgets/dash_scaffold.dart';
 import 'package:flutter_chan/widgets/reload.dart';
 
 class ThreadRepliesTo extends StatefulWidget {
@@ -44,17 +43,9 @@ class _ThreadRepliesToState extends State<ThreadRepliesTo> {
 
   @override
   Widget build(BuildContext context) {
-    return CupertinoPageScaffold(
-      backgroundColor: AppColors.pageBackground(
-        Theme.of(context).brightness == Brightness.dark,
-      ),
-      navigationBar: CupertinoNavigationBar(
-        middle: Text(
-          'Replies to #${widget.post}',
-          overflow: TextOverflow.ellipsis,
-        ),
-      ),
-      child: FutureBuilder(
+    return DashBarScaffold(
+      title: 'Replies to #${widget.post}',
+      body: FutureBuilder(
         future: _fetchPost,
         builder: (BuildContext context, snapshot) {
           switch (snapshot.connectionState) {

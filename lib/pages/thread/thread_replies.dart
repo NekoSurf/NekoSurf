@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/theme.dart';
-import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/pages/thread/thread_page_post.dart';
+import 'package:flutter_chan/widgets/dash_scaffold.dart';
 import 'package:provider/provider.dart';
 
 class _ReplyTreeEntry {
@@ -230,17 +230,9 @@ class _ThreadRepliesState extends State<ThreadReplies> {
       widget.allPosts,
     );
 
-    return CupertinoPageScaffold(
-      backgroundColor: AppColors.pageBackground(
-        Theme.of(context).brightness == Brightness.dark,
-      ),
-      navigationBar: CupertinoNavigationBar(
-        middle: Text(
-          'Replies to #${widget.post.no}',
-          overflow: TextOverflow.ellipsis,
-        ),
-      ),
-      child: Scrollbar(
+    return DashBarScaffold(
+      title: 'Replies to #${widget.post.no}',
+      body: Scrollbar(
         controller: scrollController,
         child: replyEntries.isEmpty
             ? Padding(

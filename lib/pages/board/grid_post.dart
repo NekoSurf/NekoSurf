@@ -6,6 +6,7 @@ import 'package:flutter_chan/Models/bookmark.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/bookmarks_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
+import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/pages/replies_row.dart';
 import 'package:flutter_chan/pages/thread/thread_page.dart';
 import 'package:flutter_chan/services/string.dart';
@@ -54,9 +55,8 @@ class _GridPostState extends State<GridPost> {
     final bookmarks = Provider.of<BookmarksProvider>(context);
     final theme = Provider.of<ThemeChanger>(context);
     final bool isDark = theme.getTheme() == ThemeData.dark();
-    final Color cardColor = isDark
-        ? const Color(0xFF13161B)
-        : const Color(0xFFFFFFFF);
+    final Color cardColor = DashColors.card(isDark);
+    final Color boardTint = boardColor(widget.board);
     final String headline = unescape(
       cleanTags(widget.post.sub ?? widget.post.com ?? ''),
     ).trim();
@@ -80,12 +80,8 @@ class _GridPostState extends State<GridPost> {
       child: Container(
         decoration: BoxDecoration(
           color: cardColor,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: isDark
-                ? CupertinoColors.systemGrey.withValues(alpha: 0.25)
-                : const Color(0x14000000),
-          ),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: DashColors.border(isDark)),
           boxShadow: isDark
               ? []
               : const [
@@ -97,7 +93,7 @@ class _GridPostState extends State<GridPost> {
                 ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(22),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -139,9 +135,7 @@ class _GridPostState extends State<GridPost> {
                                   vertical: 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: CupertinoColors.activeBlue.withValues(
-                                    alpha: 0.65,
-                                  ),
+                                  color: boardTint.withValues(alpha: 0.65),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
@@ -265,12 +259,16 @@ class _GridPostState extends State<GridPost> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: CupertinoColors.systemFill.resolveFrom(context),
+                        color: DashColors.muted(isDark).withValues(alpha: 0.14),
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
                         'No.${widget.post.no}',
-                        style: const TextStyle(fontSize: 12),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: DashColors.muted(isDark),
+                        ),
                       ),
                     ),
                   ],

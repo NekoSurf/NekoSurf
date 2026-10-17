@@ -1,14 +1,16 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/favorite_model.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
-import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/enums/enums.dart';
 import 'package:flutter_chan/pages/board/grid_view.dart';
 import 'package:flutter_chan/pages/board/list_view.dart';
+import 'package:flutter_chan/pages/dashboard/dashboard_widgets.dart';
 import 'package:flutter_chan/widgets/cupertino_menu.dart';
+import 'package:flutter_chan/widgets/dash_dialogs.dart';
+import 'package:flutter_chan/widgets/dash_header.dart';
+import 'package:flutter_chan/widgets/dash_scaffold.dart';
 import 'package:flutter_chan/widgets/reload.dart';
 import 'package:provider/provider.dart';
 
@@ -110,99 +112,109 @@ class _FeedPageState extends State<FeedPage> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = CupertinoTheme.brightnessOf(context) == Brightness.dark;
     final settings = Provider.of<SettingsProvider>(context);
+    final int boardCount = Provider.of<FavoriteProvider>(
+      context,
+    ).getFavorites().length;
     final List<Post> visibleThreads = settings.getShowStickyThreads()
         ? _threads
         : _threads.where((post) => (post.sticky ?? 0) != 1).toList();
 
-    return CupertinoPageScaffold(
-      backgroundColor: AppColors.pageBackground(
-        Theme.of(context).brightness == Brightness.dark,
-      ),
-      child: CustomScrollView(
-        slivers: [
-          CupertinoSliverNavigationBar(
-            largeTitle: const Text('Feed'),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CupertinoIconButton(
-                  icon: settings.getBoardViewMode() == ViewMode.grid
-                      ? CupertinoIcons.list_bullet
-                      : CupertinoIcons.square_grid_2x2,
-                  onPressed: () => settings.setBoardViewMode(
-                    settings.getBoardViewMode() == ViewMode.grid
-                        ? ViewMode.list
-                        : ViewMode.grid,
-                  ),
-                ),
-                CupertinoMenuButton(
-                  icon: CupertinoIcons.ellipsis_circle,
-                  menuChildren: [
-                    buildMenuItem(
-                      title: 'Image Count',
-                      icon: CupertinoIcons.photo,
-                      isSelected: _sort == Sort.byImagesCount,
-                      onPressed: () => _setSort(Sort.byImagesCount),
-                    ),
-                    buildMenuItem(
-                      title: 'Reply Count',
-                      icon: CupertinoIcons.text_bubble,
-                      isSelected: _sort == Sort.byReplyCount,
-                      onPressed: () => _setSort(Sort.byReplyCount),
-                    ),
-                    buildMenuItem(
-                      title: 'Bump Order',
-                      icon: CupertinoIcons.arrow_up_arrow_down,
-                      isSelected: _sort == Sort.byBumpOrder,
-                      onPressed: () => _setSort(Sort.byBumpOrder),
-                    ),
-                    buildMenuItem(
-                      title: 'Newest',
-                      icon: CupertinoIcons.clock,
-                      isSelected: _sort == Sort.byNewest,
-                      onPressed: () => _setSort(Sort.byNewest),
-                    ),
-                    const CupertinoMenuDivider(),
-                    buildMenuItem(
-                      title: 'Descending',
-                      icon: CupertinoIcons.arrow_down,
-                      isSelected: _sortDirection == SortDirection.desc,
-                      onPressed: () => _setSortDirection(SortDirection.desc),
-                    ),
-                    buildMenuItem(
-                      title: 'Ascending',
-                      icon: CupertinoIcons.arrow_up,
-                      isSelected: _sortDirection == SortDirection.asc,
-                      onPressed: () => _setSortDirection(SortDirection.asc),
-                    ),
-                    const CupertinoMenuDivider(),
-                    buildMenuItem(
-                      title: 'Show Sticky Threads',
-                      icon: CupertinoIcons.pin,
-                      isSelected: settings.getShowStickyThreads(),
-                      onPressed: () => settings.setShowStickyThreads(
-                        !settings.getShowStickyThreads(),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+    return DashScaffold(
+      title: 'Feed',
+      onRefresh: _loadFeed,
+      actions: [
+        DashIconButton(
+          icon: Icon(
+            settings.getBoardViewMode() == ViewMode.grid
+                ? CupertinoIcons.list_bullet
+                : CupertinoIcons.square_grid_2x2,
           ),
-          CupertinoSliverRefreshControl(onRefresh: _loadFeed),
-          if (_isLoading && _threads.isEmpty)
-            const SliverFillRemaining(
-              child: Center(child: CupertinoActivityIndicator()),
-            )
-          else if (_hasError)
-            SliverFillRemaining(child: ReloadWidget(onReload: _loadFeed))
-          else if (settings.getBoardViewMode() == ViewMode.grid)
-            BoardGridView(board: '', threads: visibleThreads, showBoard: true)
-          else
-            BoardListView(board: '', threads: visibleThreads, showBoard: true),
-        ],
-      ),
+          onPressed: () => settings.setBoardViewMode(
+            settings.getBoardViewMode() == ViewMode.grid
+                ? ViewMode.list
+                : ViewMode.grid,
+          ),
+        ),
+        CupertinoMenuButton(
+          isGlass: true,
+          menuChildren: [
+            buildMenuItem(
+              title: 'Image Count',
+              icon: CupertinoIcons.photo,
+              isSelected: _sort == Sort.byImagesCount,
+              onPressed: () => _setSort(Sort.byImagesCount),
+            ),
+            buildMenuItem(
+              title: 'Reply Count',
+              icon: CupertinoIcons.text_bubble,
+              isSelected: _sort == Sort.byReplyCount,
+              onPressed: () => _setSort(Sort.byReplyCount),
+            ),
+            buildMenuItem(
+              title: 'Bump Order',
+              icon: CupertinoIcons.arrow_up_arrow_down,
+              isSelected: _sort == Sort.byBumpOrder,
+              onPressed: () => _setSort(Sort.byBumpOrder),
+            ),
+            buildMenuItem(
+              title: 'Newest',
+              icon: CupertinoIcons.clock,
+              isSelected: _sort == Sort.byNewest,
+              onPressed: () => _setSort(Sort.byNewest),
+            ),
+            const DashMenuDivider(),
+            buildMenuItem(
+              title: 'Descending',
+              icon: CupertinoIcons.arrow_down,
+              isSelected: _sortDirection == SortDirection.desc,
+              onPressed: () => _setSortDirection(SortDirection.desc),
+            ),
+            buildMenuItem(
+              title: 'Ascending',
+              icon: CupertinoIcons.arrow_up,
+              isSelected: _sortDirection == SortDirection.asc,
+              onPressed: () => _setSortDirection(SortDirection.asc),
+            ),
+            const DashMenuDivider(),
+            buildMenuItem(
+              title: 'Show Sticky Threads',
+              icon: CupertinoIcons.pin,
+              isSelected: settings.getShowStickyThreads(),
+              onPressed: () => settings.setShowStickyThreads(
+                !settings.getShowStickyThreads(),
+              ),
+            ),
+          ],
+        ),
+      ],
+      slivers: [
+        SliverToBoxAdapter(
+          child: DashPageHeader(
+            isDark: isDark,
+            color: const Color(0xFFF472B6),
+            badge: const Icon(
+              CupertinoIcons.rectangle_stack_fill,
+              color: Color(0xFFF472B6),
+            ),
+            title: _isLoading && _threads.isEmpty
+                ? 'Loading...'
+                : '${visibleThreads.length} threads',
+            subtitle: 'From $boardCount favorite boards',
+          ),
+        ),
+        if (_isLoading && _threads.isEmpty)
+          const SliverFillRemaining(
+            child: Center(child: CupertinoActivityIndicator()),
+          )
+        else if (_hasError)
+          SliverFillRemaining(child: ReloadWidget(onReload: _loadFeed))
+        else if (settings.getBoardViewMode() == ViewMode.grid)
+          BoardGridView(board: '', threads: visibleThreads, showBoard: true)
+        else
+          BoardListView(board: '', threads: visibleThreads, showBoard: true),
+      ],
     );
   }
 }

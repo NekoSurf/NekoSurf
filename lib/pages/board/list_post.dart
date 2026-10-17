@@ -7,6 +7,7 @@ import 'package:flutter_chan/Models/bookmark.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/bookmarks_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
+import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/pages/replies_row.dart';
 import 'package:flutter_chan/pages/thread/thread_page.dart';
 import 'package:flutter_chan/services/string.dart';
@@ -57,9 +58,8 @@ class _ListPostState extends State<ListPost> {
     final theme = Provider.of<ThemeChanger>(context);
     final bookmarks = Provider.of<BookmarksProvider>(context);
     final bool isDark = theme.getTheme() == ThemeData.dark();
-    final Color cardColor = isDark
-        ? const Color(0xFF13161B)
-        : const Color(0xFFFFFFFF);
+    final Color cardColor = DashColors.card(isDark);
+    final Color boardTint = boardColor(widget.board);
     final Color primaryText = isDark ? Colors.white : const Color(0xFF121417);
     final Color secondaryText = isDark
         ? CupertinoColors.systemGrey
@@ -80,8 +80,12 @@ class _ListPostState extends State<ListPost> {
               children: [
                 SlidableAction(
                   label: 'Remove',
-                  backgroundColor: Colors.red,
-                  icon: Icons.delete,
+                  backgroundColor: const Color(0xFFFF5D6C),
+                  foregroundColor: Colors.white,
+                  borderRadius: const BorderRadius.horizontal(
+                    right: Radius.circular(20),
+                  ),
+                  icon: CupertinoIcons.trash_fill,
                   onPressed: (context) => {bookmarks.removeBookmarks(favorite)},
                 ),
               ],
@@ -92,8 +96,12 @@ class _ListPostState extends State<ListPost> {
               children: [
                 SlidableAction(
                   label: 'Add',
-                  backgroundColor: Colors.green,
-                  icon: Icons.add,
+                  backgroundColor: DashColors.accent,
+                  foregroundColor: Colors.black,
+                  borderRadius: const BorderRadius.horizontal(
+                    right: Radius.circular(20),
+                  ),
+                  icon: CupertinoIcons.bookmark_fill,
                   onPressed: (context) => {bookmarks.addBookmarks(favorite)},
                 ),
               ],
@@ -116,13 +124,8 @@ class _ListPostState extends State<ListPost> {
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
           decoration: BoxDecoration(
             color: cardColor,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: isDark
-                  ? CupertinoColors.systemGrey.withValues(alpha: 0.25)
-                  : const Color(0x14000000),
-              width: 1,
-            ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: DashColors.border(isDark)),
             boxShadow: isDark
                 ? []
                 : const [
@@ -146,12 +149,11 @@ class _ListPostState extends State<ListPost> {
                           children: [
                             CircleAvatar(
                               radius: 14,
-                              backgroundColor: CupertinoColors.activeBlue
-                                  .withValues(alpha: 0.2),
+                              backgroundColor: boardTint.withValues(alpha: 0.2),
                               child: Text(
                                 posterName.characters.first.toUpperCase(),
-                                style: const TextStyle(
-                                  color: CupertinoColors.activeBlue,
+                                style: TextStyle(
+                                  color: boardTint,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -190,16 +192,16 @@ class _ListPostState extends State<ListPost> {
                                               vertical: 2,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: CupertinoColors.activeBlue
-                                                  .withValues(alpha: 0.16),
+                                              color: boardTint.withValues(
+                                                alpha: 0.16,
+                                              ),
                                               borderRadius:
                                                   BorderRadius.circular(999),
                                             ),
                                             child: Text(
                                               '/${widget.board}/',
-                                              style: const TextStyle(
-                                                color:
-                                                    CupertinoColors.activeBlue,
+                                              style: TextStyle(
+                                                color: boardTint,
                                                 fontSize: 11,
                                                 fontWeight: FontWeight.w700,
                                               ),
@@ -354,12 +356,16 @@ class _ListPostState extends State<ListPost> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: CupertinoColors.systemFill.resolveFrom(context),
+                      color: DashColors.muted(isDark).withValues(alpha: 0.14),
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
                       'No.${widget.post.no}',
-                      style: const TextStyle(fontSize: 12),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: DashColors.muted(isDark),
+                      ),
                     ),
                   ),
 

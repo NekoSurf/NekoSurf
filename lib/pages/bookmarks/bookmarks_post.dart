@@ -7,6 +7,7 @@ import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/bookmarks_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/enums/enums.dart';
+import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/pages/replies_row.dart';
 import 'package:flutter_chan/pages/thread/thread_page.dart';
 import 'package:flutter_chan/services/string.dart';
@@ -97,7 +98,7 @@ class _BookmarksPostState extends State<BookmarksPost> {
             children: [
               SlidableAction(
                 borderRadius: const BorderRadius.horizontal(
-                  right: Radius.circular(14),
+                  right: Radius.circular(20),
                 ),
                 label: 'Delete',
                 backgroundColor: const Color(0xFFE53935),
@@ -166,13 +167,10 @@ class _BookmarkCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color cardColor = isDark
-        ? const Color(0xFF13161B)
-        : const Color(0xFFFFFFFF);
-    final Color primaryText = isDark ? Colors.white : const Color(0xFF121417);
-    final Color secondaryText = isDark
-        ? CupertinoColors.systemGrey
-        : const Color(0xFF5B6470);
+    final Color cardColor = DashColors.card(isDark);
+    final Color primaryText = DashColors.text(isDark);
+    final Color secondaryText = DashColors.muted(isDark);
+    final Color boardTint = boardColor(favorite.board ?? '');
 
     final String headline = unescape(
       cleanTags(favorite.sub ?? favorite.com ?? ''),
@@ -184,26 +182,12 @@ class _BookmarkCard extends StatelessWidget {
     final bool hasImage = favorite.imageUrl != null;
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(10, 6, 10, 6),
+      margin: const EdgeInsets.fromLTRB(12, 6, 12, 6),
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
       decoration: BoxDecoration(
         color: cardColor,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isDark
-              ? CupertinoColors.systemGrey.withValues(alpha: 0.25)
-              : const Color(0x14000000),
-          width: 1,
-        ),
-        boxShadow: isDark
-            ? []
-            : const [
-                BoxShadow(
-                  color: Color(0x12000000),
-                  blurRadius: 12,
-                  offset: Offset(0, 4),
-                ),
-              ],
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: DashColors.border(isDark)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -220,18 +204,25 @@ class _BookmarkCard extends StatelessWidget {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: isDark
-                            ? CupertinoColors.systemGrey.withValues(alpha: 0.18)
-                            : const Color(0x11000000),
+                        color: boardTint.withValues(alpha: 0.16),
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
-                        'No.${favorite.no}',
+                        '/${favorite.board}/',
                         style: TextStyle(
                           fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: secondaryText,
+                          fontWeight: FontWeight.w800,
+                          color: boardTint,
                         ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'No.${favorite.no}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: secondaryText,
                       ),
                     ),
 
@@ -301,10 +292,10 @@ class _BookmarkCard extends StatelessWidget {
           if (hasImage) ...[
             const SizedBox(width: 10),
             ClipRRect(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(14),
               child: SizedBox(
-                width: 72,
-                height: 72,
+                width: 76,
+                height: 76,
                 child: ImageViewer(
                   url:
                       'https://i.4cdn.org/${favorite.board}/${favorite.imageUrl}',

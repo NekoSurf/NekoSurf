@@ -1,10 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_chan/Models/bookmark.dart';
 import 'package:flutter_chan/blocs/bookmarks_model.dart';
-import 'package:flutter_chan/widgets/cupertino_menu.dart';
+import 'package:flutter_chan/widgets/dash_header.dart';
 import 'package:provider/provider.dart';
 
 class BookmarkButton extends StatefulWidget {
@@ -33,7 +32,7 @@ class _BookmarkButtonState extends State<BookmarkButton> {
 
     isFavorite = bookmarks.getBookmarks().contains(favoriteString);
 
-    return CupertinoIconButton(
+    return DashIconButton(
       onPressed: () {
         if (isFavorite) {
           bookmarks.removeBookmarks(widget.favorite);
@@ -41,7 +40,9 @@ class _BookmarkButtonState extends State<BookmarkButton> {
           bookmarks.addBookmarks(widget.favorite);
         }
       },
-      icon: isFavorite ? CupertinoIcons.bookmark_fill : CupertinoIcons.bookmark,
+      icon: Icon(
+        isFavorite ? CupertinoIcons.bookmark_fill : CupertinoIcons.bookmark,
+      ),
     );
   }
 }

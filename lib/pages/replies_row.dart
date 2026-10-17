@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 
 class RepliesRow extends StatelessWidget {
   const RepliesRow({
@@ -15,19 +16,22 @@ class RepliesRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget buildChip(IconData icon, dynamic value) {
+    Widget buildChip(IconData icon, dynamic value, Color color) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: CupertinoColors.systemFill.resolveFrom(context),
+          color: color.withValues(alpha: 0.14),
           borderRadius: BorderRadius.circular(999),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 12),
+            Icon(icon, size: 12, color: color),
             const SizedBox(width: 4),
-            Text('$value', style: const TextStyle(fontSize: 12)),
+            Text(
+              '$value',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+            ),
           ],
         ),
       );
@@ -35,10 +39,10 @@ class RepliesRow extends StatelessWidget {
 
     return Row(
       children: [
-        buildChip(CupertinoIcons.reply, replies),
+        buildChip(CupertinoIcons.reply, replies, DashColors.accent),
         if (showImageReplies) ...[
           const SizedBox(width: 8),
-          buildChip(CupertinoIcons.camera, imageReplies),
+          buildChip(CupertinoIcons.camera, imageReplies, DashColors.accent2),
         ],
       ],
     );

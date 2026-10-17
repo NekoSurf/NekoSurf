@@ -1,14 +1,18 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/favorite_model.dart';
+import 'package:flutter_chan/blocs/history_model.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
-import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/enums/enums.dart';
 import 'package:flutter_chan/pages/board/grid_view.dart';
 import 'package:flutter_chan/pages/board/list_view.dart';
+import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
+import 'package:flutter_chan/pages/dashboard/dashboard_widgets.dart';
 import 'package:flutter_chan/widgets/cupertino_menu.dart';
+import 'package:flutter_chan/widgets/dash_dialogs.dart';
+import 'package:flutter_chan/widgets/dash_header.dart';
+import 'package:flutter_chan/widgets/dash_scaffold.dart';
 import 'package:flutter_chan/widgets/reload.dart';
 import 'package:provider/provider.dart';
 
@@ -41,6 +45,16 @@ class BoardPageState extends State<BoardPage> {
     final settings = Provider.of<SettingsProvider>(context, listen: false);
     sort = settings.getBoardSort();
     sortDirection = settings.getBoardSortDirection();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !settings.getTrackHistory()) {
+        return;
+      }
+      Provider.of<HistoryProvider>(
+        context,
+        listen: false,
+      ).recordBoard(board: widget.board, title: widget.boardName);
+    });
 
     loadBoard();
   }
@@ -158,123 +172,139 @@ class BoardPageState extends State<BoardPage> {
     });
   }
 
+  String get _sortLabel {
+    final by = switch (sort) {
+      Sort.byImagesCount => 'image count',
+      Sort.byReplyCount => 'reply count',
+      Sort.byBumpOrder => 'bump order',
+      Sort.byNewest => 'newest',
+      Sort.byOldest => 'oldest',
+    };
+    return 'Sorted by $by';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final bool isDark = CupertinoTheme.brightnessOf(context) == Brightness.dark;
     final settings = Provider.of<SettingsProvider>(context);
     final favorites = Provider.of<FavoriteProvider>(context);
 
     isFavorite = favorites.getFavorites().contains(widget.board);
 
-    return CupertinoPageScaffold(
-      backgroundColor: AppColors.pageBackground(
-        Theme.of(context).brightness == Brightness.dark,
-      ),
-      child: CustomScrollView(
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        slivers: [
-          CupertinoSliverNavigationBar(
-            largeTitle: Text('/${widget.board}/ - ${widget.boardName}'),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CupertinoIconButton(
-                  icon: isFavorite
-                      ? CupertinoIcons.heart_fill
-                      : CupertinoIcons.heart,
-                  color: CupertinoColors.systemRed,
-                  onPressed: () => isFavorite
-                      ? favorites.removeFavorites(widget.board)
-                      : favorites.addFavorites(widget.board),
-                ),
-                CupertinoIconButton(
-                  icon: settings.getBoardViewMode() == ViewMode.grid
-                      ? CupertinoIcons.list_bullet
-                      : CupertinoIcons.square_grid_2x2,
-                  onPressed: () {
-                    final nextMode =
-                        settings.getBoardViewMode() == ViewMode.grid
-                        ? ViewMode.list
-                        : ViewMode.grid;
-                    settings.setBoardViewMode(nextMode);
-                  },
-                ),
-                CupertinoMenuButton(
-                  icon: CupertinoIcons.ellipsis_circle,
-                  menuChildren: [
-                    buildMenuItem(
-                      title: 'Image Count',
-                      icon: CupertinoIcons.photo,
-                      isSelected: sort == Sort.byImagesCount,
-                      onPressed: () => setSort(Sort.byImagesCount, settings),
-                    ),
-                    buildMenuItem(
-                      title: 'Reply Count',
-                      icon: CupertinoIcons.text_bubble,
-                      isSelected: sort == Sort.byReplyCount,
-                      onPressed: () => setSort(Sort.byReplyCount, settings),
-                    ),
-                    buildMenuItem(
-                      title: 'Bump Order',
-                      icon: CupertinoIcons.arrow_up_arrow_down,
-                      isSelected: sort == Sort.byBumpOrder,
-                      onPressed: () => setSort(Sort.byBumpOrder, settings),
-                    ),
-                    buildMenuItem(
-                      title: 'Newest',
-                      icon: CupertinoIcons.clock,
-                      isSelected: sort == Sort.byNewest,
-                      onPressed: () => setSort(Sort.byNewest, settings),
-                    ),
-                    const CupertinoMenuDivider(),
-                    buildMenuItem(
-                      title: 'Descending',
-                      icon: CupertinoIcons.arrow_down,
-                      isSelected: sortDirection == SortDirection.desc,
-                      onPressed: () =>
-                          setSortDirection(SortDirection.desc, settings),
-                    ),
-                    buildMenuItem(
-                      title: 'Ascending',
-                      icon: CupertinoIcons.arrow_up,
-                      isSelected: sortDirection == SortDirection.asc,
-                      onPressed: () =>
-                          setSortDirection(SortDirection.asc, settings),
-                    ),
-                    const CupertinoMenuDivider(),
-                    buildMenuItem(
-                      title: 'Show Sticky Threads',
-                      icon: CupertinoIcons.pin,
-                      isSelected: settings.getShowStickyThreads(),
-                      onPressed: () => settings.setShowStickyThreads(
-                        !settings.getShowStickyThreads(),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+    return DashScaffold(
+      title: widget.boardName,
+      keyboardDismiss: true,
+      actions: [
+        DashIconButton(
+          icon: Icon(
+            isFavorite ? CupertinoIcons.heart_fill : CupertinoIcons.heart,
+            color: CupertinoColors.systemRed,
           ),
-
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-              child: CupertinoSearchTextField(
-                controller: _searchBarController,
-                onChanged: _updateThreadsList,
+          onPressed: () => isFavorite
+              ? favorites.removeFavorites(widget.board)
+              : favorites.addFavorites(widget.board),
+        ),
+        DashIconButton(
+          icon: Icon(
+            settings.getBoardViewMode() == ViewMode.grid
+                ? CupertinoIcons.list_bullet
+                : CupertinoIcons.square_grid_2x2,
+          ),
+          onPressed: () {
+            final nextMode = settings.getBoardViewMode() == ViewMode.grid
+                ? ViewMode.list
+                : ViewMode.grid;
+            settings.setBoardViewMode(nextMode);
+          },
+        ),
+        CupertinoMenuButton(
+          isGlass: true,
+          menuChildren: [
+            buildMenuItem(
+              title: 'Image Count',
+              icon: CupertinoIcons.photo,
+              isSelected: sort == Sort.byImagesCount,
+              onPressed: () => setSort(Sort.byImagesCount, settings),
+            ),
+            buildMenuItem(
+              title: 'Reply Count',
+              icon: CupertinoIcons.text_bubble,
+              isSelected: sort == Sort.byReplyCount,
+              onPressed: () => setSort(Sort.byReplyCount, settings),
+            ),
+            buildMenuItem(
+              title: 'Bump Order',
+              icon: CupertinoIcons.arrow_up_arrow_down,
+              isSelected: sort == Sort.byBumpOrder,
+              onPressed: () => setSort(Sort.byBumpOrder, settings),
+            ),
+            buildMenuItem(
+              title: 'Newest',
+              icon: CupertinoIcons.clock,
+              isSelected: sort == Sort.byNewest,
+              onPressed: () => setSort(Sort.byNewest, settings),
+            ),
+            const DashMenuDivider(),
+            buildMenuItem(
+              title: 'Descending',
+              icon: CupertinoIcons.arrow_down,
+              isSelected: sortDirection == SortDirection.desc,
+              onPressed: () => setSortDirection(SortDirection.desc, settings),
+            ),
+            buildMenuItem(
+              title: 'Ascending',
+              icon: CupertinoIcons.arrow_up,
+              isSelected: sortDirection == SortDirection.asc,
+              onPressed: () => setSortDirection(SortDirection.asc, settings),
+            ),
+            const DashMenuDivider(),
+            buildMenuItem(
+              title: 'Show Sticky Threads',
+              icon: CupertinoIcons.pin,
+              isSelected: settings.getShowStickyThreads(),
+              onPressed: () => settings.setShowStickyThreads(
+                !settings.getShowStickyThreads(),
               ),
             ),
+          ],
+        ),
+      ],
+      slivers: [
+        SliverToBoxAdapter(
+          child: DashPageHeader(
+            isDark: isDark,
+            color: boardColor(widget.board),
+            badge: Text(
+              '/${widget.board}/',
+              style: TextStyle(
+                fontSize: widget.board.length > 3 ? 13 : 17,
+                fontWeight: FontWeight.w800,
+                color: boardColor(widget.board),
+              ),
+            ),
+            title: _isLoading
+                ? 'Loading...'
+                : '${filteredBoards.length} threads',
+            subtitle: _sortLabel,
           ),
+        ),
+        SliverToBoxAdapter(
+          child: DashSearchField(
+            isDark: isDark,
+            controller: _searchBarController,
+            onChanged: _updateThreadsList,
+          ),
+        ),
 
-          if (_isLoading)
-            const SliverFillRemaining(
-              child: Center(child: CupertinoActivityIndicator()),
-            )
-          else if (_hasError)
-            SliverFillRemaining(child: ReloadWidget(onReload: loadBoard))
-          else
-            getBoardSliverView(filteredBoards, settings),
-        ],
-      ),
+        if (_isLoading)
+          const SliverFillRemaining(
+            child: Center(child: CupertinoActivityIndicator()),
+          )
+        else if (_hasError)
+          SliverFillRemaining(child: ReloadWidget(onReload: loadBoard))
+        else
+          getBoardSliverView(filteredBoards, settings),
+      ],
     );
   }
 }

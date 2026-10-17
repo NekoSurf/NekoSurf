@@ -1,8 +1,8 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/theme.dart';
+import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/pages/thread/thread_replied_to.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/spoiler_text.dart';
@@ -60,7 +60,7 @@ class ThreadPostComment extends StatelessWidget {
               '>> $urlNo',
               style: const TextStyle(
                 fontWeight: FontWeight.w600,
-                color: CupertinoColors.activeBlue,
+                color: DashColors.accent,
               ),
             ),
           ),

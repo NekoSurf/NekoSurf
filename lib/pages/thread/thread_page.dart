@@ -1,18 +1,17 @@
 import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/Models/bookmark.dart';
 import 'package:flutter_chan/Models/post.dart';
+import 'package:flutter_chan/blocs/history_model.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/watched_posts_model.dart';
-import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/pages/bookmark_button.dart';
 import 'package:flutter_chan/pages/thread/thread_page_post.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/cupertino_menu.dart';
+import 'package:flutter_chan/widgets/dash_scaffold.dart';
 import 'package:flutter_chan/widgets/feed_player_recycler.dart';
 import 'package:flutter_chan/widgets/reload.dart';
 import 'package:provider/provider.dart';
@@ -103,6 +102,23 @@ class ThreadPageState extends State<ThreadPage> {
     );
 
     itemPositionsListener.itemPositions.addListener(_markVisiblePostsAsWatched);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          !Provider.of<SettingsProvider>(
+            context,
+            listen: false,
+          ).getTrackHistory()) {
+        return;
+      }
+      Provider.of<HistoryProvider>(context, listen: false).recordThread(
+        board: widget.board,
+        no: widget.thread,
+        title: widget.threadName,
+        imageUrl: widget.post.tim != null ? '${widget.post.tim}s.jpg' : null,
+        com: widget.post.com,
+      );
+    });
   }
 
   @override
@@ -355,78 +371,67 @@ class ThreadPageState extends State<ThreadPage> {
 
   @override
   Widget build(BuildContext context) {
-    return CupertinoPageScaffold(
-      backgroundColor: AppColors.pageBackground(
-        Theme.of(context).brightness == Brightness.dark,
-      ),
-      navigationBar: CupertinoNavigationBar(
-        middle: Text(
-          unescape(cleanTags(widget.threadName)),
-          overflow: TextOverflow.ellipsis,
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            BookmarkButton(favorite: favorite),
-            CupertinoMenuButton(
-              icon: CupertinoIcons.ellipsis_circle,
-              menuChildren: [
-                buildMenuItem(
-                  title: 'Share',
-                  icon: CupertinoIcons.share,
-                  onPressed: () {
-                    SharePlus.instance.share(
-                      ShareParams(
-                        uri: Uri.parse(
-                          'https://boards.4chan.org/${widget.board}/thread/${widget.thread}',
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                buildMenuItem(
-                  title: 'Open in Browser',
-                  icon: CupertinoIcons.globe,
-                  onPressed: () {
-                    launchURL(
+    return DashBarScaffold(
+      title: unescape(cleanTags(widget.threadName)),
+      actions: [
+        BookmarkButton(favorite: favorite),
+        CupertinoMenuButton(
+          isGlass: true,
+          menuChildren: [
+            buildMenuItem(
+              title: 'Share',
+              icon: CupertinoIcons.share,
+              onPressed: () {
+                SharePlus.instance.share(
+                  ShareParams(
+                    uri: Uri.parse(
                       'https://boards.4chan.org/${widget.board}/thread/${widget.thread}',
-                    );
-                  },
-                ),
-                buildMenuItem(
-                  title: 'Scroll to Top',
-                  icon: CupertinoIcons.arrow_up,
-                  onPressed: () {
-                    if (itemScrollController.isAttached) {
-                      itemScrollController.scrollTo(
-                        index: 0,
-                        alignment: 0,
-                        duration: const Duration(milliseconds: 500),
-                        curve: Curves.easeInOutCubic,
-                      );
-                    }
-                  },
-                ),
-                buildMenuItem(
-                  title: 'Scroll to Bottom',
-                  icon: CupertinoIcons.arrow_down,
-                  onPressed: () {
-                    if (itemScrollController.isAttached) {
-                      itemScrollController.scrollTo(
-                        index: allPosts.length - 1,
-                        alignment: 0,
-                        duration: const Duration(milliseconds: 500),
-                        curve: Curves.easeInOutCubic,
-                      );
-                    }
-                  },
-                ),
-              ],
+                    ),
+                  ),
+                );
+              },
+            ),
+            buildMenuItem(
+              title: 'Open in Browser',
+              icon: CupertinoIcons.globe,
+              onPressed: () {
+                launchURL(
+                  'https://boards.4chan.org/${widget.board}/thread/${widget.thread}',
+                );
+              },
+            ),
+            buildMenuItem(
+              title: 'Scroll to Top',
+              icon: CupertinoIcons.arrow_up,
+              onPressed: () {
+                if (itemScrollController.isAttached) {
+                  itemScrollController.scrollTo(
+                    index: 0,
+                    alignment: 0,
+                    duration: const Duration(milliseconds: 500),
+                    curve: Curves.easeInOutCubic,
+                  );
+                }
+              },
+            ),
+            buildMenuItem(
+              title: 'Scroll to Bottom',
+              icon: CupertinoIcons.arrow_down,
+              onPressed: () {
+                if (itemScrollController.isAttached) {
+                  itemScrollController.scrollTo(
+                    index: allPosts.length - 1,
+                    alignment: 0,
+                    duration: const Duration(milliseconds: 500),
+                    curve: Curves.easeInOutCubic,
+                  );
+                }
+              },
             ),
           ],
         ),
-      ),
-      child: FutureBuilder(
+      ],
+      body: FutureBuilder(
         future: _fetchAllPostsFromThread,
         builder: (BuildContext context, AsyncSnapshot<List<Post>> snapshot) {
           switch (snapshot.connectionState) {

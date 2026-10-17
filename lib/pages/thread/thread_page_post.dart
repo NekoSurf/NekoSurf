@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
+import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/pages/replies_row.dart';
 import 'package:flutter_chan/pages/thread/thread_media_viewer_page.dart';
 import 'package:flutter_chan/pages/thread/thread_post_comment.dart';
@@ -235,35 +236,19 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     final bool isDark = theme.getTheme() == ThemeData.dark();
     final bool hasMedia = _hasRenderableMedia();
 
-    final Color primaryText = isDark ? Colors.white : const Color(0xFF121417);
-    final Color secondaryText = isDark
-        ? CupertinoColors.systemGrey
-        : const Color(0xFF5B6470);
-    final Color cardColor = isDark
-        ? const Color(0xFF13161B)
-        : const Color(0xFFFFFFFF);
+    final Color primaryText = DashColors.text(isDark);
+    final Color secondaryText = DashColors.muted(isDark);
+    final Color cardColor = DashColors.card(isDark);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
       child: Stack(
         children: [
           Container(
             decoration: BoxDecoration(
               color: cardColor,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: isDark
-                    ? CupertinoColors.systemGrey.withValues(alpha: 0.25)
-                    : const Color(0x14000000),
-                width: 1,
-              ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x12000000),
-                  blurRadius: 12,
-                  offset: Offset(0, 4),
-                ),
-              ],
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: DashColors.border(isDark)),
             ),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
@@ -275,7 +260,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                     children: [
                       CircleAvatar(
                         radius: 14,
-                        backgroundColor: CupertinoColors.activeBlue.withValues(
+                        backgroundColor: DashColors.accent.withValues(
                           alpha: 0.2,
                         ),
                         child: Text(
@@ -285,7 +270,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                               .first
                               .toUpperCase(),
                           style: const TextStyle(
-                            color: CupertinoColors.activeBlue,
+                            color: DashColors.accent,
                             fontWeight: FontWeight.w700,
                             fontSize: 12,
                           ),
