@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
-import 'package:liquid_glass_widgets/widgets/interactive/glass_icon_button.dart';
+import 'package:flutter_chan/widgets/dash_dialogs.dart';
+import 'package:flutter_chan/widgets/dash_header.dart';
 
 class CupertinoMenuButton extends StatelessWidget {
   const CupertinoMenuButton({
@@ -12,63 +13,33 @@ class CupertinoMenuButton extends StatelessWidget {
 
   final IconData icon;
   final Icon glassIcon;
-  final List<Widget> menuChildren;
+  final List<DashMenuEntry> menuChildren;
   final bool isGlass;
 
   @override
   Widget build(BuildContext context) {
-    return CupertinoMenuAnchor(
+    return DashMenuAnchor(
       menuChildren: menuChildren,
-      builder: (context, controller, _) => isGlass
-          ? GlassIconButton(
-              icon: glassIcon,
-              onPressed: () =>
-                  controller.isOpen ? controller.close() : controller.open(),
-            )
-          : CupertinoIconButton(
-              icon: icon,
-              onPressed: () =>
-                  controller.isOpen ? controller.close() : controller.open(),
-            ),
+      builder: (context, open) => DashIconButton(
+        icon: isGlass ? glassIcon : Icon(icon),
+        onPressed: open,
+      ),
     );
   }
 }
 
-CupertinoMenuItem buildMenuItem({
+DashMenuEntry buildMenuItem({
   required String title,
   required VoidCallback onPressed,
   IconData? icon,
   bool isSelected = false,
   bool isDestructive = false,
 }) {
-  return CupertinoMenuItem(
-    leading: isSelected ? const Icon(CupertinoIcons.check_mark) : null,
-    trailing: icon == null ? null : Icon(icon),
-    isDestructiveAction: isDestructive,
+  return DashMenuEntry(
+    title: title,
+    icon: icon,
+    isSelected: isSelected,
+    isDestructive: isDestructive,
     onPressed: onPressed,
-    child: Text(title),
   );
-}
-
-class CupertinoIconButton extends StatelessWidget {
-  const CupertinoIconButton({
-    super.key,
-    required this.icon,
-    required this.onPressed,
-    this.color,
-  });
-
-  final IconData icon;
-  final VoidCallback? onPressed;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    return CupertinoButton(
-      padding: EdgeInsets.zero,
-      minimumSize: const Size(40, 40),
-      onPressed: onPressed,
-      child: Icon(icon, size: 22, color: color),
-    );
-  }
 }
