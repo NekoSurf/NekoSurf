@@ -3,13 +3,13 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/blocs/bookmarks_model.dart';
 import 'package:flutter_chan/blocs/favorite_model.dart';
+import 'package:flutter_chan/blocs/history_model.dart';
 import 'package:flutter_chan/blocs/saved_attachments_model.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
-import 'package:flutter_chan/services/quick_page_transitions.dart';
 import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/pages/boards/board_list.dart';
-import 'package:liquid_glass_widgets/liquid_glass_setup.dart';
+import 'package:flutter_chan/services/fast_page_transitions.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:provider/provider.dart';
 import 'package:visibility_detector/visibility_detector.dart';
@@ -18,7 +18,6 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
   await FFmpegKitExtended.initialize();
-  await LiquidGlassWidgets.initialize();
   VisibilityDetectorController.instance.updateInterval = const Duration(
     milliseconds: 16,
   );
@@ -28,7 +27,7 @@ Future<void> main() async {
     print('Error :  ${details.exception}');
     print('StackTrace :  ${details.stack}');
   };
-  runApp(LiquidGlassWidgets.wrap(child: const MyApp()));
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -49,6 +48,9 @@ class MyApp extends StatelessWidget {
         ),
         ChangeNotifierProvider<SettingsProvider>(
           create: (_) => SettingsProvider(),
+        ),
+        ChangeNotifierProvider<HistoryProvider>(
+          create: (_) => HistoryProvider(),
         ),
         ChangeNotifierProvider<SavedAttachmentsProvider>(
           create: (_) => SavedAttachmentsProvider([]),
@@ -107,8 +109,15 @@ class _AppWithThemeState extends State<AppWithTheme>
       home: const BoardList(),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          pageTransitionsTheme: const PageTransitionsTheme(
-            builders: {TargetPlatform.android: QuickPageTransitionsBuilder()},
+          pageTransitionsTheme: PageTransitionsTheme(
+            builders: {
+              for (final platform in TargetPlatform.values)
+                platform:
+                    platform == TargetPlatform.iOS ||
+                        platform == TargetPlatform.macOS
+                    ? const CupertinoPageTransitionsBuilder()
+                    : const FastCupertinoTransitionsBuilder(),
+            },
           ),
         ),
         child: child!,
