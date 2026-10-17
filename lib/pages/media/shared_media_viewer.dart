@@ -4,7 +4,8 @@ import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/physics.dart';
+import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
+import 'package:flutter_chan/widgets/dash_dialogs.dart';
 import 'package:flutter_chan/widgets/feed_player_recycler.dart';
 import 'package:flutter_chan/widgets/video_scrub_gesture.dart';
 import 'package:media_kit/media_kit.dart';
@@ -159,6 +160,9 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
   late int _currentIndex;
   bool _isVideoScrubbing = false;
   bool _isImageZoomed = false;
+  bool _chromeVisible = true;
+
+  void _toggleChrome() => setState(() => _chromeVisible = !_chromeVisible);
 
   @override
   void initState() {
@@ -220,17 +224,17 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
     final String mediaTitle = _resolveMediaTitle(itemCount);
 
     void showFileInfo() {
-      showCupertinoDialog<void>(
+      showDashDialog<void>(
         context: context,
         barrierDismissible: true,
-        builder: (dialogContext) => CupertinoAlertDialog(
+        builder: (dialogContext) => DashDialog(
           title: const Text('File Information'),
           content: Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text('Filename: $mediaTitle'),
           ),
           actions: [
-            CupertinoDialogAction(
+            DashDialogAction(
               isDefaultAction: true,
               onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Close'),
@@ -278,6 +282,8 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
                     handoff: item.id == _handoffItemId ? widget.handoff : null,
                     recycler: widget.recycler,
                     isActive: _currentIndex == index,
+                    chromeVisible: _chromeVisible,
+                    onTap: _toggleChrome,
                     thumbnail: item.thumbnail,
                     onScrubStateChanged: (isScrubbing) {
                       if (!mounted || _isVideoScrubbing == isScrubbing) {
@@ -294,6 +300,7 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
                 return _SharedMediaImagePage(
                   key: ValueKey('shared-media-image-${item.id}'),
                   item: item,
+                  onTap: _toggleChrome,
                   onZoomStateChanged: (isZoomed) {
                     if (!mounted || _isImageZoomed == isZoomed) {
                       return;
@@ -307,69 +314,140 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
               },
             ),
           ),
-          Positioned(
-            top: topInset + 8,
-            left: 8,
-            right: 8,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _OverlayButton(
-                  onPressed: widget.onClose,
-                  child: const Icon(
-                    CupertinoIcons.back,
-                    color: Colors.white,
-                    size: 18,
-                  ),
-                ),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: showFileInfo,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                      child: Text(
-                        mediaTitle,
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (final SharedMediaViewerAction action in actions) ...[
-                      _buildActionButton(action),
-                      const SizedBox(width: 8),
-                    ],
-
-                    _OverlayButton(
-                      onPressed: showFileInfo,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text(
-                        itemCount == 0
-                            ? '0 / 0'
-                            : '${_currentIndex + 1} / $itemCount',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
+          _chrome(
+            top: true,
+            child: Container(
+              padding: EdgeInsets.fromLTRB(12, topInset + 8, 12, 28),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.7),
+                    Colors.transparent,
                   ],
                 ),
-              ],
+              ),
+              child: Row(
+                children: [
+                  _OverlayButton(
+                    onPressed: widget.onClose,
+                    child: const Icon(
+                      CupertinoIcons.chevron_left,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: showFileInfo,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            mediaTitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            itemCount == 0
+                                ? ''
+                                : '${_currentIndex + 1} of $itemCount',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.65),
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (actions.isNotEmpty)
+                    _ActionPill(
+                      children: [
+                        for (final SharedMediaViewerAction action in actions)
+                          _buildActionButton(action),
+                      ],
+                    ),
+                ],
+              ),
             ),
           ),
+          if (itemCount > 1)
+            Positioned(
+              right: 10,
+              top: 0,
+              bottom: 0,
+              child: IgnorePointer(
+                child: AnimatedOpacity(
+                  opacity: _chromeVisible ? 1 : 0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Center(child: _buildPagerRail(itemCount)),
+                ),
+              ),
+            ),
         ],
       ),
+    );
+  }
+
+  Widget _chrome({required bool top, required Widget child}) {
+    return Positioned(
+      top: top ? 0 : null,
+      bottom: top ? null : 0,
+      left: 0,
+      right: 0,
+      child: IgnorePointer(
+        ignoring: !_chromeVisible,
+        child: AnimatedSlide(
+          offset: Offset(0, _chromeVisible ? 0 : (top ? -0.3 : 0.3)),
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          child: AnimatedOpacity(
+            opacity: _chromeVisible ? 1 : 0,
+            duration: const Duration(milliseconds: 200),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPagerRail(int itemCount) {
+    const int window = 7;
+    final int start = (_currentIndex - window ~/ 2).clamp(
+      0,
+      itemCount > window ? itemCount - window : 0,
+    );
+    final int end = (start + window).clamp(0, itemCount);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (int i = start; i < end; i++)
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: 4,
+            height: i == _currentIndex ? 20 : 4,
+            margin: const EdgeInsets.symmetric(vertical: 2.5),
+            decoration: BoxDecoration(
+              color: i == _currentIndex
+                  ? DashColors.accent
+                  : Colors.white.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+      ],
     );
   }
 
@@ -517,6 +595,7 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
         : action.onPressed;
 
     return _OverlayButton(
+      bare: true,
       onPressed: onPressed,
       child: action.isBusy
           ? const CupertinoActivityIndicator(radius: 9)
@@ -535,23 +614,68 @@ class _OverlayButton extends StatelessWidget {
   const _OverlayButton({
     required this.onPressed,
     required this.child,
-    this.padding = EdgeInsets.zero,
+    this.bare = false,
   });
 
   final VoidCallback? onPressed;
   final Widget child;
-  final EdgeInsetsGeometry padding;
+  final bool bare;
 
   @override
   Widget build(BuildContext context) {
-    return CupertinoButton(
-      padding: padding,
-      minimumSize: const Size(36, 36),
-      color: Colors.black.withValues(alpha: 0.45),
-      disabledColor: Colors.black.withValues(alpha: 0.45),
-      borderRadius: BorderRadius.circular(18),
-      onPressed: onPressed,
-      child: child,
+    final Widget button = GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onPressed,
+      child: Container(
+        width: 40,
+        height: 40,
+        alignment: Alignment.center,
+        decoration: bare
+            ? null
+            : BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+              ),
+        child: Opacity(opacity: onPressed == null ? 0.5 : 1, child: child),
+      ),
+    );
+
+    if (bare) {
+      return button;
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: button,
+      ),
+    );
+  }
+}
+
+class _ActionPill extends StatelessWidget {
+  const _ActionPill({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 2),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: children),
+        ),
+      ),
     );
   }
 }
@@ -561,6 +685,8 @@ class _SharedMediaVideoPage extends StatefulWidget {
     Key? key,
     required this.item,
     required this.isActive,
+    required this.chromeVisible,
+    required this.onTap,
     required this.onScrubStateChanged,
     this.handoff,
     this.recycler,
@@ -571,6 +697,8 @@ class _SharedMediaVideoPage extends StatefulWidget {
   final RecycledPlayer? handoff;
   final FeedPlayerRecycler? recycler;
   final bool isActive;
+  final bool chromeVisible;
+  final VoidCallback onTap;
   final ValueChanged<bool> onScrubStateChanged;
   final ImageProvider<Object>? thumbnail;
 
@@ -813,135 +941,216 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Positioned.fill(
-          child: VideoScrubGesture(
-            player: _player,
-            onScrubStateChanged: widget.onScrubStateChanged,
-            onPreviewChanged: (preview) {
-              setState(() => _scrubPreview = preview);
-            },
-            child: StreamBuilder<int?>(
-              stream: _player.stream.width,
-              initialData: _player.state.width,
-              builder: (context, widthSnapshot) {
-                return StreamBuilder<int?>(
-                  stream: _player.stream.height,
-                  initialData: _player.state.height,
-                  builder: (context, heightSnapshot) {
-                    final int width = widthSnapshot.data ?? 0;
-                    final int height = heightSnapshot.data ?? 0;
-                    final bool hasValidDimensions = width > 0 && height > 0;
-                    final double aspectRatio = hasValidDimensions
-                        ? width / height
-                        : 16 / 9;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: widget.onTap,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Positioned.fill(
+            child: VideoScrubGesture(
+              player: _player,
+              onScrubStateChanged: widget.onScrubStateChanged,
+              onPreviewChanged: (preview) {
+                setState(() => _scrubPreview = preview);
+              },
+              child: StreamBuilder<int?>(
+                stream: _player.stream.width,
+                initialData: _player.state.width,
+                builder: (context, widthSnapshot) {
+                  return StreamBuilder<int?>(
+                    stream: _player.stream.height,
+                    initialData: _player.state.height,
+                    builder: (context, heightSnapshot) {
+                      final int width = widthSnapshot.data ?? 0;
+                      final int height = heightSnapshot.data ?? 0;
+                      final bool hasValidDimensions = width > 0 && height > 0;
+                      final double aspectRatio = hasValidDimensions
+                          ? width / height
+                          : 16 / 9;
 
-                    final bool showVideo =
-                        hasValidDimensions && _hasVideoFrame && !_isBuffering;
-                    final ImageProvider<Object>? thumbnail = widget.thumbnail;
+                      final bool showVideo =
+                          hasValidDimensions && _hasVideoFrame && !_isBuffering;
+                      final ImageProvider<Object>? thumbnail = widget.thumbnail;
 
-                    return Stack(
-                      children: [
-                        // Kept underneath so the video fades in over it.
-                        if (thumbnail != null)
-                          Positioned.fill(
-                            child: Image(
-                              image: thumbnail,
-                              fit: BoxFit.contain,
-                              gaplessPlayback: true,
+                      return Stack(
+                        children: [
+                          // Kept underneath so the video fades in over it.
+                          if (thumbnail != null)
+                            Positioned.fill(
+                              child: Image(
+                                image: thumbnail,
+                                fit: BoxFit.contain,
+                                gaplessPlayback: true,
+                              ),
                             ),
-                          ),
 
-                        AnimatedOpacity(
-                          opacity: showVideo ? 1 : 0,
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeOut,
-                          child: Center(
-                            child: AspectRatio(
-                              aspectRatio: aspectRatio,
-                              child: Video(
-                                controller: _controller,
-                                controls: NoVideoControls,
-                                fit: BoxFit.fill,
+                          AnimatedOpacity(
+                            opacity: showVideo ? 1 : 0,
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeOut,
+                            child: Center(
+                              child: AspectRatio(
+                                aspectRatio: aspectRatio,
+                                child: Video(
+                                  controller: _controller,
+                                  controls: NoVideoControls,
+                                  fit: BoxFit.fill,
+                                ),
                               ),
                             ),
                           ),
-                        ),
 
-                        AnimatedOpacity(
-                          opacity: widget.isActive && !showVideo ? 1 : 0,
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeOut,
-                          child: const Center(
-                            child: CupertinoActivityIndicator(radius: 14),
+                          AnimatedOpacity(
+                            opacity: widget.isActive && !showVideo ? 1 : 0,
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeOut,
+                            child: const Center(
+                              child: CupertinoActivityIndicator(radius: 14),
+                            ),
                           ),
-                        ),
-                      ],
-                    );
-                  },
-                );
-              },
+                        ],
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 14),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.45),
-                borderRadius: BorderRadius.circular(16),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: IgnorePointer(
+              ignoring: !widget.chromeVisible,
+              child: AnimatedSlide(
+                offset: Offset(0, widget.chromeVisible ? 0 : 0.3),
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                child: AnimatedOpacity(
+                  opacity: widget.chromeVisible ? 1 : 0,
+                  duration: const Duration(milliseconds: 200),
+                  child: _buildControls(context),
+                ),
               ),
-              child: Row(
-                children: [
-                  CupertinoButton(
-                    padding: EdgeInsets.zero,
-                    minimumSize: const Size(28, 28),
-                    onPressed: _togglePlayPause,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildControls(BuildContext context) {
+    final double max =
+        (_duration.inMilliseconds <= 0 ? 1 : _duration.inMilliseconds)
+            .toDouble();
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        12,
+        44,
+        12,
+        MediaQuery.paddingOf(context).bottom + 12,
+      ),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.bottomCenter,
+          end: Alignment.topCenter,
+          colors: [Colors.black.withValues(alpha: 0.75), Colors.transparent],
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(8, 8, 18, 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+            ),
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: _togglePlayPause,
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: const BoxDecoration(
+                      color: DashColors.accent,
+                      shape: BoxShape.circle,
+                    ),
                     child: Icon(
                       _isPlaying
                           ? CupertinoIcons.pause_fill
                           : CupertinoIcons.play_fill,
-                      color: Colors.white,
-                      size: 20,
+                      color: Colors.black,
+                      size: 17,
                     ),
                   ),
-                  Expanded(
-                    child: Slider(
-                      value: _displayPosition.inMilliseconds.toDouble().clamp(
-                        0,
-                        (_duration.inMilliseconds <= 0
-                                ? 1
-                                : _duration.inMilliseconds)
-                            .toDouble(),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SliderTheme(
+                        data: SliderTheme.of(context).copyWith(
+                          trackHeight: 4,
+                          activeTrackColor: DashColors.accent,
+                          inactiveTrackColor: Colors.white.withValues(
+                            alpha: 0.22,
+                          ),
+                          thumbColor: Colors.white,
+                          thumbShape: const RoundSliderThumbShape(
+                            enabledThumbRadius: 6,
+                          ),
+                          overlayShape: SliderComponentShape.noOverlay,
+                        ),
+                        child: Slider(
+                          value: _displayPosition.inMilliseconds
+                              .toDouble()
+                              .clamp(0, max),
+                          min: 0,
+                          max: max,
+                          onChanged: _duration.inMilliseconds > 0
+                              ? _seekTo
+                              : null,
+                        ),
                       ),
-                      min: 0,
-                      max:
-                          (_duration.inMilliseconds <= 0
-                                  ? 1
-                                  : _duration.inMilliseconds)
-                              .toDouble(),
-                      onChanged: _duration.inMilliseconds > 0 ? _seekTo : null,
-                      activeColor: Colors.white,
-                      inactiveColor: Colors.white.withValues(alpha: 0.25),
-                    ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              _formatDuration(_displayPosition),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            Text(
+                              _formatDuration(_duration),
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.65),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  Text(
-                    '${_formatDuration(_displayPosition)} / ${_formatDuration(_duration)}',
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
-      ],
+      ),
     );
   }
 }
@@ -950,10 +1159,12 @@ class _SharedMediaImagePage extends StatefulWidget {
   const _SharedMediaImagePage({
     Key? key,
     required this.item,
+    required this.onTap,
     required this.onZoomStateChanged,
   }) : super(key: key);
 
   final SharedMediaViewerItem item;
+  final VoidCallback onTap;
   final ValueChanged<bool> onZoomStateChanged;
 
   @override
@@ -1042,6 +1253,7 @@ class _SharedMediaImagePageState extends State<_SharedMediaImagePage>
         _updateZoomState();
       },
       child: GestureDetector(
+        onTap: widget.onTap,
         onDoubleTapDown: (details) =>
             _doubleTapPosition = details.localPosition,
         onDoubleTap: _handleDoubleTap,
