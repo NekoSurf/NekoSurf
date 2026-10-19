@@ -188,6 +188,14 @@ class DashHero extends StatelessWidget {
                     color: DashColors.text(isDark),
                   ),
                 ),
+                const SizedBox(height: 4),
+                Text(
+                  'Where to next?',
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: DashColors.text(isDark).withValues(alpha: 0.65),
+                  ),
+                ),
               ],
             ),
           ),

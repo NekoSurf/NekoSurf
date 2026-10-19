@@ -200,7 +200,6 @@ class DashboardState extends State<Dashboard> {
     final favoriteBoards = boards
         .where((b) => favorites.getFavorites().contains(b.board))
         .toList();
-    final titles = {for (final b in boards) b.board!: b.title ?? b.board!};
 
     final sorted = [...boards]..sort((a, b) => a.board!.compareTo(b.board!));
     final visibleBoards = _query.isEmpty
@@ -236,29 +235,9 @@ class DashboardState extends State<Dashboard> {
       ],
       if (favoriteBoards.isNotEmpty) ...[
         DashSectionHeader(title: 'Favorites', isDark: isDark),
-        _chips([
-          for (final b in favoriteBoards)
-            DashBoardChip(
-              board: b.board!,
-              title: b.title ?? '',
-              isDark: isDark,
-              nsfw: b.wsBoard == 0,
-              onTap: () => _openBoard(b.board!, b.title ?? ''),
-            ),
-        ]),
-      ],
-      if (history.boards.isNotEmpty) ...[
-        DashSectionHeader(title: 'Recent boards', isDark: isDark),
-        _chips([
-          for (final h in history.boards)
-            if (titles.containsKey(h.board))
-              DashBoardChip(
-                board: h.board,
-                title: h.title,
-                isDark: isDark,
-                onTap: () => _openBoard(h.board, h.title),
-              ),
-        ]),
+        _group([
+          for (final b in favoriteBoards) _row(b, isDark, favorites),
+        ], isDark),
       ],
       DashSectionHeader(title: 'All boards', isDark: isDark),
       _searchField(isDark),
@@ -277,12 +256,5 @@ class DashboardState extends State<Dashboard> {
           for (final b in visibleBoards) _row(b, isDark, favorites),
         ], isDark),
     ];
-  }
-
-  Widget _chips(List<Widget> chips) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Wrap(spacing: 10, runSpacing: 10, children: chips),
-    );
   }
 }
