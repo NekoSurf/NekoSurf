@@ -1,0 +1,96 @@
+name: Dev Build (APK + IPA)
+
+# Manual build of any branch or PR; artifacts are attached to the run.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag, SHA or PR ref to build (e.g. my-branch or refs/pull/123/head). Leave empty to use the branch selected above."
+        required: false
+        type: string
+      build_android:
+        description: "Build Android APK"
+        required: true
+        default: true
+        type: boolean
+      build_ios:
+        description: "Build iOS IPA (unsigned)"
+        required: true
+        default: true
+        type: boolean
+
+jobs:
+  build_apk:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    if: ${{ inputs.build_android }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.44.6"
+          channel: "stable"
+
+      - run: flutter pub get
+
+      - name: Build APK
+        run: |
+          echo "GRADLE_OPTS=-Xmx2048m" >> $GITHUB_ENV
+          flutter build apk --split-per-abi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nekosurf-apk
+          path: build/app/outputs/apk/release/*.apk
+
+  build_ipa:
+    name: Build iOS IPA
+    runs-on: xcode-27
+    if: ${{ inputs.build_ios }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.44.6"
+          channel: "stable"
+
+      - run: flutter pub get
+
+      - name: Build iOS app
+        run: flutter build ios --release --no-codesign
+
+      - name: Create IPA
+        run: |
+          APP_DIR="build/ios/Release-iphoneos"
+          OUTPUT_DIR="build/ios/ipa"
+          APP_NAME=$(find "$APP_DIR" -maxdepth 1 -name "*.app" | head -n 1)
+          if [ -z "$APP_NAME" ]; then
+            echo "No .app found in $APP_DIR"
+            exit 1
+          fi
+          APP_BASENAME=$(basename "$APP_NAME" .app)
+          mkdir -p "$OUTPUT_DIR/Payload"
+          cp -r "$APP_NAME" "$OUTPUT_DIR/Payload/"
+          cd "$OUTPUT_DIR"
+          zip -r "$APP_BASENAME.ipa" Payload
+          rm -rf Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nekosurf-ipa
+          path: build/ios/ipa/*.ipa
