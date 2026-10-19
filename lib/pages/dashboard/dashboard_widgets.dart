@@ -108,20 +108,6 @@ class DashHero extends StatelessWidget {
   final VoidCallback onBookmarks;
   final VoidCallback onSaved;
 
-  String get _greeting {
-    final hour = DateTime.now().hour;
-    if (hour < 5) {
-      return 'Night owl mode';
-    }
-    if (hour < 12) {
-      return 'Good morning';
-    }
-    if (hour < 18) {
-      return 'Good afternoon';
-    }
-    return 'Good evening';
-  }
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -190,24 +176,7 @@ class DashHero extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  _greeting,
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.8,
-                    color: DashColors.text(isDark),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Where to next?',
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: DashColors.text(isDark).withValues(alpha: 0.65),
-                  ),
-                ),
+                const SizedBox(height: 14),
                 const SizedBox(height: 18),
                 Row(
                   children: [

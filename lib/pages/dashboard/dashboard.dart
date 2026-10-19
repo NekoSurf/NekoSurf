@@ -292,15 +292,9 @@ class DashboardState extends State<Dashboard> {
   }
 
   Widget _chips(List<Widget> chips) {
-    return SizedBox(
-      height: 52,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: chips.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
-        itemBuilder: (_, i) => chips[i],
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Wrap(spacing: 10, runSpacing: 10, children: chips),
     );
   }
 }
