@@ -3,10 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/Models/board.dart';
 import 'package:flutter_chan/Models/post.dart';
-import 'package:flutter_chan/blocs/bookmarks_model.dart';
 import 'package:flutter_chan/blocs/favorite_model.dart';
 import 'package:flutter_chan/blocs/history_model.dart';
-import 'package:flutter_chan/blocs/saved_attachments_model.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/pages/board/board_page.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
@@ -153,8 +151,6 @@ class DashboardState extends State<Dashboard> {
   Widget build(BuildContext context) {
     final isDark = CupertinoTheme.brightnessOf(context) == Brightness.dark;
     final favorites = Provider.of<FavoriteProvider>(context);
-    final bookmarks = Provider.of<BookmarksProvider>(context);
-    final saved = Provider.of<SavedAttachmentsProvider>(context);
     final history = Provider.of<HistoryProvider>(context);
     final nsfw = Provider.of<SettingsProvider>(context).getNSFW();
 
@@ -169,15 +165,7 @@ class DashboardState extends State<Dashboard> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              DashHero(
-                isDark: isDark,
-                favorites: favorites.getFavorites().length,
-                bookmarks: bookmarks.list.length,
-                saved: saved.list.length,
-                onFavorites: _openFeed,
-                onBookmarks: () => widget.onSelectTab(2),
-                onSaved: () => widget.onSelectTab(1),
-              ),
+              DashHero(isDark: isDark),
               if (favorites.getFavorites().isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -212,7 +200,6 @@ class DashboardState extends State<Dashboard> {
     final favoriteBoards = boards
         .where((b) => favorites.getFavorites().contains(b.board))
         .toList();
-    final titles = {for (final b in boards) b.board!: b.title ?? b.board!};
 
     final sorted = [...boards]..sort((a, b) => a.board!.compareTo(b.board!));
     final visibleBoards = _query.isEmpty
@@ -248,29 +235,9 @@ class DashboardState extends State<Dashboard> {
       ],
       if (favoriteBoards.isNotEmpty) ...[
         DashSectionHeader(title: 'Favorites', isDark: isDark),
-        _chips([
-          for (final b in favoriteBoards)
-            DashBoardChip(
-              board: b.board!,
-              title: b.title ?? '',
-              isDark: isDark,
-              nsfw: b.wsBoard == 0,
-              onTap: () => _openBoard(b.board!, b.title ?? ''),
-            ),
-        ]),
-      ],
-      if (history.boards.isNotEmpty) ...[
-        DashSectionHeader(title: 'Recent boards', isDark: isDark),
-        _chips([
-          for (final h in history.boards)
-            if (titles.containsKey(h.board))
-              DashBoardChip(
-                board: h.board,
-                title: h.title,
-                isDark: isDark,
-                onTap: () => _openBoard(h.board, h.title),
-              ),
-        ]),
+        _group([
+          for (final b in favoriteBoards) _row(b, isDark, favorites),
+        ], isDark),
       ],
       DashSectionHeader(title: 'All boards', isDark: isDark),
       _searchField(isDark),
@@ -289,18 +256,5 @@ class DashboardState extends State<Dashboard> {
           for (final b in visibleBoards) _row(b, isDark, favorites),
         ], isDark),
     ];
-  }
-
-  Widget _chips(List<Widget> chips) {
-    return SizedBox(
-      height: 52,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: chips.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
-        itemBuilder: (_, i) => chips[i],
-      ),
-    );
   }
 }

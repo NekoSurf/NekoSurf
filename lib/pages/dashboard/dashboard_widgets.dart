@@ -92,21 +92,9 @@ class DashHero extends StatelessWidget {
   const DashHero({
     Key? key,
     required this.isDark,
-    required this.favorites,
-    required this.bookmarks,
-    required this.saved,
-    required this.onFavorites,
-    required this.onBookmarks,
-    required this.onSaved,
   }) : super(key: key);
 
   final bool isDark;
-  final int favorites;
-  final int bookmarks;
-  final int saved;
-  final VoidCallback onFavorites;
-  final VoidCallback onBookmarks;
-  final VoidCallback onSaved;
 
   String get _greeting {
     final hour = DateTime.now().hour;
@@ -208,105 +196,10 @@ class DashHero extends StatelessWidget {
                     color: DashColors.text(isDark).withValues(alpha: 0.65),
                   ),
                 ),
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    _Stat(
-                      isDark: isDark,
-                      icon: CupertinoIcons.heart_fill,
-                      color: const Color(0xFFF472B6),
-                      value: favorites,
-                      label: 'Boards',
-                      onTap: onFavorites,
-                    ),
-                    const SizedBox(width: 8),
-                    _Stat(
-                      isDark: isDark,
-                      icon: CupertinoIcons.bookmark_fill,
-                      color: DashColors.accent,
-                      value: bookmarks,
-                      label: 'Bookmarks',
-                      onTap: onBookmarks,
-                    ),
-                    const SizedBox(width: 8),
-                    _Stat(
-                      isDark: isDark,
-                      icon: CupertinoIcons.paperclip,
-                      color: const Color(0xFFFBBF24),
-                      value: saved,
-                      label: 'Saved',
-                      onTap: onSaved,
-                    ),
-                  ],
-                ),
               ],
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _Stat extends StatelessWidget {
-  const _Stat({
-    required this.isDark,
-    required this.icon,
-    required this.color,
-    required this.value,
-    required this.label,
-    required this.onTap,
-  });
-
-  final bool isDark;
-  final IconData icon;
-  final Color color;
-  final int value;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-          decoration: BoxDecoration(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.28)
-                : Colors.white.withValues(alpha: 0.6),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(icon, size: 13, color: color),
-                  const SizedBox(width: 6),
-                  Text(
-                    '$value',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: DashColors.text(isDark),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w600,
-                  color: DashColors.muted(isDark),
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

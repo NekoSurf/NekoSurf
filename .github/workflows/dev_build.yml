@@ -1,0 +1,28 @@
+name: Dev Build (APK + IPA)
+
+# Manual build of any branch or PR; artifacts are attached to the run.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag, SHA or PR ref (e.g. refs/pull/123/head). Empty = branch selected above."
+        required: false
+        type: string
+      build_android:
+        description: "Build Android APK"
+        required: true
+        default: true
+        type: boolean
+      build_ios:
+        description: "Build iOS IPA (unsigned)"
+        required: true
+        default: true
+        type: boolean
+
+jobs:
+  build:
+    uses: ./.github/workflows/_build.yml
+    with:
+      ref: ${{ inputs.ref }}
+      build_android: ${{ inputs.build_android }}
+      build_ios: ${{ inputs.build_ios }}
