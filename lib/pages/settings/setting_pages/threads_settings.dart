@@ -11,6 +11,58 @@ import 'package:provider/provider.dart';
 class ThreadsSettings extends StatelessWidget {
   const ThreadsSettings({Key? key}) : super(key: key);
 
+  static void _showAddFilter(
+    BuildContext context,
+    SettingsProvider settings,
+  ) {
+    final TextEditingController controller = TextEditingController();
+    final bool isDark =
+        CupertinoTheme.brightnessOf(context) == Brightness.dark;
+
+    showDashDialog<void>(
+      context: context,
+      builder: (ctx) => DashDialog(
+        title: const Text('Hide threads matching'),
+        content: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'A plain word hides as a keyword; regex works too. '
+              'Matching is case-insensitive against the thread title '
+              'and comment.',
+            ),
+            const SizedBox(height: 12),
+            CupertinoTextField(
+              controller: controller,
+              autofocus: true,
+              placeholder: r'e.g. crypto|ai slop|\bgeneral\b',
+              padding: const EdgeInsets.all(14),
+              style: TextStyle(color: DashColors.text(isDark)),
+              decoration: BoxDecoration(
+                color: DashColors.muted(isDark).withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          DashDialogAction(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          DashDialogAction(
+            isDefaultAction: true,
+            onPressed: () {
+              settings.addHiddenThreadPattern(controller.text);
+              Navigator.of(ctx).pop();
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
   static String sortName(Sort sort) {
     switch (sort) {
       case Sort.byImagesCount:
@@ -138,6 +190,42 @@ class ThreadsSettings extends StatelessWidget {
                       value: settings.getFeedVideosStartMuted(),
                       onChanged: settings.setFeedVideosStartMuted,
                     ),
+                  ),
+                ],
+              ),
+              SettingsGroup(
+                title: 'Hidden threads',
+                footer:
+                    'Matching is case-insensitive against the thread title '
+                    'and comment, in boards and the feed. Invalid regex is '
+                    'treated as a plain keyword.',
+                children: [
+                  for (final String pattern
+                      in settings.getHiddenThreadPatterns())
+                    SettingsRow(
+                      icon: CupertinoIcons.eye_slash_fill,
+                      color: DashColors.nsfw,
+                      title: pattern,
+                      trailing: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () =>
+                            settings.removeHiddenThreadPattern(pattern),
+                        child: const Padding(
+                          padding: EdgeInsets.all(4),
+                          child: Icon(
+                            CupertinoIcons.xmark_circle_fill,
+                            size: 20,
+                            color: CupertinoColors.systemGrey,
+                          ),
+                        ),
+                      ),
+                    ),
+                  SettingsRow(
+                    icon: CupertinoIcons.add_circled_solid,
+                    color: DashColors.accent,
+                    title: 'Add filter',
+                    subtitle: 'Keyword or regex',
+                    onTap: () => _showAddFilter(context, settings),
                   ),
                 ],
               ),

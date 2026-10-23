@@ -188,6 +188,9 @@ class BoardPageState extends State<BoardPage> {
     final bool isDark = CupertinoTheme.brightnessOf(context) == Brightness.dark;
     final settings = Provider.of<SettingsProvider>(context);
     final favorites = Provider.of<FavoriteProvider>(context);
+    final List<Post> visibleThreads = filteredBoards
+        .where((post) => !settings.isThreadHidden(post))
+        .toList();
 
     isFavorite = favorites.getFavorites().contains(widget.board);
 
@@ -282,9 +285,7 @@ class BoardPageState extends State<BoardPage> {
                 color: boardColor(widget.board),
               ),
             ),
-            title: _isLoading
-                ? 'Loading...'
-                : '${filteredBoards.length} threads',
+            title: _isLoading ? 'Loading...' : '${visibleThreads.length} threads',
             subtitle: _sortLabel,
           ),
         ),
@@ -303,7 +304,7 @@ class BoardPageState extends State<BoardPage> {
         else if (_hasError)
           SliverFillRemaining(child: ReloadWidget(onReload: loadBoard))
         else
-          getBoardSliverView(filteredBoards, settings),
+          getBoardSliverView(visibleThreads, settings),
       ],
     );
   }

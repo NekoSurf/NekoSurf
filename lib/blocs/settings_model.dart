@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/enums/enums.dart';
+import 'package:flutter_chan/services/string.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsProvider with ChangeNotifier {
@@ -16,6 +18,8 @@ class SettingsProvider with ChangeNotifier {
   bool showStickyThreads = true;
   bool feedVideosStartMuted = true;
   bool trackHistory = true;
+  List<String> hiddenThreadPatterns = [];
+  List<RegExp>? _hiddenPatternRegexes;
 
   Future<void> loadPreferences() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -67,6 +71,8 @@ class SettingsProvider with ChangeNotifier {
     if (prefs.getBool('trackHistory') != null) {
       trackHistory = prefs.getBool('trackHistory')!;
     }
+
+    hiddenThreadPatterns = prefs.getStringList('hiddenThreadPatterns') ?? [];
 
     await prefs.remove('inlineMediaInThreadFeed');
 
@@ -177,6 +183,69 @@ class SettingsProvider with ChangeNotifier {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     trackHistory = value;
     prefs.setBool('trackHistory', value);
+    notifyListeners();
+  }
+
+  List<String> getHiddenThreadPatterns() {
+    return List.unmodifiable(hiddenThreadPatterns);
+  }
+
+  List<RegExp> get _threadFilters {
+    _hiddenPatternRegexes ??= [
+      for (final String pattern in hiddenThreadPatterns) _compile(pattern),
+    ];
+    return _hiddenPatternRegexes!;
+  }
+
+  static RegExp _compile(String pattern) {
+    try {
+      return RegExp(pattern, caseSensitive: false);
+    } on FormatException {
+      return RegExp(RegExp.escape(pattern), caseSensitive: false);
+    }
+  }
+
+  bool isThreadHidden(Post post) {
+    if (hiddenThreadPatterns.isEmpty) {
+      return false;
+    }
+
+    final String text = unescape(
+      cleanTags('${post.sub ?? ''}\n${post.com ?? ''}'),
+    );
+
+    for (final RegExp filter in _threadFilters) {
+      if (filter.hasMatch(text)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  Future<void> addHiddenThreadPattern(String pattern) async {
+    final String trimmed = pattern.trim();
+    if (trimmed.isEmpty || hiddenThreadPatterns.contains(trimmed)) {
+      return;
+    }
+
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    hiddenThreadPatterns = [...hiddenThreadPatterns, trimmed];
+    _hiddenPatternRegexes = null;
+    prefs.setStringList('hiddenThreadPatterns', hiddenThreadPatterns);
+    notifyListeners();
+  }
+
+  Future<void> removeHiddenThreadPattern(String pattern) async {
+    if (!hiddenThreadPatterns.contains(pattern)) {
+      return;
+    }
+
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    hiddenThreadPatterns = hiddenThreadPatterns
+        .where((p) => p != pattern)
+        .toList();
+    _hiddenPatternRegexes = null;
+    prefs.setStringList('hiddenThreadPatterns', hiddenThreadPatterns);
     notifyListeners();
   }
 }
