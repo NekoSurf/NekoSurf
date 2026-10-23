@@ -11,6 +11,7 @@ import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/pages/replies_row.dart';
 import 'package:flutter_chan/pages/thread/thread_page.dart';
 import 'package:flutter_chan/services/string.dart';
+import 'package:flutter_chan/services/thread_filters.dart';
 import 'package:flutter_chan/widgets/image_viewer.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:intl/intl.dart';
@@ -119,6 +120,7 @@ class _ListPostState extends State<ListPost> {
             ),
           ),
         },
+        onLongPress: () => showThreadFilterMenu(context, widget.post),
         child: Container(
           margin: const EdgeInsets.fromLTRB(10, 6, 10, 6),
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),

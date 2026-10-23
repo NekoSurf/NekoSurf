@@ -47,16 +47,23 @@ class ThreadsSettings extends StatelessWidget {
         ),
         actions: [
           DashDialogAction(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
+            isDefaultAction: true,
+            onPressed: () {
+              settings.addHiddenThreadPattern(controller.text);
+              controller.clear();
+            },
+            child: const Text('Add & add another'),
           ),
           DashDialogAction(
-            isDefaultAction: true,
             onPressed: () {
               settings.addHiddenThreadPattern(controller.text);
               Navigator.of(ctx).pop();
             },
             child: const Text('Add'),
+          ),
+          DashDialogAction(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
           ),
         ],
       ),
