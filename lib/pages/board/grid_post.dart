@@ -10,6 +10,7 @@ import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/pages/replies_row.dart';
 import 'package:flutter_chan/pages/thread/thread_page.dart';
 import 'package:flutter_chan/services/string.dart';
+import 'package:flutter_chan/services/thread_filters.dart';
 import 'package:flutter_chan/widgets/image_viewer.dart';
 
 import 'package:provider/provider.dart';
@@ -77,6 +78,7 @@ class _GridPostState extends State<GridPost> {
           ),
         ),
       },
+      onLongPress: () => showThreadFilterMenu(context, widget.post),
       child: Container(
         decoration: BoxDecoration(
           color: cardColor,
