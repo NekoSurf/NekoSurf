@@ -117,9 +117,12 @@ class _FeedPageState extends State<FeedPage> {
     final int boardCount = Provider.of<FavoriteProvider>(
       context,
     ).getFavorites().length;
-    final List<Post> visibleThreads = settings.getShowStickyThreads()
-        ? _threads
-        : _threads.where((post) => (post.sticky ?? 0) != 1).toList();
+    final List<Post> visibleThreads = _threads
+        .where((post) => !settings.isThreadHidden(post))
+        .where(
+          (post) => settings.getShowStickyThreads() || (post.sticky ?? 0) != 1,
+        )
+        .toList();
 
     return DashScaffold(
       title: 'Feed',
