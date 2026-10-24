@@ -8,7 +8,9 @@ import 'package:provider/provider.dart';
 
 /// Anchored long-press menu that turns a thread's title or comment into a
 /// hidden-thread filter. Comments are truncated to keep patterns readable —
-/// reposts share the same prefix, so a substring still catches them.
+/// reposts share the same prefix, so a substring still catches them. Patterns
+/// are escaped: a title containing '?', '|' or '(…)' must match literally,
+/// not act as regex.
 void showThreadFilterMenu(BuildContext context, Post post) {
   final settings = Provider.of<SettingsProvider>(context, listen: false);
   final String title = unescape(cleanTags(post.sub ?? '')).trim();
@@ -18,8 +20,8 @@ void showThreadFilterMenu(BuildContext context, Post post) {
     return;
   }
 
-  void add(String pattern) {
-    settings.addHiddenThreadPattern(pattern);
+  void add(String text) {
+    settings.addHiddenThreadPattern(RegExp.escape(text));
     showCupertinoSnackbar(
       const Duration(seconds: 2),
       true,
@@ -27,6 +29,10 @@ void showThreadFilterMenu(BuildContext context, Post post) {
       'Thread filter added',
     );
   }
+
+  // Grapheme-safe prefix shared by the menu label and the stored pattern.
+  final bool commentTruncated = comment.characters.length > 80;
+  final String commentPrefix = comment.characters.take(80).toString();
 
   showDashMenu(
     context,
@@ -40,12 +46,9 @@ void showThreadFilterMenu(BuildContext context, Post post) {
         ),
       if (comment.isNotEmpty)
         DashMenuEntry(
-          title:
-              'Comment: ${comment.length > 60 ? '${comment.substring(0, 60)}…' : comment}',
+          title: 'Comment: $commentPrefix${commentTruncated ? '…' : ''}',
           icon: CupertinoIcons.eye_slash,
-          onPressed: () => add(
-            comment.length > 80 ? comment.substring(0, 80) : comment,
-          ),
+          onPressed: () => add(commentPrefix),
         ),
     ],
   );
