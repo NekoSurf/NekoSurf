@@ -67,7 +67,7 @@ class ThreadsSettings extends StatelessWidget {
           ),
         ],
       ),
-    );
+    ).whenComplete(controller.dispose);
   }
 
   static String sortName(Sort sort) {
