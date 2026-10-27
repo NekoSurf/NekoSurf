@@ -42,6 +42,9 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   // Longer than VisibilityDetector's update interval so it can report first.
   static const Duration _reclaimVisibilityGrace = Duration(milliseconds: 1200);
 
+  // Per-instance: two posts can share a video URL.
+  final Key _visibilityKey = UniqueKey();
+
   Player? _player;
   VideoController? _controller;
   RecycledPlayer? _recycled;
@@ -137,7 +140,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     }
 
     if (!oldWidget.preload && widget.preload) {
-      if (_player == null && !_isDisposing) {
+      if (_player == null && !_isDisposing && _canHoldPlayer) {
         _initAndPlay(preloadWhileHidden: true);
       }
       return;
@@ -167,7 +170,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     final token = ++_opToken;
 
     final RecycledPlayer? recycled = widget.recycler?.acquire();
-    final player = recycled?.player ?? Player();
+    final player = recycled?.player ?? createMediaPlayer();
     final controller = recycled?.controller ?? VideoController(player);
 
     _player = player;
@@ -186,16 +189,10 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
           _isDisposing ||
           token != _opToken ||
           _player != player ||
-          (!_visible && !preloadWhileHidden);
+          (!_visible && !(preloadWhileHidden && _keepsPreloadedPlayer));
 
       if (shouldAbortOpen) {
-        // If we no longer own it, _pauseAndDispose/dispose already released it.
-        if (_player == player) {
-          _player = null;
-          _controller = null;
-          _recycled = null;
-          await _releasePlayer(player, recycled);
-        }
+        await _abandon(player, recycled);
         return;
       }
 
@@ -252,7 +249,10 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
           _isDisposing ||
           token != _opToken ||
           _player != player ||
-          (!_visible && !preloadWhileHidden)) {
+          (!_visible && !(preloadWhileHidden && _keepsPreloadedPlayer))) {
+        // Holding on to a half-initialized player would make the next
+        // _initAndPlay bail out early and leave the spinner up for good.
+        await _abandon(player, recycled);
         return;
       }
 
@@ -265,17 +265,26 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       }
     } catch (_) {
       // keep it simple: fail silently for feed
-      if (_player == player) {
-        _player = null;
-        _controller = null;
-        _recycled = null;
-        _positionSub?.cancel();
-        _positionSub = null;
-        _durationSub?.cancel();
-        _durationSub = null;
-        await _releasePlayer(player, recycled);
-      }
+      await _abandon(player, recycled);
     }
+  }
+
+  /// Releases [player] if this widget still holds it; otherwise
+  /// _pauseAndDispose/dispose already released it.
+  Future<void> _abandon(Player player, RecycledPlayer? recycled) async {
+    if (_player != player) {
+      return;
+    }
+
+    _player = null;
+    _controller = null;
+    _recycled = null;
+    unawaited(_positionSub?.cancel());
+    _positionSub = null;
+    unawaited(_durationSub?.cancel());
+    _durationSub = null;
+
+    await _releasePlayer(player, recycled);
   }
 
   void _applyDuration(Duration duration) {
@@ -463,19 +472,25 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     // Pause right away; only releasing the player is debounced.
     unawaited(_pauseOnly());
 
-    if (widget.preload) {
+    if (_keepsPreloadedPlayer) {
       return;
     }
 
     _pauseDebounceTimer?.cancel();
     _pauseDebounceTimer = Timer(_pauseDebounce, () {
-      if (_isDisposing || _visible || widget.preload) {
+      if (_isDisposing || _isLentOut || _visible || _keepsPreloadedPlayer) {
         return;
       }
 
       _pauseAndDispose();
     });
   }
+
+  /// False while covered by another route (e.g. the fullscreen viewer, which
+  /// needs players of its own) or while the app is in the background.
+  bool get _canHoldPlayer => _tickerEnabled && _appInForeground;
+
+  bool get _keepsPreloadedPlayer => widget.preload && _canHoldPlayer;
 
   double get _effectiveVisibleFraction {
     if (!_tickerEnabled || !_appInForeground) {
@@ -513,9 +528,19 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
           } catch (_) {}
         }());
       }
-    } else if (fraction <= _pauseVisibilityThreshold && _visible) {
-      _visible = false;
-      _schedulePauseAndDispose();
+    } else if (fraction <= _pauseVisibilityThreshold) {
+      if (_visible) {
+        _visible = false;
+        _schedulePauseAndDispose();
+      } else if (_player != null &&
+          !_keepsPreloadedPlayer &&
+          !(_pauseDebounceTimer?.isActive ?? false)) {
+        // Offscreen preloaded player whose route got covered or backgrounded.
+        _schedulePauseAndDispose();
+      } else if (_player == null && _keepsPreloadedPlayer) {
+        // Back in front: restore the preload released above.
+        _initAndPlay(preloadWhileHidden: true);
+      }
     }
   }
 
@@ -528,7 +553,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     return GestureDetector(
       onTap: widget.onTap == null ? null : _handleTap,
       child: VisibilityDetector(
-        key: ValueKey(widget.videoUrl),
+        key: _visibilityKey,
         onVisibilityChanged: (info) {
           _handleVisibility(info.visibleFraction);
         },

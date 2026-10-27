@@ -391,7 +391,7 @@ packages:
     dependency: "direct main"
     description:
       path: media_kit
-      ref: main
+      ref: c533e446755f51cf53c7e57aea873f2aa5355f81
       resolved-ref: c533e446755f51cf53c7e57aea873f2aa5355f81
       url: "https://github.com/media-kit/media-kit.git"
     source: git
@@ -400,7 +400,7 @@ packages:
     dependency: "direct main"
     description:
       path: "libs/android/media_kit_libs_android_video"
-      ref: main
+      ref: c533e446755f51cf53c7e57aea873f2aa5355f81
       resolved-ref: c533e446755f51cf53c7e57aea873f2aa5355f81
       url: "https://github.com/media-kit/media-kit.git"
     source: git
@@ -409,7 +409,7 @@ packages:
     dependency: "direct main"
     description:
       path: "libs/ios/media_kit_libs_ios_video"
-      ref: main
+      ref: c533e446755f51cf53c7e57aea873f2aa5355f81
       resolved-ref: c533e446755f51cf53c7e57aea873f2aa5355f81
       url: "https://github.com/media-kit/media-kit.git"
     source: git
@@ -418,7 +418,7 @@ packages:
     dependency: "direct main"
     description:
       path: media_kit_video
-      ref: main
+      ref: c533e446755f51cf53c7e57aea873f2aa5355f81
       resolved-ref: c533e446755f51cf53c7e57aea873f2aa5355f81
       url: "https://github.com/media-kit/media-kit.git"
     source: git

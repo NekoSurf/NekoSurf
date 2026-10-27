@@ -3,6 +3,17 @@ import 'dart:async';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
+/// 4chan caps webms at a few MB, so a small demuxer cache still holds the
+/// whole file; media_kit's default (32 MB ahead + 32 MB behind) per player
+/// adds up fast with a dozen players alive.
+const int _mediaBufferBytes = 8 * 1024 * 1024;
+
+Player createMediaPlayer() {
+  return Player(
+    configuration: const PlayerConfiguration(bufferSize: _mediaBufferBytes),
+  );
+}
+
 class RecycledPlayer {
   RecycledPlayer(this.player, this.controller);
 
@@ -69,7 +80,7 @@ class FeedPlayerRecycler {
   }
 
   RecycledPlayer _create() {
-    final Player player = Player();
+    final Player player = createMediaPlayer();
     return RecycledPlayer(player, VideoController(player));
   }
 

@@ -155,6 +155,8 @@ class SharedMediaViewer extends StatefulWidget {
 }
 
 class _SharedMediaViewerState extends State<SharedMediaViewer> {
+  static const int _precacheRadius = 3;
+
   late final PreloadPageController _pageController;
   String? _handoffItemId;
   late int _currentIndex;
@@ -171,6 +173,29 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
     _pageController = PreloadPageController(initialPage: _currentIndex);
     if (widget.handoff != null && widget.items.isNotEmpty) {
       _handoffItemId = widget.items[_currentIndex].id;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _precacheAround(_currentIndex);
+      }
+    });
+  }
+
+  /// Only one page per side is built, so every video page holds a live
+  /// player. Images further out are still warmed up so paging stays smooth.
+  void _precacheAround(int index) {
+    for (int i = index - _precacheRadius; i <= index + _precacheRadius; i++) {
+      if (i < 0 || i >= widget.items.length || (i - index).abs() <= 1) {
+        continue;
+      }
+
+      final SharedMediaViewerItem item = widget.items[i];
+      final ImageProvider<Object>? image = item.isVideo
+          ? item.thumbnail
+          : item.imageProvider;
+      if (image != null) {
+        unawaited(precacheImage(image, context, onError: (_, _) {}));
+      }
     }
   }
 
@@ -259,7 +284,7 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
             child: PreloadPageView.builder(
               controller: _pageController,
               scrollDirection: Axis.vertical,
-              preloadPagesCount: 3,
+              preloadPagesCount: 1,
               physics: _isVideoScrubbing || _isImageZoomed
                   ? const NeverScrollableScrollPhysics()
                   : const _SnappyPagePhysics(),
@@ -270,6 +295,7 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
                   _isVideoScrubbing = false;
                   _isImageZoomed = false;
                 });
+                _precacheAround(index);
                 widget.onIndexChanged?.call(index);
               },
               itemBuilder: (context, index) {
@@ -701,7 +727,7 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
       _controller = leased.controller;
     } else {
       _ownsPlayer = true;
-      _player = Player();
+      _player = createMediaPlayer();
       _controller = VideoController(_player);
     }
 
@@ -807,6 +833,10 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
   }
 
   /// Opens the media paused; it only plays while the page is active.
+  ///
+  /// Once disposed, a leased player is back in the recycler and may already
+  /// belong to another page or feed post, so every step re-checks [mounted]
+  /// before touching it.
   Future<void> _load() async {
     final String source = widget.item.source;
     final MediaSourceResolver? resolveSource = widget.item.resolveVideoSource;
@@ -831,7 +861,13 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
       }
 
       await _player.setPlaylistMode(PlaylistMode.loop);
+      if (!mounted) {
+        return;
+      }
       await _player.setVolume(100.0);
+      if (!mounted) {
+        return;
+      }
       // Recycled feed players may still have audio disabled.
       await _player.setAudioTrack(AudioTrack.auto());
       if (!mounted) {
@@ -850,9 +886,25 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
     await _player.playOrPause();
   }
 
+  // Seeking on every drag update floods the player with seeks and keeps it
+  // buffering; drags only move the preview and seek once on release.
+  void _previewSeek(double value) {
+    setState(() {
+      _scrubPreview = _clampDuration(Duration(milliseconds: value.round()));
+    });
+  }
+
   Future<void> _seekTo(double value) async {
+    final Duration target = _clampDuration(
+      Duration(milliseconds: value.round()),
+    );
+    // Show the target right away instead of snapping back to the old position.
+    setState(() {
+      _position = target;
+      _scrubPreview = null;
+    });
     try {
-      await _player.seek(_clampDuration(Duration(milliseconds: value.round())));
+      await _player.seek(target);
     } catch (_) {
       // Ignore transient seek races.
     }
@@ -928,8 +980,11 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
                           ? width / height
                           : 16 / 9;
 
+                      // Only wait for the first frame: hiding the video on
+                      // every buffering blip (loops, seeks) makes it flicker
+                      // back to the thumbnail.
                       final bool showVideo =
-                          hasValidDimensions && _hasVideoFrame && !_isBuffering;
+                          hasValidDimensions && _hasVideoFrame;
                       final ImageProvider<Object>? thumbnail = widget.thumbnail;
 
                       return Stack(
@@ -961,7 +1016,10 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
                           ),
 
                           AnimatedOpacity(
-                            opacity: widget.isActive && !showVideo ? 1 : 0,
+                            opacity:
+                                widget.isActive && (!showVideo || _isBuffering)
+                                ? 1
+                                : 0,
                             duration: const Duration(milliseconds: 200),
                             curve: Curves.easeOut,
                             child: const Center(
@@ -1074,8 +1132,9 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
                           min: 0,
                           max: max,
                           onChanged: _duration.inMilliseconds > 0
-                              ? _seekTo
+                              ? _previewSeek
                               : null,
+                          onChangeEnd: _seekTo,
                         ),
                       ),
                       Padding(
