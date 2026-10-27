@@ -702,12 +702,14 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
   StreamSubscription<Duration>? _positionSub;
   StreamSubscription<Duration>? _durationSub;
   StreamSubscription<bool>? _bufferingSub;
+  StreamSubscription<Duration>? _bufferSub;
 
   bool _isPlaying = false;
   bool _isBuffering = false;
   bool _hasVideoFrame = false;
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
+  Duration _buffer = Duration.zero;
   Duration? _scrubPreview;
 
   Duration get _displayPosition => _scrubPreview ?? _position;
@@ -721,7 +723,8 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
       _player = handoff.player;
       _controller = handoff.controller;
     } else if (recycler != null) {
-      final RecycledPlayer leased = recycler.acquire();
+      // A recently released player may still hold this video.
+      final RecycledPlayer leased = recycler.acquire(url: widget.item.source);
       _leased = leased;
       _player = leased.player;
       _controller = leased.controller;
@@ -768,6 +771,7 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
       _isBuffering = state.buffering;
       _position = state.position;
       _duration = state.duration;
+      _buffer = state.buffer;
       _hasVideoFrame = state.position > const Duration(milliseconds: 100);
     }
 
@@ -809,6 +813,13 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
 
       setState(() => _isBuffering = buffering);
     });
+    _bufferSub = _player.stream.buffer.listen((buffer) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() => _buffer = buffer);
+    });
   }
 
   void _cancelSubscriptions() {
@@ -817,20 +828,16 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
     _positionSub?.cancel();
     _durationSub?.cancel();
     _bufferingSub?.cancel();
+    _bufferSub?.cancel();
     _errorSub = null;
     _playingSub = null;
     _positionSub = null;
     _durationSub = null;
     _bufferingSub = null;
+    _bufferSub = null;
   }
 
-  bool _isItemLoaded() {
-    final Playlist playlist = _player.state.playlist;
-    final int index = playlist.index;
-    return index >= 0 &&
-        index < playlist.medias.length &&
-        playlist.medias[index].uri == widget.item.source;
-  }
+  bool _isItemLoaded() => playerHasMedia(_player, widget.item.source);
 
   /// Opens the media paused; it only plays while the page is active.
   ///
@@ -842,7 +849,7 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
     final MediaSourceResolver? resolveSource = widget.item.resolveVideoSource;
 
     try {
-      // Handed-off players already have this media open.
+      // Handed-off and matching recycled players already have it open.
       if (!_isItemLoaded()) {
         final String resolvedSource = resolveSource == null
             ? source
@@ -1119,6 +1126,9 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
                           inactiveTrackColor: Colors.white.withValues(
                             alpha: 0.22,
                           ),
+                          secondaryActiveTrackColor: Colors.white.withValues(
+                            alpha: 0.45,
+                          ),
                           thumbColor: Colors.white,
                           thumbShape: const RoundSliderThumbShape(
                             enabledThumbRadius: 6,
@@ -1131,6 +1141,10 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
                               .clamp(0, max),
                           min: 0,
                           max: max,
+                          // How far mpv has downloaded.
+                          secondaryTrackValue: _buffer.inMilliseconds
+                              .toDouble()
+                              .clamp(0, max),
                           onChanged: _duration.inMilliseconds > 0
                               ? _previewSeek
                               : null,

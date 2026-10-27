@@ -62,13 +62,16 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   late bool _isMuted;
 
   final ValueNotifier<double> _progressValue = ValueNotifier<double>(0.0);
+  final ValueNotifier<double> _bufferValue = ValueNotifier<double>(0.0);
   final ValueNotifier<bool> _hasDuration = ValueNotifier<bool>(false);
   Duration _lastProgressUiPosition = Duration.zero;
   int _durationMicros = 0;
+  Duration _lastBuffer = Duration.zero;
   bool _isScrubbing = false;
 
   StreamSubscription<Duration>? _positionSub;
   StreamSubscription<Duration>? _durationSub;
+  StreamSubscription<Duration>? _bufferSub;
   Timer? _pauseDebounceTimer;
   Timer? _reclaimVisibilityTimer;
 
@@ -169,7 +172,10 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
     final token = ++_opToken;
 
-    final RecycledPlayer? recycled = widget.recycler?.acquire();
+    // A recently released player may still hold this video.
+    final RecycledPlayer? recycled = widget.recycler?.acquire(
+      url: widget.videoUrl,
+    );
     final player = recycled?.player ?? createMediaPlayer();
     final controller = recycled?.controller ?? VideoController(player);
 
@@ -184,7 +190,10 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     }
 
     try {
-      await player.open(Media(widget.videoUrl), play: false);
+      // Reopening a video an idle player still holds skips the download.
+      if (!playerHasMedia(player, widget.videoUrl)) {
+        await player.open(Media(widget.videoUrl), play: false);
+      }
       final shouldAbortOpen =
           _isDisposing ||
           token != _opToken ||
@@ -242,8 +251,16 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
         _applyDuration(dur);
       });
-      // The stream only emits changes, which may have fired during open().
+      _bufferSub = player.stream.buffer.listen((buffer) {
+        if (token != _opToken || _player != player) {
+          return;
+        }
+
+        _applyBuffer(buffer);
+      });
+      // The streams only emit changes, which may have fired during open().
       _applyDuration(player.state.duration);
+      _applyBuffer(player.state.buffer);
 
       if (!mounted ||
           _isDisposing ||
@@ -283,6 +300,8 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     _positionSub = null;
     unawaited(_durationSub?.cancel());
     _durationSub = null;
+    unawaited(_bufferSub?.cancel());
+    _bufferSub = null;
 
     await _releasePlayer(player, recycled);
   }
@@ -293,6 +312,19 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     final hasDurationNow = micros > 0;
     if (_hasDuration.value != hasDurationNow) {
       _hasDuration.value = hasDurationNow;
+    }
+    // The buffer may have been reported before the duration was known.
+    _applyBuffer(_lastBuffer);
+  }
+
+  void _applyBuffer(Duration buffer) {
+    _lastBuffer = buffer;
+    final durationMicros = _durationMicros;
+    final nextBuffer = durationMicros <= 0
+        ? 0.0
+        : (buffer.inMicroseconds / durationMicros).clamp(0.0, 1.0);
+    if (_bufferValue.value != nextBuffer) {
+      _bufferValue.value = nextBuffer;
     }
   }
 
@@ -323,12 +355,14 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     final recycled = _recycled;
     final positionSub = _positionSub;
     final durationSub = _durationSub;
+    final bufferSub = _bufferSub;
 
     _player = null;
     _controller = null;
     _recycled = null;
     _positionSub = null;
     _durationSub = null;
+    _bufferSub = null;
 
     if (mounted) {
       setState(() {
@@ -339,11 +373,14 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
     _lastProgressUiPosition = Duration.zero;
     _durationMicros = 0;
+    _lastBuffer = Duration.zero;
     _progressValue.value = 0.0;
+    _bufferValue.value = 0.0;
     _hasDuration.value = false;
 
     await positionSub?.cancel();
     await durationSub?.cancel();
+    await bufferSub?.cancel();
 
     if (player != null) {
       await _releasePlayer(player, recycled);
@@ -421,12 +458,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   }
 
   Future<void> _reclaim(Player player) async {
-    final playlist = player.state.playlist;
-    final index = playlist.index;
-    final stillOurMedia =
-        index >= 0 &&
-        index < playlist.medias.length &&
-        playlist.medias[index].uri == widget.videoUrl;
+    final stillOurMedia = playerHasMedia(player, widget.videoUrl);
     // _visible may be stale: updates are ignored while lent out and the feed
     // may have scrolled to another post when the viewer closed.
     final bool showing =
@@ -644,18 +676,38 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                       return const SizedBox.shrink();
                     }
 
-                    return ValueListenableBuilder<double>(
-                      valueListenable: _progressValue,
-                      builder: (context, progress, _) {
-                        return LinearProgressIndicator(
-                          value: progress,
-                          backgroundColor: Colors.white.withValues(alpha: 0.25),
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                            Colors.white,
-                          ),
-                          minHeight: 3,
-                        );
-                      },
+                    // Buffered range underneath, playback progress on top.
+                    return Stack(
+                      children: [
+                        ValueListenableBuilder<double>(
+                          valueListenable: _bufferValue,
+                          builder: (context, buffered, _) {
+                            return LinearProgressIndicator(
+                              value: buffered,
+                              backgroundColor: Colors.white.withValues(
+                                alpha: 0.2,
+                              ),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white.withValues(alpha: 0.45),
+                              ),
+                              minHeight: 3,
+                            );
+                          },
+                        ),
+                        ValueListenableBuilder<double>(
+                          valueListenable: _progressValue,
+                          builder: (context, progress, _) {
+                            return LinearProgressIndicator(
+                              value: progress,
+                              backgroundColor: Colors.transparent,
+                              valueColor: const AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                              minHeight: 3,
+                            );
+                          },
+                        ),
+                      ],
                     );
                   },
                 ),
@@ -681,15 +733,18 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     final recycled = _recycled;
     final positionSub = _positionSub;
     final durationSub = _durationSub;
+    final bufferSub = _bufferSub;
 
     _player = null;
     _controller = null;
     _recycled = null;
     _positionSub = null;
     _durationSub = null;
+    _bufferSub = null;
 
     unawaited(positionSub?.cancel());
     unawaited(durationSub?.cancel());
+    unawaited(bufferSub?.cancel());
 
     // While lent out, _handleTap releases the player once the viewer returns it.
     if (player != null && !_isLentOut) {
@@ -697,6 +752,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     }
 
     _progressValue.dispose();
+    _bufferValue.dispose();
     _hasDuration.dispose();
 
     super.dispose();

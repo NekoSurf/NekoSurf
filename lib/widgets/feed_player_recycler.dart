@@ -14,6 +14,15 @@ Player createMediaPlayer() {
   );
 }
 
+/// Whether [player]'s current playlist entry is [url].
+bool playerHasMedia(Player player, String url) {
+  final Playlist playlist = player.state.playlist;
+  final int index = playlist.index;
+  return index >= 0 &&
+      index < playlist.medias.length &&
+      playlist.medias[index].uri == url;
+}
+
 class RecycledPlayer {
   RecycledPlayer(this.player, this.controller);
 
@@ -23,6 +32,10 @@ class RecycledPlayer {
 
 /// Reuses released players for the next video instead of disposing them,
 /// so preload-window shifts don't pay the native `Player()` constructor cost.
+///
+/// Idle players keep their last video loaded (paused), which doubles as a
+/// small in-memory cache: asking for a URL an idle player still holds hands
+/// that player back, so reopening a video skips the download entirely.
 class FeedPlayerRecycler {
   FeedPlayerRecycler({this.maxIdle = 4}) {
     for (int i = 0; i < maxIdle; i++) {
@@ -35,9 +48,16 @@ class FeedPlayerRecycler {
   final Set<RecycledPlayer> _leased = <RecycledPlayer>{};
   bool _disposed = false;
 
-  RecycledPlayer acquire() {
-    final RecycledPlayer entry = _idle.isNotEmpty
-        ? _idle.removeLast()
+  /// Prefers an idle player that already has [url] loaded; otherwise takes
+  /// the least recently released one, keeping recent videos around longest.
+  RecycledPlayer acquire({String? url}) {
+    final int match = url == null
+        ? -1
+        : _idle.indexWhere((entry) => playerHasMedia(entry.player, url));
+    final RecycledPlayer entry = match >= 0
+        ? _idle.removeAt(match)
+        : _idle.isNotEmpty
+        ? _idle.removeAt(0)
         : _create();
     if (!_disposed) {
       _leased.add(entry);
@@ -50,7 +70,7 @@ class FeedPlayerRecycler {
       return;
     }
 
-    if (_disposed || _idle.length >= maxIdle) {
+    if (_disposed) {
       await _dispose(entry);
       return;
     }
@@ -65,6 +85,10 @@ class FeedPlayerRecycler {
       return;
     }
     _idle.add(entry);
+    // Evict the oldest: the video just released is the likeliest to reopen.
+    while (_idle.length > maxIdle) {
+      unawaited(_dispose(_idle.removeAt(0)));
+    }
   }
 
   Future<void> dispose() async {
