@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/Models/bookmark.dart';
 import 'package:flutter_chan/Models/post.dart';
@@ -8,9 +9,11 @@ import 'package:flutter_chan/blocs/history_model.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/pages/bookmark_button.dart';
+import 'package:flutter_chan/pages/thread/thread_gallery_page.dart';
 import 'package:flutter_chan/pages/thread/thread_page_post.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/cupertino_menu.dart';
+import 'package:flutter_chan/widgets/dash_header.dart';
 import 'package:flutter_chan/widgets/dash_scaffold.dart';
 import 'package:flutter_chan/widgets/feed_player_recycler.dart';
 import 'package:flutter_chan/widgets/reload.dart';
@@ -397,11 +400,29 @@ class ThreadPageState extends State<ThreadPage> {
     }
   }
 
+  void _openGallery() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ThreadGalleryPage(
+          board: widget.board,
+          thread: widget.thread,
+          mediaPosts: allPosts
+              .where((p) => p.tim != null && p.ext != null)
+              .toList(),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return DashBarScaffold(
       title: unescape(cleanTags(widget.threadName)),
       actions: [
+        DashIconButton(
+          icon: const Icon(CupertinoIcons.square_grid_3x2),
+          onPressed: _openGallery,
+        ),
         BookmarkButton(favorite: favorite),
         CupertinoMenuButton(
           isGlass: true,
