@@ -28,6 +28,7 @@ jobs:
       release_tag: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.release_tag }}
       build_android: ${{ github.event_name == 'release' || inputs.build_android }}
       build_ios: ${{ github.event_name == 'release' || inputs.build_ios }}
+    secrets: inherit
 
   upload:
     name: Upload to Release

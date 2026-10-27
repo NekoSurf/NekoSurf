@@ -110,6 +110,7 @@ jobs:
     with:
       ref: ${{ needs.prepare.outputs.tag }}
       release_tag: ${{ needs.prepare.outputs.tag }}
+    secrets: inherit
 
   publish:
     name: Upload artifacts and update source.json

@@ -43,6 +43,34 @@ jobs:
 
       - run: flutter pub get
 
+      # Every published APK must be signed with the same release key, or
+      # Android won't install it over the previous version. Release builds
+      # fail without the key; dev builds fall back to a throwaway debug key.
+      - name: Set up release signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            if [ -n "$RELEASE_TAG" ]; then
+              echo "::error::ANDROID_KEYSTORE_BASE64 is not set; refusing to publish a debug-signed APK."
+              exit 1
+            fi
+            echo "::warning::No release keystore secret; this APK is debug-signed and can't update an installed release."
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          {
+            echo "storeFile=$RUNNER_TEMP/release.jks"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > android/key.properties
+        shell: bash
+
       - name: Build APK
         env:
           GRADLE_OPTS: -Xmx2048m
@@ -53,6 +81,20 @@ jobs:
             VERSION_ARGS="--build-name=${BASH_REMATCH[1]} --build-number=${BASH_REMATCH[2]}"
           fi
           flutter build apk --split-per-abi $VERSION_ARGS
+        shell: bash
+
+      - name: Check APK signature
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          for apk in build/app/outputs/apk/release/*.apk; do
+            "$APKSIGNER" verify --print-certs "$apk" | grep -E "DN:|SHA-256" | sed "s|^|$(basename "$apk"): |"
+            if [ -n "$RELEASE_TAG" ] && "$APKSIGNER" verify --print-certs "$apk" | grep -q "CN=Android Debug"; then
+              echo "::error::$(basename "$apk") is debug-signed."
+              exit 1
+            fi
+          done
         shell: bash
 
       - uses: actions/upload-artifact@v4

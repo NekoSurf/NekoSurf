@@ -26,3 +26,4 @@ jobs:
       ref: ${{ inputs.ref }}
       build_android: ${{ inputs.build_android }}
       build_ios: ${{ inputs.build_ios }}
+    secrets: inherit
