@@ -24,6 +24,15 @@
       ],
       "versions": [
         {
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.12.0%2B288/Runner.ipa",
+          "size": 32762436,
+          "version": "0.12.0",
+          "buildVersion": "288",
+          "date": "2026-10-27T09:43:35+00:00",
+          "localizedDescription": "Thread filters by keyword or regex, a tidier home screen that cleans up dead threads, and a fix for launching on iOS 17.0–17.5.",
+          "minOSVersion": "17.0"
+        },
+        {
           "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.11.5%2B286/Runner.ipa",
           "size": 32500000,
           "version": "0.11.5",
