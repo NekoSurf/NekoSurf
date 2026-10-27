@@ -14,6 +14,7 @@ import 'package:flutter_chan/widgets/cupertino_menu.dart';
 import 'package:flutter_chan/widgets/dash_scaffold.dart';
 import 'package:flutter_chan/widgets/feed_player_recycler.dart';
 import 'package:flutter_chan/widgets/reload.dart';
+import 'package:flutter_chan/widgets/resume_toast.dart';
 import 'package:provider/provider.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:share_plus/share_plus.dart';
@@ -54,6 +55,8 @@ class ThreadPageState extends State<ThreadPage> {
   Map<int, int> _replyDescendantCountByPost = const <int, int>{};
   Set<int> _preloadVideoPostIds = const <int>{};
   bool _hasScrolledToLastWatched = false;
+  bool _showResumeToast = false;
+  Timer? _resumeToastTimer;
   bool _didStartPreloading = false;
   Timer? _preloadDebounce;
   final Set<int> _preloadedThumbnailIds = <int>{};
@@ -128,6 +131,7 @@ class ThreadPageState extends State<ThreadPage> {
     );
     _preloadDebounce?.cancel();
     _preloadDebounce = null;
+    _resumeToastTimer?.cancel();
     scrollController.dispose();
     unawaited(_playerRecycler.dispose());
     super.dispose();
@@ -363,9 +367,26 @@ class ThreadPageState extends State<ThreadPage> {
               index: latestWatchedPosts.postIndex,
               alignment: 0,
             );
+            if (latestWatchedPosts.postIndex > 0) {
+              _flashResumeToast();
+            }
           }
         });
       }
+    }
+  }
+
+  void _flashResumeToast() {
+    _resumeToastTimer?.cancel();
+    setState(() => _showResumeToast = true);
+    _resumeToastTimer = Timer(const Duration(seconds: 4), _hideResumeToast);
+  }
+
+  void _hideResumeToast() {
+    _resumeToastTimer?.cancel();
+    _resumeToastTimer = null;
+    if (mounted && _showResumeToast) {
+      setState(() => _showResumeToast = false);
     }
   }
 
@@ -451,55 +472,80 @@ class ThreadPageState extends State<ThreadPage> {
                   });
                 }
 
-                return ScrollablePositionedList.builder(
-                  padding: EdgeInsets.only(
-                    bottom: MediaQuery.paddingOf(context).bottom + 8,
-                  ),
-                  shrinkWrap: false,
-                  itemCount: allPosts.length,
-                  itemScrollController: itemScrollController,
-                  itemPositionsListener: itemPositionsListener,
-                  itemBuilder: (context, index) => Padding(
-                    padding: EdgeInsets.only(
-                      top: index == 0
-                          ? MediaQuery.paddingOf(context).top + 8
-                          : 0,
-                    ),
-                    child: ThreadPagePost(
-                      board: widget.board,
-                      thread: widget.thread,
-                      post: allPosts[index],
-                      allPosts: allPosts,
-                      replyCount:
-                          _replyDescendantCountByPost[allPosts[index].no] ?? 0,
-                      preloadVideo: _preloadVideoPostIds.contains(
-                        allPosts[index].no ?? allPosts[index].tim,
+                return Stack(
+                  children: [
+                    _buildPostList(context),
+                    Positioned(
+                      left: 16,
+                      right: 16,
+                      bottom: MediaQuery.paddingOf(context).bottom + 16,
+                      child: Center(
+                        child: ResumeToast(
+                          visible: _showResumeToast,
+                          onBackToTop: () {
+                            _hideResumeToast();
+                            if (itemScrollController.isAttached) {
+                              itemScrollController.scrollTo(
+                                index: 0,
+                                alignment: 0,
+                                duration: const Duration(milliseconds: 500),
+                                curve: Curves.easeInOutCubic,
+                              );
+                            }
+                          },
+                        ),
                       ),
-                      playerRecycler: _playerRecycler,
-                      onDismiss: (postId) {
-                        if (postId == null ||
-                            !itemScrollController.isAttached) {
-                          return;
-                        }
-                        final targetIndex = allPosts.indexWhere(
-                          (post) => post.no == postId || post.tim == postId,
-                        );
-                        if (targetIndex < 0) {
-                          return;
-                        }
-                        itemScrollController.scrollTo(
-                          index: targetIndex,
-                          alignment: 0,
-                          duration: const Duration(milliseconds: 350),
-                          curve: Curves.easeInOutCubic,
-                        );
-                      },
                     ),
-                  ),
+                  ],
                 );
               }
           }
         },
+      ),
+    );
+  }
+
+  Widget _buildPostList(BuildContext context) {
+    return ScrollablePositionedList.builder(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.paddingOf(context).bottom + 8,
+      ),
+      shrinkWrap: false,
+      itemCount: allPosts.length,
+      itemScrollController: itemScrollController,
+      itemPositionsListener: itemPositionsListener,
+      itemBuilder: (context, index) => Padding(
+        padding: EdgeInsets.only(
+          top: index == 0 ? MediaQuery.paddingOf(context).top + 8 : 0,
+        ),
+        child: ThreadPagePost(
+          board: widget.board,
+          thread: widget.thread,
+          post: allPosts[index],
+          allPosts: allPosts,
+          replyCount: _replyDescendantCountByPost[allPosts[index].no] ?? 0,
+          preloadVideo: _preloadVideoPostIds.contains(
+            allPosts[index].no ?? allPosts[index].tim,
+          ),
+          playerRecycler: _playerRecycler,
+          onDismiss: (postId) {
+            if (postId == null || !itemScrollController.isAttached) {
+              return;
+            }
+            final targetIndex = allPosts.indexWhere(
+              (post) => post.no == postId || post.tim == postId,
+            );
+            if (targetIndex < 0) {
+              return;
+            }
+            itemScrollController.scrollTo(
+              index: targetIndex,
+              alignment: 0,
+              duration: const Duration(milliseconds: 350),
+              curve: Curves.easeInOutCubic,
+            );
+          },
+        ),
       ),
     );
   }
