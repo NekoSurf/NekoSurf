@@ -3,6 +3,9 @@ name: Prepare Release
 # Bumps pubspec to <version>+<next Xcode Cloud build number>, tags it (which
 # starts Xcode Cloud), creates the GitHub release, builds and uploads the
 # APK/IPA, and adds the version to source.json.
+#
+# For a longer GitHub release description, commit it to RELEASE_NOTES.md on
+# main before running. It's used as the release body and then removed.
 on:
   workflow_dispatch:
     inputs:
@@ -10,8 +13,12 @@ on:
         description: "Version name, e.g. 0.11.6"
         required: true
         type: string
+      title:
+        description: "Release title (empty = tag)"
+        required: false
+        type: string
       notes:
-        description: "Release notes (GitHub release and AltStore)"
+        description: "One-line notes for AltStore (and GitHub, if there's no RELEASE_NOTES.md)"
         required: true
         type: string
 
@@ -70,10 +77,18 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ inputs.version }}
+          TITLE: ${{ inputs.title }}
           NOTES: ${{ inputs.notes }}
           BUILD: ${{ steps.version.outputs.build }}
           TAG: ${{ steps.version.outputs.tag }}
         run: |
+          if [ -f RELEASE_NOTES.md ]; then
+            cp RELEASE_NOTES.md "$RUNNER_TEMP/notes.md"
+            git rm -q RELEASE_NOTES.md
+          else
+            printf '%s\n' "$NOTES" > "$RUNNER_TEMP/notes.md"
+          fi
+
           sed -i -E "s/^version: .*/version: $VERSION+$BUILD/" pubspec.yaml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -81,7 +96,7 @@ jobs:
           git tag "$TAG"
           git push origin main
           git push origin "$TAG"
-          gh release create "$TAG" --title "$TAG" --notes "$NOTES" --verify-tag
+          gh release create "$TAG" --title "${TITLE:-$TAG}" --notes-file "$RUNNER_TEMP/notes.md" --verify-tag
 
   # A release made with GITHUB_TOKEN doesn't trigger release_build.yml, so
   # build here instead.
