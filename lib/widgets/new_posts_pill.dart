@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 
 /// "5 new posts ↓" pill shown when a live thread update adds posts.
-class NewPostsPill extends StatelessWidget {
+class NewPostsPill extends StatefulWidget {
   const NewPostsPill({Key? key, required this.count, required this.onTap})
     : super(key: key);
 
@@ -11,8 +11,26 @@ class NewPostsPill extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
+  State<NewPostsPill> createState() => _NewPostsPillState();
+}
+
+class _NewPostsPillState extends State<NewPostsPill> {
+  // Keeps showing the last count while the pill fades out, instead of
+  // "0 new posts".
+  late int _shownCount = widget.count;
+
+  @override
+  void didUpdateWidget(covariant NewPostsPill oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.count > 0) {
+      _shownCount = widget.count;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final bool visible = count > 0;
+    final bool visible = widget.count > 0;
+    final int count = _shownCount;
 
     return IgnorePointer(
       ignoring: !visible,
@@ -25,7 +43,7 @@ class NewPostsPill extends StatelessWidget {
           duration: const Duration(milliseconds: 220),
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: onTap,
+            onTap: widget.onTap,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
               decoration: BoxDecoration(
