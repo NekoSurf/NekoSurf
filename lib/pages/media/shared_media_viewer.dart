@@ -54,22 +54,32 @@ class SharedMediaViewerShareAction {
   final VoidCallback onShare;
 }
 
+class SharedMediaViewerSearchAction {
+  const SharedMediaViewerSearchAction({required this.onSearch});
+
+  /// Gets the button's context, to anchor a menu to it.
+  final ValueChanged<BuildContext> onSearch;
+}
+
 class SharedMediaViewerTopBarActions {
   const SharedMediaViewerTopBarActions({
     this.saveToggle,
     this.download,
     this.share,
+    this.search,
   });
 
   final SharedMediaViewerSaveToggleAction? saveToggle;
   final SharedMediaViewerDownloadAction? download;
   final SharedMediaViewerShareAction? share;
+  final SharedMediaViewerSearchAction? search;
 }
 
 class SharedMediaViewerAction {
   const SharedMediaViewerAction({
     required this.icon,
     required this.onPressed,
+    this.onPressedWithContext,
     this.completedIcon,
     this.isBusy = false,
     this.isCompleted = false,
@@ -80,6 +90,9 @@ class SharedMediaViewerAction {
   final IconData icon;
   final IconData? completedIcon;
   final VoidCallback? onPressed;
+
+  /// Used instead of [onPressed] when the action needs the button's context.
+  final ValueChanged<BuildContext>? onPressedWithContext;
   final bool isBusy;
   final bool isCompleted;
   final bool disableWhenBusy;
@@ -555,6 +568,17 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
       );
     }
 
+    final SharedMediaViewerSearchAction? search = actionConfig.search;
+    if (search != null) {
+      actions.add(
+        SharedMediaViewerAction(
+          icon: CupertinoIcons.search,
+          onPressed: null,
+          onPressedWithContext: search.onSearch,
+        ),
+      );
+    }
+
     return actions;
   }
 
@@ -575,9 +599,19 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
     final bool disableForBusy = action.isBusy && action.disableWhenBusy;
     final bool disableForCompleted =
         action.isCompleted && action.disableWhenCompleted;
-    final VoidCallback? onPressed = (disableForBusy || disableForCompleted)
-        ? null
-        : action.onPressed;
+    final bool disabled = disableForBusy || disableForCompleted;
+    final ValueChanged<BuildContext>? withContext = action.onPressedWithContext;
+    if (withContext != null) {
+      return Builder(
+        builder: (buttonContext) => _OverlayButton(
+          bare: true,
+          onPressed: disabled ? null : () => withContext(buttonContext),
+          child: Icon(action.icon, color: Colors.white, size: 18),
+        ),
+      );
+    }
+
+    final VoidCallback? onPressed = disabled ? null : action.onPressed;
 
     return _OverlayButton(
       bare: true,
