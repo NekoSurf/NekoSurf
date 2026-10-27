@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_chan/API/http_client.dart';
 import 'package:flutter_chan/Models/board.dart';
 import 'package:flutter_chan/Models/post.dart';
@@ -26,15 +27,7 @@ Future<List<Post>> fetchCatalog(String board) async {
       throw Exception('Failed to load OPs.');
     }
 
-    final List<Post> ops = <Post>[];
-    // ignore: strict_raw_type
-    for (final page in jsonDecode(response.body) as List) {
-      // ignore: strict_raw_type
-      for (final opInPage in page['threads'] as List) {
-        ops.add(Post.fromJson(opInPage as Map<String?, dynamic>));
-      }
-    }
-    return ops;
+    return await compute(_parseCatalog, response.body);
   } catch (e) {
     throw Exception('Failed to load OPs.');
   }
@@ -101,14 +94,30 @@ Future<List<Post>> fetchAllPostsFromThread(String board, int thread) async {
   );
 
   if (response.statusCode == 200) {
-    final List<Post> posts = (jsonDecode(response.body)['posts'] as List)
-        .map((model) => Post.fromJson(model as Map<String?, dynamic>))
-        .toList();
-
-    return posts;
+    return compute(_parseThread, response.body);
   } else {
     throw Exception('Failed to load posts.');
   }
+}
+
+// Catalogs and big threads run to hundreds of KB of JSON; decoding them on
+// the UI isolate dropped frames during the page transition.
+List<Post> _parseCatalog(String body) {
+  final List<Post> ops = <Post>[];
+  // ignore: strict_raw_type
+  for (final page in jsonDecode(body) as List) {
+    // ignore: strict_raw_type
+    for (final opInPage in page['threads'] as List) {
+      ops.add(Post.fromJson(opInPage as Map<String?, dynamic>));
+    }
+  }
+  return ops;
+}
+
+List<Post> _parseThread(String body) {
+  return (jsonDecode(body)['posts'] as List)
+      .map((model) => Post.fromJson(model as Map<String?, dynamic>))
+      .toList();
 }
 
 Future<List<Post>> fetchAllRepliesToPost(

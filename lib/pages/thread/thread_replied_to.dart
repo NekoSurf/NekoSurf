@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/pages/thread/thread_page_post.dart';
@@ -36,8 +37,20 @@ class _ThreadRepliesToState extends State<ThreadRepliesTo> {
   }
 
   void loadPost() {
+    // The quoted post is almost always in the thread that's already loaded;
+    // only fall back to downloading the thread again when it isn't.
+    Post? loaded;
+    for (final Post candidate in widget.allPosts) {
+      if (candidate.no == widget.post) {
+        loaded = candidate;
+        break;
+      }
+    }
+
     setState(() {
-      _fetchPost = fetchPost(widget.board, widget.thread, widget.post);
+      _fetchPost = loaded != null
+          ? SynchronousFuture<Post?>(loaded)
+          : fetchPost(widget.board, widget.thread, widget.post);
     });
   }
 
