@@ -24,6 +24,15 @@
       ],
       "versions": [
         {
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.12.0%2B290/Runner.ipa",
+          "size": 32538248,
+          "version": "0.12.0",
+          "buildVersion": "290",
+          "date": "2026-10-27T13:41:06+00:00",
+          "localizedDescription": "Android builds now use a permanent signing key. Android users: uninstall once and reinstall this version, then updates work normally. No changes on iOS.",
+          "minOSVersion": "17.0"
+        },
+        {
           "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.12.0%2B289/Runner.ipa",
           "size": 32538250,
           "version": "0.12.0",
