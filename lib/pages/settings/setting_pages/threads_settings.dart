@@ -35,6 +35,10 @@ class ThreadsSettings extends StatelessWidget {
             CupertinoTextField(
               controller: controller,
               autofocus: true,
+              autocorrect: false,
+              enableSuggestions: false,
+              smartDashesType: SmartDashesType.disabled,
+              smartQuotesType: SmartQuotesType.disabled,
               placeholder: r'e.g. crypto|ai slop|\bgeneral\b',
               padding: const EdgeInsets.all(14),
               style: TextStyle(color: DashColors.text(isDark)),
