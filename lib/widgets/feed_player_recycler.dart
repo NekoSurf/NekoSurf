@@ -78,6 +78,8 @@ class FeedPlayerRecycler {
     // Don't stop(): it invalidates VideoController's notifiers for the next owner.
     try {
       await entry.player.pause();
+      // The fullscreen viewer may have changed the speed.
+      await entry.player.setRate(1.0);
     } catch (_) {}
 
     if (_disposed) {

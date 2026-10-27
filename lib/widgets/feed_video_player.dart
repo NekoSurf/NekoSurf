@@ -470,6 +470,9 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
         await player.setAudioTrack(
           _isMuted ? AudioTrack.no() : AudioTrack.auto(),
         );
+        // The viewer may have changed speed or turned looping off.
+        await player.setRate(1.0);
+        await player.setPlaylistMode(PlaylistMode.loop);
         if (showing && _player == player) {
           await player.play();
         } else {

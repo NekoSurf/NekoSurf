@@ -18,6 +18,7 @@ class SettingsProvider with ChangeNotifier {
   bool showStickyThreads = true;
   bool feedVideosStartMuted = true;
   bool trackHistory = true;
+  bool fullscreenAutoAdvance = false;
   List<String> hiddenThreadPatterns = [];
   List<RegExp>? _hiddenPatternRegexes;
 
@@ -71,6 +72,8 @@ class SettingsProvider with ChangeNotifier {
     if (prefs.getBool('trackHistory') != null) {
       trackHistory = prefs.getBool('trackHistory')!;
     }
+
+    fullscreenAutoAdvance = prefs.getBool('fullscreenAutoAdvance') ?? false;
 
     hiddenThreadPatterns = prefs.getStringList('hiddenThreadPatterns') ?? [];
 
@@ -183,6 +186,19 @@ class SettingsProvider with ChangeNotifier {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     trackHistory = value;
     prefs.setBool('trackHistory', value);
+    notifyListeners();
+  }
+
+  /// Fullscreen videos move on to the next item when they end, instead of
+  /// looping.
+  bool getFullscreenAutoAdvance() {
+    return fullscreenAutoAdvance;
+  }
+
+  Future<void> setFullscreenAutoAdvance(bool value) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    fullscreenAutoAdvance = value;
+    prefs.setBool('fullscreenAutoAdvance', value);
     notifyListeners();
   }
 

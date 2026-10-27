@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/widgets/dash_dialogs.dart';
 import 'package:flutter_chan/widgets/feed_player_recycler.dart';
@@ -11,6 +12,7 @@ import 'package:flutter_chan/widgets/video_scrub_gesture.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:preload_page_view/preload_page_view.dart';
+import 'package:provider/provider.dart';
 
 typedef MediaSourceResolver = Future<String> Function(String source);
 
@@ -177,7 +179,32 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
   bool _isImageZoomed = false;
   bool _chromeVisible = true;
 
+  static const List<double> _rates = [1.0, 1.25, 1.5, 2.0, 0.5];
+
+  /// Playback speed for every video in this viewer session.
+  double _rate = 1.0;
+
   void _toggleChrome() => setState(() => _chromeVisible = !_chromeVisible);
+
+  void _cycleRate() {
+    setState(() {
+      _rate = _rates[(_rates.indexOf(_rate) + 1) % _rates.length];
+    });
+  }
+
+  void _advanceAfter(int index) {
+    // Only if that video is still the one showing, and there's a next item.
+    if (!mounted ||
+        index != _currentIndex ||
+        index >= widget.items.length - 1 ||
+        !_pageController.hasClients) {
+      return;
+    }
+    _pageController.nextPage(
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOutCubic,
+    );
+  }
 
   @override
   void initState() {
@@ -254,6 +281,7 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
 
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsProvider>(context);
     final double topInset = MediaQuery.of(context).padding.top;
     final int itemCount = widget.items.length;
     final List<SharedMediaViewerAction> actions = itemCount == 0
@@ -324,6 +352,14 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
                     chromeVisible: _chromeVisible,
                     onTap: _toggleChrome,
                     thumbnail: item.thumbnail,
+                    rate: _rate,
+                    onCycleRate: _cycleRate,
+                    autoAdvance: settings.getFullscreenAutoAdvance(),
+                    onToggleAutoAdvance: () =>
+                        settings.setFullscreenAutoAdvance(
+                          !settings.getFullscreenAutoAdvance(),
+                        ),
+                    onCompleted: () => _advanceAfter(index),
                     onScrubStateChanged: (isScrubbing) {
                       if (!mounted || _isVideoScrubbing == isScrubbing) {
                         return;
@@ -707,11 +743,23 @@ class _SharedMediaVideoPage extends StatefulWidget {
     required this.chromeVisible,
     required this.onTap,
     required this.onScrubStateChanged,
+    required this.rate,
+    required this.onCycleRate,
+    required this.autoAdvance,
+    required this.onToggleAutoAdvance,
+    required this.onCompleted,
     this.handoff,
     this.recycler,
     this.thumbnail,
   }) : super(key: key);
 
+  final double rate;
+  final VoidCallback onCycleRate;
+  final bool autoAdvance;
+  final VoidCallback onToggleAutoAdvance;
+
+  /// The video reached its end; only fires with [autoAdvance] on.
+  final VoidCallback onCompleted;
   final SharedMediaViewerItem item;
   final RecycledPlayer? handoff;
   final FeedPlayerRecycler? recycler;
@@ -737,6 +785,7 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
   StreamSubscription<Duration>? _durationSub;
   StreamSubscription<bool>? _bufferingSub;
   StreamSubscription<Duration>? _bufferSub;
+  StreamSubscription<bool>? _completedSub;
 
   bool _isPlaying = false;
   bool _isBuffering = false;
@@ -777,10 +826,32 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
     super.didUpdateWidget(oldWidget);
 
     if (!oldWidget.isActive && widget.isActive) {
-      _player.play().catchError((_) {});
+      unawaited(_resume());
     } else if (oldWidget.isActive && !widget.isActive) {
       _player.pause().catchError((_) {});
     }
+
+    if (oldWidget.rate != widget.rate) {
+      _player.setRate(widget.rate).catchError((_) {});
+    }
+    if (oldWidget.autoAdvance != widget.autoAdvance) {
+      _player.setPlaylistMode(_playlistMode).catchError((_) {});
+    }
+  }
+
+  PlaylistMode get _playlistMode =>
+      widget.autoAdvance ? PlaylistMode.none : PlaylistMode.loop;
+
+  Future<void> _resume() async {
+    try {
+      await _player.setRate(widget.rate);
+      // With auto-advance a finished video stays at its end; start it over
+      // when paging back to it.
+      if (_player.state.completed) {
+        await _player.seek(Duration.zero);
+      }
+      await _player.play();
+    } catch (_) {}
   }
 
   @override
@@ -854,6 +925,11 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
 
       setState(() => _buffer = buffer);
     });
+    _completedSub = _player.stream.completed.listen((completed) {
+      if (mounted && completed && widget.isActive && widget.autoAdvance) {
+        widget.onCompleted();
+      }
+    });
   }
 
   void _cancelSubscriptions() {
@@ -863,12 +939,14 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
     _durationSub?.cancel();
     _bufferingSub?.cancel();
     _bufferSub?.cancel();
+    _completedSub?.cancel();
     _errorSub = null;
     _playingSub = null;
     _positionSub = null;
     _durationSub = null;
     _bufferingSub = null;
     _bufferSub = null;
+    _completedSub = null;
   }
 
   bool _isItemLoaded() => playerHasMedia(_player, widget.item.source);
@@ -901,7 +979,11 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
         setState(() => _duration = _player.state.duration);
       }
 
-      await _player.setPlaylistMode(PlaylistMode.loop);
+      await _player.setPlaylistMode(_playlistMode);
+      if (!mounted) {
+        return;
+      }
+      await _player.setRate(widget.rate);
       if (!mounted) {
         return;
       }
@@ -921,6 +1003,13 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
         await _player.pause();
       }
     } catch (_) {}
+  }
+
+  String _formatRate(double rate) {
+    final String text = rate == rate.roundToDouble()
+        ? rate.toStringAsFixed(0)
+        : rate.toString();
+    return '$text×';
   }
 
   Future<void> _togglePlayPause() async {
@@ -1210,6 +1299,46 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
                         ),
                       ),
                     ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: widget.onCycleRate,
+                  child: Container(
+                    width: 46,
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: widget.rate == 1.0
+                          ? Colors.white.withValues(alpha: 0.12)
+                          : DashColors.accent.withValues(alpha: 0.25),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      _formatRate(widget.rate),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: widget.onToggleAutoAdvance,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 6, 2, 6),
+                    child: Icon(
+                      widget.autoAdvance
+                          ? CupertinoIcons.forward_end_fill
+                          : CupertinoIcons.repeat,
+                      size: 20,
+                      color: widget.autoAdvance
+                          ? DashColors.accent
+                          : Colors.white,
+                    ),
                   ),
                 ),
               ],
