@@ -260,11 +260,13 @@ class DashThreadCard extends StatelessWidget {
     required this.onTap,
     required this.onRemove,
     this.isArchived = false,
+    this.newReplies = 0,
   }) : super(key: key);
 
   final HistoryThread thread;
   final bool isDark;
   final bool isArchived;
+  final int newReplies;
   final VoidCallback onTap;
   final VoidCallback onRemove;
 
@@ -372,6 +374,10 @@ class DashThreadCard extends StatelessWidget {
                             ),
                           ),
                         ),
+                      ],
+                      if (newReplies > 0) ...[
+                        const SizedBox(width: 6),
+                        NewRepliesBadge(count: newReplies),
                       ],
                     ],
                   ),
@@ -725,6 +731,32 @@ class DashListSection extends StatelessWidget {
         border: Border.all(color: DashColors.border(isDark)),
       ),
       children: children,
+    );
+  }
+}
+
+/// "+12 new" pill for replies posted since you last read a thread.
+class NewRepliesBadge extends StatelessWidget {
+  const NewRepliesBadge({Key? key, required this.count}) : super(key: key);
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: DashColors.accent,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        '+$count new',
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          color: Colors.black,
+        ),
+      ),
     );
   }
 }

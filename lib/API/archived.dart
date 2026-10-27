@@ -120,20 +120,24 @@ Future<BookmarkStatus> _fetchBookmarkStatusFromThread(
   return bookmarkStatus;
 }
 
+/// A thread's status and, when known, its current reply count.
+typedef ThreadCheck = ({ThreadStatus status, int? replies});
+
 /// Like [fetchBookmarkStatus], but only reports [ThreadStatus.deleted] when
 /// 4chan is sure. Returns null when the status is unknown (network error).
-Future<ThreadStatus?> fetchThreadStatus(
+Future<ThreadCheck?> fetchThreadStatus(
   String board,
   int thread, {
   bool force = false,
 }) async {
   try {
     final _BoardSnapshot snapshot = await _boardSnapshot(board, force: force);
-    if (snapshot.live.containsKey(thread)) {
-      return ThreadStatus.online;
+    final Post? op = snapshot.live[thread];
+    if (op != null) {
+      return (status: ThreadStatus.online, replies: op.replies);
     }
     if (snapshot.archived?.contains(thread) ?? false) {
-      return ThreadStatus.archived;
+      return (status: ThreadStatus.archived, replies: null);
     }
   } catch (_) {
     return null;
@@ -147,7 +151,7 @@ Future<ThreadStatus?> fetchThreadStatus(
     );
 
     if (response.statusCode == 404) {
-      return ThreadStatus.deleted;
+      return (status: ThreadStatus.deleted, replies: null);
     }
     if (response.statusCode != 200) {
       return null;
@@ -155,7 +159,10 @@ Future<ThreadStatus?> fetchThreadStatus(
 
     final posts = jsonDecode(response.body)['posts'] as List;
     final op = Post.fromJson(posts.first as Map<String?, dynamic>);
-    return op.archived == 1 ? ThreadStatus.archived : ThreadStatus.online;
+    return (
+      status: op.archived == 1 ? ThreadStatus.archived : ThreadStatus.online,
+      replies: op.replies,
+    );
   } catch (_) {
     return null;
   }

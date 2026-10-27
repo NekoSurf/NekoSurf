@@ -83,12 +83,16 @@ class HistoryProvider with ChangeNotifier {
   List<HistoryThread> _threads = [];
   List<HistoryBoard> _boards = [];
   final Set<String> _archived = {};
+  final Map<String, int> _replies = {};
 
   List<HistoryThread> get threads => List.unmodifiable(_threads);
   List<HistoryBoard> get boards => List.unmodifiable(_boards);
   bool get isEmpty => _threads.isEmpty && _boards.isEmpty;
 
   bool isArchived(HistoryThread t) => _archived.contains(_key(t));
+
+  /// Reply count from the last status check, if known.
+  int? replies(HistoryThread t) => _replies[_key(t)];
 
   String _key(HistoryThread t) => '${t.board}/${t.no}';
 
@@ -199,7 +203,11 @@ class HistoryProvider with ChangeNotifier {
     final deleted = <String>{};
     for (int i = 0; i < threads.length; i++) {
       final key = _key(threads[i]);
-      switch (statuses[i]) {
+      final int? replies = statuses[i]?.replies;
+      if (replies != null) {
+        _replies[key] = replies;
+      }
+      switch (statuses[i]?.status) {
         case ThreadStatus.deleted:
           deleted.add(key);
           _archived.remove(key);

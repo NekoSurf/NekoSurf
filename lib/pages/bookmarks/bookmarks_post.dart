@@ -6,8 +6,10 @@ import 'package:flutter_chan/Models/bookmark_status.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/bookmarks_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
+import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/enums/enums.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
+import 'package:flutter_chan/pages/dashboard/dashboard_widgets.dart';
 import 'package:flutter_chan/pages/replies_row.dart';
 import 'package:flutter_chan/pages/thread/thread_page.dart';
 import 'package:flutter_chan/services/string.dart';
@@ -79,12 +81,22 @@ class _BookmarksPostState extends State<BookmarksPost> {
             : snapshot.data?.replies;
         final bool isDeleted = status == ThreadStatus.deleted;
 
-        final Widget card = _BookmarkCard(
-          favorite: widget.favorite,
-          status: status,
-          replyCount: replyCount,
-          isDeleted: isDeleted,
-          isDark: isDark,
+        final int? replies = replyCount?.replies;
+        final int? threadNo = widget.favorite.no;
+        // Read positions change on every scroll in a thread; only rebuild
+        // when this bookmark's own count changes.
+        final Widget card = Selector<WatchedPostsProvider, int>(
+          selector: (_, watched) => replies == null || threadNo == null
+              ? 0
+              : watched.newReplies(threadNo, replies) ?? 0,
+          builder: (_, newReplies, __) => _BookmarkCard(
+            favorite: widget.favorite,
+            status: status,
+            replyCount: replyCount,
+            newReplies: newReplies,
+            isDeleted: isDeleted,
+            isDark: isDark,
+          ),
         );
 
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -155,6 +167,7 @@ class _BookmarkCard extends StatelessWidget {
     required this.favorite,
     required this.status,
     required this.replyCount,
+    required this.newReplies,
     required this.isDeleted,
     required this.isDark,
   });
@@ -162,6 +175,7 @@ class _BookmarkCard extends StatelessWidget {
   final Bookmark favorite;
   final ThreadStatus? status;
   final ThreadReplyCount? replyCount;
+  final int newReplies;
   final bool isDeleted;
   final bool isDark;
 
@@ -282,9 +296,17 @@ class _BookmarkCard extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 10),
-                RepliesRow(
-                  replies: replyCount?.replies ?? '-',
-                  imageReplies: replyCount?.images ?? '-',
+                Row(
+                  children: [
+                    RepliesRow(
+                      replies: replyCount?.replies ?? '-',
+                      imageReplies: replyCount?.images ?? '-',
+                    ),
+                    if (newReplies > 0) ...[
+                      const SizedBox(width: 8),
+                      NewRepliesBadge(count: newReplies),
+                    ],
+                  ],
                 ),
               ],
             ),

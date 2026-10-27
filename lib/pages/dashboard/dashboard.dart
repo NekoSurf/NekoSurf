@@ -6,6 +6,7 @@ import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/favorite_model.dart';
 import 'package:flutter_chan/blocs/history_model.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
+import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/pages/board/board_page.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_widgets.dart';
@@ -218,12 +219,21 @@ class DashboardState extends State<Dashboard> {
             separatorBuilder: (_, __) => const SizedBox(width: 12),
             itemBuilder: (_, i) {
               final t = history.threads[i];
-              return DashThreadCard(
-                thread: t,
-                isDark: isDark,
-                isArchived: history.isArchived(t),
-                onTap: () => _openThread(t),
-                onRemove: () => history.removeThread(t),
+              final int? replies = history.replies(t);
+              // Read positions change on every scroll in a thread; only
+              // rebuild this card when its own count changes.
+              return Selector<WatchedPostsProvider, int>(
+                selector: (_, watched) => replies == null
+                    ? 0
+                    : watched.newReplies(t.no, replies) ?? 0,
+                builder: (_, newReplies, __) => DashThreadCard(
+                  thread: t,
+                  isDark: isDark,
+                  isArchived: history.isArchived(t),
+                  newReplies: newReplies,
+                  onTap: () => _openThread(t),
+                  onRemove: () => history.removeThread(t),
+                ),
               );
             },
           ),

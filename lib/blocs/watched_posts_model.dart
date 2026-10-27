@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/Models/watched_posts.dart';
@@ -119,11 +120,24 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
       postIndex: postIndex,
       thread: thread,
       watchedAt: DateTime.now(),
+      furthestIndex: max(existing?.furthestIndex ?? postIndex, postIndex),
     );
 
     _watchedPostsByThread[thread] = latestForThread;
     _schedulePersist();
     notifyListeners();
+  }
+
+  /// Replies posted after the furthest post read in [thread], given its
+  /// current reply count. Null if the thread hasn't been read (or its read
+  /// position expired), so unread threads don't show a misleading count.
+  int? newReplies(int thread, int replies) {
+    final WatchedPosts? watched = _watchedPostsByThread[thread];
+    if (watched == null) {
+      return null;
+    }
+    // Index 0 is the OP, so reaching index i means i replies were seen.
+    return max(0, replies - watched.furthestIndex);
   }
 
   Future<void> removeFromWatched(int postIndex, int thread) async {
