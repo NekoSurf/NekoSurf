@@ -24,6 +24,15 @@
       ],
       "versions": [
         {
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.12.0%2B289/Runner.ipa",
+          "size": 32538250,
+          "version": "0.12.0",
+          "buildVersion": "289",
+          "date": "2026-10-27T12:17:40+00:00",
+          "localizedDescription": "Browse archived threads, much smoother videos with loading progress, instant search and sorting, and lots of speed and memory improvements.",
+          "minOSVersion": "17.0"
+        },
+        {
           "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.12.0%2B288/Runner.ipa",
           "size": 32762436,
           "version": "0.12.0",
@@ -66,15 +75,6 @@
           "buildVersion": "282",
           "date": "2026-10-08T00:11:00+02:00",
           "localizedDescription": "Pause videos offscreen and more improvements.",
-          "minOSVersion": "17.6"
-        },
-        {
-          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.11.5-6/Runner.ipa",
-          "size": 32500000,
-          "version": "0.11.5",
-          "buildVersion": "289",
-          "date": "2026-10-03T00:20:00+02:00",
-          "localizedDescription": "Video improvements and interface fixes.",
           "minOSVersion": "17.6"
         },
         {
