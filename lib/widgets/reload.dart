@@ -17,7 +17,7 @@ class _ReloadWidgetState extends State<ReloadWidget> {
   @override
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeChanger>(context);
-    final bool isDark = theme.getTheme() == ThemeData.dark();
+    final bool isDark = theme.isDark;
 
     return Container(
       color: AppColors.pageBackground(isDark),
@@ -34,7 +34,7 @@ class _ReloadWidgetState extends State<ReloadWidget> {
                 'Loading failed',
                 style: TextStyle(
                   fontSize: 18,
-                  color: theme.getTheme() == ThemeData.dark()
+                  color: theme.isDark
                       ? CupertinoColors.white
                       : CupertinoColors.black,
                 ),

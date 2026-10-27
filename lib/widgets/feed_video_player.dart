@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/widgets/feed_player_recycler.dart';
+import 'package:flutter_chan/widgets/image_viewer.dart';
 import 'package:flutter_chan/widgets/video_scrub_gesture.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -606,7 +607,11 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Image.network(widget.thumbnailUrl, fit: BoxFit.cover),
+            Image.network(
+              widget.thumbnailUrl,
+              fit: BoxFit.cover,
+              errorBuilder: imageErrorPlaceholder,
+            ),
 
             if (_controller != null)
               AnimatedOpacity(

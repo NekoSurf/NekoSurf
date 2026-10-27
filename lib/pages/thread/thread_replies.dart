@@ -223,7 +223,7 @@ class _ThreadRepliesState extends State<ThreadReplies> {
   @override
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeChanger>(context);
-    final bool isDark = theme.getTheme() == ThemeData.dark();
+    final bool isDark = theme.isDark;
     final int rootPostId = widget.post.no ?? 0;
     final List<_ReplyTreeEntry> replyEntries = _buildReplyEntries(
       rootPostId,

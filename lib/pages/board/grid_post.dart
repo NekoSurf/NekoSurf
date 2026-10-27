@@ -55,7 +55,7 @@ class _GridPostState extends State<GridPost> {
   Widget build(BuildContext context) {
     final bookmarks = Provider.of<BookmarksProvider>(context);
     final theme = Provider.of<ThemeChanger>(context);
-    final bool isDark = theme.getTheme() == ThemeData.dark();
+    final bool isDark = theme.isDark;
     final Color cardColor = DashColors.card(isDark);
     final Color boardTint = boardColor(widget.board);
     final String headline = unescape(
@@ -107,8 +107,6 @@ class _GridPostState extends State<GridPost> {
                       url:
                           'https://i.4cdn.org/${widget.board}/${widget.post.tim}s.jpg',
                       fit: BoxFit.cover,
-                      height: MediaQuery.of(context).size.height,
-                      width: MediaQuery.of(context).size.width,
                     ),
                     DecoratedBox(
                       decoration: BoxDecoration(

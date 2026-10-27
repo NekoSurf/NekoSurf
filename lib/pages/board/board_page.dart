@@ -30,6 +30,7 @@ class BoardPage extends StatefulWidget {
 class BoardPageState extends State<BoardPage> {
   final TextEditingController _searchBarController = TextEditingController();
 
+  List<Post> _catalog = [];
   List<Post> filteredBoards = [];
   bool _isLoading = true;
   bool _hasError = false;
@@ -65,87 +66,52 @@ class BoardPageState extends State<BoardPage> {
     super.dispose();
   }
 
-  void loadBoard() {
-    final settings = Provider.of<SettingsProvider>(context, listen: false);
-
+  /// Downloads the catalog; sorting and searching then work on this copy.
+  Future<void> loadBoard() async {
     setState(() {
       _isLoading = true;
       _hasError = false;
     });
 
-    fetchAllThreadsFromBoard(
-          settings.getBoardSort(),
-          widget.board,
-          direction: settings.getBoardSortDirection(),
-        )
-        .then((value) {
-          if (mounted) {
-            setState(() {
-              filteredBoards = value;
-              _isLoading = false;
-            });
-          }
-        })
-        .catchError((_) {
-          if (mounted) {
-            setState(() {
-              _isLoading = false;
-              _hasError = true;
-            });
-          }
+    try {
+      final List<Post> catalog = await fetchCatalog(widget.board);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _catalog = catalog;
+        _isLoading = false;
+        _applyView();
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _hasError = true;
         });
+      }
+    }
+  }
+
+  void _applyView() {
+    filteredBoards = filterThreads(
+      sortThreads(_catalog, sort, sortDirection),
+      _searchBarController.text,
+    );
   }
 
   void setSort(Sort sortBy, SettingsProvider settings) {
-    _searchBarController.clear();
     setState(() {
       sort = sortBy;
-      _isLoading = true;
-      _hasError = false;
+      _applyView();
     });
-
-    fetchAllThreadsFromBoard(sortBy, widget.board, direction: sortDirection)
-        .then((value) {
-          if (mounted) {
-            setState(() {
-              filteredBoards = value;
-              _isLoading = false;
-            });
-          }
-        })
-        .catchError((_) {
-          if (mounted)
-            setState(() {
-              _isLoading = false;
-              _hasError = true;
-            });
-        });
   }
 
   void setSortDirection(SortDirection newDirection, SettingsProvider settings) {
-    _searchBarController.clear();
     setState(() {
       sortDirection = newDirection;
-      _isLoading = true;
-      _hasError = false;
+      _applyView();
     });
-
-    fetchAllThreadsFromBoard(sort, widget.board, direction: newDirection)
-        .then((value) {
-          if (mounted) {
-            setState(() {
-              filteredBoards = value;
-              _isLoading = false;
-            });
-          }
-        })
-        .catchError((_) {
-          if (mounted)
-            setState(() {
-              _isLoading = false;
-              _hasError = true;
-            });
-        });
   }
 
   Widget getBoardSliverView(List<Post> threads, SettingsProvider settings) {
@@ -160,16 +126,7 @@ class BoardPageState extends State<BoardPage> {
   }
 
   void _updateThreadsList(String value) {
-    fetchAllThreadsFromBoard(
-      sort,
-      widget.board,
-      searchValue: value,
-      direction: sortDirection,
-    ).then((result) {
-      if (mounted) {
-        setState(() => filteredBoards = result);
-      }
-    });
+    setState(_applyView);
   }
 
   String get _sortLabel {
@@ -285,7 +242,9 @@ class BoardPageState extends State<BoardPage> {
                 color: boardColor(widget.board),
               ),
             ),
-            title: _isLoading ? 'Loading...' : '${visibleThreads.length} threads',
+            title: _isLoading
+                ? 'Loading...'
+                : '${visibleThreads.length} threads',
             subtitle: _sortLabel,
           ),
         ),

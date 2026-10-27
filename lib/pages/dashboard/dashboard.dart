@@ -41,13 +41,16 @@ class DashboardState extends State<Dashboard> {
     super.dispose();
   }
 
-  void _load() {
-    _boardsFuture = fetchAllBoards();
-    Provider.of<HistoryProvider>(context, listen: false).checkThreads();
+  void _load({bool refresh = false}) {
+    _boardsFuture = fetchAllBoards(refresh: refresh);
+    Provider.of<HistoryProvider>(
+      context,
+      listen: false,
+    ).checkThreads(force: refresh);
   }
 
   Future<void> refresh() {
-    setState(_load);
+    setState(() => _load(refresh: true));
     return _boardsFuture.then((_) {}, onError: (_) {});
   }
 

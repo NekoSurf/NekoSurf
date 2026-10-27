@@ -176,12 +176,24 @@ class HistoryProvider with ChangeNotifier {
     );
   }
 
+  static const Duration _checkInterval = Duration(minutes: 5);
+  DateTime? _lastCheck;
+
   /// Drops threads that 4chan no longer has and remembers which are archived.
-  Future<void> checkThreads() async {
+  /// Runs at most every few minutes unless [force]d (pull to refresh).
+  Future<void> checkThreads({bool force = false}) async {
     await _ready;
+    final DateTime now = DateTime.now();
+    if (!force &&
+        _lastCheck != null &&
+        now.difference(_lastCheck!) < _checkInterval) {
+      return;
+    }
+    _lastCheck = now;
+
     final threads = List.of(_threads);
     final statuses = await Future.wait(
-      threads.map((t) => fetchThreadStatus(t.board, t.no)),
+      threads.map((t) => fetchThreadStatus(t.board, t.no, force: force)),
     );
 
     final deleted = <String>{};

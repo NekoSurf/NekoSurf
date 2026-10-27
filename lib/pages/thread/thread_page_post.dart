@@ -14,6 +14,7 @@ import 'package:flutter_chan/pages/thread/thread_replies.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/feed_player_recycler.dart';
 import 'package:flutter_chan/widgets/feed_video_player.dart';
+import 'package:flutter_chan/widgets/image_viewer.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -119,6 +120,15 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     widget.onDismiss(focusedPostId);
   }
 
+  /// The inline card's width in physical pixels, capped at the original's.
+  int? _inlineDecodeWidth(BuildContext context) {
+    final double target =
+        MediaQuery.sizeOf(context).width *
+        MediaQuery.devicePixelRatioOf(context);
+    final int? original = widget.post.w;
+    return original == null ? target.round() : min(original, target.round());
+  }
+
   double _mediaAspectRatio() {
     final int width = widget.post.w ?? widget.post.tnW ?? 1;
     final int height = widget.post.h ?? widget.post.tnH ?? 1;
@@ -144,6 +154,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
             child: Image.network(
               _thumbnailUrl(),
               fit: BoxFit.cover,
+              errorBuilder: imageErrorPlaceholder,
               loadingBuilder: (context, child, loadingProgress) {
                 if (loadingProgress == null) {
                   return child;
@@ -161,6 +172,11 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
             child: Image.network(
               _fullMediaUrl(),
               fit: BoxFit.cover,
+              // Decode at display size: a 4000px original fills ~48 MB once
+              // decoded, for a card about 400pt wide.
+              cacheWidth: _inlineDecodeWidth(context),
+              // The thumbnail underneath stays visible if this fails.
+              errorBuilder: (_, _, _) => const SizedBox.shrink(),
               loadingBuilder: (context, child, loadingProgress) {
                 if (loadingProgress == null) {
                   return child;
@@ -233,7 +249,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
   @override
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeChanger>(context);
-    final bool isDark = theme.getTheme() == ThemeData.dark();
+    final bool isDark = theme.isDark;
     final bool hasMedia = _hasRenderableMedia();
 
     final Color primaryText = DashColors.text(isDark);

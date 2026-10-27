@@ -23,7 +23,7 @@ class _SpoilerTextState extends State<SpoilerText> {
   @override
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeChanger>(context);
-    final isDark = theme.getTheme() == ThemeData.dark();
+    final isDark = theme.isDark;
 
     return GestureDetector(
       onTap: _toggleReveal,

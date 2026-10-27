@@ -19,6 +19,10 @@ class ThemeChanger with ChangeNotifier {
 
   ThemeData getTheme() => _themeData;
 
+  // Cheap check for build methods; comparing against a fresh
+  // ThemeData.dark() builds and deep-compares a whole theme each time.
+  bool get isDark => _themeData.brightness == Brightness.dark;
+
   void setTheme(ThemeData theme) {
     _themeData = theme;
 

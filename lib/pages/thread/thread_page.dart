@@ -72,9 +72,10 @@ class ThreadPageState extends State<ThreadPage> {
       listen: false,
     );
 
-    final positions = itemPositionsListener.itemPositions.value;
-
-    for (final position in positions) {
+    // Positions come in no particular order; remember the furthest post
+    // that is on screen, not whichever happened to be listed last.
+    int? furthest;
+    for (final position in itemPositionsListener.itemPositions.value) {
       if (position.itemLeadingEdge < 0 || position.itemLeadingEdge > 0.85) {
         continue;
       }
@@ -84,7 +85,13 @@ class ThreadPageState extends State<ThreadPage> {
         continue;
       }
 
-      watchedPosts.markAsWatched(postIndex: index, thread: widget.thread);
+      if (furthest == null || index > furthest) {
+        furthest = index;
+      }
+    }
+
+    if (furthest != null) {
+      watchedPosts.markAsWatched(postIndex: furthest, thread: widget.thread);
     }
 
     _schedulePreloadRefresh();

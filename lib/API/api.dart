@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter_chan/API/http_client.dart';
 import 'package:flutter_chan/Models/board.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/enums/enums.dart';
@@ -10,97 +11,92 @@ import 'package:url_launcher/url_launcher.dart';
 Future<List<Post>> fetchAllThreadsFromBoard(
   Sort sorting,
   String board, {
-  String? searchValue,
   SortDirection direction = SortDirection.desc,
 }) async {
+  return sortThreads(await fetchCatalog(board), sorting, direction);
+}
+
+/// Every live thread on [board], in catalog order.
+Future<List<Post>> fetchCatalog(String board) async {
   try {
-    final Response response = await get(
+    final Response response = await httpClient.get(
       Uri.parse('https://a.4cdn.org/$board/catalog.json'),
     );
-
-    List<Post> ops = List.empty(growable: true);
-    // ignore: strict_raw_type
-    final List pages = jsonDecode(response.body) as List;
-
-    if (response.statusCode == 200) {
-      for (final page in pages) {
-        // ignore: strict_raw_type
-        final List opsInPage = page['threads'] as List;
-        for (final opInPage in opsInPage) {
-          ops.add(Post.fromJson(opInPage as Map<String?, dynamic>));
-        }
-      }
-
-      // Thread sorting — always sort ascending first, then reverse for desc
-      if (sorting != null) {
-        switch (sorting) {
-          case Sort.byBumpOrder:
-            ops.sort((a, b) {
-              return (a.lastModified ?? 0).compareTo(b.lastModified ?? 0);
-            });
-            break;
-          case Sort.byReplyCount:
-            ops.sort((a, b) {
-              return (a.replies ?? 0).compareTo(b.replies ?? 0);
-            });
-            break;
-          case Sort.byImagesCount:
-            ops.sort((a, b) {
-              return (a.images ?? 0).compareTo(b.images ?? 0);
-            });
-            break;
-          case Sort.byNewest:
-            ops.sort((a, b) {
-              return (a.time ?? 0).compareTo(b.time ?? 0);
-            });
-            break;
-          case Sort.byOldest:
-            ops.sort((a, b) {
-              return (a.time ?? 0).compareTo(b.time ?? 0);
-            });
-            break;
-        }
-
-        if (direction == SortDirection.desc) {
-          ops = ops.reversed.toList();
-        }
-      }
-
-      // Always hoist sticky threads to the top, preserving their relative order
-      final stickyThreads = ops.where((p) => (p.sticky ?? 0) == 1).toList();
-      final nonStickyThreads = ops.where((p) => (p.sticky ?? 0) != 1).toList();
-      ops = [...stickyThreads, ...nonStickyThreads];
-
-      if (searchValue != null) {
-        ops = ops
-            .where(
-              (element) => element.sub != null
-                  ? element.sub!.toLowerCase().contains(
-                      searchValue.toLowerCase(),
-                    )
-                  : false || element.name != null
-                  ? element.name!.toLowerCase().contains(
-                      searchValue.toLowerCase(),
-                    )
-                  : (false || element.com != null) &&
-                        element.com!.toLowerCase().contains(
-                          searchValue.toLowerCase(),
-                        ),
-            )
-            .toList();
-      }
-
-      return ops;
-    } else {
+    if (response.statusCode != 200) {
       throw Exception('Failed to load OPs.');
     }
+
+    final List<Post> ops = <Post>[];
+    // ignore: strict_raw_type
+    for (final page in jsonDecode(response.body) as List) {
+      // ignore: strict_raw_type
+      for (final opInPage in page['threads'] as List) {
+        ops.add(Post.fromJson(opInPage as Map<String?, dynamic>));
+      }
+    }
+    return ops;
   } catch (e) {
     throw Exception('Failed to load OPs.');
   }
 }
 
+/// Sorts a copy of [threads], with sticky threads hoisted to the top in
+/// their sorted order. Cheap enough to re-run on every sort change.
+List<Post> sortThreads(
+  List<Post> threads,
+  Sort sorting,
+  SortDirection direction,
+) {
+  int key(Post post) {
+    switch (sorting) {
+      case Sort.byBumpOrder:
+        return post.lastModified ?? 0;
+      case Sort.byReplyCount:
+        return post.replies ?? 0;
+      case Sort.byImagesCount:
+        return post.images ?? 0;
+      case Sort.byNewest:
+      case Sort.byOldest:
+        return post.time ?? 0;
+    }
+  }
+
+  // Thread sorting — always sort ascending first, then reverse for desc
+  List<Post> ops = List<Post>.of(threads)
+    ..sort((a, b) => key(a).compareTo(key(b)));
+  if (direction == SortDirection.desc) {
+    ops = ops.reversed.toList();
+  }
+
+  // Always hoist sticky threads to the top, preserving their relative order
+  return [
+    ...ops.where((p) => (p.sticky ?? 0) == 1),
+    ...ops.where((p) => (p.sticky ?? 0) != 1),
+  ];
+}
+
+/// Threads whose subject, name or comment contains [query], ignoring case.
+List<Post> filterThreads(List<Post> threads, String query) {
+  final String needle = query.trim().toLowerCase();
+  if (needle.isEmpty) {
+    return threads;
+  }
+
+  bool matches(String? field) =>
+      field != null && field.toLowerCase().contains(needle);
+
+  return threads
+      .where(
+        (post) =>
+            matches(post.sub) ||
+            matches(post.name) ||
+            matches(unescape(cleanTags(post.com ?? ''))),
+      )
+      .toList();
+}
+
 Future<List<Post>> fetchAllPostsFromThread(String board, int thread) async {
-  final Response response = await get(
+  final Response response = await httpClient.get(
     Uri.parse('https://a.4cdn.org/$board/thread/$thread.json'),
   );
 
@@ -238,8 +234,23 @@ List<Post> collectReplySubtree({
   return collectedReplies;
 }
 
-Future<List<Board>> fetchAllBoards() async {
-  final Response response = await get(
+// The board list practically never changes; fetch it once per app session.
+Future<List<Board>>? _boardsCache;
+
+Future<List<Board>> fetchAllBoards({bool refresh = false}) {
+  if (refresh) {
+    _boardsCache = null;
+  }
+  return _boardsCache ??= _fetchAllBoards()
+    ..catchError((Object _) {
+      // Don't cache a failure; the next call retries.
+      _boardsCache = null;
+      return <Board>[];
+    });
+}
+
+Future<List<Board>> _fetchAllBoards() async {
+  final Response response = await httpClient.get(
     Uri.parse('https://a.4cdn.org/boards.json'),
   );
 

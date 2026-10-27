@@ -6,6 +6,7 @@ import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/API/save_videos.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/bookmarks_model.dart';
+import 'package:flutter_chan/blocs/history_model.dart';
 import 'package:flutter_chan/blocs/saved_attachments_model.dart';
 import 'package:flutter_chan/enums/enums.dart';
 import 'package:flutter_chan/pages/bookmarks/bookmarks.dart';
@@ -227,263 +228,310 @@ class BoardListState extends State<BoardList> {
         listen: false,
       ).setSelecting(false);
     }
-    setState(() => currentIndex = i);
+    if (i == 0 && currentIndex != 0) {
+      // Kept alive, so re-check Continue on return (throttled inside).
+      Provider.of<HistoryProvider>(context, listen: false).checkThreads();
+    }
+    if (i == 2 && currentIndex != 2) {
+      final DateTime now = DateTime.now();
+      final DateTime? shownAt = _bookmarksShownAt;
+      if (shownAt != null &&
+          now.difference(shownAt) > const Duration(minutes: 2)) {
+        // Rebuild so bookmark statuses refresh; the requests are cheap now
+        // that each board is checked once.
+        _bookmarksGeneration++;
+      }
+      _bookmarksShownAt = now;
+    }
+    setState(() {
+      currentIndex = i;
+      _builtTabs.add(i);
+    });
   }
+
+  /// Tabs are built on first visit and then kept alive, so switching back
+  /// keeps their scroll position and doesn't reload their data.
+  final Set<int> _builtTabs = <int>{0};
+  int _bookmarksGeneration = 0;
+  DateTime? _bookmarksShownAt;
 
   @override
   Widget build(BuildContext context) {
-    String buildTitle() {
-      if (currentIndex == 0) {
-        return 'NekoSurf';
-      } else if (currentIndex == 1) {
-        final saved = Provider.of<SavedAttachmentsProvider>(context);
-        if (saved.selecting) {
-          return saved.selected.isEmpty
-              ? 'Select Items'
-              : '${saved.selected.length} Selected';
-        }
-        return 'Saved Attachments';
-      } else if (currentIndex == 2) {
-        return 'Bookmarks';
-      } else if (currentIndex == 3) {
-        return 'Settings';
-      }
-
-      return 'NekoSurf';
-    }
-
-    List<Widget> buildSlivers() {
-      return [
-        if (currentIndex == 0)
-          Dashboard(key: _dashboardKey, onSelectTab: _selectTab),
-        if (currentIndex == 1) const SavedAttachments(),
-        if (currentIndex == 2) const Bookmarks(),
-        if (currentIndex == 3) const Settings(),
-      ];
-    }
-
-    List<Widget> buildActions() {
-      final savedAttachments = Provider.of<SavedAttachmentsProvider>(context);
-      final bookmarks = Provider.of<BookmarksProvider>(context);
-
-      if (currentIndex == 0) {
-        return [
-          DashIconButton(
-            icon: const Icon(CupertinoIcons.link),
-            onPressed: showOpenLinkDialog,
+    return Stack(
+      children: [
+        IndexedStack(
+          index: currentIndex,
+          children: [
+            for (int i = 0; i < 4; i++)
+              TickerMode(
+                enabled: i == currentIndex,
+                child: _builtTabs.contains(i)
+                    ? _buildTab(i)
+                    : const SizedBox.shrink(),
+              ),
+          ],
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: DashTabBar(
+            selectedIndex: currentIndex,
+            onSelected: _selectTab,
+            tabs: const [
+              DashTab(CupertinoIcons.square_grid_2x2_fill, 'Boards'),
+              DashTab(CupertinoIcons.paperclip, 'Saved'),
+              DashTab(CupertinoIcons.bookmark_fill, 'Bookmarks'),
+              DashTab(CupertinoIcons.settings, 'Settings'),
+            ],
           ),
-        ];
-      } else if (currentIndex == 1) {
-        if (savedAttachments.selecting) {
-          final bool hasSelection = savedAttachments.selected.isNotEmpty;
-          return [
+        ),
+      ],
+    );
+  }
+
+  // Each tab listens only to its own provider, so e.g. selecting saved
+  // attachments doesn't rebuild the dashboard.
+  Widget _buildTab(int index) {
+    switch (index) {
+      case 0:
+        return DashScaffold(
+          title: 'NekoSurf',
+          subtitle: 'Browse the boards',
+          leading: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.asset(
+              'assets/icons/icon-round.png',
+              width: 38,
+              height: 38,
+            ),
+          ),
+          actions: [
             DashIconButton(
-              icon: const Icon(CupertinoIcons.arrow_down_to_line),
-              onPressed: hasSelection
-                  ? () async {
-                      final names = savedAttachments.selected.toList();
-                      final failed = await saveSavedAttachmentsToGallery(
-                        names,
-                        context,
-                      );
-                      if (!mounted) {
-                        return;
-                      }
-                      showCupertinoSnackbar(
-                        const Duration(milliseconds: 2200),
-                        failed > 0,
-                        context,
-                        failed == 0
-                            ? 'Saved ${names.length} to Photos'
-                            : '$failed of ${names.length} failed to save',
-                      );
-                    }
-                  : () {},
+              icon: const Icon(CupertinoIcons.link),
+              onPressed: showOpenLinkDialog,
             ),
-            DashIconButton(
-              icon: const Icon(CupertinoIcons.share),
-              onPressed: hasSelection
-                  ? () => shareSavedAttachments(
-                      savedAttachments.selected.toList(),
-                      context,
-                    )
-                  : () {},
-            ),
-            DashIconButton(
-              icon: const Icon(CupertinoIcons.trash, color: Color(0xFFFF5D6C)),
-              onPressed: hasSelection
-                  ? () => showDashDialog<void>(
-                      context: context,
-                      builder: (dialogContext) => DashDialog(
-                        title: Text(
-                          'Delete ${savedAttachments.selected.length} items?',
-                        ),
-                        content: const Text(
-                          'They will be removed from your saved attachments.',
-                        ),
-                        actions: [
-                          DashDialogAction(
-                            child: const Text('Cancel'),
-                            onPressed: () => Navigator.of(dialogContext).pop(),
-                          ),
-                          DashDialogAction(
-                            isDestructiveAction: true,
-                            child: const Text('Delete'),
-                            onPressed: () {
-                              Navigator.of(dialogContext).pop();
-                              savedAttachments.removeSelected(context);
-                            },
-                          ),
-                        ],
-                      ),
-                    )
-                  : () {},
-            ),
-            CupertinoMenuButton(
-              glassIcon: const Icon(CupertinoIcons.ellipsis_circle),
-              isGlass: true,
-              menuChildren: [
-                buildMenuItem(
-                  title: 'Select all',
-                  icon: CupertinoIcons.checkmark_circle_fill,
-                  onPressed: savedAttachments.selectAll,
-                ),
-                buildMenuItem(
-                  title: 'Deselect all',
-                  icon: CupertinoIcons.circle,
-                  onPressed: savedAttachments.deselectAll,
-                ),
-              ],
-            ),
-            DashIconButton(
-              icon: const Icon(CupertinoIcons.xmark),
-              onPressed: () => savedAttachments.setSelecting(false),
-            ),
-          ];
-        }
-        return [
-          CupertinoMenuButton(
-            glassIcon: const Icon(CupertinoIcons.ellipsis_circle),
-            isGlass: true,
-            menuChildren: [
-              buildMenuItem(
-                title: 'Select',
-                icon: CupertinoIcons.checkmark_circle,
-                onPressed: () => savedAttachments.setSelecting(true),
-              ),
-              const DashMenuDivider(),
-              buildMenuItem(
-                title: 'Newest first',
-                icon: CupertinoIcons.arrow_down,
-                isSelected: savedAttachments.newestFirst,
-                onPressed: () => savedAttachments.setNewestFirst(true),
-              ),
-              buildMenuItem(
-                title: 'Oldest first',
-                icon: CupertinoIcons.arrow_up,
-                isSelected: !savedAttachments.newestFirst,
-                onPressed: () => savedAttachments.setNewestFirst(false),
-              ),
-              const DashMenuDivider(),
-              buildMenuItem(
-                title: 'Clear attachments',
-                icon: CupertinoIcons.trash,
-                isDestructive: true,
-                onPressed: () => showDashDialog<void>(
+          ],
+          keyboardDismiss: true,
+          reserveTabBarSpace: true,
+          onRefresh: () async => _dashboardKey.currentState?.refresh(),
+          slivers: [Dashboard(key: _dashboardKey, onSelectTab: _selectTab)],
+        );
+      case 1:
+        return Consumer<SavedAttachmentsProvider>(
+          builder: (context, savedAttachments, _) {
+            final String title = !savedAttachments.selecting
+                ? 'Saved Attachments'
+                : savedAttachments.selected.isEmpty
+                ? 'Select Items'
+                : '${savedAttachments.selected.length} Selected';
+            return DashScaffold(
+              title: title,
+              actions: _savedActions(savedAttachments),
+              keyboardDismiss: true,
+              reserveTabBarSpace: true,
+              slivers: const [SavedAttachments()],
+            );
+          },
+        );
+      case 2:
+        return Consumer<BookmarksProvider>(
+          builder: (context, bookmarks, _) => DashScaffold(
+            title: 'Bookmarks',
+            actions: _bookmarkActions(bookmarks),
+            keyboardDismiss: true,
+            reserveTabBarSpace: true,
+            slivers: [Bookmarks(key: ValueKey(_bookmarksGeneration))],
+          ),
+        );
+      default:
+        return const DashScaffold(
+          title: 'Settings',
+          keyboardDismiss: true,
+          reserveTabBarSpace: true,
+          slivers: [Settings()],
+        );
+    }
+  }
+
+  List<Widget> _savedActions(SavedAttachmentsProvider savedAttachments) {
+    if (savedAttachments.selecting) {
+      final bool hasSelection = savedAttachments.selected.isNotEmpty;
+      return [
+        DashIconButton(
+          icon: const Icon(CupertinoIcons.arrow_down_to_line),
+          onPressed: hasSelection
+              ? () async {
+                  final names = savedAttachments.selected.toList();
+                  final failed = await saveSavedAttachmentsToGallery(
+                    names,
+                    context,
+                  );
+                  if (!mounted) {
+                    return;
+                  }
+                  showCupertinoSnackbar(
+                    const Duration(milliseconds: 2200),
+                    failed > 0,
+                    context,
+                    failed == 0
+                        ? 'Saved ${names.length} to Photos'
+                        : '$failed of ${names.length} failed to save',
+                  );
+                }
+              : () {},
+        ),
+        DashIconButton(
+          icon: const Icon(CupertinoIcons.share),
+          onPressed: hasSelection
+              ? () => shareSavedAttachments(
+                  savedAttachments.selected.toList(),
+                  context,
+                )
+              : () {},
+        ),
+        DashIconButton(
+          icon: const Icon(CupertinoIcons.trash, color: Color(0xFFFF5D6C)),
+          onPressed: hasSelection
+              ? () => showDashDialog<void>(
                   context: context,
                   builder: (dialogContext) => DashDialog(
-                    title: const Text('Clear all attachments?'),
+                    title: Text(
+                      'Delete ${savedAttachments.selected.length} items?',
+                    ),
                     content: const Text(
-                      'This permanently deletes all saved attachments from the app.',
+                      'They will be removed from your saved attachments.',
                     ),
                     actions: [
                       DashDialogAction(
-                        isDefaultAction: true,
                         child: const Text('Cancel'),
                         onPressed: () => Navigator.of(dialogContext).pop(),
                       ),
                       DashDialogAction(
                         isDestructiveAction: true,
-                        child: const Text('Clear'),
+                        child: const Text('Delete'),
                         onPressed: () {
                           Navigator.of(dialogContext).pop();
-                          savedAttachments.clearSavedAttachments(context);
+                          savedAttachments.removeSelected(context);
                         },
                       ),
                     ],
                   ),
-                ),
-              ),
-            ],
-          ),
-        ];
-      } else if (currentIndex == 2) {
-        return [
-          CupertinoMenuButton(
-            glassIcon: const Icon(CupertinoIcons.sort_down),
-            isGlass: true,
-            icon: CupertinoIcons.sort_down,
-            menuChildren: [
-              buildMenuItem(
-                title: 'Newest',
-                icon: CupertinoIcons.clock,
-                onPressed: () => bookmarks.setSort(Sort.byNewest),
-              ),
-              buildMenuItem(
-                title: 'Oldest',
-                icon: CupertinoIcons.clock_fill,
-                onPressed: () => bookmarks.setSort(Sort.byOldest),
-              ),
-            ],
-          ),
-          CupertinoMenuButton(
-            glassIcon: const Icon(CupertinoIcons.ellipsis_circle),
-            isGlass: true,
-            icon: CupertinoIcons.ellipsis_circle,
-            menuChildren: [
-              buildMenuItem(
-                title: 'Clear bookmarks',
-                icon: CupertinoIcons.trash,
-                isDestructive: true,
-                onPressed: () => bookmarks.clearBookmarks(),
-              ),
-            ],
-          ),
-        ];
-      } else {
-        return [];
-      }
+                )
+              : () {},
+        ),
+        CupertinoMenuButton(
+          glassIcon: const Icon(CupertinoIcons.ellipsis_circle),
+          isGlass: true,
+          menuChildren: [
+            buildMenuItem(
+              title: 'Select all',
+              icon: CupertinoIcons.checkmark_circle_fill,
+              onPressed: savedAttachments.selectAll,
+            ),
+            buildMenuItem(
+              title: 'Deselect all',
+              icon: CupertinoIcons.circle,
+              onPressed: savedAttachments.deselectAll,
+            ),
+          ],
+        ),
+        DashIconButton(
+          icon: const Icon(CupertinoIcons.xmark),
+          onPressed: () => savedAttachments.setSelecting(false),
+        ),
+      ];
     }
-
-    return DashScaffold(
-      title: buildTitle(),
-      subtitle: currentIndex == 0 ? 'Browse the boards' : null,
-      leading: currentIndex == 0
-          ? ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.asset(
-                'assets/icons/icon-round.png',
-                width: 38,
-                height: 38,
+    return [
+      CupertinoMenuButton(
+        glassIcon: const Icon(CupertinoIcons.ellipsis_circle),
+        isGlass: true,
+        menuChildren: [
+          buildMenuItem(
+            title: 'Select',
+            icon: CupertinoIcons.checkmark_circle,
+            onPressed: () => savedAttachments.setSelecting(true),
+          ),
+          const DashMenuDivider(),
+          buildMenuItem(
+            title: 'Newest first',
+            icon: CupertinoIcons.arrow_down,
+            isSelected: savedAttachments.newestFirst,
+            onPressed: () => savedAttachments.setNewestFirst(true),
+          ),
+          buildMenuItem(
+            title: 'Oldest first',
+            icon: CupertinoIcons.arrow_up,
+            isSelected: !savedAttachments.newestFirst,
+            onPressed: () => savedAttachments.setNewestFirst(false),
+          ),
+          const DashMenuDivider(),
+          buildMenuItem(
+            title: 'Clear attachments',
+            icon: CupertinoIcons.trash,
+            isDestructive: true,
+            onPressed: () => showDashDialog<void>(
+              context: context,
+              builder: (dialogContext) => DashDialog(
+                title: const Text('Clear all attachments?'),
+                content: const Text(
+                  'This permanently deletes all saved attachments from the app.',
+                ),
+                actions: [
+                  DashDialogAction(
+                    isDefaultAction: true,
+                    child: const Text('Cancel'),
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                  ),
+                  DashDialogAction(
+                    isDestructiveAction: true,
+                    child: const Text('Clear'),
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop();
+                      savedAttachments.clearSavedAttachments(context);
+                    },
+                  ),
+                ],
               ),
-            )
-          : null,
-      actions: buildActions(),
-      keyboardDismiss: true,
-      onRefresh: currentIndex == 0
-          ? () async => _dashboardKey.currentState?.refresh()
-          : null,
-      slivers: buildSlivers(),
-      bottomBar: DashTabBar(
-        selectedIndex: currentIndex,
-        onSelected: _selectTab,
-        tabs: const [
-          DashTab(CupertinoIcons.square_grid_2x2_fill, 'Boards'),
-          DashTab(CupertinoIcons.paperclip, 'Saved'),
-          DashTab(CupertinoIcons.bookmark_fill, 'Bookmarks'),
-          DashTab(CupertinoIcons.settings, 'Settings'),
+            ),
+          ),
         ],
       ),
-    );
+    ];
+  }
+
+  List<Widget> _bookmarkActions(BookmarksProvider bookmarks) {
+    return [
+      CupertinoMenuButton(
+        glassIcon: const Icon(CupertinoIcons.sort_down),
+        isGlass: true,
+        icon: CupertinoIcons.sort_down,
+        menuChildren: [
+          buildMenuItem(
+            title: 'Newest',
+            icon: CupertinoIcons.clock,
+            onPressed: () => bookmarks.setSort(Sort.byNewest),
+          ),
+          buildMenuItem(
+            title: 'Oldest',
+            icon: CupertinoIcons.clock_fill,
+            onPressed: () => bookmarks.setSort(Sort.byOldest),
+          ),
+        ],
+      ),
+      CupertinoMenuButton(
+        glassIcon: const Icon(CupertinoIcons.ellipsis_circle),
+        isGlass: true,
+        icon: CupertinoIcons.ellipsis_circle,
+        menuChildren: [
+          buildMenuItem(
+            title: 'Clear bookmarks',
+            icon: CupertinoIcons.trash,
+            isDestructive: true,
+            onPressed: () => bookmarks.clearBookmarks(),
+          ),
+        ],
+      ),
+    ];
   }
 }

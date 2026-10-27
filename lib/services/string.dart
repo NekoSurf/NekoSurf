@@ -1,5 +1,8 @@
+final RegExp _htmlTag = RegExp('<[^>]*>', multiLine: true);
+final RegExp _quoteLink = RegExp(r'>>(\d+)');
+
 String cleanTags(String body) {
-  return body.replaceAll(RegExp('<[^>]*>', multiLine: true), '');
+  return body.replaceAll(_htmlTag, '');
 }
 
 String unescape(String body) {
@@ -25,7 +28,7 @@ List<int> extractQuotedPostIds(String? body) {
   final String text = unescape(cleanTags(body));
   final List<int> orderedIds = <int>[];
 
-  for (final Match match in RegExp(r'>>(\d+)').allMatches(text)) {
+  for (final Match match in _quoteLink.allMatches(text)) {
     final int? postId = int.tryParse(match.group(1) ?? '');
 
     if (postId != null) {

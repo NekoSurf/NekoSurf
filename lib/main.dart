@@ -123,9 +123,7 @@ class _AppWithThemeState extends State<AppWithTheme>
         child: child!,
       ),
       theme: CupertinoThemeData(
-        brightness: theme.getTheme() == ThemeData.dark()
-            ? Brightness.dark
-            : Brightness.light,
+        brightness: theme.isDark ? Brightness.dark : Brightness.light,
       ),
       localizationsDelegates: const [
         DefaultCupertinoLocalizations.delegate,

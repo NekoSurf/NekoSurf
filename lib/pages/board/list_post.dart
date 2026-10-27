@@ -58,7 +58,7 @@ class _ListPostState extends State<ListPost> {
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeChanger>(context);
     final bookmarks = Provider.of<BookmarksProvider>(context);
-    final bool isDark = theme.getTheme() == ThemeData.dark();
+    final bool isDark = theme.isDark;
     final Color cardColor = DashColors.card(isDark);
     final Color boardTint = boardColor(widget.board);
     final Color primaryText = isDark ? Colors.white : const Color(0xFF121417);
