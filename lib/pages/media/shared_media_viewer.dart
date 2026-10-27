@@ -383,19 +383,6 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
               ),
             ),
           ),
-          if (itemCount > 1)
-            Positioned(
-              right: 10,
-              top: 0,
-              bottom: 0,
-              child: IgnorePointer(
-                child: AnimatedOpacity(
-                  opacity: _chromeVisible ? 1 : 0,
-                  duration: const Duration(milliseconds: 200),
-                  child: Center(child: _buildPagerRail(itemCount)),
-                ),
-              ),
-            ),
         ],
       ),
     );
@@ -420,34 +407,6 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildPagerRail(int itemCount) {
-    const int window = 7;
-    final int start = (_currentIndex - window ~/ 2).clamp(
-      0,
-      itemCount > window ? itemCount - window : 0,
-    );
-    final int end = (start + window).clamp(0, itemCount);
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (int i = start; i < end; i++)
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: 4,
-            height: i == _currentIndex ? 20 : 4,
-            margin: const EdgeInsets.symmetric(vertical: 2.5),
-            decoration: BoxDecoration(
-              color: i == _currentIndex
-                  ? DashColors.accent
-                  : Colors.white.withValues(alpha: 0.35),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-      ],
     );
   }
 
