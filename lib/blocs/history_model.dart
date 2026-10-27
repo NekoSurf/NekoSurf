@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_chan/API/archived.dart';
+import 'package:flutter_chan/enums/enums.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class HistoryThread {
@@ -69,7 +71,7 @@ class HistoryBoard {
 
 class HistoryProvider with ChangeNotifier {
   HistoryProvider() {
-    _load();
+    _ready = _load();
   }
 
   static const String _threadsKey = 'historyThreads';
@@ -77,12 +79,18 @@ class HistoryProvider with ChangeNotifier {
   static const int maxThreads = 12;
   static const int maxBoards = 8;
 
+  late final Future<void> _ready;
   List<HistoryThread> _threads = [];
   List<HistoryBoard> _boards = [];
+  final Set<String> _archived = {};
 
   List<HistoryThread> get threads => List.unmodifiable(_threads);
   List<HistoryBoard> get boards => List.unmodifiable(_boards);
   bool get isEmpty => _threads.isEmpty && _boards.isEmpty;
+
+  bool isArchived(HistoryThread t) => _archived.contains(_key(t));
+
+  String _key(HistoryThread t) => '${t.board}/${t.no}';
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -166,6 +174,44 @@ class HistoryProvider with ChangeNotifier {
       _boardsKey,
       _boards.map((b) => json.encode(b.toJson())).toList(),
     );
+  }
+
+  /// Drops threads that 4chan no longer has and remembers which are archived.
+  Future<void> checkThreads() async {
+    await _ready;
+    final threads = List.of(_threads);
+    final statuses = await Future.wait(
+      threads.map((t) => fetchThreadStatus(t.board, t.no)),
+    );
+
+    final deleted = <String>{};
+    for (int i = 0; i < threads.length; i++) {
+      final key = _key(threads[i]);
+      switch (statuses[i]) {
+        case ThreadStatus.deleted:
+          deleted.add(key);
+          _archived.remove(key);
+        case ThreadStatus.archived:
+          _archived.add(key);
+        case ThreadStatus.online:
+          _archived.remove(key);
+        case null:
+          break;
+      }
+    }
+
+    if (deleted.isNotEmpty) {
+      _threads.removeWhere((t) => deleted.contains(_key(t)));
+    }
+    notifyListeners();
+
+    if (deleted.isNotEmpty) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(
+        _threadsKey,
+        _threads.map((t) => json.encode(t.toJson())).toList(),
+      );
+    }
   }
 
   Future<void> removeThread(HistoryThread thread) async {

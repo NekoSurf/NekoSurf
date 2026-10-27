@@ -115,7 +115,7 @@ class DashHero extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(20),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -135,11 +135,11 @@ class DashHero extends StatelessWidget {
       child: Stack(
         children: [
           Positioned(
-            right: -50,
-            top: -60,
+            right: -30,
+            top: -50,
             child: Container(
-              width: 180,
-              height: 180,
+              width: 120,
+              height: 120,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
@@ -152,48 +152,25 @@ class DashHero extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 7,
-                      height: 7,
-                      decoration: const BoxDecoration(
-                        color: DashColors.accent,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'NEKOSURF',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.4,
-                        color: DashColors.text(isDark).withValues(alpha: 0.7),
-                      ),
-                    ),
-                  ],
+                Container(
+                  width: 7,
+                  height: 7,
+                  decoration: const BoxDecoration(
+                    color: DashColors.accent,
+                    shape: BoxShape.circle,
+                  ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(width: 10),
                 Text(
                   _greeting,
                   style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.8,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.4,
                     color: DashColors.text(isDark),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Where to next?',
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: DashColors.text(isDark).withValues(alpha: 0.65),
                   ),
                 ),
               ],
@@ -282,10 +259,12 @@ class DashThreadCard extends StatelessWidget {
     required this.isDark,
     required this.onTap,
     required this.onRemove,
+    this.isArchived = false,
   }) : super(key: key);
 
   final HistoryThread thread;
   final bool isDark;
+  final bool isArchived;
   final VoidCallback onTap;
   final VoidCallback onRemove;
 
@@ -353,23 +332,48 @@ class DashThreadCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.9),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      '/${thread.board}/',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.black,
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.9),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '/${thread.board}/',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.black,
+                          ),
+                        ),
                       ),
-                    ),
+                      if (isArchived) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.55),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Text(
+                            'Archived',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   const Spacer(),
                   Text(

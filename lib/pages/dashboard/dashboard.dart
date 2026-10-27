@@ -43,6 +43,7 @@ class DashboardState extends State<Dashboard> {
 
   void _load() {
     _boardsFuture = fetchAllBoards();
+    Provider.of<HistoryProvider>(context, listen: false).checkThreads();
   }
 
   Future<void> refresh() {
@@ -166,15 +167,6 @@ class DashboardState extends State<Dashboard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               DashHero(isDark: isDark),
-              if (favorites.getFavorites().isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: DashFeedCard(
-                    isDark: isDark,
-                    boardCount: favorites.getFavorites().length,
-                    onTap: _openFeed,
-                  ),
-                ),
               if (snapshot.connectionState == ConnectionState.waiting)
                 const Padding(
                   padding: EdgeInsets.only(top: 60),
@@ -226,6 +218,7 @@ class DashboardState extends State<Dashboard> {
               return DashThreadCard(
                 thread: t,
                 isDark: isDark,
+                isArchived: history.isArchived(t),
                 onTap: () => _openThread(t),
                 onRemove: () => history.removeThread(t),
               );
@@ -235,6 +228,14 @@ class DashboardState extends State<Dashboard> {
       ],
       if (favoriteBoards.isNotEmpty) ...[
         DashSectionHeader(title: 'Favorites', isDark: isDark),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: DashFeedCard(
+            isDark: isDark,
+            boardCount: favorites.getFavorites().length,
+            onTap: _openFeed,
+          ),
+        ),
         _group([
           for (final b in favoriteBoards) _row(b, isDark, favorites),
         ], isDark),
