@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -16,6 +17,7 @@ import 'package:flutter_chan/widgets/cupertino_menu.dart';
 import 'package:flutter_chan/widgets/dash_header.dart';
 import 'package:flutter_chan/widgets/dash_scaffold.dart';
 import 'package:flutter_chan/widgets/feed_player_recycler.dart';
+import 'package:flutter_chan/widgets/new_posts_pill.dart';
 import 'package:flutter_chan/widgets/reload.dart';
 import 'package:flutter_chan/widgets/resume_toast.dart';
 import 'package:provider/provider.dart';
@@ -64,6 +66,18 @@ class ThreadPageState extends State<ThreadPage> {
   Timer? _preloadDebounce;
   final Set<int> _preloadedThumbnailIds = <int>{};
 
+  // Live updates. 4chan's API rules ask for at least 10s between requests
+  // for a thread; idle threads back off to a minute.
+  static const Duration _liveMinInterval = Duration(seconds: 15);
+  static const Duration _liveMaxInterval = Duration(seconds: 60);
+  Timer? _liveTimer;
+  Duration _liveInterval = _liveMinInterval;
+  String? _lastModified;
+  bool _liveStopped = false;
+  bool _isVisible = true;
+  int _newPostCount = 0;
+  int _firstNewIndex = -1;
+
   late Bookmark favorite;
   void _markVisiblePostsAsWatched() {
     if (allPosts.isEmpty) {
@@ -95,6 +109,14 @@ class ThreadPageState extends State<ThreadPage> {
 
     if (furthest != null) {
       watchedPosts.markAsWatched(postIndex: furthest, thread: widget.thread);
+      if (_newPostCount > 0 && furthest >= _firstNewIndex) {
+        // Positions can update mid-layout; setState must wait for the frame.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _clearNewPosts();
+          }
+        });
+      }
     }
 
     _schedulePreloadRefresh();
@@ -142,12 +164,26 @@ class ThreadPageState extends State<ThreadPage> {
     _preloadDebounce?.cancel();
     _preloadDebounce = null;
     _resumeToastTimer?.cancel();
+    _liveTimer?.cancel();
     scrollController.dispose();
     unawaited(_playerRecycler.dispose());
     super.dispose();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Covered by the media viewer or gallery: no need to poll meanwhile.
+    _isVisible = TickerMode.valuesOf(context).enabled;
+  }
+
   void loadThread() {
+    _liveTimer?.cancel();
+    _liveStopped = false;
+    _liveInterval = _liveMinInterval;
+    _lastModified = null;
+    _newPostCount = 0;
+    _firstNewIndex = -1;
     _hasScrolledToLastWatched = false;
     _didStartPreloading = false;
     _preloadDebounce?.cancel();
@@ -157,10 +193,131 @@ class ThreadPageState extends State<ThreadPage> {
     setState(() {
       _fetchAllPostsFromThread =
           fetchAllPostsFromThread(widget.board, widget.thread).then((posts) {
+            allPosts = posts;
             _replyDescendantCountByPost = buildReplyDescendantCountIndex(posts);
+            if (_isLive(posts)) {
+              _scheduleLiveUpdate();
+            }
             return posts;
           });
     });
+  }
+
+  /// Archived and closed threads can't get new posts.
+  bool _isLive(List<Post> posts) =>
+      posts.isNotEmpty &&
+      (posts.first.archived ?? 0) != 1 &&
+      (posts.first.closed ?? 0) != 1;
+
+  void _scheduleLiveUpdate() {
+    _liveTimer?.cancel();
+    if (_liveStopped || !mounted) {
+      return;
+    }
+    _liveTimer = Timer(_liveInterval, _pollThread);
+  }
+
+  void _backOff() {
+    _liveInterval = Duration(
+      seconds: min(_liveInterval.inSeconds * 2, _liveMaxInterval.inSeconds),
+    );
+  }
+
+  Future<void> _pollThread() async {
+    if (!mounted || _liveStopped) {
+      return;
+    }
+    final bool foreground =
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+    if (!_isVisible || !foreground) {
+      _scheduleLiveUpdate();
+      return;
+    }
+
+    try {
+      final update = await fetchThreadUpdate(
+        widget.board,
+        widget.thread,
+        lastModified: _lastModified,
+      );
+      if (!mounted || _liveStopped) {
+        return;
+      }
+      _lastModified = update.lastModified;
+
+      if (update.status == 404) {
+        _liveStopped = true;
+        return;
+      }
+
+      final List<Post>? posts = update.posts;
+      if (posts == null || posts.isEmpty) {
+        _backOff();
+      } else {
+        _applyUpdate(posts);
+        if (!_isLive(posts)) {
+          _liveStopped = true;
+          return;
+        }
+      }
+    } catch (_) {
+      _backOff();
+    }
+
+    _scheduleLiveUpdate();
+  }
+
+  /// Swaps in the refreshed posts. New ones are appended below, so the list
+  /// doesn't move; the pill points at the first one.
+  void _applyUpdate(List<Post> posts) {
+    final Set<int?> known = allPosts.map((p) => p.no).toSet();
+    final int firstNew = posts.indexWhere((p) => !known.contains(p.no));
+    final int added = posts.where((p) => !known.contains(p.no)).length;
+
+    if (added == 0) {
+      _backOff();
+    } else {
+      _liveInterval = _liveMinInterval;
+    }
+    if (added == 0 && posts.length == allPosts.length) {
+      return;
+    }
+
+    setState(() {
+      allPosts = posts;
+      _replyDescendantCountByPost = buildReplyDescendantCountIndex(posts);
+      if (added > 0) {
+        if (_firstNewIndex < 0) {
+          _firstNewIndex = firstNew;
+        }
+        _newPostCount += added;
+        _showResumeToast = false;
+      }
+    });
+    _schedulePreloadRefresh();
+  }
+
+  void _clearNewPosts() {
+    if (_newPostCount == 0) {
+      return;
+    }
+    setState(() {
+      _newPostCount = 0;
+      _firstNewIndex = -1;
+    });
+  }
+
+  void _jumpToNewPosts() {
+    final int target = _firstNewIndex;
+    _clearNewPosts();
+    if (target >= 0 && itemScrollController.isAttached) {
+      itemScrollController.scrollTo(
+        index: target,
+        alignment: 0,
+        duration: const Duration(milliseconds: 450),
+        curve: Curves.easeInOutCubic,
+      );
+    }
   }
 
   bool _isVideoPost(Post post) {
@@ -490,7 +647,6 @@ class ThreadPageState extends State<ThreadPage> {
               if (snapshot.hasError) {
                 return ReloadWidget(onReload: () => loadThread());
               } else {
-                allPosts = snapshot.data ?? [];
                 _startPreloadingIfNeeded();
 
                 if (!_hasScrolledToLastWatched) {
@@ -508,8 +664,19 @@ class ThreadPageState extends State<ThreadPage> {
                       right: 16,
                       bottom: MediaQuery.paddingOf(context).bottom + 16,
                       child: Center(
+                        child: NewPostsPill(
+                          count: _newPostCount,
+                          onTap: _jumpToNewPosts,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: 16,
+                      right: 16,
+                      bottom: MediaQuery.paddingOf(context).bottom + 16,
+                      child: Center(
                         child: ResumeToast(
-                          visible: _showResumeToast,
+                          visible: _showResumeToast && _newPostCount == 0,
                           onBackToTop: () {
                             _hideResumeToast();
                             if (itemScrollController.isAttached) {

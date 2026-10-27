@@ -100,6 +100,25 @@ Future<List<Post>> fetchAllPostsFromThread(String board, int thread) async {
   }
 }
 
+/// Re-downloads a thread only if it changed since [lastModified], the
+/// Last-Modified header of the previous response, so polling an idle thread
+/// costs a tiny 304. [posts] is null unless the thread changed (status 200).
+Future<({int status, List<Post>? posts, String? lastModified})>
+fetchThreadUpdate(String board, int thread, {String? lastModified}) async {
+  final Response response = await httpClient.get(
+    Uri.parse('https://a.4cdn.org/$board/thread/$thread.json'),
+    headers: {if (lastModified != null) 'If-Modified-Since': lastModified},
+  );
+
+  return (
+    status: response.statusCode,
+    posts: response.statusCode == 200
+        ? await compute(_parseThread, response.body)
+        : null,
+    lastModified: response.headers['last-modified'] ?? lastModified,
+  );
+}
+
 // Catalogs and big threads run to hundreds of KB of JSON; decoding them on
 // the UI isolate dropped frames during the page transition.
 List<Post> _parseCatalog(String body) {
