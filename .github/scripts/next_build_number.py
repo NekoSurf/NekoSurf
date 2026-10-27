@@ -9,10 +9,12 @@ Env: ASC_ISSUER_ID, ASC_KEY_ID, ASC_PRIVATE_KEY (contents of the .p8 file).
 Usage: next_build_number.py <bundle id> [min build number]
 """
 
+import http.client
 import json
 import os
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -36,12 +38,43 @@ def token() -> str:
     )
 
 
+TIMEOUT = 30  # seconds per request
+ATTEMPTS = 4
+RETRY_STATUS = {429, 500, 502, 503, 504}
+
+
 def get(url: str, auth: str) -> dict:
+    """GET with a timeout, retrying dropped connections, 429 and 5xx.
+
+    App Store Connect occasionally hangs for minutes and then drops the
+    connection; without a timeout that stalled and then failed the release.
+    """
     if not url.startswith("http"):
         url = API + url
     request = urllib.request.Request(url, headers={"Authorization": f"Bearer {auth}"})
-    with urllib.request.urlopen(request) as response:
-        return json.load(response)
+
+    for attempt in range(1, ATTEMPTS + 1):
+        try:
+            with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+                return json.load(response)
+        except urllib.error.HTTPError as error:
+            if error.code not in RETRY_STATUS or attempt == ATTEMPTS:
+                raise
+            reason = f"HTTP {error.code}"
+        except (urllib.error.URLError, http.client.HTTPException, OSError) as error:
+            if attempt == ATTEMPTS:
+                raise
+            reason = repr(error)
+
+        delay = 5 * 2 ** (attempt - 1)  # 5s, 10s, 20s
+        print(
+            f"App Store Connect request failed ({reason}); "
+            f"retrying in {delay}s ({attempt}/{ATTEMPTS - 1})",
+            file=sys.stderr,
+        )
+        time.sleep(delay)
+
+    raise AssertionError("unreachable")
 
 
 def main() -> None:
