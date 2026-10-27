@@ -1,10 +1,12 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/favorite_model.dart';
 import 'package:flutter_chan/blocs/history_model.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/enums/enums.dart';
+import 'package:flutter_chan/pages/archive/archive_page.dart';
 import 'package:flutter_chan/pages/board/grid_view.dart';
 import 'package:flutter_chan/pages/board/list_view.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
@@ -36,6 +38,7 @@ class BoardPageState extends State<BoardPage> {
   bool _hasError = false;
 
   bool isFavorite = false;
+  bool _hasArchive = false;
   late Sort sort;
   late SortDirection sortDirection;
 
@@ -58,6 +61,16 @@ class BoardPageState extends State<BoardPage> {
     });
 
     loadBoard();
+
+    // boards.json is cached for the session, so this is usually instant.
+    fetchAllBoards().then((boards) {
+      final bool hasArchive = boards.any(
+        (b) => b.board == widget.board && b.isArchived == 1,
+      );
+      if (mounted && hasArchive) {
+        setState(() => _hasArchive = true);
+      }
+    }, onError: (_) {});
   }
 
   @override
@@ -177,6 +190,18 @@ class BoardPageState extends State<BoardPage> {
             settings.setBoardViewMode(nextMode);
           },
         ),
+        if (_hasArchive)
+          DashIconButton(
+            icon: const Icon(CupertinoIcons.archivebox),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ArchivePage(
+                  board: widget.board,
+                  boardName: widget.boardName,
+                ),
+              ),
+            ),
+          ),
         CupertinoMenuButton(
           isGlass: true,
           menuChildren: [
