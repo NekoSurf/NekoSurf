@@ -14,7 +14,7 @@ class SettingsProvider with ChangeNotifier {
   SortDirection boardSortDirection = SortDirection.desc;
   ViewMode boardViewMode = ViewMode.grid;
   int watchedPostsRetentionDays = 7;
-  bool autoScrollToLastSeen = false;
+  bool autoScrollToLastSeen = true;
   bool showStickyThreads = true;
   bool feedVideosStartMuted = true;
   bool trackHistory = true;
