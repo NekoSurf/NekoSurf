@@ -4,6 +4,9 @@ name: Prepare Release
 # starts Xcode Cloud), creates the GitHub release, builds and uploads the
 # APK/IPA, and adds the version to source.json.
 #
+# Pushes to the protected main branch with the RELEASE_DEPLOY_KEY deploy key,
+# which is on the main ruleset's bypass list.
+#
 # For a longer GitHub release description, commit it to RELEASE_NOTES.md on
 # main before running. It's used as the release body and then removed.
 on:
@@ -40,6 +43,7 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
 
       - uses: actions/setup-python@v5
         with:
@@ -121,6 +125,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
 
       - uses: actions/download-artifact@v4
         with:
@@ -137,4 +142,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -am "chore: add $TAG to source.json"
+          git pull --rebase origin main
           git push origin main
