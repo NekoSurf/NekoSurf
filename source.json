@@ -5,7 +5,9 @@
   "iconURL": "https://i.imgur.com/QvADqxl.png",
   "website": "https://github.com/NekoSurf/NekoSurf",
   "tintColor": "#6dd4ec",
-  "featuredApps": ["com.wrngwrld.Chanyan"],
+  "featuredApps": [
+    "com.wrngwrld.Chanyan"
+  ],
   "apps": [
     {
       "name": "NekoSurf",
@@ -22,7 +24,7 @@
       ],
       "versions": [
         {
-          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.11.5-286/Runner.ipa",
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.11.5%2B286/Runner.ipa",
           "size": 32500000,
           "version": "0.11.5",
           "buildVersion": "286",
@@ -31,7 +33,7 @@
           "minOSVersion": "17.6"
         },
         {
-          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.11.5-285/Runner.ipa",
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.11.5%2B285/Runner.ipa",
           "size": 32500000,
           "version": "0.11.5",
           "buildVersion": "285",
@@ -40,7 +42,7 @@
           "minOSVersion": "17.6"
         },
         {
-          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.11.5-284/Runner.ipa",
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.11.5%2B284/Runner.ipa",
           "size": 32500000,
           "version": "0.11.5",
           "buildVersion": "284",
@@ -49,7 +51,7 @@
           "minOSVersion": "17.6"
         },
         {
-          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.11.5-282/Runner.ipa",
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.11.5%2B282/Runner.ipa",
           "size": 32500000,
           "version": "0.11.5",
           "buildVersion": "282",

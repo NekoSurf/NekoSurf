@@ -19,6 +19,13 @@ flutter pub get
 # Regenerate iOS build settings and generated Swift package manifests.
 # This avoids stale/default deployment targets (e.g. 13.0) in
 # FlutterGeneratedPluginSwiftPackage when Xcode Cloud archives directly.
-flutter build ios --config-only --no-codesign
+#
+# Use Xcode Cloud's own build number so uploads never collide. Prepare Release
+# predicts this number, so it normally matches the tag; warn if it doesn't.
+PUBSPEC_BUILD=$(sed -nE 's/^version: .*\+([0-9]+)$/\1/p' pubspec.yaml)
+if [[ -n "$CI_BUILD_NUMBER" && "$CI_BUILD_NUMBER" != "$PUBSPEC_BUILD" ]]; then
+  echo "warning: Xcode Cloud build number $CI_BUILD_NUMBER differs from pubspec ($PUBSPEC_BUILD)"
+fi
+flutter build ios --config-only --no-codesign ${CI_BUILD_NUMBER:+--build-number=$CI_BUILD_NUMBER}
 
 exit 0

@@ -1,0 +1,125 @@
+name: Prepare Release
+
+# Bumps pubspec to <version>+<next Xcode Cloud build number>, tags it (which
+# starts Xcode Cloud), creates the GitHub release, builds and uploads the
+# APK/IPA, and adds the version to source.json.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version name, e.g. 0.11.6"
+        required: true
+        type: string
+      notes:
+        description: "Release notes (GitHub release and AltStore)"
+        required: true
+        type: string
+
+concurrency: release
+
+env:
+  BUNDLE_ID: com.wrngwrld.Chanyan
+
+jobs:
+  prepare:
+    name: Bump version and tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install "pyjwt[crypto]"
+
+      - name: Work out the version
+        id: version
+        env:
+          VERSION: ${{ inputs.version }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+        run: |
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Version must look like 1.2.3, got '$VERSION'"
+            exit 1
+          fi
+
+          LAST_TAG_BUILD=$(git tag --list 'v*+*' | sed -E 's/.*\+([0-9]+)$/\1/' | sort -n | tail -1)
+          BUILD=$(python .github/scripts/next_build_number.py "$BUNDLE_ID" "$(( ${LAST_TAG_BUILD:-0} + 1 ))")
+          TAG="v$VERSION+$BUILD"
+
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "::error::Tag $TAG already exists"
+            exit 1
+          fi
+
+          echo "Releasing $TAG"
+          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Commit, tag and create the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version }}
+          NOTES: ${{ inputs.notes }}
+          BUILD: ${{ steps.version.outputs.build }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          sed -i -E "s/^version: .*/version: $VERSION+$BUILD/" pubspec.yaml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore: release $TAG"
+          git tag "$TAG"
+          git push origin main
+          git push origin "$TAG"
+          gh release create "$TAG" --title "$TAG" --notes "$NOTES" --verify-tag
+
+  # A release made with GITHUB_TOKEN doesn't trigger release_build.yml, so
+  # build here instead.
+  build:
+    needs: prepare
+    uses: ./.github/workflows/_build.yml
+    with:
+      ref: ${{ needs.prepare.outputs.tag }}
+      release_tag: ${{ needs.prepare.outputs.tag }}
+
+  publish:
+    name: Upload artifacts and update source.json
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+      NOTES: ${{ inputs.notes }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Upload to release
+        run: gh release upload "$TAG" artifacts/* --repo "$GITHUB_REPOSITORY"
+
+      - name: Add version to source.json
+        run: |
+          IPA=$(ls artifacts/*.ipa | head -1)
+          python3 .github/scripts/add_source_version.py "$TAG" "$IPA" "$NOTES"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore: add $TAG to source.json"
+          git push origin main
