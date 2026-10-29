@@ -13,6 +13,7 @@ import 'package:flutter_chan/pages/bookmarks/bookmarks.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/pages/savedAttachments/saved_attachments.dart';
+import 'package:flutter_chan/pages/search/search_page.dart';
 import 'package:flutter_chan/pages/settings/settings.dart';
 import 'package:flutter_chan/pages/thread/thread_page.dart';
 import 'package:flutter_chan/services/show_snackbar.dart';
@@ -307,6 +308,12 @@ class BoardListState extends State<BoardList> {
             ),
           ),
           actions: [
+            DashIconButton(
+              icon: const Icon(CupertinoIcons.search),
+              onPressed: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const SearchPage())),
+            ),
             DashIconButton(
               icon: const Icon(CupertinoIcons.link),
               onPressed: showOpenLinkDialog,

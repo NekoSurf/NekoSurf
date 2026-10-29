@@ -33,6 +33,30 @@ Future<List<Post>> fetchCatalog(String board) async {
   }
 }
 
+/// Every live thread on all [boards], each tagged with its board. One failing
+/// board shouldn't hide the rest, so failures are left out; null only when
+/// every board failed.
+Future<List<Post>?> fetchCatalogs(List<String> boards) async {
+  final List<List<Post>?> results = await Future.wait(
+    boards.map(
+      (board) => fetchCatalog(board)
+          .then<List<Post>?>((threads) {
+            for (final Post thread in threads) {
+              thread.board = board;
+            }
+            return threads;
+          })
+          .catchError((_) => null),
+    ),
+  );
+
+  final List<List<Post>> loaded = results.whereType<List<Post>>().toList();
+  if (boards.isNotEmpty && loaded.isEmpty) {
+    return null;
+  }
+  return loaded.expand((threads) => threads).toList();
+}
+
 /// Sorts a copy of [threads], with sticky threads hoisted to the top in
 /// their sorted order. Cheap enough to re-run on every sort change.
 List<Post> sortThreads(

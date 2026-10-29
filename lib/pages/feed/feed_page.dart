@@ -50,30 +50,16 @@ class _FeedPageState extends State<FeedPage> {
       _hasError = false;
     });
 
-    // One failing board shouldn't hide the rest of the feed.
-    final List<List<Post>?> results = await Future.wait(
-      boards.map(
-        (board) => fetchAllThreadsFromBoard(_sort, board)
-            .then<List<Post>?>((threads) {
-              for (final Post thread in threads) {
-                thread.board = board;
-              }
-              return threads;
-            })
-            .catchError((_) => null),
-      ),
-    );
+    final List<Post>? threads = await fetchCatalogs(boards);
 
     if (!mounted) {
       return;
     }
 
-    final List<List<Post>> loaded = results.whereType<List<Post>>().toList();
-
     setState(() {
-      _threads = _sortThreads(loaded.expand((threads) => threads).toList());
+      _threads = _sortThreads(threads ?? <Post>[]);
       _isLoading = false;
-      _hasError = boards.isNotEmpty && loaded.isEmpty;
+      _hasError = threads == null;
     });
   }
 
@@ -99,8 +85,10 @@ class _FeedPageState extends State<FeedPage> {
   }
 
   void _setSort(Sort sort) {
-    _sort = sort;
-    _loadFeed();
+    setState(() {
+      _sort = sort;
+      _threads = _sortThreads(_threads);
+    });
   }
 
   void _setSortDirection(SortDirection direction) {
