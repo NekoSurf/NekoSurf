@@ -66,6 +66,7 @@ class ThreadPageState extends State<ThreadPage> {
   Map<int, int> _replyDescendantCountByPost = const <int, int>{};
   Set<int> _preloadVideoPostIds = const <int>{};
   bool _hasScrolledToLastWatched = false;
+  bool _recordedHistory = false;
   bool _showResumeToast = false;
   Timer? _resumeToastTimer;
   Timer? _highlightTimer;
@@ -145,23 +146,45 @@ class ThreadPageState extends State<ThreadPage> {
     );
 
     itemPositionsListener.itemPositions.addListener(_markVisiblePostsAsWatched);
+  }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted ||
-          !Provider.of<SettingsProvider>(
-            context,
-            listen: false,
-          ).getTrackHistory()) {
-        return;
-      }
-      Provider.of<HistoryProvider>(context, listen: false).recordThread(
-        board: widget.board,
-        no: widget.thread,
-        title: widget.threadName,
-        imageUrl: widget.post.tim != null ? '${widget.post.tim}s.jpg' : null,
-        com: widget.post.com,
-      );
-    });
+  /// Records the thread for "Continue" from its loaded opening post, since
+  /// [ThreadPage.post] can be a bare placeholder (e.g. a reply from search).
+  void _recordHistory(Post op) {
+    if (_recordedHistory ||
+        !mounted ||
+        !Provider.of<SettingsProvider>(
+          context,
+          listen: false,
+        ).getTrackHistory()) {
+      return;
+    }
+    _recordedHistory = true;
+
+    final String subject = unescape(cleanTags(op.sub ?? '')).trim();
+    Provider.of<HistoryProvider>(context, listen: false).recordThread(
+      board: widget.board,
+      no: widget.thread,
+      title: subject.isNotEmpty ? subject : widget.threadName,
+      imageUrl: op.tim != null ? '${op.tim}s.jpg' : null,
+      com: op.com,
+    );
+
+    // A placeholder makes an imageless bookmark too.
+    if (widget.post.tim == null &&
+        widget.post.sub == null &&
+        widget.post.com == null) {
+      // The header's bookmark button is outside the FutureBuilder.
+      setState(() {
+        favorite = Bookmark(
+          no: op.no,
+          sub: op.sub,
+          com: op.com,
+          imageUrl: '${op.tim}s.jpg',
+          board: widget.board,
+        );
+      });
+    }
   }
 
   @override
@@ -203,6 +226,9 @@ class ThreadPageState extends State<ThreadPage> {
       _fetchAllPostsFromThread =
           fetchAllPostsFromThread(widget.board, widget.thread).then((posts) {
             allPosts = posts;
+            if (posts.isNotEmpty) {
+              _recordHistory(posts.first);
+            }
             _replyDescendantCountByPost = buildReplyDescendantCountIndex(posts);
             if (_isLive(posts)) {
               _scheduleLiveUpdate();
