@@ -357,26 +357,13 @@ class _SearchPageState extends State<SearchPage> {
       return [
         SliverFillRemaining(
           hasScrollBody: false,
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              children: [
-                Text(
-                  "Couldn't load results from find.4chan.org.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: DashColors.muted(isDark)),
-                ),
-                const SizedBox(height: 12),
-                CupertinoButton(
-                  onPressed: _searchEverywhere,
-                  child: const Text('Try again'),
-                ),
-                CupertinoButton(
-                  onPressed: _openInBrowser,
-                  child: const Text('Open in browser'),
-                ),
-              ],
-            ),
+          child: ReloadWidget(
+            onReload: _searchEverywhere,
+            icon: CupertinoIcons.search,
+            title: "Couldn't search 4chan",
+            message: "find.4chan.org didn't send any results back.",
+            secondaryLabel: 'Open in browser',
+            onSecondary: _openInBrowser,
           ),
         ),
       ];

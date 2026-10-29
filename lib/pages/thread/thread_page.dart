@@ -660,6 +660,18 @@ class ThreadPageState extends State<ThreadPage> {
             case ConnectionState.waiting:
               return const Center(child: CupertinoActivityIndicator());
             default:
+              if (snapshot.error is ThreadNotFound) {
+                return ReloadWidget(
+                  onReload: () => loadThread(),
+                  icon: CupertinoIcons.trash,
+                  title: 'Thread not found',
+                  message: 'It was deleted or has dropped out of the archive.',
+                  secondaryLabel: 'Open on 4chan',
+                  onSecondary: () => launchURL(
+                    'https://boards.4chan.org/${widget.board}/thread/${widget.thread}',
+                  ),
+                );
+              }
               if (snapshot.hasError) {
                 return ReloadWidget(onReload: () => loadThread());
               } else {

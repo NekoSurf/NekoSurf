@@ -66,9 +66,10 @@ bool isCloudflareChallenge(String body) {
 }
 
 final RegExp _postLink = RegExp(
-  r'boards\.4chan(?:nel)?\.org/(\w+)/thread/(\d+)[^#"]*#p(\d+)',
+  r'boards\.4chan(?:nel)?\.org/(\w+)/thread/(\d+)(?:[^#"\s]*#p(\d+))?',
 );
-final RegExp _fileLink = RegExp(r'i\.4cdn\.org/\w+/(\d+)(\.\w+)$');
+// File names are the upload time in ms (tim), plus "s" for thumbnails.
+final RegExp _fileName = RegExp(r'/(\d{10,})(s?)\.(\w+)(?:$|[?#])');
 final RegExp _offsetLink = RegExp(r'[?&]o=(\d+)');
 final RegExp _hitCount = RegExp(r'(\d[\d,]*) (?:comments?|results?)');
 
@@ -117,16 +118,27 @@ GlobalSearchPage? _parseSearchPage(({String body, int offset}) input) {
 }
 
 Post? _parsePost(Element container) {
+  final bool isOp =
+      container.classes.contains('opContainer') ||
+      container.querySelector('.post.op') != null;
+
   // Board and numbers come from the post's own permalink, not from links
-  // quoted in its comment.
+  // quoted in its comment. Openers may link to their thread without #p.
   Match? link;
   for (final Element a in container.querySelectorAll('a[href]')) {
     if (_isInComment(a)) {
       continue;
     }
-    link = _postLink.firstMatch(a.attributes['href']!);
-    if (link != null) {
+    final Match? match = _postLink.firstMatch(a.attributes['href']!);
+    if (match == null) {
+      continue;
+    }
+    if (match.group(3) != null) {
+      link = match;
       break;
+    }
+    if (isOp) {
+      link ??= match;
     }
   }
   if (link == null) {
@@ -134,7 +146,7 @@ Post? _parsePost(Element container) {
   }
 
   final int thread = int.parse(link.group(2)!);
-  final int no = int.parse(link.group(3)!);
+  final int no = int.tryParse(link.group(3) ?? '') ?? thread;
 
   String? text(String selector) {
     for (final Element element in container.querySelectorAll(selector)) {
@@ -150,9 +162,27 @@ Post? _parsePost(Element container) {
       .querySelector('[data-utc]')
       ?.attributes['data-utc'];
 
-  final Match? file = _fileLink.firstMatch(
-    container.querySelector('a.fileThumb')?.attributes['href'] ?? '',
-  );
+  // The thumbnail's <img> is the surest source; the link around it may
+  // point at the full file or at the thread.
+  final Element? thumb =
+      container.querySelector('.fileThumb') ?? container.querySelector('.file');
+  final Element? img = thumb?.querySelector('img');
+  int? tim;
+  String? ext;
+  for (final String? url in [
+    thumb?.attributes['href'],
+    img?.attributes['src'],
+    img?.attributes['data-src'],
+  ]) {
+    final Match? file = url == null ? null : _fileName.firstMatch(url);
+    if (file == null) {
+      continue;
+    }
+    tim ??= int.parse(file.group(1)!);
+    if (file.group(2)!.isEmpty) {
+      ext ??= '.${file.group(3)}';
+    }
+  }
 
   return Post(
     no: no,
@@ -162,8 +192,8 @@ Post? _parsePost(Element container) {
     name: text('.name'),
     com: container.querySelector('.postMessage')?.innerHtml,
     time: utc == null ? null : int.tryParse(utc),
-    tim: file == null ? null : int.parse(file.group(1)!),
-    ext: file?.group(2),
+    tim: tim,
+    ext: ext,
   );
 }
 
