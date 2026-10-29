@@ -10,6 +10,7 @@ import 'package:flutter_chan/blocs/history_model.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/pages/bookmark_button.dart';
+import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/pages/thread/thread_gallery_page.dart';
 import 'package:flutter_chan/pages/thread/thread_page_post.dart';
 import 'package:flutter_chan/services/string.dart';
@@ -67,6 +68,8 @@ class ThreadPageState extends State<ThreadPage> {
   bool _hasScrolledToLastWatched = false;
   bool _showResumeToast = false;
   Timer? _resumeToastTimer;
+  Timer? _highlightTimer;
+  int? _highlightedPost;
   bool _didStartPreloading = false;
   Timer? _preloadDebounce;
   final Set<int> _preloadedThumbnailIds = <int>{};
@@ -169,6 +172,7 @@ class ThreadPageState extends State<ThreadPage> {
     _preloadDebounce?.cancel();
     _preloadDebounce = null;
     _resumeToastTimer?.cancel();
+    _highlightTimer?.cancel();
     _liveTimer?.cancel();
     scrollController.dispose();
     unawaited(_playerRecycler.dispose());
@@ -318,7 +322,7 @@ class ThreadPageState extends State<ThreadPage> {
     if (target >= 0 && itemScrollController.isAttached) {
       itemScrollController.scrollTo(
         index: target,
-        alignment: 0,
+        alignment: _belowHeader,
         duration: const Duration(milliseconds: 450),
         curve: Curves.easeInOutCubic,
       );
@@ -549,7 +553,7 @@ class ThreadPageState extends State<ThreadPage> {
           if (mounted && itemScrollController.isAttached) {
             itemScrollController.jumpTo(
               index: latestWatchedPosts.postIndex,
-              alignment: 0,
+              alignment: _belowHeader,
             );
             if (latestWatchedPosts.postIndex > 0) {
               _flashResumeToast();
@@ -560,6 +564,27 @@ class ThreadPageState extends State<ThreadPage> {
     }
   }
 
+  /// Alignment that puts a post just below the floating header rather than
+  /// under it (the list runs behind the header).
+  double get _belowHeader {
+    final double height = MediaQuery.sizeOf(context).height;
+    if (height <= 0) {
+      return 0;
+    }
+    return (MediaQuery.paddingOf(context).top + kDashHeaderHeight + 8) / height;
+  }
+
+  /// Briefly tints [post] so it's clear where a jump landed.
+  void _flashPost(int? post) {
+    _highlightTimer?.cancel();
+    setState(() => _highlightedPost = post);
+    _highlightTimer = Timer(const Duration(milliseconds: 1600), () {
+      if (mounted) {
+        setState(() => _highlightedPost = null);
+      }
+    });
+  }
+
   /// The list may not be laid out yet on the first frame; try a few more.
   void _jumpWhenAttached(int index, {int attempts = 10}) {
     Future.delayed(const Duration(milliseconds: 50), () {
@@ -567,7 +592,8 @@ class ThreadPageState extends State<ThreadPage> {
         return;
       }
       if (itemScrollController.isAttached) {
-        itemScrollController.jumpTo(index: index, alignment: 0);
+        itemScrollController.jumpTo(index: index, alignment: _belowHeader);
+        _flashPost(allPosts[index].no);
       } else if (attempts > 1) {
         _jumpWhenAttached(index, attempts: attempts - 1);
       }
@@ -756,33 +782,41 @@ class ThreadPageState extends State<ThreadPage> {
         padding: EdgeInsets.only(
           top: index == 0 ? MediaQuery.paddingOf(context).top + 8 : 0,
         ),
-        child: ThreadPagePost(
-          board: widget.board,
-          thread: widget.thread,
-          post: allPosts[index],
-          allPosts: allPosts,
-          replyCount: _replyDescendantCountByPost[allPosts[index].no] ?? 0,
-          preloadVideo: _preloadVideoPostIds.contains(
-            allPosts[index].no ?? allPosts[index].tim,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOut,
+          color:
+              _highlightedPost != null && allPosts[index].no == _highlightedPost
+              ? DashColors.accent.withValues(alpha: 0.16)
+              : DashColors.accent.withValues(alpha: 0),
+          child: ThreadPagePost(
+            board: widget.board,
+            thread: widget.thread,
+            post: allPosts[index],
+            allPosts: allPosts,
+            replyCount: _replyDescendantCountByPost[allPosts[index].no] ?? 0,
+            preloadVideo: _preloadVideoPostIds.contains(
+              allPosts[index].no ?? allPosts[index].tim,
+            ),
+            playerRecycler: _playerRecycler,
+            onDismiss: (postId) {
+              if (postId == null || !itemScrollController.isAttached) {
+                return;
+              }
+              final targetIndex = allPosts.indexWhere(
+                (post) => post.no == postId || post.tim == postId,
+              );
+              if (targetIndex < 0) {
+                return;
+              }
+              itemScrollController.scrollTo(
+                index: targetIndex,
+                alignment: _belowHeader,
+                duration: const Duration(milliseconds: 350),
+                curve: Curves.easeInOutCubic,
+              );
+            },
           ),
-          playerRecycler: _playerRecycler,
-          onDismiss: (postId) {
-            if (postId == null || !itemScrollController.isAttached) {
-              return;
-            }
-            final targetIndex = allPosts.indexWhere(
-              (post) => post.no == postId || post.tim == postId,
-            );
-            if (targetIndex < 0) {
-              return;
-            }
-            itemScrollController.scrollTo(
-              index: targetIndex,
-              alignment: 0,
-              duration: const Duration(milliseconds: 350),
-              curve: Curves.easeInOutCubic,
-            );
-          },
         ),
       ),
     );
