@@ -76,7 +76,7 @@ class HistoryProvider with ChangeNotifier {
 
   static const String _threadsKey = 'historyThreads';
   static const String _boardsKey = 'historyBoards';
-  static const int maxThreads = 12;
+  static const int maxThreads = 100;
   static const int maxBoards = 8;
 
   late final Future<void> _ready;

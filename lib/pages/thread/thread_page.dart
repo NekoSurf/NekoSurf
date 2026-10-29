@@ -148,7 +148,7 @@ class ThreadPageState extends State<ThreadPage> {
     itemPositionsListener.itemPositions.addListener(_markVisiblePostsAsWatched);
   }
 
-  /// Records the thread for "Continue" from its loaded opening post, since
+  /// Records the thread in history from its loaded opening post, since
   /// [ThreadPage.post] can be a bare placeholder (e.g. a reply from search).
   void _recordHistory(Post op) {
     if (_recordedHistory ||

@@ -38,7 +38,7 @@ class PrivacySettings extends StatelessWidget {
               SettingsGroup(
                 title: 'History',
                 footer:
-                    'Remembers recently opened threads and boards for the Continue and Recent sections. Turning this off also clears what is stored.',
+                    'Lists the threads you've opened on the History page. Turning this off also clears what is stored.',
                 children: [
                   SettingsRow(
                     icon: CupertinoIcons.clock_fill,

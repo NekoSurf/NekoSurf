@@ -2,16 +2,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/Models/board.dart';
-import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/favorite_model.dart';
-import 'package:flutter_chan/blocs/history_model.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
-import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/pages/board/board_page.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_widgets.dart';
 import 'package:flutter_chan/pages/feed/feed_page.dart';
-import 'package:flutter_chan/pages/thread/thread_page.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/reload.dart';
 import 'package:provider/provider.dart';
@@ -44,10 +40,6 @@ class DashboardState extends State<Dashboard> {
 
   void _load({bool refresh = false}) {
     _boardsFuture = fetchAllBoards(refresh: refresh);
-    Provider.of<HistoryProvider>(
-      context,
-      listen: false,
-    ).checkThreads(force: refresh);
   }
 
   Future<void> refresh() {
@@ -65,30 +57,6 @@ class DashboardState extends State<Dashboard> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => BoardPage(board: code, boardName: title),
-      ),
-    );
-  }
-
-  void _openThread(HistoryThread t) {
-    final imageUrl = t.imageUrl;
-    final tim = imageUrl != null && imageUrl.length > 5
-        ? int.tryParse(imageUrl.substring(0, imageUrl.length - 5))
-        : null;
-
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ThreadPage(
-          post: Post(
-            no: t.no,
-            sub: t.title,
-            com: t.com,
-            tim: tim,
-            board: t.board,
-          ),
-          threadName: t.title.isNotEmpty ? t.title : 'No.${t.no}',
-          thread: t.no,
-          board: t.board,
-        ),
       ),
     );
   }
@@ -156,7 +124,6 @@ class DashboardState extends State<Dashboard> {
   Widget build(BuildContext context) {
     final isDark = CupertinoTheme.brightnessOf(context) == Brightness.dark;
     final favorites = Provider.of<FavoriteProvider>(context);
-    final history = Provider.of<HistoryProvider>(context);
     final nsfw = Provider.of<SettingsProvider>(context).getNSFW();
 
     return SliverToBoxAdapter(
@@ -179,7 +146,7 @@ class DashboardState extends State<Dashboard> {
               else if (snapshot.hasError)
                 ReloadWidget(onReload: () => setState(_load))
               else
-                ..._sections(boards, isDark, favorites, history),
+                ..._sections(boards, isDark, favorites),
             ],
           );
         },
@@ -191,7 +158,6 @@ class DashboardState extends State<Dashboard> {
     List<Board> boards,
     bool isDark,
     FavoriteProvider favorites,
-    HistoryProvider history,
   ) {
     final favoriteBoards = boards
         .where((b) => favorites.getFavorites().contains(b.board))
@@ -203,42 +169,6 @@ class DashboardState extends State<Dashboard> {
         : sorted.where(_matches).toList();
 
     return [
-      if (history.threads.isNotEmpty) ...[
-        DashSectionHeader(
-          title: 'Continue',
-          isDark: isDark,
-          actionLabel: 'Clear',
-          onAction: history.clear,
-        ),
-        SizedBox(
-          height: 170,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: history.threads.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
-            itemBuilder: (_, i) {
-              final t = history.threads[i];
-              final int? replies = history.replies(t);
-              // Read positions change on every scroll in a thread; only
-              // rebuild this card when its own count changes.
-              return Selector<WatchedPostsProvider, int>(
-                selector: (_, watched) => replies == null
-                    ? 0
-                    : watched.newReplies(t.no, replies) ?? 0,
-                builder: (_, newReplies, __) => DashThreadCard(
-                  thread: t,
-                  isDark: isDark,
-                  isArchived: history.isArchived(t),
-                  newReplies: newReplies,
-                  onTap: () => _openThread(t),
-                  onRemove: () => history.removeThread(t),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
       if (favoriteBoards.isNotEmpty) ...[
         DashSectionHeader(title: 'Favorites', isDark: isDark),
         Padding(
