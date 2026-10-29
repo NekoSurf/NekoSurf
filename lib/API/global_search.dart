@@ -1,13 +1,13 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter_chan/API/http_client.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:html/dom.dart';
 import 'package:html/parser.dart' as html_parser;
-import 'package:http/http.dart';
 
-// 4chan has no search API: find.4chan.org only serves an HTML page, which
-// is scraped here. If 4chan changes that page's markup, parsing finds
-// nothing and the search page offers to open the site in the browser.
+// 4chan has no search API: find.4chan.org only serves an HTML page, behind
+// Cloudflare. Find4chanBrowser loads it in a web view, which can pass the
+// Cloudflare check, and the page is parsed here. If 4chan changes that
+// page's markup, parsing fails and the search page offers to open the site
+// in the browser.
 
 /// The find.4chan.org page for [query], optionally limited to [board].
 Uri globalSearchUri(String query, {String? board, int offset = 0}) {
@@ -47,27 +47,22 @@ class GlobalSearchPage {
   final int? nextOffset;
 }
 
-Future<GlobalSearchPage> searchAll4chan(
-  String query, {
-  String? board,
+/// [parseGlobalSearchPage] off the UI isolate.
+Future<GlobalSearchPage?> parseGlobalSearchPageInBackground(
+  String body, {
   int offset = 0,
-}) async {
-  final Response response = await httpClient.get(
-    globalSearchUri(query, board: board, offset: offset),
-  );
+}) {
+  return compute(_parseSearchPage, (body: body, offset: offset));
+}
 
-  if (response.statusCode != 200) {
-    throw GlobalSearchUnavailable('HTTP ${response.statusCode}');
-  }
-
-  final GlobalSearchPage? page = await compute(_parseSearchPage, (
-    body: response.body,
-    offset: offset,
-  ));
-  if (page == null) {
-    throw const GlobalSearchUnavailable('Unrecognized response');
-  }
-  return page;
+/// Whether [body] is Cloudflare's "checking your browser" page rather than
+/// find.4chan.org itself.
+bool isCloudflareChallenge(String body) {
+  final String lower = body.toLowerCase();
+  return lower.contains('challenges.cloudflare.com') ||
+      lower.contains('cf-chl') ||
+      lower.contains('challenge-platform') ||
+      lower.contains('<title>just a moment');
 }
 
 final RegExp _postLink = RegExp(
