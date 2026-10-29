@@ -2,8 +2,8 @@ name: TestFlight Status
 
 # Apple reviews each new TestFlight build before testers on the public link
 # can install it, often a day or two after the GitHub release. Once the
-# latest release's build is live, this attaches testflight.json to the
-# release; the iOS app only offers the update after that.
+# latest release's build is live, this appends a hidden marker comment to
+# the release notes; the iOS app only offers the update after that.
 on:
   schedule:
     - cron: "17,47 * * * *"
@@ -27,8 +27,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
-          MARKED=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets \
-            --jq '[.assets[].name] | index("testflight.json") != null')
+          MARKED=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body \
+            --jq '(.body // "") | contains("<!-- testflight: live -->")')
           BUILD=$(sed -nE 's/.*\+([0-9]+)$/\1/p' <<< "$TAG")
 
           echo "Latest release $TAG (build ${BUILD:-none}), marked: $MARKED"
@@ -62,8 +62,11 @@ jobs:
           BUILD: ${{ steps.release.outputs.build }}
         run: |
           if python .github/scripts/testflight_ready.py "$BUNDLE_ID" "$BUILD"; then
-            printf '{"build": %s}\n' "$BUILD" > "$RUNNER_TEMP/testflight.json"
-            gh release upload "$TAG" "$RUNNER_TEMP/testflight.json" --repo "$GITHUB_REPOSITORY"
+            # Hidden on GitHub; the app looks for it in the release body.
+            gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq '.body // ""' \
+              > "$RUNNER_TEMP/notes.md"
+            printf '\n\n<!-- testflight: live -->\n' >> "$RUNNER_TEMP/notes.md"
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file "$RUNNER_TEMP/notes.md"
             echo "Marked $TAG as available on TestFlight"
           else
             echo "Build $BUILD isn't on TestFlight yet"
