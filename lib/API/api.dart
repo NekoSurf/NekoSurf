@@ -92,24 +92,31 @@ List<Post> sortThreads(
   ];
 }
 
-/// Threads whose subject, name or comment contains [query], ignoring case.
+/// Threads whose subject, name and comment together contain every word of
+/// [query], in any order and ignoring case, like find.4chan.org matches.
 List<Post> filterThreads(List<Post> threads, String query) {
-  final String needle = query.trim().toLowerCase();
-  if (needle.isEmpty) {
+  final List<String> words = query
+      .toLowerCase()
+      .split(RegExp(r'\s+'))
+      .where((word) => word.isNotEmpty)
+      .toList();
+  if (words.isEmpty) {
     return threads;
   }
 
-  bool matches(String? field) =>
-      field != null && field.toLowerCase().contains(needle);
+  return threads.where((post) {
+    final String text = [
+      post.sub ?? '',
+      post.name ?? '',
+      unescape(cleanTags(post.com ?? '')),
+    ].join('\n').toLowerCase();
+    return words.every(text.contains);
+  }).toList();
+}
 
-  return threads
-      .where(
-        (post) =>
-            matches(post.sub) ||
-            matches(post.name) ||
-            matches(unescape(cleanTags(post.com ?? ''))),
-      )
-      .toList();
+/// The thread was deleted or has dropped out of the archive.
+class ThreadNotFound implements Exception {
+  const ThreadNotFound();
 }
 
 Future<List<Post>> fetchAllPostsFromThread(String board, int thread) async {
@@ -119,6 +126,8 @@ Future<List<Post>> fetchAllPostsFromThread(String board, int thread) async {
 
   if (response.statusCode == 200) {
     return compute(_parseThread, response.body);
+  } else if (response.statusCode == 404) {
+    throw const ThreadNotFound();
   } else {
     throw Exception('Failed to load posts.');
   }

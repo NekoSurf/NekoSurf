@@ -1,4 +1,6 @@
+import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/API/global_search.dart';
+import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // Shaped like 4chan's board markup, which find.4chan.org reuses.
@@ -105,6 +107,42 @@ void main() {
       isTrue,
     );
     expect(isCloudflareChallenge(_results), isFalse);
+  });
+
+  test('reads openers linked without #p and thumbnails from the img', () {
+    final GlobalSearchPage page = parseGlobalSearchPage('''
+<input name="q">
+<div class="postContainer opContainer">
+  <div class="post op">
+    <div class="file"><a class="fileThumb" href="//boards.4chan.org/b/thread/300"><img src="//i.4cdn.org/b/1700000000456s.jpg"></a></div>
+    <span class="postNum"><a href="//boards.4chan.org/b/thread/300">No.</a></span>
+    <blockquote class="postMessage">hi</blockquote>
+  </div>
+</div>
+<div class="postContainer replyContainer">
+  <div class="post reply">
+    <span class="postNum"><a href="//boards.4chan.org/b/thread/300">Reply</a></span>
+  </div>
+</div>
+''')!;
+
+    // The reply without a #p permalink can't be placed and is skipped.
+    expect(page.posts, hasLength(1));
+    expect(page.posts.single.no, 300);
+    expect(page.posts.single.resto, 0);
+    expect(page.posts.single.board, 'b');
+    expect(page.posts.single.tim, 1700000000456);
+    expect(page.posts.single.ext, isNull);
+  });
+
+  test('favorites search matches every word in any order', () {
+    final List<Post> threads = [
+      Post(no: 1, sub: 'Skinny girl', com: 'more anal threads'),
+      Post(no: 2, sub: 'skinny jeans'),
+    ];
+
+    expect(filterThreads(threads, 'skinny anal').map((p) => p.no), [1]);
+    expect(filterThreads(threads, '  SKINNY ').map((p) => p.no), [1, 2]);
   });
 
   test('builds the find.4chan.org URL', () {
