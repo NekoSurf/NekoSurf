@@ -6,12 +6,12 @@ import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/API/save_videos.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/bookmarks_model.dart';
-import 'package:flutter_chan/blocs/history_model.dart';
 import 'package:flutter_chan/blocs/saved_attachments_model.dart';
 import 'package:flutter_chan/enums/enums.dart';
 import 'package:flutter_chan/pages/bookmarks/bookmarks.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
+import 'package:flutter_chan/pages/history/history_page.dart';
 import 'package:flutter_chan/pages/savedAttachments/saved_attachments.dart';
 import 'package:flutter_chan/pages/search/search_page.dart';
 import 'package:flutter_chan/pages/settings/settings.dart';
@@ -229,10 +229,6 @@ class BoardListState extends State<BoardList> {
         listen: false,
       ).setSelecting(false);
     }
-    if (i == 0 && currentIndex != 0) {
-      // Kept alive, so re-check Continue on return (throttled inside).
-      Provider.of<HistoryProvider>(context, listen: false).checkThreads();
-    }
     if (i == 2 && currentIndex != 2) {
       final DateTime now = DateTime.now();
       final DateTime? shownAt = _bookmarksShownAt;
@@ -308,6 +304,12 @@ class BoardListState extends State<BoardList> {
             ),
           ),
           actions: [
+            DashIconButton(
+              icon: const Icon(CupertinoIcons.clock),
+              onPressed: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const HistoryPage())),
+            ),
             DashIconButton(
               icon: const Icon(CupertinoIcons.search),
               onPressed: () => Navigator.of(

@@ -1,9 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_chan/blocs/history_model.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
-import 'package:flutter_chan/services/string.dart';
-import 'package:flutter_chan/widgets/dash_dialogs.dart';
 
 class DashCard extends StatelessWidget {
   const DashCard({
@@ -89,10 +86,7 @@ class DashSectionHeader extends StatelessWidget {
 }
 
 class DashHero extends StatelessWidget {
-  const DashHero({
-    Key? key,
-    required this.isDark,
-  }) : super(key: key);
+  const DashHero({Key? key, required this.isDark}) : super(key: key);
 
   final bool isDark;
 
@@ -247,165 +241,6 @@ class DashFeedCard extends StatelessWidget {
             color: DashColors.muted(isDark),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class DashThreadCard extends StatelessWidget {
-  const DashThreadCard({
-    Key? key,
-    required this.thread,
-    required this.isDark,
-    required this.onTap,
-    required this.onRemove,
-    this.isArchived = false,
-    this.newReplies = 0,
-  }) : super(key: key);
-
-  final HistoryThread thread;
-  final bool isDark;
-  final bool isArchived;
-  final int newReplies;
-  final VoidCallback onTap;
-  final VoidCallback onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = boardColor(thread.board);
-    final title = unescape(cleanTags(thread.title)).trim();
-    final body = unescape(cleanTags(thread.com ?? '')).trim();
-    final headline = title.isNotEmpty
-        ? title
-        : (body.isNotEmpty ? body : 'No.${thread.no}');
-
-    return GestureDetector(
-      onTap: onTap,
-      onLongPress: () => showDashMenu(
-        context,
-        title: headline,
-        entries: [
-          DashMenuEntry(
-            title: 'Remove from history',
-            icon: CupertinoIcons.trash,
-            isDestructive: true,
-            onPressed: onRemove,
-          ),
-        ],
-      ),
-      child: Container(
-        width: 230,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(22),
-          color: DashColors.card(isDark),
-          border: thread.imageUrl == null
-              ? Border.all(color: DashColors.border(isDark))
-              : null,
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (thread.imageUrl != null)
-              Transform.scale(
-                scale: 1.05,
-                child: Image.network(
-                  'https://i.4cdn.org/${thread.board}/${thread.imageUrl}',
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                ),
-              ),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(
-                      alpha: thread.imageUrl != null ? 0.05 : 0,
-                    ),
-                    Colors.black.withValues(alpha: 0.82),
-                  ],
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: color.withValues(alpha: 0.9),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          '/${thread.board}/',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ),
-                      if (isArchived) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.55),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Text(
-                            'Archived',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ],
-                      if (newReplies > 0) ...[
-                        const SizedBox(width: 6),
-                        NewRepliesBadge(count: newReplies),
-                      ],
-                    ],
-                  ),
-                  const Spacer(),
-                  Text(
-                    headline,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      height: 1.2,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    timeAgo(thread.visitedAt),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.white.withValues(alpha: 0.7),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
