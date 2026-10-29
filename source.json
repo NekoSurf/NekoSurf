@@ -24,6 +24,15 @@
       ],
       "versions": [
         {
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.12.0%2B293/Runner.ipa",
+          "size": 33123987,
+          "version": "0.12.0",
+          "buildVersion": "293",
+          "date": "2026-10-29T10:38:10+00:00",
+          "localizedDescription": "Fixes a crash when leaving the app during a fullscreen video, and the iPhone update notice now waits until TestFlight has the update.",
+          "minOSVersion": "17.0"
+        },
+        {
           "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.12.0%2B292/Runner.ipa",
           "size": 33123856,
           "version": "0.12.0",
