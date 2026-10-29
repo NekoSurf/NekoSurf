@@ -6,6 +6,14 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 const _androidAbiVersionCodeMultiplier = 1000;
 
+/// Attached to a release by the TestFlight Status workflow once Apple has
+/// approved its build for testers on the public link.
+const _testFlightMarker = 'testflight.json';
+
+/// Offer the update anyway if a release was never marked (e.g. the workflow
+/// broke), so iOS users aren't stuck.
+const _testFlightFallback = Duration(days: 7);
+
 Future<Uri?> checkForAppUpdate() async {
   try {
     final packageInfo = await PackageInfo.fromPlatform();
@@ -24,6 +32,9 @@ Future<Uri?> checkForAppUpdate() async {
 
     final release = jsonDecode(response.body) as Map<String, dynamic>;
     if (release['draft'] == true || release['prerelease'] == true) {
+      return null;
+    }
+    if (Platform.isIOS && !_isOnTestFlight(release)) {
       return null;
     }
 
@@ -60,6 +71,21 @@ Future<Uri?> checkForAppUpdate() async {
   } on Exception {
     return null;
   }
+}
+
+/// New builds wait for Apple's beta review, often a day or two after the
+/// GitHub release; until then TestFlight still offers the old one.
+bool _isOnTestFlight(Map<String, dynamic> release) {
+  final assets = release['assets'] as List<dynamic>? ?? const [];
+  if (assets.any((asset) => (asset as Map)['name'] == _testFlightMarker)) {
+    return true;
+  }
+
+  final publishedAt = DateTime.tryParse(
+    release['published_at'] as String? ?? '',
+  );
+  return publishedAt != null &&
+      DateTime.now().difference(publishedAt) > _testFlightFallback;
 }
 
 List<int>? _versionParts(

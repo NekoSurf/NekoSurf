@@ -1,0 +1,70 @@
+name: TestFlight Status
+
+# Apple reviews each new TestFlight build before testers on the public link
+# can install it, often a day or two after the GitHub release. Once the
+# latest release's build is live, this attaches testflight.json to the
+# release; the iOS app only offers the update after that.
+on:
+  schedule:
+    - cron: "17,47 * * * *"
+  workflow_dispatch:
+
+concurrency: testflight-status
+
+env:
+  BUNDLE_ID: com.wrngwrld.Chanyan
+
+jobs:
+  check:
+    name: Mark the release once it's on TestFlight
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Find the latest release
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+          MARKED=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets \
+            --jq '[.assets[].name] | index("testflight.json") != null')
+          BUILD=$(sed -nE 's/.*\+([0-9]+)$/\1/p' <<< "$TAG")
+
+          echo "Latest release $TAG (build ${BUILD:-none}), marked: $MARKED"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
+          if [ "$MARKED" = "false" ] && [ -n "$BUILD" ]; then
+            echo "check=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.release.outputs.check
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+
+      - if: steps.release.outputs.check
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - if: steps.release.outputs.check
+        run: pip install "pyjwt[crypto]"
+
+      - name: Mark the release if its build is on TestFlight
+        if: steps.release.outputs.check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+          TAG: ${{ steps.release.outputs.tag }}
+          BUILD: ${{ steps.release.outputs.build }}
+        run: |
+          if python .github/scripts/testflight_ready.py "$BUNDLE_ID" "$BUILD"; then
+            printf '{"build": %s}\n' "$BUILD" > "$RUNNER_TEMP/testflight.json"
+            gh release upload "$TAG" "$RUNNER_TEMP/testflight.json" --repo "$GITHUB_REPOSITORY"
+            echo "Marked $TAG as available on TestFlight"
+          else
+            echo "Build $BUILD isn't on TestFlight yet"
+          fi
