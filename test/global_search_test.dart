@@ -135,6 +135,26 @@ void main() {
     expect(page.posts.single.ext, isNull);
   });
 
+  test('takes the post number from its ids over thread links', () {
+    final GlobalSearchPage page = parseGlobalSearchPage('''
+<input name="q">
+<div class="postContainer replyContainer" id="pc456">
+  <div class="post reply" id="p456">
+    <a href="//boards.4chan.org/b/thread/123#p123">Thread</a>
+    <a href="//boards.4chan.org/b/thread/123#p456">No.</a>
+  </div>
+</div>
+<div class="postContainer replyContainer" id="pc789">
+  <div class="post reply" id="p789">
+    <a href="//boards.4chan.org/b/thread/123#p123">Thread</a>
+  </div>
+</div>
+''')!;
+
+    expect(page.posts.map((p) => p.no), [456, 789]);
+    expect(page.posts.map((p) => p.resto), [123, 123]);
+  });
+
   test('favorites search matches every word in any order', () {
     final List<Post> threads = [
       Post(no: 1, sub: 'Skinny girl', com: 'more anal threads'),

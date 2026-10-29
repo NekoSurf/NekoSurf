@@ -122,8 +122,12 @@ Post? _parsePost(Element container) {
       container.classes.contains('opContainer') ||
       container.querySelector('.post.op') != null;
 
-  // Board and numbers come from the post's own permalink, not from links
-  // quoted in its comment. Openers may link to their thread without #p.
+  // 4chan's markup numbers every post in its ids (pc123, p123, m123); that
+  // beats links, which can also point at the thread's opening post.
+  final int? idNo = _idNumber(container);
+
+  // Board and thread come from a link to the thread, outside the comment
+  // so quoted posts don't count. The post's own permalink is preferred.
   Match? link;
   for (final Element a in container.querySelectorAll('a[href]')) {
     if (_isInComment(a)) {
@@ -133,20 +137,23 @@ Post? _parsePost(Element container) {
     if (match == null) {
       continue;
     }
-    if (match.group(3) != null) {
+    final int? linked = int.tryParse(match.group(3) ?? '');
+    if (idNo == null ? linked != null : linked == idNo) {
       link = match;
       break;
     }
-    if (isOp) {
-      link ??= match;
-    }
+    link ??= match;
   }
   if (link == null) {
     return null;
   }
 
   final int thread = int.parse(link.group(2)!);
-  final int no = int.tryParse(link.group(3) ?? '') ?? thread;
+  final int? no =
+      idNo ?? int.tryParse(link.group(3) ?? '') ?? (isOp ? thread : null);
+  if (no == null) {
+    return null;
+  }
 
   String? text(String selector) {
     for (final Element element in container.querySelectorAll(selector)) {
@@ -204,4 +211,20 @@ bool _isInComment(Element element) {
     }
   }
   return false;
+}
+
+final RegExp _postId = RegExp(r'^(?:pc|p|m)(\d+)$');
+
+int? _idNumber(Element container) {
+  for (final Element? element in [
+    container,
+    container.querySelector('.post'),
+    container.querySelector('.postMessage'),
+  ]) {
+    final Match? match = _postId.firstMatch(element?.id ?? '');
+    if (match != null) {
+      return int.parse(match.group(1)!);
+    }
+  }
+  return null;
 }
