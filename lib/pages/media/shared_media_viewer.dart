@@ -786,6 +786,8 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
   StreamSubscription<bool>? _bufferingSub;
   StreamSubscription<Duration>? _bufferSub;
   StreamSubscription<bool>? _completedSub;
+  AppLifecycleListener? _lifecycleListener;
+  bool _resumeInForeground = false;
 
   bool _isPlaying = false;
   bool _isBuffering = false;
@@ -819,6 +821,29 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
 
     _attachSubscriptions();
     _load();
+
+    // iOS kills apps that keep rendering video in the background, so pause
+    // while the app is away and pick up again when it's back.
+    _lifecycleListener = AppLifecycleListener(
+      onStateChange: (AppLifecycleState state) {
+        switch (state) {
+          case AppLifecycleState.hidden:
+          case AppLifecycleState.paused:
+          case AppLifecycleState.detached:
+            if (_player.state.playing) {
+              _resumeInForeground = true;
+              _player.pause().catchError((_) {});
+            }
+          case AppLifecycleState.resumed:
+            if (_resumeInForeground && widget.isActive) {
+              unawaited(_resume());
+            }
+            _resumeInForeground = false;
+          case AppLifecycleState.inactive:
+            break;
+        }
+      },
+    );
   }
 
   @override
@@ -856,6 +881,7 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
 
   @override
   void dispose() {
+    _lifecycleListener?.dispose();
     _cancelSubscriptions();
 
     final RecycledPlayer? leased = _leased;
