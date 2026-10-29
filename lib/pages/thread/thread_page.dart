@@ -32,6 +32,7 @@ class ThreadPage extends StatefulWidget {
     required this.threadName,
     required this.post,
     this.fromFavorites = false,
+    this.initialPost,
   }) : super(key: key);
 
   final String board;
@@ -39,6 +40,9 @@ class ThreadPage extends StatefulWidget {
   final String threadName;
   final Post post;
   final bool fromFavorites;
+
+  /// Post to show once the thread loads, instead of the last-read one.
+  final int? initialPost;
 
   @override
   ThreadPageState createState() => ThreadPageState();
@@ -512,6 +516,18 @@ class ThreadPageState extends State<ThreadPage> {
   }
 
   void scrollToLastWatchedPosts(List<Post> allPosts) {
+    final int initialIndex = widget.initialPost == null
+        ? -1
+        : allPosts.indexWhere((post) => post.no == widget.initialPost);
+    if (initialIndex >= 0) {
+      Future.delayed(const Duration(milliseconds: 50), () {
+        if (mounted && itemScrollController.isAttached) {
+          itemScrollController.jumpTo(index: initialIndex, alignment: 0);
+        }
+      });
+      return;
+    }
+
     final settings = Provider.of<SettingsProvider>(context, listen: false);
     final watchedPosts = Provider.of<WatchedPostsProvider>(
       context,
