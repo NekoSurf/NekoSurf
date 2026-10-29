@@ -520,11 +520,7 @@ class ThreadPageState extends State<ThreadPage> {
         ? -1
         : allPosts.indexWhere((post) => post.no == widget.initialPost);
     if (initialIndex >= 0) {
-      Future.delayed(const Duration(milliseconds: 50), () {
-        if (mounted && itemScrollController.isAttached) {
-          itemScrollController.jumpTo(index: initialIndex, alignment: 0);
-        }
-      });
+      _jumpWhenAttached(initialIndex);
       return;
     }
 
@@ -557,6 +553,20 @@ class ThreadPageState extends State<ThreadPage> {
         });
       }
     }
+  }
+
+  /// The list may not be laid out yet on the first frame; try a few more.
+  void _jumpWhenAttached(int index, {int attempts = 10}) {
+    Future.delayed(const Duration(milliseconds: 50), () {
+      if (!mounted) {
+        return;
+      }
+      if (itemScrollController.isAttached) {
+        itemScrollController.jumpTo(index: index, alignment: 0);
+      } else if (attempts > 1) {
+        _jumpWhenAttached(index, attempts: attempts - 1);
+      }
+    });
   }
 
   void _flashResumeToast() {
