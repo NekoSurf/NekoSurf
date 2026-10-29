@@ -56,6 +56,7 @@ dependencies:
   flutter_native_splash: ^2.4.8
   preload_page_view: ^0.2.0
   html: ^0.15.7
+  webview_flutter: ^4.14.1
 
 dev_dependencies:
   flutter_test:

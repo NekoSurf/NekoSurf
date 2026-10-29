@@ -9,6 +9,7 @@ import 'package:flutter_chan/pages/board/list_view.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_widgets.dart';
 import 'package:flutter_chan/pages/thread/thread_page.dart';
+import 'package:flutter_chan/services/find_4chan_browser.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/dash_header.dart';
 import 'package:flutter_chan/widgets/dash_scaffold.dart';
@@ -16,6 +17,7 @@ import 'package:flutter_chan/widgets/image_viewer.dart';
 import 'package:flutter_chan/widgets/reload.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 enum SearchScope { favorites, everywhere }
 
@@ -45,6 +47,7 @@ class _SearchPageState extends State<SearchPage> {
   bool _globalLoading = false;
   bool _globalFailed = false;
   int _globalRequest = 0;
+  Find4chanBrowser? _browser;
 
   @override
   void initState() {
@@ -64,6 +67,7 @@ class _SearchPageState extends State<SearchPage> {
   @override
   void dispose() {
     _search.dispose();
+    _browser?.dispose();
     super.dispose();
   }
 
@@ -99,6 +103,7 @@ class _SearchPageState extends State<SearchPage> {
 
     final int request = ++_globalRequest;
     setState(() {
+      _browser ??= Find4chanBrowser();
       _globalQuery = query;
       _globalLoading = true;
       _globalFailed = false;
@@ -110,7 +115,7 @@ class _SearchPageState extends State<SearchPage> {
     });
 
     try {
-      final GlobalSearchPage page = await searchAll4chan(
+      final GlobalSearchPage page = await _browser!.search(
         query,
         offset: more ? _nextOffset! : 0,
       );
@@ -168,7 +173,7 @@ class _SearchPageState extends State<SearchPage> {
   Widget build(BuildContext context) {
     final bool isDark = CupertinoTheme.brightnessOf(context) == Brightness.dark;
 
-    return DashScaffold(
+    final DashScaffold page = DashScaffold(
       title: 'Search',
       keyboardDismiss: true,
       onRefresh: _refresh,
@@ -214,6 +219,95 @@ class _SearchPageState extends State<SearchPage> {
         ...(_scope == SearchScope.favorites
             ? _favoriteSlivers(isDark)
             : _everywhereSlivers(isDark)),
+      ],
+    );
+
+    final Find4chanBrowser? browser = _browser;
+    if (browser == null) {
+      return page;
+    }
+    return Stack(
+      children: [
+        page,
+        Positioned.fill(
+          child: ListenableBuilder(
+            listenable: browser,
+            builder: (context, webView) =>
+                _browserLayer(isDark, browser, webView!),
+            child: WebViewWidget(controller: browser.controller),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// The find.4chan.org web view: a hidden pixel while it loads results, a
+  /// card over the page while the user completes a Cloudflare check. The
+  /// tree keeps the same shape either way, so the web view isn't recreated.
+  Widget _browserLayer(bool isDark, Find4chanBrowser browser, Widget webView) {
+    final bool verifying = browser.verifying;
+    final EdgeInsets safe = MediaQuery.paddingOf(context);
+
+    return Stack(
+      children: [
+        IgnorePointer(
+          ignoring: !verifying,
+          child: ColoredBox(
+            color: verifying ? Colors.black54 : Colors.transparent,
+            child: const SizedBox.expand(),
+          ),
+        ),
+        Positioned(
+          left: verifying ? 12 : 0,
+          top: verifying ? safe.top + 60 : 0,
+          right: verifying ? 12 : null,
+          bottom: verifying ? safe.bottom + 24 : null,
+          width: verifying ? null : 1,
+          height: verifying ? null : 1,
+          child: IgnorePointer(
+            ignoring: !verifying,
+            // Not 0: a fully transparent web view isn't painted at all, and
+            // iOS then stops running its scripts.
+            child: Opacity(
+              opacity: verifying ? 1 : 0.01,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: ColoredBox(
+                  color: DashColors.card(isDark),
+                  child: Column(
+                    children: [
+                      Visibility(
+                        visible: verifying,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 4, 8),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Complete the check to search 4chan',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: DashColors.text(isDark),
+                                  ),
+                                ),
+                              ),
+                              CupertinoButton(
+                                onPressed: browser.cancel,
+                                child: const Text('Cancel'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Expanded(child: webView),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }

@@ -97,6 +97,16 @@ void main() {
     );
   });
 
+  test('recognizes the Cloudflare challenge', () {
+    expect(
+      isCloudflareChallenge(
+        '<title>Just a moment...</title><script src="/cdn-cgi/challenge-platform/h/b/orchestrate/chl_page/v1"></script>',
+      ),
+      isTrue,
+    );
+    expect(isCloudflareChallenge(_results), isFalse);
+  });
+
   test('builds the find.4chan.org URL', () {
     expect(
       globalSearchUri('linux kernel').toString(),
