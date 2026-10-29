@@ -24,6 +24,15 @@
       ],
       "versions": [
         {
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.12.0%2B292/Runner.ipa",
+          "size": 33123856,
+          "version": "0.12.0",
+          "buildVersion": "292",
+          "date": "2026-10-29T09:49:18+00:00",
+          "localizedDescription": "Search all of 4chan or your favorite boards, plus a new History page.",
+          "minOSVersion": "17.0"
+        },
+        {
           "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.12.0%2B291/Runner.ipa",
           "size": 32556154,
           "version": "0.12.0",
