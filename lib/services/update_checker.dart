@@ -6,9 +6,9 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 const _androidAbiVersionCodeMultiplier = 1000;
 
-/// Attached to a release by the TestFlight Status workflow once Apple has
-/// approved its build for testers on the public link.
-const _testFlightMarker = 'testflight.json';
+/// Hidden comment the TestFlight Status workflow appends to a release's
+/// notes once Apple has approved its build for testers on the public link.
+const _testFlightMarker = '<!-- testflight: live -->';
 
 /// Offer the update anyway if a release was never marked (e.g. the workflow
 /// broke), so iOS users aren't stuck.
@@ -76,8 +76,8 @@ Future<Uri?> checkForAppUpdate() async {
 /// New builds wait for Apple's beta review, often a day or two after the
 /// GitHub release; until then TestFlight still offers the old one.
 bool _isOnTestFlight(Map<String, dynamic> release) {
-  final assets = release['assets'] as List<dynamic>? ?? const [];
-  if (assets.any((asset) => (asset as Map)['name'] == _testFlightMarker)) {
+  final body = release['body'] as String? ?? '';
+  if (body.contains(_testFlightMarker)) {
     return true;
   }
 
