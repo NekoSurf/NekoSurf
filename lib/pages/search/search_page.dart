@@ -465,7 +465,8 @@ class _SearchResultTile extends StatelessWidget {
           // Bookmarks and history describe the thread, so a reply only
           // passes on the thread number.
           post: _isReply ? Post(no: thread, board: board) : post,
-          initialPost: _isReply ? post.no : null,
+          // Openers too, so the thread starts at the top, not the last read.
+          initialPost: post.no,
         ),
       ),
     );

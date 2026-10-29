@@ -41,7 +41,8 @@ class ThreadPage extends StatefulWidget {
   final Post post;
   final bool fromFavorites;
 
-  /// Post to show once the thread loads, instead of the last-read one.
+  /// Post to show once the thread loads, instead of resuming at the
+  /// last-read one.
   final int? initialPost;
 
   @override
@@ -516,11 +517,15 @@ class ThreadPageState extends State<ThreadPage> {
   }
 
   void scrollToLastWatchedPosts(List<Post> allPosts) {
-    final int initialIndex = widget.initialPost == null
-        ? -1
-        : allPosts.indexWhere((post) => post.no == widget.initialPost);
-    if (initialIndex >= 0) {
-      _jumpWhenAttached(initialIndex);
+    // Opened at a specific post (e.g. from search): never resume instead,
+    // even if that post has since been deleted.
+    if (widget.initialPost != null) {
+      final int index = allPosts.indexWhere(
+        (post) => post.no == widget.initialPost,
+      );
+      if (index > 0) {
+        _jumpWhenAttached(index);
+      }
       return;
     }
 
