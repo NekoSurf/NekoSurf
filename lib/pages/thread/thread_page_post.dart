@@ -55,6 +55,24 @@ class ThreadPagePost extends StatefulWidget {
 }
 
 class _ThreadPagePostState extends State<ThreadPagePost> {
+  final GlobalKey _videoBoxKey = GlobalKey();
+
+  /// Where the viewer zooms the video from: its inline box, below the
+  /// thread's title bar (the body's top padding).
+  MediaZoomOrigin? _zoomOrigin() {
+    final int? width = widget.post.w;
+    final int? height = widget.post.h;
+    if (width == null || height == null || height <= 0) {
+      return null;
+    }
+    return MediaZoomOrigin(
+      boxKey: _videoBoxKey,
+      postId: widget.post.no,
+      clipTop: MediaQuery.paddingOf(context).top,
+      aspectRatio: width / height,
+    );
+  }
+
   Future<void> _openReplies() async {
     final focusedPostId = await Navigator.of(context).push<int>(
       MaterialPageRoute(
@@ -91,7 +109,11 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     return widget.post.tim != null && widget.post.ext != null;
   }
 
-  Future<void> _openMediaViewer(List<Post> allPosts, Post thisPost) async {
+  Future<void> _openMediaViewer(
+    List<Post> allPosts,
+    Post thisPost, {
+    MediaZoomOrigin? origin,
+  }) async {
     final mediaPosts = allPosts
         .where((p) => p.tim != null && p.ext != null)
         .toList();
@@ -105,9 +127,12 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
         initialIndex: index,
         board: widget.board,
         thread: widget.thread,
+        origin: origin,
       ),
     );
-    if (!mounted) {
+    // Only scroll the thread to a post swiped to in the viewer: scrolling
+    // now would also move the video zooming back into this post.
+    if (!mounted || focusedPostId == thisPost.no) {
       return;
     }
     widget.onDismiss(focusedPostId);
@@ -229,8 +254,12 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
         startMuted: Provider.of<SettingsProvider>(
           context,
         ).getFeedVideosStartMuted(),
-        onTap: () =>
-            _openMediaViewer(widget.replies ?? widget.allPosts, widget.post),
+        boxKey: _videoBoxKey,
+        onTap: () => _openMediaViewer(
+          widget.replies ?? widget.allPosts,
+          widget.post,
+          origin: _zoomOrigin(),
+        ),
       );
     } catch (_) {
       return _buildInlineImageMedia();
