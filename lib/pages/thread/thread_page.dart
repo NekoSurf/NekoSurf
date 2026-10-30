@@ -17,7 +17,6 @@ import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/cupertino_menu.dart';
 import 'package:flutter_chan/widgets/dash_header.dart';
 import 'package:flutter_chan/widgets/dash_scaffold.dart';
-import 'package:flutter_chan/widgets/feed_player_recycler.dart';
 import 'package:flutter_chan/widgets/new_posts_pill.dart';
 import 'package:flutter_chan/widgets/reload.dart';
 import 'package:flutter_chan/widgets/resume_toast.dart';
@@ -61,7 +60,6 @@ class ThreadPageState extends State<ThreadPage> {
       ItemPositionsListener.create();
 
   late Future<List<Post>> _fetchAllPostsFromThread;
-  final FeedPlayerRecycler _playerRecycler = FeedPlayerRecycler();
   List<Post> allPosts = [];
   Map<int, int> _replyDescendantCountByPost = const <int, int>{};
   Set<int> _preloadVideoPostIds = const <int>{};
@@ -198,7 +196,6 @@ class ThreadPageState extends State<ThreadPage> {
     _highlightTimer?.cancel();
     _liveTimer?.cancel();
     scrollController.dispose();
-    unawaited(_playerRecycler.dispose());
     super.dispose();
   }
 
@@ -824,7 +821,6 @@ class ThreadPageState extends State<ThreadPage> {
             preloadVideo: _preloadVideoPostIds.contains(
               allPosts[index].no ?? allPosts[index].tim,
             ),
-            playerRecycler: _playerRecycler,
             onDismiss: (postId) {
               if (postId == null || !itemScrollController.isAttached) {
                 return;

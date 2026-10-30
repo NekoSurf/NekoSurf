@@ -12,7 +12,6 @@ import 'package:flutter_chan/pages/thread/thread_media_viewer_page.dart';
 import 'package:flutter_chan/pages/thread/thread_post_comment.dart';
 import 'package:flutter_chan/pages/thread/thread_replies.dart';
 import 'package:flutter_chan/services/string.dart';
-import 'package:flutter_chan/widgets/feed_player_recycler.dart';
 import 'package:flutter_chan/widgets/feed_video_player.dart';
 import 'package:flutter_chan/widgets/image_viewer.dart';
 import 'package:intl/intl.dart';
@@ -29,7 +28,6 @@ class ThreadPagePost extends StatefulWidget {
     this.replies,
     this.replyCount = 0,
     this.preloadVideo = false,
-    this.playerRecycler,
   }) : super(key: key);
 
   final String board;
@@ -39,8 +37,9 @@ class ThreadPagePost extends StatefulWidget {
   final Function(int? postId) onDismiss;
   final List<Post>? replies;
   final int replyCount;
+
+  /// Download the video ahead of time, as it's about to scroll into view.
   final bool preloadVideo;
-  final FeedPlayerRecycler? playerRecycler;
 
   static String formatBytes(int bytes, int decimals) {
     if (bytes <= 0) {
@@ -92,11 +91,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     return widget.post.tim != null && widget.post.ext != null;
   }
 
-  Future<void> _openMediaViewer(
-    List<Post> allPosts,
-    Post thisPost, {
-    RecycledPlayer? handoff,
-  }) async {
+  Future<void> _openMediaViewer(List<Post> allPosts, Post thisPost) async {
     final mediaPosts = allPosts
         .where((p) => p.tim != null && p.ext != null)
         .toList();
@@ -110,8 +105,6 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
         initialIndex: index,
         board: widget.board,
         thread: widget.thread,
-        handoff: handoff,
-        recycler: widget.playerRecycler,
       ),
     );
     if (!mounted) {
@@ -230,16 +223,14 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
         videoUrl: mediaUrl,
         thumbnailUrl: _thumbnailUrl(),
         aspectRatio: _mediaAspectRatio(),
+        videoWidth: widget.post.w,
+        videoHeight: widget.post.h,
         preload: widget.preloadVideo,
         startMuted: Provider.of<SettingsProvider>(
           context,
         ).getFeedVideosStartMuted(),
-        recycler: widget.playerRecycler,
-        onTap: (handoff) => _openMediaViewer(
-          widget.replies ?? widget.allPosts,
-          widget.post,
-          handoff: handoff,
-        ),
+        onTap: () =>
+            _openMediaViewer(widget.replies ?? widget.allPosts, widget.post),
       );
     } catch (_) {
       return _buildInlineImageMedia();
