@@ -7,14 +7,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/widgets/dash_dialogs.dart';
-import 'package:flutter_chan/widgets/feed_player_recycler.dart';
+import 'package:flutter_chan/widgets/media_video.dart';
 import 'package:flutter_chan/widgets/video_scrub_gesture.dart';
-import 'package:media_kit/media_kit.dart';
-import 'package:media_kit_video/media_kit_video.dart';
 import 'package:preload_page_view/preload_page_view.dart';
 import 'package:provider/provider.dart';
-
-typedef MediaSourceResolver = Future<String> Function(String source);
 
 class SharedMediaViewerSaveToggleAction {
   const SharedMediaViewerSaveToggleAction({
@@ -109,6 +105,8 @@ class SharedMediaViewerItem {
     required this.imageProvider,
     this.resolveVideoSource,
     this.thumbnail,
+    this.width,
+    this.height,
   });
 
   final String id;
@@ -117,6 +115,10 @@ class SharedMediaViewerItem {
   final ImageProvider<Object> imageProvider;
   final MediaSourceResolver? resolveVideoSource;
   final ImageProvider<Object>? thumbnail;
+
+  /// The video's size, when known up front.
+  final int? width;
+  final int? height;
 }
 
 /// A scrollable ignores touches while its page settles, which blocks zoom;
@@ -146,8 +148,6 @@ class SharedMediaViewer extends StatefulWidget {
     this.mediaNameBuilder,
     this.actions,
     this.onIndexChanged,
-    this.handoff,
-    this.recycler,
   }) : super(key: key);
 
   final List<SharedMediaViewerItem> items;
@@ -155,12 +155,6 @@ class SharedMediaViewer extends StatefulWidget {
   final VoidCallback onClose;
   final SharedMediaViewerTopBarActions? actions;
   final ValueChanged<int>? onIndexChanged;
-
-  /// Player already showing the initial item; owned by the caller.
-  final RecycledPlayer? handoff;
-
-  /// Source of players for video pages; without it each page creates its own.
-  final FeedPlayerRecycler? recycler;
 
   final String? mediaName;
   final String Function(int index)? mediaNameBuilder;
@@ -173,7 +167,6 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
   static const int _precacheRadius = 3;
 
   late final PreloadPageController _pageController;
-  String? _handoffItemId;
   late int _currentIndex;
   bool _isVideoScrubbing = false;
   bool _isImageZoomed = false;
@@ -211,9 +204,6 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
     super.initState();
     _currentIndex = _sanitizeIndex(widget.initialIndex, widget.items.length);
     _pageController = PreloadPageController(initialPage: _currentIndex);
-    if (widget.handoff != null && widget.items.isNotEmpty) {
-      _handoffItemId = widget.items[_currentIndex].id;
-    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _precacheAround(_currentIndex);
@@ -221,8 +211,9 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
     });
   }
 
-  /// Only one page per side is built, so every video page holds a live
-  /// player. Images further out are still warmed up so paging stays smooth.
+  /// Only one page per side is built; neighbouring video pages download
+  /// their files. Images further out are still warmed up so paging stays
+  /// smooth.
   void _precacheAround(int index) {
     for (int i = index - _precacheRadius; i <= index + _precacheRadius; i++) {
       if (i < 0 || i >= widget.items.length || (i - index).abs() <= 1) {
@@ -311,10 +302,16 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
     }
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      // Black comes from the background layer.
+      backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          Positioned.fill(child: _buildPagedBackdrop()),
+          Positioned.fill(
+            child: ColoredBox(
+              color: Colors.black,
+              child: _buildPagedBackdrop(),
+            ),
+          ),
           // Android's smaller platform touch slop lets page drags beat pinch-to-zoom.
           MediaQuery(
             data: MediaQuery.of(context).copyWith(
@@ -346,8 +343,6 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
                   return _SharedMediaVideoPage(
                     key: ValueKey('shared-media-video-${item.id}'),
                     item: item,
-                    handoff: item.id == _handoffItemId ? widget.handoff : null,
-                    recycler: widget.recycler,
                     isActive: _currentIndex == index,
                     chromeVisible: _chromeVisible,
                     onTap: _toggleChrome,
@@ -748,8 +743,6 @@ class _SharedMediaVideoPage extends StatefulWidget {
     required this.autoAdvance,
     required this.onToggleAutoAdvance,
     required this.onCompleted,
-    this.handoff,
-    this.recycler,
     this.thumbnail,
   }) : super(key: key);
 
@@ -761,8 +754,6 @@ class _SharedMediaVideoPage extends StatefulWidget {
   /// The video reached its end; only fires with [autoAdvance] on.
   final VoidCallback onCompleted;
   final SharedMediaViewerItem item;
-  final RecycledPlayer? handoff;
-  final FeedPlayerRecycler? recycler;
   final bool isActive;
   final bool chromeVisible;
   final VoidCallback onTap;
@@ -773,77 +764,30 @@ class _SharedMediaVideoPage extends StatefulWidget {
   State<_SharedMediaVideoPage> createState() => _SharedMediaVideoPageState();
 }
 
+/// Shows the same [MediaVideo] as the inline post, so a video opened from a
+/// thread just continues here (with sound). Only the page being shown wants
+/// it playing; its neighbours just download theirs.
 class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
-  late final Player _player;
-  late final VideoController _controller;
-  RecycledPlayer? _leased;
-  bool _ownsPlayer = false;
+  late final MediaVideo _video = MediaVideo.obtain(
+    widget.item.source,
+    resolveSource: widget.item.resolveVideoSource,
+    width: widget.item.width,
+    height: widget.item.height,
+  );
+  StreamSubscription<void>? _completedSub;
 
-  StreamSubscription<String>? _errorSub;
-  StreamSubscription<bool>? _playingSub;
-  StreamSubscription<Duration>? _positionSub;
-  StreamSubscription<Duration>? _durationSub;
-  StreamSubscription<bool>? _bufferingSub;
-  StreamSubscription<Duration>? _bufferSub;
-  StreamSubscription<bool>? _completedSub;
-  AppLifecycleListener? _lifecycleListener;
-  bool _resumeInForeground = false;
-
-  bool _isPlaying = false;
-  bool _isBuffering = false;
-  bool _hasVideoFrame = false;
-  Duration _position = Duration.zero;
-  Duration _duration = Duration.zero;
-  Duration _buffer = Duration.zero;
-  Duration? _scrubPreview;
-
-  Duration get _displayPosition => _scrubPreview ?? _position;
   @override
   void initState() {
     super.initState();
-
-    final RecycledPlayer? handoff = widget.handoff;
-    final FeedPlayerRecycler? recycler = widget.recycler;
-    if (handoff != null) {
-      _player = handoff.player;
-      _controller = handoff.controller;
-    } else if (recycler != null) {
-      // A recently released player may still hold this video.
-      final RecycledPlayer leased = recycler.acquire(url: widget.item.source);
-      _leased = leased;
-      _player = leased.player;
-      _controller = leased.controller;
-    } else {
-      _ownsPlayer = true;
-      _player = createMediaPlayer();
-      _controller = VideoController(_player);
+    _completedSub = _video.completed.listen((_) {
+      if (mounted && widget.isActive && widget.autoAdvance) {
+        widget.onCompleted();
+      }
+    });
+    _video.prefetch();
+    if (widget.isActive) {
+      _activate();
     }
-
-    _attachSubscriptions();
-    _load();
-
-    // iOS kills apps that keep rendering video in the background, so pause
-    // while the app is away and pick up again when it's back.
-    _lifecycleListener = AppLifecycleListener(
-      onStateChange: (AppLifecycleState state) {
-        switch (state) {
-          case AppLifecycleState.hidden:
-          case AppLifecycleState.paused:
-          case AppLifecycleState.detached:
-            if (_player.state.playing) {
-              _resumeInForeground = true;
-              _player.pause().catchError((_) {});
-            }
-          case AppLifecycleState.resumed:
-            if (_resumeInForeground && widget.isActive) {
-              unawaited(_resume());
-            }
-            _resumeInForeground = false;
-          case AppLifecycleState.inactive:
-            break;
-        }
-      },
-    );
   }
 
   @override
@@ -851,184 +795,49 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
     super.didUpdateWidget(oldWidget);
 
     if (!oldWidget.isActive && widget.isActive) {
-      unawaited(_resume());
+      _activate();
     } else if (oldWidget.isActive && !widget.isActive) {
-      _player.pause().catchError((_) {});
-    }
-
-    if (oldWidget.rate != widget.rate) {
-      _player.setRate(widget.rate).catchError((_) {});
-    }
-    if (oldWidget.autoAdvance != widget.autoAdvance) {
-      _player.setPlaylistMode(_playlistMode).catchError((_) {});
+      _deactivate();
+    } else if (widget.isActive) {
+      if (oldWidget.rate != widget.rate) {
+        _video.setRate(widget.rate);
+      }
+      if (oldWidget.autoAdvance != widget.autoAdvance) {
+        _video.setLoop(!widget.autoAdvance);
+      }
     }
   }
 
-  PlaylistMode get _playlistMode =>
-      widget.autoAdvance ? PlaylistMode.none : PlaylistMode.loop;
+  void _activate() {
+    _video
+      ..setRate(widget.rate)
+      ..setLoop(!widget.autoAdvance)
+      ..restartIfFinished()
+      ..want(this, audible: true);
+  }
 
-  Future<void> _resume() async {
-    try {
-      await _player.setRate(widget.rate);
-      // With auto-advance a finished video stays at its end; start it over
-      // when paging back to it.
-      if (_player.state.completed) {
-        await _player.seek(Duration.zero);
-      }
-      await _player.play();
-    } catch (_) {}
+  /// Back to how inline posts play it.
+  void _deactivate() {
+    _video
+      ..unwant(this)
+      ..setRate(1)
+      ..setLoop(true);
+  }
+
+  @override
+  void deactivate() {
+    widget.onScrubStateChanged(false);
+    super.deactivate();
   }
 
   @override
   void dispose() {
-    _lifecycleListener?.dispose();
-    _cancelSubscriptions();
-
-    final RecycledPlayer? leased = _leased;
-    if (leased != null) {
-      unawaited(widget.recycler!.release(leased));
-    } else if (_ownsPlayer) {
-      unawaited(_player.dispose());
+    unawaited(_completedSub?.cancel());
+    if (widget.isActive) {
+      _deactivate();
     }
+    _video.release();
     super.dispose();
-  }
-
-  void _attachSubscriptions() {
-    _cancelSubscriptions();
-
-    if (_isItemLoaded()) {
-      final PlayerState state = _player.state;
-      _isPlaying = state.playing;
-      _isBuffering = state.buffering;
-      _position = state.position;
-      _duration = state.duration;
-      _buffer = state.buffer;
-      _hasVideoFrame = state.position > const Duration(milliseconds: 100);
-    }
-
-    _playingSub = _player.stream.playing.listen((playing) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _isPlaying = playing;
-      });
-    });
-    _positionSub = _player.stream.position.listen((position) {
-      if (!mounted) {
-        return;
-      }
-
-      final bool gotFrame =
-          !_hasVideoFrame && position > const Duration(milliseconds: 100);
-
-      setState(() {
-        _position = position;
-        if (gotFrame) {
-          _hasVideoFrame = true;
-        }
-      });
-    });
-    _durationSub = _player.stream.duration.listen((duration) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() => _duration = duration);
-    });
-    _bufferingSub = _player.stream.buffering.listen((buffering) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() => _isBuffering = buffering);
-    });
-    _bufferSub = _player.stream.buffer.listen((buffer) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() => _buffer = buffer);
-    });
-    _completedSub = _player.stream.completed.listen((completed) {
-      if (mounted && completed && widget.isActive && widget.autoAdvance) {
-        widget.onCompleted();
-      }
-    });
-  }
-
-  void _cancelSubscriptions() {
-    _errorSub?.cancel();
-    _playingSub?.cancel();
-    _positionSub?.cancel();
-    _durationSub?.cancel();
-    _bufferingSub?.cancel();
-    _bufferSub?.cancel();
-    _completedSub?.cancel();
-    _errorSub = null;
-    _playingSub = null;
-    _positionSub = null;
-    _durationSub = null;
-    _bufferingSub = null;
-    _bufferSub = null;
-    _completedSub = null;
-  }
-
-  bool _isItemLoaded() => playerHasMedia(_player, widget.item.source);
-
-  /// Opens the media paused; it only plays while the page is active.
-  ///
-  /// Once disposed, a leased player is back in the recycler and may already
-  /// belong to another page or feed post, so every step re-checks [mounted]
-  /// before touching it.
-  Future<void> _load() async {
-    final String source = widget.item.source;
-    final MediaSourceResolver? resolveSource = widget.item.resolveVideoSource;
-
-    try {
-      // Handed-off and matching recycled players already have it open.
-      if (!_isItemLoaded()) {
-        final String resolvedSource = resolveSource == null
-            ? source
-            : await resolveSource(source);
-        if (!mounted) {
-          return;
-        }
-
-        await _player.open(Media(resolvedSource), play: false);
-        if (!mounted) {
-          return;
-        }
-
-        // Recycled players don't re-emit an unchanged duration.
-        setState(() => _duration = _player.state.duration);
-      }
-
-      await _player.setPlaylistMode(_playlistMode);
-      if (!mounted) {
-        return;
-      }
-      await _player.setRate(widget.rate);
-      if (!mounted) {
-        return;
-      }
-      await _player.setVolume(100.0);
-      if (!mounted) {
-        return;
-      }
-      // Recycled feed players may still have audio disabled.
-      await _player.setAudioTrack(AudioTrack.auto());
-      if (!mounted) {
-        return;
-      }
-
-      if (widget.isActive) {
-        await _player.play();
-      } else {
-        await _player.pause();
-      }
-    } catch (_) {}
   }
 
   String _formatRate(double rate) {
@@ -1036,34 +845,6 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
         ? rate.toStringAsFixed(0)
         : rate.toString();
     return '$text×';
-  }
-
-  Future<void> _togglePlayPause() async {
-    await _player.playOrPause();
-  }
-
-  // Seeking on every drag update floods the player with seeks and keeps it
-  // buffering; drags only move the preview and seek once on release.
-  void _previewSeek(double value) {
-    setState(() {
-      _scrubPreview = _clampDuration(Duration(milliseconds: value.round()));
-    });
-  }
-
-  Future<void> _seekTo(double value) async {
-    final Duration target = _clampDuration(
-      Duration(milliseconds: value.round()),
-    );
-    // Show the target right away instead of snapping back to the old position.
-    setState(() {
-      _position = target;
-      _scrubPreview = null;
-    });
-    try {
-      await _player.seek(target);
-    } catch (_) {
-      // Ignore transient seek races.
-    }
   }
 
   String _formatDuration(Duration value) {
@@ -1084,30 +865,31 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
     return '$minutes:$seconds';
   }
 
-  Duration _clampDuration(Duration value) {
-    if (_duration <= Duration.zero) {
-      return value < Duration.zero ? Duration.zero : value;
-    }
-
-    if (value < Duration.zero) {
-      return Duration.zero;
-    }
-
-    if (value > _duration) {
-      return _duration;
-    }
-
-    return value;
-  }
-
-  @override
-  void deactivate() {
-    widget.onScrubStateChanged(false);
-    super.deactivate();
-  }
-
   @override
   Widget build(BuildContext context) {
+    final ImageProvider<Object>? thumbnail = widget.thumbnail;
+    final int? width = widget.item.width;
+    final int? height = widget.item.height;
+    final double? aspectRatio = width != null && height != null && height > 0
+        ? width / height
+        : null;
+    final Widget view = MediaVideoView(
+      video: _video,
+      fit: BoxFit.contain,
+      indicatorSize: 34,
+      wakelock: true,
+      thumbnail: thumbnail == null
+          ? const SizedBox.shrink()
+          : Image(image: thumbnail, fit: BoxFit.contain, gaplessPlayback: true),
+    );
+    // In its own box, centred: the viewer's zoom from an inline video
+    // scales exactly this box into the post's.
+    final Widget content = aspectRatio == null
+        ? view
+        : Center(
+            child: AspectRatio(aspectRatio: aspectRatio, child: view),
+          );
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: widget.onTap,
@@ -1116,78 +898,9 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
         children: [
           Positioned.fill(
             child: VideoScrubGesture(
-              player: _player,
+              video: _video,
               onScrubStateChanged: widget.onScrubStateChanged,
-              onPreviewChanged: (preview) {
-                setState(() => _scrubPreview = preview);
-              },
-              child: StreamBuilder<int?>(
-                stream: _player.stream.width,
-                initialData: _player.state.width,
-                builder: (context, widthSnapshot) {
-                  return StreamBuilder<int?>(
-                    stream: _player.stream.height,
-                    initialData: _player.state.height,
-                    builder: (context, heightSnapshot) {
-                      final int width = widthSnapshot.data ?? 0;
-                      final int height = heightSnapshot.data ?? 0;
-                      final bool hasValidDimensions = width > 0 && height > 0;
-                      final double aspectRatio = hasValidDimensions
-                          ? width / height
-                          : 16 / 9;
-
-                      // Only wait for the first frame: hiding the video on
-                      // every buffering blip (loops, seeks) makes it flicker
-                      // back to the thumbnail.
-                      final bool showVideo =
-                          hasValidDimensions && _hasVideoFrame;
-                      final ImageProvider<Object>? thumbnail = widget.thumbnail;
-
-                      return Stack(
-                        children: [
-                          // Kept underneath so the video fades in over it.
-                          if (thumbnail != null)
-                            Positioned.fill(
-                              child: Image(
-                                image: thumbnail,
-                                fit: BoxFit.contain,
-                                gaplessPlayback: true,
-                              ),
-                            ),
-
-                          AnimatedOpacity(
-                            opacity: showVideo ? 1 : 0,
-                            duration: const Duration(milliseconds: 200),
-                            curve: Curves.easeOut,
-                            child: Center(
-                              child: AspectRatio(
-                                aspectRatio: aspectRatio,
-                                child: Video(
-                                  controller: _controller,
-                                  controls: NoVideoControls,
-                                  fit: BoxFit.fill,
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          AnimatedOpacity(
-                            opacity:
-                                widget.isActive && (!showVideo || _isBuffering)
-                                ? 1
-                                : 0,
-                            duration: const Duration(milliseconds: 200),
-                            curve: Curves.easeOut,
-                            child: const Center(
-                              child: CupertinoActivityIndicator(radius: 14),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  );
-                },
-              ),
+              child: SizedBox.expand(child: content),
             ),
           ),
           Positioned(
@@ -1203,7 +916,10 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
                 child: AnimatedOpacity(
                   opacity: widget.chromeVisible ? 1 : 0,
                   duration: const Duration(milliseconds: 200),
-                  child: _buildControls(context),
+                  child: ListenableBuilder(
+                    listenable: _video,
+                    builder: (context, _) => _buildControls(context),
+                  ),
                 ),
               ),
             ),
@@ -1214,9 +930,9 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
   }
 
   Widget _buildControls(BuildContext context) {
+    final Duration duration = _video.duration;
     final double max =
-        (_duration.inMilliseconds <= 0 ? 1 : _duration.inMilliseconds)
-            .toDouble();
+        (duration.inMilliseconds <= 0 ? 1 : duration.inMilliseconds).toDouble();
 
     return Container(
       padding: EdgeInsets.fromLTRB(
@@ -1232,144 +948,154 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
           colors: [Colors.black.withValues(alpha: 0.75), Colors.transparent],
         ),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(8, 8, 18, 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-            ),
-            child: Row(
-              children: [
-                GestureDetector(
-                  onTap: _togglePlayPause,
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: const BoxDecoration(
-                      color: DashColors.accent,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      _isPlaying
-                          ? CupertinoIcons.pause_fill
-                          : CupertinoIcons.play_fill,
-                      color: Colors.black,
-                      size: 17,
-                    ),
-                  ),
+      // No backdrop blur: over a playing video it had to be redone for
+      // every frame.
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(8, 8, 18, 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1C1C1E).withValues(alpha: 0.82),
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        ),
+        child: Row(
+          children: [
+            GestureDetector(
+              onTap: _video.togglePlay,
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: const BoxDecoration(
+                  color: DashColors.accent,
+                  shape: BoxShape.circle,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SliderTheme(
-                        data: SliderTheme.of(context).copyWith(
-                          trackHeight: 4,
-                          activeTrackColor: DashColors.accent,
-                          inactiveTrackColor: Colors.white.withValues(
-                            alpha: 0.22,
-                          ),
-                          secondaryActiveTrackColor: Colors.white.withValues(
-                            alpha: 0.45,
-                          ),
-                          thumbColor: Colors.white,
-                          thumbShape: const RoundSliderThumbShape(
-                            enabledThumbRadius: 6,
-                          ),
-                          overlayShape: SliderComponentShape.noOverlay,
-                        ),
-                        child: Slider(
-                          value: _displayPosition.inMilliseconds
-                              .toDouble()
-                              .clamp(0, max),
-                          min: 0,
-                          max: max,
-                          // How far mpv has downloaded.
-                          secondaryTrackValue: _buffer.inMilliseconds
-                              .toDouble()
-                              .clamp(0, max),
-                          onChanged: _duration.inMilliseconds > 0
-                              ? _previewSeek
-                              : null,
-                          onChangeEnd: _seekTo,
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: Icon(
+                  _video.isPlaying
+                      ? CupertinoIcons.pause_fill
+                      : CupertinoIcons.play_fill,
+                  color: Colors.black,
+                  size: 17,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              // Only the slider and times follow the position.
+              child: ValueListenableBuilder<Duration?>(
+                valueListenable: _video.scrubPosition,
+                builder: (context, scrub, _) =>
+                    ValueListenableBuilder<Duration>(
+                      valueListenable: _video.position,
+                      builder: (context, position, _) {
+                        final Duration shown = scrub ?? position;
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              _formatDuration(_displayPosition),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
+                            SliderTheme(
+                              data: SliderTheme.of(context).copyWith(
+                                trackHeight: 4,
+                                activeTrackColor: DashColors.accent,
+                                inactiveTrackColor: Colors.white.withValues(
+                                  alpha: 0.22,
+                                ),
+                                thumbColor: Colors.white,
+                                thumbShape: const RoundSliderThumbShape(
+                                  enabledThumbRadius: 6,
+                                ),
+                                overlayShape: SliderComponentShape.noOverlay,
+                              ),
+                              child: Slider(
+                                value: shown.inMilliseconds.toDouble().clamp(
+                                  0,
+                                  max,
+                                ),
+                                min: 0,
+                                max: max,
+                                // Live: the picture follows the thumb.
+                                onChangeStart: duration > Duration.zero
+                                    ? (_) => _video.scrubStart()
+                                    : null,
+                                onChanged: duration > Duration.zero
+                                    ? (value) => _video.scrubTo(
+                                        Duration(milliseconds: value.round()),
+                                      )
+                                    : null,
+                                onChangeEnd: (_) => _video.scrubEnd(),
                               ),
                             ),
-                            Text(
-                              _formatDuration(_duration),
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.65),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    _formatDuration(shown),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  Text(
+                                    _formatDuration(duration),
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.65,
+                                      ),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: widget.onCycleRate,
-                  child: Container(
-                    width: 46,
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: widget.rate == 1.0
-                          ? Colors.white.withValues(alpha: 0.12)
-                          : DashColors.accent.withValues(alpha: 0.25),
-                      borderRadius: BorderRadius.circular(12),
+                        );
+                      },
                     ),
-                    child: Text(
-                      _formatRate(widget.rate),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ),
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: widget.onToggleAutoAdvance,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 6, 2, 6),
-                    child: Icon(
-                      widget.autoAdvance
-                          ? CupertinoIcons.forward_end_fill
-                          : CupertinoIcons.repeat,
-                      size: 20,
-                      color: widget.autoAdvance
-                          ? DashColors.accent
-                          : Colors.white,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: widget.onCycleRate,
+              child: Container(
+                width: 46,
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: widget.rate == 1.0
+                      ? Colors.white.withValues(alpha: 0.12)
+                      : DashColors.accent.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  _formatRate(widget.rate),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: widget.onToggleAutoAdvance,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 6, 2, 6),
+                child: Icon(
+                  widget.autoAdvance
+                      ? CupertinoIcons.forward_end_fill
+                      : CupertinoIcons.repeat,
+                  size: 20,
+                  color: widget.autoAdvance ? DashColors.accent : Colors.white,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
