@@ -61,7 +61,7 @@ class _SettingsState extends State<Settings> {
                 icon: CupertinoIcons.tray_full_fill,
                 color: const Color(0xFFFBBF24),
                 title: 'Data',
-                subtitle: 'Watched posts, history, retention',
+                subtitle: 'Watched posts, history, video cache',
                 showChevron: true,
                 onTap: () => _push(const DataSettings()),
               ),

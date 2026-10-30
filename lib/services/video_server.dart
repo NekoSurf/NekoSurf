@@ -32,7 +32,21 @@ class VideoServer {
 
   static final VideoServer instance = VideoServer._();
 
-  static const int _maxCacheBytes = 300 * 1024 * 1024;
+  static const int defaultMaxCacheBytes = 300 * 1024 * 1024;
+
+  /// Beyond this, the least recently watched videos are deleted.
+  int get maxCacheBytes => _maxCacheBytes;
+  int _maxCacheBytes = defaultMaxCacheBytes;
+
+  /// Sets [maxCacheBytes], deleting what's now beyond it.
+  Future<void> setMaxCacheBytes(int bytes) async {
+    if (bytes == _maxCacheBytes) {
+      return;
+    }
+    _maxCacheBytes = bytes;
+    await _pruneSoon();
+  }
+
   static const int _maxPrefetches = 2;
   // Scrolling on queues new prefetches; the oldest are dropped.
   static const int _maxQueued = 6;
@@ -110,6 +124,41 @@ class VideoServer {
     } catch (_) {}
   }
 
+  /// How much the finished videos on disk take up, in bytes.
+  Future<int> cacheSize() async {
+    try {
+      final Directory dir = await (_dir ??= _openDir());
+      int total = 0;
+      for (final File file in dir.listSync().whereType<File>()) {
+        if (!file.path.endsWith('.part')) {
+          total += file.lengthSync();
+        }
+      }
+      return total;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Deletes every finished video; ones downloading now carry on. A video
+  /// playing from disk keeps playing (its open file outlives the delete).
+  Future<void> clearCache() async {
+    try {
+      final Directory dir = await (_dir ??= _openDir());
+      for (final File file in dir.listSync().whereType<File>()) {
+        if (!file.path.endsWith('.part')) {
+          await file.delete();
+        }
+      }
+    } catch (_) {}
+    for (final MapEntry<String, ValueNotifier<double?>> entry
+        in _progress.entries) {
+      if (!_downloads.containsKey(entry.key)) {
+        entry.value.value = null;
+      }
+    }
+  }
+
   _Download _downloadFor(String url, File file) {
     return _downloads.putIfAbsent(url, () {
       final String id = _ids[url] ??= '${_ids.length}';
@@ -121,6 +170,9 @@ class VideoServer {
         onDone: (_Download download) {
           if (_downloads[url] == download) {
             _downloads.remove(url);
+          }
+          if (!download.failed) {
+            unawaited(_pruneSoon());
           }
           if (download.prefetch) {
             _prefetching--;
@@ -170,18 +222,27 @@ class VideoServer {
     final Directory temp = await getTemporaryDirectory();
     final Directory dir = Directory('${temp.path}/video_cache');
     await dir.create(recursive: true);
-    unawaited(_prune(dir));
+    unawaited(_prune(dir, leftovers: true));
     return dir;
   }
 
-  /// Deletes the least recently watched videos beyond [_maxCacheBytes], and
-  /// leftovers of downloads that never finished.
-  Future<void> _prune(Directory dir) async {
+  Future<void> _pruneSoon() async {
+    final Future<Directory>? dir = _dir;
+    if (dir != null) {
+      await _prune(await dir);
+    }
+  }
+
+  /// Deletes the least recently watched videos beyond [maxCacheBytes], and
+  /// with [leftovers], what downloads that never finished left behind.
+  Future<void> _prune(Directory dir, {bool leftovers = false}) async {
     try {
       final List<File> files = <File>[];
       for (final File file in dir.listSync().whereType<File>()) {
         if (file.path.endsWith('.part')) {
-          await file.delete();
+          if (leftovers) {
+            await file.delete();
+          }
         } else {
           files.add(file);
         }

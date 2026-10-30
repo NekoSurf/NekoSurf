@@ -9,6 +9,7 @@ Videos have been rebuilt from the ground up:
 - **Smooth scrubbing**: drag across a video (or the fullscreen slider) and the picture follows your finger
 - **Smoother scrolling**: no more than three videos are loaded at a time, so threads full of webms scroll more smoothly
 - **Videos that won't load** try again by themselves, then show a retry button instead of spinning forever
+- **Video cache in Settings**: under Data, pick how much space watched videos may take (100 MB to 1 GB) and see how much they use, or clear them
 - Swipe from the left edge to close fullscreen: the video follows your finger and flies back into its post
 
 ## What's fixed

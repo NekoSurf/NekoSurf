@@ -186,4 +186,29 @@ void main() {
     expect(upstream.ranges.last, isNot('bytes=0-'));
     await upstream.server.close(force: true);
   });
+
+  test('reports, trims and clears the cache', () async {
+    final Uint8List bytes = _video(512 * 1024);
+    final _Upstream upstream = _Upstream(bytes);
+    await upstream.start();
+    final List<String> urls = [
+      for (int i = 0; i < 3; i++) upstream.url.replaceFirst('.webm', '$i.webm'),
+    ];
+
+    for (final String url in urls) {
+      await _get(await videos.source(url));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    expect(await videos.cacheSize(), 3 * bytes.length);
+
+    // Room for two: the least recently watched goes.
+    await videos.setMaxCacheBytes(2 * bytes.length);
+    expect(await videos.cacheSize(), 2 * bytes.length);
+    expect(await videos.source(urls.first), startsWith('http'));
+    expect(await videos.source(urls.last), isNot(startsWith('http')));
+
+    await videos.clearCache();
+    expect(await videos.cacheSize(), lessThan(bytes.length));
+    await upstream.server.close(force: true);
+  });
 }
