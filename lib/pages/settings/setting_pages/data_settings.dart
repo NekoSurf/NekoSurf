@@ -4,21 +4,44 @@ import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/pages/settings/settings_widgets.dart';
 import 'package:flutter_chan/services/show_snackbar.dart';
+import 'package:flutter_chan/services/video_server.dart';
 import 'package:flutter_chan/widgets/cupertino_menu.dart';
 import 'package:flutter_chan/widgets/dash_dialogs.dart';
 import 'package:flutter_chan/widgets/dash_scaffold.dart';
 import 'package:provider/provider.dart';
 
-class DataSettings extends StatelessWidget {
+class DataSettings extends StatefulWidget {
   const DataSettings({Key? key}) : super(key: key);
+
+  @override
+  State<DataSettings> createState() => _DataSettingsState();
+}
+
+class _DataSettingsState extends State<DataSettings> {
+  /// What the video cache takes up; null until measured.
+  int? _videoCacheSize;
+
+  @override
+  void initState() {
+    super.initState();
+    _measureVideoCache();
+  }
+
+  Future<void> _measureVideoCache() async {
+    final int size = await VideoServer.instance.cacheSize();
+    if (mounted) {
+      setState(() => _videoCacheSize = size);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
+    final int? videoCacheSize = _videoCacheSize;
 
     return DashScaffold(
       title: 'Data',
-      subtitle: 'Reading progress and history',
+      subtitle: 'Reading progress, history and video cache',
       slivers: [
         SliverToBoxAdapter(
           child: Column(
@@ -35,6 +58,61 @@ class DataSettings extends StatelessWidget {
                       value: settings.getAutoScrollToLastSeen(),
                       onChanged: settings.setAutoScrollToLastSeen,
                     ),
+                  ),
+                ],
+              ),
+              SettingsGroup(
+                title: 'Videos',
+                footer:
+                    'Watched videos are kept on your phone, so they start '
+                    'instantly next time. Beyond the limit, the oldest are '
+                    'deleted.',
+                children: [
+                  DashMenuAnchor(
+                    menuChildren: [
+                      for (final megabytes in [100, 300, 500, 1024])
+                        buildMenuItem(
+                          title: formatCacheSize(megabytes * 1024 * 1024),
+                          icon: CupertinoIcons.film,
+                          isSelected:
+                              settings.getVideoCacheMegabytes() == megabytes,
+                          onPressed: () async {
+                            // Lowering it deletes the oldest videos.
+                            await settings.setVideoCacheMegabytes(megabytes);
+                            await _measureVideoCache();
+                          },
+                        ),
+                    ],
+                    builder: (context, open) => SettingsRow(
+                      icon: CupertinoIcons.film_fill,
+                      color: const Color(0xFFA78BFA),
+                      title: 'Video cache limit',
+                      value: formatCacheSize(
+                        settings.getVideoCacheMegabytes() * 1024 * 1024,
+                      ),
+                      onTap: open,
+                    ),
+                  ),
+                  SettingsRow(
+                    icon: CupertinoIcons.trash_fill,
+                    color: const Color(0xFFFF5D6C),
+                    title: 'Clear video cache',
+                    value: videoCacheSize == null
+                        ? null
+                        : formatCacheSize(videoCacheSize),
+                    destructive: true,
+                    onTap: () async {
+                      await VideoServer.instance.clearCache();
+                      await _measureVideoCache();
+                      if (context.mounted) {
+                        showCupertinoSnackbar(
+                          const Duration(milliseconds: 1800),
+                          true,
+                          context,
+                          'Video cache cleared!',
+                        );
+                      }
+                    },
                   ),
                 ],
               ),
@@ -111,4 +189,14 @@ class DataSettings extends StatelessWidget {
       ],
     );
   }
+}
+
+String formatCacheSize(int bytes) {
+  const int megabyte = 1024 * 1024;
+  if (bytes >= 1024 * megabyte) {
+    final double gigabytes = bytes / (1024 * megabyte);
+    return '${gigabytes.toStringAsFixed(gigabytes < 10 ? 1 : 0)} GB'
+        .replaceFirst('.0 ', ' ');
+  }
+  return '${(bytes / megabyte).round()} MB';
 }

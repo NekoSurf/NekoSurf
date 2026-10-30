@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/enums/enums.dart';
 import 'package:flutter_chan/services/string.dart';
+import 'package:flutter_chan/services/video_server.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsProvider with ChangeNotifier {
@@ -14,6 +15,7 @@ class SettingsProvider with ChangeNotifier {
   SortDirection boardSortDirection = SortDirection.desc;
   ViewMode boardViewMode = ViewMode.grid;
   int watchedPostsRetentionDays = 7;
+  int videoCacheMegabytes = VideoServer.defaultMaxCacheBytes ~/ _megabyte;
   bool autoScrollToLastSeen = true;
   bool showStickyThreads = true;
   bool feedVideosStartMuted = true;
@@ -76,6 +78,12 @@ class SettingsProvider with ChangeNotifier {
     fullscreenAutoAdvance = prefs.getBool('fullscreenAutoAdvance') ?? false;
 
     hiddenThreadPatterns = prefs.getStringList('hiddenThreadPatterns') ?? [];
+
+    videoCacheMegabytes =
+        prefs.getInt('videoCacheMegabytes') ?? videoCacheMegabytes;
+    await VideoServer.instance.setMaxCacheBytes(
+      videoCacheMegabytes * _megabyte,
+    );
 
     await prefs.remove('inlineMediaInThreadFeed');
 
@@ -143,6 +151,20 @@ class SettingsProvider with ChangeNotifier {
     watchedPostsRetentionDays = days;
     prefs.setInt('watchedPostsRetentionDays', days);
     notifyListeners();
+  }
+
+  static const int _megabyte = 1024 * 1024;
+
+  int getVideoCacheMegabytes() {
+    return videoCacheMegabytes;
+  }
+
+  Future<void> setVideoCacheMegabytes(int megabytes) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    videoCacheMegabytes = megabytes;
+    prefs.setInt('videoCacheMegabytes', megabytes);
+    notifyListeners();
+    await VideoServer.instance.setMaxCacheBytes(megabytes * _megabyte);
   }
 
   ViewMode getBoardViewMode() {
