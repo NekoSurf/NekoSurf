@@ -8,7 +8,7 @@ import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:provider/provider.dart';
 
 class Bookmarks extends StatefulWidget {
-  const Bookmarks({Key? key}) : super(key: key);
+  const Bookmarks({super.key});
 
   @override
   State<Bookmarks> createState() => _BookmarksState();
@@ -23,7 +23,7 @@ class _BookmarksState extends State<Bookmarks> {
     final bookmarks = Provider.of<BookmarksProvider>(context);
     final bookmarkStrings = bookmarks.getBookmarks().toList(growable: false);
 
-    if (bookmarkStrings.isEmpty)
+    if (bookmarkStrings.isEmpty) {
       return SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(32, 80, 32, 0),
@@ -53,7 +53,7 @@ class _BookmarksState extends State<Bookmarks> {
           ),
         ),
       );
-    else
+    } else {
       return SliverList(
         delegate: SliverChildBuilderDelegate((BuildContext context, int index) {
           final String string = bookmarkStrings[index];
@@ -66,5 +66,6 @@ class _BookmarksState extends State<Bookmarks> {
           );
         }, childCount: bookmarkStrings.length),
       );
+    }
   }
 }

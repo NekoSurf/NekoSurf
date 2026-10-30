@@ -1,4 +1,4 @@
-enum SavedAttachmentType { Image, Video }
+enum SavedAttachmentType { image, video }
 
 class SavedAttachment {
   SavedAttachment({
@@ -56,11 +56,11 @@ class SavedAttachment {
       final String normalized = value.split('.').last.toLowerCase();
 
       if (normalized == 'video') {
-        return SavedAttachmentType.Video;
+        return SavedAttachmentType.video;
       }
 
       if (normalized == 'image') {
-        return SavedAttachmentType.Image;
+        return SavedAttachmentType.image;
       }
 
       try {
@@ -75,7 +75,7 @@ class SavedAttachment {
         : '';
 
     return ext == 'mp4' || ext == 'webm' || ext == 'gif'
-        ? SavedAttachmentType.Video
-        : SavedAttachmentType.Image;
+        ? SavedAttachmentType.video
+        : SavedAttachmentType.image;
   }
 }

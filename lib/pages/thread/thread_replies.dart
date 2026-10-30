@@ -25,12 +25,12 @@ class _ReplyTreeEntry {
 
 class ThreadReplies extends StatefulWidget {
   const ThreadReplies({
-    Key? key,
+    super.key,
     required this.post,
     required this.thread,
     required this.board,
     required this.allPosts,
-  }) : super(key: key);
+  });
 
   final Post post;
   final int thread;

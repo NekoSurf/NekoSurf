@@ -1,15 +1,14 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 
 class ImageViewer extends StatelessWidget {
   const ImageViewer({
-    Key? key,
+    super.key,
     required this.url,
     this.interactiveViewer = false,
     this.fit = BoxFit.contain,
     this.height,
     this.width,
-  }) : super(key: key);
+  });
 
   final String url;
   final bool interactiveViewer;

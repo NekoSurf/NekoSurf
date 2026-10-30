@@ -7,7 +7,7 @@ import 'package:flutter_chan/widgets/dash_header.dart';
 import 'package:provider/provider.dart';
 
 class BookmarkButton extends StatefulWidget {
-  const BookmarkButton({Key? key, this.favorite}) : super(key: key);
+  const BookmarkButton({super.key, this.favorite});
 
   final Bookmark? favorite;
 

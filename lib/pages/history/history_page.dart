@@ -17,7 +17,7 @@ import 'package:provider/provider.dart';
 
 /// Every thread opened recently, newest first and grouped by day.
 class HistoryPage extends StatefulWidget {
-  const HistoryPage({Key? key}) : super(key: key);
+  const HistoryPage({super.key});
 
   @override
   State<HistoryPage> createState() => _HistoryPageState();
@@ -157,7 +157,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 selector: (_, watched) => replies == null
                     ? 0
                     : watched.newReplies(t.no, replies) ?? 0,
-                builder: (_, newReplies, __) => _HistoryRow(
+                builder: (_, newReplies, _) => _HistoryRow(
                   thread: t,
                   isDark: isDark,
                   isArchived: history.isArchived(t),
@@ -259,8 +259,7 @@ class _HistoryRow extends StatelessWidget {
                             width: 64,
                             height: 64,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
-                                const SizedBox.shrink(),
+                            errorBuilder: (_, _, _) => const SizedBox.shrink(),
                           ),
                   ),
                 ),

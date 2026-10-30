@@ -26,14 +26,14 @@ import 'package:share_plus/share_plus.dart';
 
 class ThreadPage extends StatefulWidget {
   const ThreadPage({
-    Key? key,
+    super.key,
     required this.board,
     required this.thread,
     required this.threadName,
     required this.post,
     this.fromFavorites = false,
     this.initialPost,
-  }) : super(key: key);
+  });
 
   final String board;
   final int thread;

@@ -20,11 +20,11 @@ import 'package:provider/provider.dart';
 
 class ListPost extends StatefulWidget {
   const ListPost({
-    Key? key,
+    super.key,
     required this.board,
     required this.post,
     this.showBoard = false,
-  }) : super(key: key);
+  });
 
   final String board;
   final Post post;
@@ -237,11 +237,7 @@ class _ListPostState extends State<ListPost> {
 
                                       const Spacer(),
 
-                                      if (widget.post.country != null &&
-                                          CountryFlag.fromCountryCode(
-                                                widget.post.country!,
-                                              ) !=
-                                              null)
+                                      if (widget.post.country != null)
                                         Padding(
                                           padding: const EdgeInsets.only(
                                             left: 6,

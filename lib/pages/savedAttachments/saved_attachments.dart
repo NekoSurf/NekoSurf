@@ -14,7 +14,7 @@ import 'package:provider/provider.dart';
 const Color _amber = Color(0xFFFBBF24);
 
 class SavedAttachments extends StatefulWidget {
-  const SavedAttachments({Key? key}) : super(key: key);
+  const SavedAttachments({super.key});
 
   @override
   State<SavedAttachments> createState() => _SavedAttachmentsState();
@@ -77,11 +77,7 @@ class _SavedAttachmentsState extends State<SavedAttachments>
 
   Future<void> _loadAttachments() async {
     try {
-      directory = await requestDirectory(
-        directory,
-        context,
-        showErrorDialog: false,
-      );
+      directory = await requestDirectory();
     } catch (e) {
       if (!mounted) {
         return;
@@ -185,7 +181,7 @@ class _SavedAttachmentsState extends State<SavedAttachments>
 
     final List<SavedAttachment> visible = provider.visibleAttachments();
     final int videos = all
-        .where((a) => a.savedAttachmentType == SavedAttachmentType.Video)
+        .where((a) => a.savedAttachmentType == SavedAttachmentType.video)
         .length;
     final int images = all.length - videos;
 
@@ -269,7 +265,7 @@ class _SavedAttachmentsState extends State<SavedAttachments>
                   ext: (a.fileName ?? '').contains('.')
                       ? (a.fileName ?? '').split('.').last.toUpperCase()
                       : '',
-                  isVideo: a.savedAttachmentType == SavedAttachmentType.Video,
+                  isVideo: a.savedAttachmentType == SavedAttachmentType.video,
                   isGif: (a.fileName ?? '').toLowerCase().endsWith('.gif'),
                   selecting: provider.selecting,
                   selected: provider.selected.contains(key),
@@ -405,7 +401,7 @@ class _SummaryCard extends StatelessWidget {
                           previews[i],
                           fit: BoxFit.cover,
                           cacheWidth: 200,
-                          errorBuilder: (_, __, ___) => ColoredBox(
+                          errorBuilder: (_, _, _) => ColoredBox(
                             color: DashColors.card(isDark),
                             child: const Icon(
                               CupertinoIcons.photo,
@@ -487,7 +483,7 @@ class _FilterPill extends StatelessWidget {
 
 class _Tile extends StatelessWidget {
   const _Tile({
-    Key? key,
+    super.key,
     required this.thumb,
     required this.title,
     required this.ext,
@@ -498,7 +494,7 @@ class _Tile extends StatelessWidget {
     required this.isDark,
     required this.onTap,
     required this.onLongPress,
-  }) : super(key: key);
+  });
 
   final File thumb;
   final String title;
@@ -531,7 +527,7 @@ class _Tile extends StatelessWidget {
           thumb,
           fit: BoxFit.cover,
           cacheWidth: 500,
-          errorBuilder: (_, __, ___) => ColoredBox(
+          errorBuilder: (_, _, _) => ColoredBox(
             color: DashColors.muted(isDark).withValues(alpha: 0.12),
             child: Icon(CupertinoIcons.photo, color: DashColors.muted(isDark)),
           ),

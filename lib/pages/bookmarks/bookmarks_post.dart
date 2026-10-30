@@ -18,7 +18,7 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:provider/provider.dart';
 
 class BookmarksPost extends StatefulWidget {
-  const BookmarksPost({Key? key, required this.favorite}) : super(key: key);
+  const BookmarksPost({super.key, required this.favorite});
 
   final Bookmark favorite;
 
@@ -89,7 +89,7 @@ class _BookmarksPostState extends State<BookmarksPost> {
           selector: (_, watched) => replies == null || threadNo == null
               ? 0
               : watched.newReplies(threadNo, replies) ?? 0,
-          builder: (_, newReplies, __) => _BookmarkCard(
+          builder: (_, newReplies, _) => _BookmarkCard(
             favorite: widget.favorite,
             status: status,
             replyCount: replyCount,

@@ -1,13 +1,15 @@
 import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
-import 'package:dio/dio.dart';
 import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_chan/API/http_client.dart';
 import 'package:flutter_chan/Models/saved_attachment.dart';
 import 'package:flutter_chan/blocs/saved_attachments_model.dart';
 import 'package:flutter_chan/pages/savedAttachments/permission_denied.dart';
+import 'package:flutter_chan/services/video_server.dart';
+import 'package:http/http.dart' as http;
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -56,11 +58,11 @@ Future<String> _ensureThumbnailsDir() async {
   return _thumbnailsDir;
 }
 
-Future<Directory> requestDirectory(
-  Directory directory,
-  BuildContext context, {
-  bool showErrorDialog = true,
-}) async {
+/// Where saved media lives, after asking for permission. Without it, this
+/// explains why in a sheet over [context] (when given and still there)
+/// and throws.
+Future<Directory> requestDirectory({BuildContext? context}) async {
+  Directory directory = Directory('');
   if (Platform.isAndroid) {
     final int sdkVersion =
         (await DeviceInfoPlugin().androidInfo).version.sdkInt;
@@ -90,7 +92,7 @@ Future<Directory> requestDirectory(
       directory = await getApplicationDocumentsDirectory();
       await _ensureThumbnailsDir();
     } else {
-      if (showErrorDialog) {
+      if (context != null && context.mounted) {
         await showCupertinoModalBottomSheet(
           expand: false,
           context: context,
@@ -175,12 +177,14 @@ Future<void> saveVideo(
   );
 
   if (!hasPermission) {
-    showCupertinoSnackbar(
-      const Duration(milliseconds: 1800),
-      true,
-      context,
-      'Permission denied',
-    );
+    if (context.mounted) {
+      showCupertinoSnackbar(
+        const Duration(milliseconds: 1800),
+        true,
+        context,
+        'Permission denied',
+      );
+    }
     return;
   }
 
@@ -193,18 +197,16 @@ Future<void> saveVideo(
   Directory directory;
 
   try {
-    directory = await requestDirectory(
-      Directory(''),
-      context,
-      showErrorDialog: false,
-    );
+    directory = await requestDirectory();
   } catch (_) {
-    showCupertinoSnackbar(
-      const Duration(milliseconds: 1800),
-      true,
-      context,
-      'Download failed :(',
-    );
+    if (context.mounted) {
+      showCupertinoSnackbar(
+        const Duration(milliseconds: 1800),
+        true,
+        context,
+        'Download failed :(',
+      );
+    }
     return;
   }
 
@@ -217,12 +219,14 @@ Future<void> saveVideo(
       final File savedFile = File(savedPath);
 
       if (!await savedFile.exists()) {
-        showCupertinoSnackbar(
-          const Duration(milliseconds: 1800),
-          true,
-          context,
-          'File not found',
-        );
+        if (context.mounted) {
+          showCupertinoSnackbar(
+            const Duration(milliseconds: 1800),
+            true,
+            context,
+            'File not found',
+          );
+        }
         return;
       }
 
@@ -256,12 +260,14 @@ Future<void> saveVideo(
     }
   } catch (e) {
     debugPrint('saveVideo error: $e');
-    showCupertinoSnackbar(
-      const Duration(milliseconds: 1800),
-      true,
-      context,
-      'Download failed :(',
-    );
+    if (context.mounted) {
+      showCupertinoSnackbar(
+        const Duration(milliseconds: 1800),
+        true,
+        context,
+        'Download failed :(',
+      );
+    }
   }
 }
 
@@ -284,11 +290,7 @@ Future<int> saveSavedAttachmentsToGallery(
 
   final Directory directory;
   try {
-    directory = await requestDirectory(
-      Directory(''),
-      context,
-      showErrorDialog: false,
-    );
+    directory = await requestDirectory();
   } catch (_) {
     return fileNames.length;
   }
@@ -322,7 +324,7 @@ Future<void> shareSavedAttachments(
 ) async {
   final Directory directory;
   try {
-    directory = await requestDirectory(Directory(''), context);
+    directory = await requestDirectory(context: context);
   } catch (_) {
     return;
   }
@@ -351,7 +353,7 @@ Future<void> shareMedia(
 }) async {
   Directory directory;
   try {
-    directory = await requestDirectory(Directory(''), context);
+    directory = await requestDirectory(context: context);
   } catch (_) {
     return;
   }
@@ -390,7 +392,7 @@ Future<void> shareMedia(
             files: [XFile(fileDownloadPath.path.replaceAll('.webm', '.mp4'))],
           ),
         );
-      } else {
+      } else if (context.mounted) {
         showCupertinoSnackbar(
           const Duration(milliseconds: 1800),
           true,
@@ -417,13 +419,8 @@ Future<SavedAttachment?> saveAttachment(
   BuildContext context,
   SavedAttachmentsProvider savedAttachmentsProvider,
 ) async {
-  final Dio dio = Dio();
-
   try {
-    final Directory baseDirectory = await requestDirectory(
-      Directory(''),
-      context,
-    );
+    final Directory baseDirectory = await requestDirectory(context: context);
     if (!await baseDirectory.exists()) {
       return null;
     }
@@ -434,7 +431,7 @@ Future<SavedAttachment?> saveAttachment(
     }
     final String thumbsDir = await _ensureThumbnailsDir();
 
-    final File downloadedFile = await _downloadToTemp(url, fileName, dio: dio);
+    final File downloadedFile = await _downloadToTemp(url, fileName);
     final String ext = '.${fileName.split('.').last}'.toLowerCase();
 
     String finalFileName = fileName;
@@ -460,7 +457,6 @@ Future<SavedAttachment?> saveAttachment(
         fileName,
         thumbnailUrl,
         thumbsDir,
-        dio,
       );
     } else {
       final File outputFile = File('${savedDir.path}/$savedName');
@@ -474,15 +470,14 @@ Future<SavedAttachment?> saveAttachment(
           fileName,
           thumbnailUrl,
           thumbsDir,
-          dio,
         );
       }
     }
 
     return SavedAttachment(
       savedAttachmentType: isVideoLike
-          ? SavedAttachmentType.Video
-          : SavedAttachmentType.Image,
+          ? SavedAttachmentType.video
+          : SavedAttachmentType.image,
       fileName: finalFileName,
       thumbnail: thumbnailPath,
       id: getNameWithoutExtension(fileName),
@@ -520,7 +515,6 @@ Future<String> _videoThumbnail(
   String fileName,
   String thumbnailUrl,
   String thumbsDir,
-  Dio dio,
 ) async {
   final String thumbName = '${getNameWithoutExtension(fileName)}.jpg';
   final File out = File('$thumbsDir/$thumbName');
@@ -539,26 +533,58 @@ Future<String> _videoThumbnail(
   } catch (e) {
     debugPrint('thumbnail extraction failed: $e');
   }
-  return downloadThumbnail(fileName, thumbnailUrl, '$thumbsDir/', dio);
+  return downloadThumbnail(fileName, thumbnailUrl, '$thumbsDir/');
 }
 
-/// Downloads [url] into the temporary directory without any caching.
-Future<File> _downloadToTemp(String url, String fileName, {Dio? dio}) async {
+/// Puts [url] into the temporary directory as [fileName]: copied from the
+/// video cache when it was watched already, otherwise downloaded.
+Future<File> _downloadToTemp(String url, String fileName) async {
   final Directory tempDir = await getTemporaryDirectory();
   final File file = File('${tempDir.path}/$fileName');
-  await (dio ?? Dio()).download(url, file.path);
+  final File? cached = await VideoServer.instance.cachedFile(url);
+  if (cached != null) {
+    try {
+      return await cached.copy(file.path);
+    } catch (_) {
+      // Pruned meanwhile: download it after all.
+    }
+  }
+  await _download(url, file);
   return file;
+}
+
+/// Downloads [url] into [file], leaving no partial file behind on failure.
+Future<void> _download(String url, File file) async {
+  final Uri uri = Uri.parse(url);
+  try {
+    final http.StreamedResponse response = await httpClient.send(
+      http.Request('GET', uri),
+    );
+    if (response.statusCode != HttpStatus.ok) {
+      throw HttpException('HTTP ${response.statusCode}', uri: uri);
+    }
+    final IOSink sink = file.openWrite();
+    try {
+      await sink.addStream(response.stream);
+    } finally {
+      await sink.close();
+    }
+  } catch (_) {
+    if (await file.exists()) {
+      await file.delete();
+    }
+    rethrow;
+  }
 }
 
 Future<String> downloadThumbnail(
   String fileName,
   String thumbnailUrl,
   String path,
-  Dio dio,
 ) async {
   final String nameWithoutExtension = getNameWithoutExtension(fileName);
 
-  await dio.download(thumbnailUrl, '$path$nameWithoutExtension.jpg');
+  await _download(thumbnailUrl, File('$path$nameWithoutExtension.jpg'));
 
   return '$nameWithoutExtension.jpg';
 }

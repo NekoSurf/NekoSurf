@@ -111,6 +111,18 @@ class VideoServer {
   /// How much of [url] has arrived, from 0 to 1; null while unknown.
   ValueListenable<double?> progressOf(String url) => _progressOf(url);
 
+  /// The finished copy of [url] on disk, if it's been watched to the end
+  /// of its download; null otherwise (also while it's still arriving).
+  Future<File?> cachedFile(String url) async {
+    try {
+      final File file = await _fileFor(url);
+      if (file.existsSync() && !_downloads.containsKey(url)) {
+        return file;
+      }
+    } catch (_) {}
+    return null;
+  }
+
   /// Forgets [url]'s cached copy (e.g. one that wouldn't play), so it's
   /// downloaded again next time.
   Future<void> evict(String url) async {

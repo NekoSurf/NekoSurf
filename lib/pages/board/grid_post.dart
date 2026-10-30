@@ -17,11 +17,11 @@ import 'package:provider/provider.dart';
 
 class GridPost extends StatefulWidget {
   const GridPost({
-    Key? key,
+    super.key,
     required this.board,
     required this.post,
     this.showBoard = false,
-  }) : super(key: key);
+  });
 
   final String board;
   final Post post;

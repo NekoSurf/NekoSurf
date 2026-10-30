@@ -35,7 +35,7 @@ class SavedAttachmentsProvider with ChangeNotifier {
 
   List<SavedAttachment> visibleAttachments() {
     final List<SavedAttachment> items = getSavedAttachments().where((a) {
-      final bool isVideo = a.savedAttachmentType == SavedAttachmentType.Video;
+      final bool isVideo = a.savedAttachmentType == SavedAttachmentType.video;
       if (filter == SavedFilter.images && isVideo) {
         return false;
       }
@@ -159,7 +159,7 @@ class SavedAttachmentsProvider with ChangeNotifier {
         notifyListeners();
       }
     } else {
-      print('Already saved');
+      debugPrint('Already saved');
     }
   }
 
@@ -193,7 +193,9 @@ class SavedAttachmentsProvider with ChangeNotifier {
     try {
       Directory directory;
       try {
-        directory = await requestDirectory(Directory(''), context);
+        directory = await requestDirectory(
+          context: context.mounted ? context : null,
+        );
       } catch (e) {
         return;
       }
@@ -202,7 +204,7 @@ class SavedAttachmentsProvider with ChangeNotifier {
         await _deleteFiles(directory.path, attachment);
       }
     } catch (e) {
-      print(e);
+      debugPrint('$e');
     }
 
     notifyListeners();
@@ -221,7 +223,9 @@ class SavedAttachmentsProvider with ChangeNotifier {
     try {
       Directory directory;
       try {
-        directory = await requestDirectory(Directory(''), context);
+        directory = await requestDirectory(
+          context: context.mounted ? context : null,
+        );
       } catch (e) {
         return;
       }
@@ -230,7 +234,7 @@ class SavedAttachmentsProvider with ChangeNotifier {
         await _deleteFiles(directory.path, attachment);
       }
     } catch (e) {
-      print(e);
+      debugPrint('$e');
     }
   }
 
@@ -354,8 +358,8 @@ class SavedAttachmentsProvider with ChangeNotifier {
 
     return SavedAttachment(
       savedAttachmentType: isVideo
-          ? SavedAttachmentType.Video
-          : SavedAttachmentType.Image,
+          ? SavedAttachmentType.video
+          : SavedAttachmentType.image,
       fileName: fileName,
       thumbnail: isVideo ? '$baseName.jpg' : fileName,
     );

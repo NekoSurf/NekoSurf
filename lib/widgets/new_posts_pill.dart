@@ -4,8 +4,7 @@ import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 
 /// "5 new posts ↓" pill shown when a live thread update adds posts.
 class NewPostsPill extends StatefulWidget {
-  const NewPostsPill({Key? key, required this.count, required this.onTap})
-    : super(key: key);
+  const NewPostsPill({super.key, required this.count, required this.onTap});
 
   final int count;
   final VoidCallback onTap;
