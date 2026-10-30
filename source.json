@@ -24,6 +24,15 @@
       ],
       "versions": [
         {
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.12.1%2B294/Runner.ipa",
+          "size": 33177920,
+          "version": "0.12.1",
+          "buildVersion": "294",
+          "date": "2026-10-30T12:06:18+00:00",
+          "localizedDescription": "New video player: videos start instantly, zoom into fullscreen, scrub smoothly, and a video cache setting. Fixes a crash when closing the app.",
+          "minOSVersion": "17.0"
+        },
+        {
           "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.12.0%2B293/Runner.ipa",
           "size": 33123987,
           "version": "0.12.0",
