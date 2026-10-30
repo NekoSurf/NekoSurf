@@ -7,7 +7,7 @@ import 'package:visibility_detector/visibility_detector.dart';
 /// An inline video that plays while it's on screen.
 ///
 /// It shows the same [MediaVideo] as the fullscreen viewer, so tapping it
-/// continues the very same playback fullscreen.
+/// continues the very same playback fullscreen, zooming from [boxKey].
 class FeedVideoPlayer extends StatefulWidget {
   const FeedVideoPlayer({
     super.key,
@@ -16,6 +16,7 @@ class FeedVideoPlayer extends StatefulWidget {
     required this.aspectRatio,
     this.videoWidth,
     this.videoHeight,
+    this.boxKey,
     this.preload = false,
     this.startMuted = true,
     this.onTap,
@@ -26,6 +27,10 @@ class FeedVideoPlayer extends StatefulWidget {
   final double aspectRatio;
   final int? videoWidth;
   final int? videoHeight;
+
+  /// On the video's box, so the fullscreen viewer can zoom from and back
+  /// into it.
+  final Key? boxKey;
 
   /// Downloads the video ahead of time, as it's about to scroll into view.
   final bool preload;
@@ -149,6 +154,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
         child: VideoScrubGesture(
           video: _video,
           child: AspectRatio(
+            key: widget.boxKey,
             aspectRatio: widget.aspectRatio,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(mediaInlineRadius),

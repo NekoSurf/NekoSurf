@@ -5,10 +5,11 @@ Videos have been rebuilt from the ground up:
 
 - **Videos start right away**: they play while they're still downloading instead of waiting for the whole file
 - **Watched videos start instantly**: they're kept on your phone for a while, so scrolling back doesn't download them again
-- **One player, inline and fullscreen**: tap a playing video and it simply keeps playing fullscreen, now with sound
+- **One player, inline and fullscreen**: tap a playing video and it zooms into fullscreen and simply keeps playing, now with sound. Close it and it zooms back into the thread
 - **Smooth scrubbing**: drag across a video (or the fullscreen slider) and the picture follows your finger
 - **Smoother scrolling**: no more than three videos are loaded at a time, so threads full of webms scroll more smoothly
 - **Videos that won't load** try again by themselves, then show a retry button instead of spinning forever
+- Swipe from the left edge to close fullscreen: the video follows your finger and flies back into its post
 
 ## What's fixed
 

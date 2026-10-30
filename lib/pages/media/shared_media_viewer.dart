@@ -302,86 +302,89 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
     }
 
     return Scaffold(
-      // Black comes from the background layer.
+      // Black comes from the background layer, which may fade in.
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
           Positioned.fill(
-            child: ColoredBox(
-              color: Colors.black,
-              child: _buildPagedBackdrop(),
+            child: _zoomed(
+              (zoom) => zoom.buildBackgroundFade,
+              ColoredBox(color: Colors.black, child: _buildPagedBackdrop()),
             ),
           ),
           // Android's smaller platform touch slop lets page drags beat pinch-to-zoom.
-          MediaQuery(
-            data: MediaQuery.of(context).copyWith(
-              gestureSettings: const DeviceGestureSettings(
-                touchSlop: kTouchSlop,
+          _zoomed(
+            (zoom) => zoom.buildMediaZoom,
+            MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                gestureSettings: const DeviceGestureSettings(
+                  touchSlop: kTouchSlop,
+                ),
               ),
-            ),
-            child: PreloadPageView.builder(
-              controller: _pageController,
-              scrollDirection: Axis.vertical,
-              preloadPagesCount: 1,
-              physics: _isVideoScrubbing || _isImageZoomed
-                  ? const NeverScrollableScrollPhysics()
-                  : const _SnappyPagePhysics(),
-              itemCount: itemCount,
-              onPageChanged: (index) {
-                setState(() {
-                  _currentIndex = index;
-                  _isVideoScrubbing = false;
-                  _isImageZoomed = false;
-                });
-                _precacheAround(index);
-                widget.onIndexChanged?.call(index);
-              },
-              itemBuilder: (context, index) {
-                final SharedMediaViewerItem item = widget.items[index];
+              child: PreloadPageView.builder(
+                controller: _pageController,
+                scrollDirection: Axis.vertical,
+                preloadPagesCount: 1,
+                physics: _isVideoScrubbing || _isImageZoomed
+                    ? const NeverScrollableScrollPhysics()
+                    : const _SnappyPagePhysics(),
+                itemCount: itemCount,
+                onPageChanged: (index) {
+                  setState(() {
+                    _currentIndex = index;
+                    _isVideoScrubbing = false;
+                    _isImageZoomed = false;
+                  });
+                  _precacheAround(index);
+                  widget.onIndexChanged?.call(index);
+                },
+                itemBuilder: (context, index) {
+                  final SharedMediaViewerItem item = widget.items[index];
 
-                if (item.isVideo) {
-                  return _SharedMediaVideoPage(
-                    key: ValueKey('shared-media-video-${item.id}'),
+                  if (item.isVideo) {
+                    return _SharedMediaVideoPage(
+                      key: ValueKey('shared-media-video-${item.id}'),
+                      item: item,
+                      isActive: _currentIndex == index,
+                      chromeVisible: _chromeVisible,
+                      onTap: _toggleChrome,
+                      thumbnail: item.thumbnail,
+                      rate: _rate,
+                      onCycleRate: _cycleRate,
+                      autoAdvance: settings.getFullscreenAutoAdvance(),
+                      onToggleAutoAdvance: () =>
+                          settings.setFullscreenAutoAdvance(
+                            !settings.getFullscreenAutoAdvance(),
+                          ),
+                      onCompleted: () => _advanceAfter(index),
+                      onScrubStateChanged: (isScrubbing) {
+                        if (!mounted || _isVideoScrubbing == isScrubbing) {
+                          return;
+                        }
+
+                        setState(() {
+                          _isVideoScrubbing = isScrubbing;
+                        });
+                      },
+                    );
+                  }
+
+                  return _SharedMediaImagePage(
+                    key: ValueKey('shared-media-image-${item.id}'),
                     item: item,
-                    isActive: _currentIndex == index,
-                    chromeVisible: _chromeVisible,
                     onTap: _toggleChrome,
-                    thumbnail: item.thumbnail,
-                    rate: _rate,
-                    onCycleRate: _cycleRate,
-                    autoAdvance: settings.getFullscreenAutoAdvance(),
-                    onToggleAutoAdvance: () =>
-                        settings.setFullscreenAutoAdvance(
-                          !settings.getFullscreenAutoAdvance(),
-                        ),
-                    onCompleted: () => _advanceAfter(index),
-                    onScrubStateChanged: (isScrubbing) {
-                      if (!mounted || _isVideoScrubbing == isScrubbing) {
+                    onZoomStateChanged: (isZoomed) {
+                      if (!mounted || _isImageZoomed == isZoomed) {
                         return;
                       }
 
                       setState(() {
-                        _isVideoScrubbing = isScrubbing;
+                        _isImageZoomed = isZoomed;
                       });
                     },
                   );
-                }
-
-                return _SharedMediaImagePage(
-                  key: ValueKey('shared-media-image-${item.id}'),
-                  item: item,
-                  onTap: _toggleChrome,
-                  onZoomStateChanged: (isZoomed) {
-                    if (!mounted || _isImageZoomed == isZoomed) {
-                      return;
-                    }
-
-                    setState(() {
-                      _isImageZoomed = isZoomed;
-                    });
-                  },
-                );
-              },
+                },
+              ),
             ),
           ),
           _chrome(
@@ -458,6 +461,19 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
     );
   }
 
+  /// Applies the route's zoom (see [MediaZoomTransition]) to one layer.
+  Widget _zoomed(
+    Widget Function(BuildContext, Widget) Function(MediaZoomTransition zoom)
+    pick,
+    Widget layer,
+  ) {
+    final Object? route = ModalRoute.of(context);
+    if (route is! MediaZoomTransition) {
+      return layer;
+    }
+    return pick(route)(context, layer);
+  }
+
   Widget _chrome({required bool top, required Widget child}) {
     return Positioned(
       top: top ? 0 : null,
@@ -473,7 +489,7 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
           child: AnimatedOpacity(
             opacity: _chromeVisible ? 1 : 0,
             duration: const Duration(milliseconds: 200),
-            child: child,
+            child: RouteChromeFade(child: child),
           ),
         ),
       ),
@@ -916,9 +932,11 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
                 child: AnimatedOpacity(
                   opacity: widget.chromeVisible ? 1 : 0,
                   duration: const Duration(milliseconds: 200),
-                  child: ListenableBuilder(
-                    listenable: _video,
-                    builder: (context, _) => _buildControls(context),
+                  child: RouteChromeFade(
+                    child: ListenableBuilder(
+                      listenable: _video,
+                      builder: (context, _) => _buildControls(context),
+                    ),
                   ),
                 ),
               ),
@@ -1234,4 +1252,40 @@ class _SharedMediaImagePageState extends State<_SharedMediaImagePage>
       ),
     );
   }
+}
+
+/// Shows the viewer's controls only once its route has (nearly) finished
+/// opening, and hides them as soon as it starts closing, so they don't
+/// sit under the video zooming in and out of its post.
+class RouteChromeFade extends StatelessWidget {
+  const RouteChromeFade({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final Animation<double>? route = ModalRoute.of(context)?.animation;
+    if (route == null) {
+      return child;
+    }
+    return AnimatedBuilder(
+      animation: route,
+      child: child,
+      builder: (context, child) => Opacity(
+        opacity: ((route.value - 0.7) / 0.3).clamp(0.0, 1.0),
+        child: child,
+      ),
+    );
+  }
+}
+
+/// A route that opens the viewer by zooming its media out of somewhere
+/// (like the inline video it was opened from). Only the media layer zooms;
+/// the background fades in place, and the controls fade in at the end
+/// ([RouteChromeFade]). Both keep the same widgets throughout, so the
+/// viewer isn't rebuilt mid-transition.
+abstract interface class MediaZoomTransition {
+  Widget buildMediaZoom(BuildContext context, Widget media);
+
+  Widget buildBackgroundFade(BuildContext context, Widget background);
 }
