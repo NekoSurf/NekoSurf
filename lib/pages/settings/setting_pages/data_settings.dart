@@ -3,6 +3,7 @@ import 'package:flutter_chan/blocs/history_model.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/pages/settings/settings_widgets.dart';
+import 'package:flutter_chan/services/image_cache.dart';
 import 'package:flutter_chan/services/show_snackbar.dart';
 import 'package:flutter_chan/services/video_server.dart';
 import 'package:flutter_chan/widgets/cupertino_menu.dart';
@@ -11,7 +12,7 @@ import 'package:flutter_chan/widgets/dash_scaffold.dart';
 import 'package:provider/provider.dart';
 
 class DataSettings extends StatefulWidget {
-  const DataSettings({Key? key}) : super(key: key);
+  const DataSettings({super.key});
 
   @override
   State<DataSettings> createState() => _DataSettingsState();
@@ -21,10 +22,21 @@ class _DataSettingsState extends State<DataSettings> {
   /// What the video cache takes up; null until measured.
   int? _videoCacheSize;
 
+  /// What cached images take up; null until measured.
+  int? _imageCacheSize;
+
   @override
   void initState() {
     super.initState();
     _measureVideoCache();
+    _measureImageCache();
+  }
+
+  Future<void> _measureImageCache() async {
+    final int size = await imageCacheSize();
+    if (mounted) {
+      setState(() => _imageCacheSize = size);
+    }
   }
 
   Future<void> _measureVideoCache() async {
@@ -38,10 +50,11 @@ class _DataSettingsState extends State<DataSettings> {
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
     final int? videoCacheSize = _videoCacheSize;
+    final int? imageCacheSize = _imageCacheSize;
 
     return DashScaffold(
       title: 'Data',
-      subtitle: 'Reading progress, history and video cache',
+      subtitle: 'Reading progress, history and caches',
       slivers: [
         SliverToBoxAdapter(
           child: Column(
@@ -110,6 +123,35 @@ class _DataSettingsState extends State<DataSettings> {
                           true,
                           context,
                           'Video cache cleared!',
+                        );
+                      }
+                    },
+                  ),
+                ],
+              ),
+              SettingsGroup(
+                title: 'Images',
+                footer:
+                    'Thumbnails and images you open are kept for a while, so '
+                    'they show without downloading them again.',
+                children: [
+                  SettingsRow(
+                    icon: CupertinoIcons.trash_fill,
+                    color: const Color(0xFFFF5D6C),
+                    title: 'Clear image cache',
+                    value: imageCacheSize == null
+                        ? null
+                        : formatCacheSize(imageCacheSize),
+                    destructive: true,
+                    onTap: () async {
+                      await clearImageCache();
+                      await _measureImageCache();
+                      if (context.mounted) {
+                        showCupertinoSnackbar(
+                          const Duration(milliseconds: 1800),
+                          true,
+                          context,
+                          'Image cache cleared!',
                         );
                       }
                     },
@@ -193,6 +235,10 @@ class _DataSettingsState extends State<DataSettings> {
 
 String formatCacheSize(int bytes) {
   const int megabyte = 1024 * 1024;
+  // Thumbnails are a few KB each; don't show a full cache as "0 MB".
+  if (bytes < megabyte) {
+    return '${(bytes / 1024).ceil()} KB';
+  }
   if (bytes >= 1024 * megabyte) {
     final double gigabytes = bytes / (1024 * megabyte);
     return '${gigabytes.toStringAsFixed(gigabytes < 10 ? 1 : 0)} GB'

@@ -1,5 +1,4 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 
 /// The iOS slide with a shorter duration; the stock Android transitions run
 /// 450ms and block touches meanwhile, which delayed zooming in the media viewer.

@@ -8,12 +8,12 @@ import 'package:flutter_chan/widgets/reload.dart';
 
 class ThreadRepliesTo extends StatefulWidget {
   const ThreadRepliesTo({
-    Key? key,
+    super.key,
     required this.post,
     required this.thread,
     required this.board,
     required this.allPosts,
-  }) : super(key: key);
+  });
 
   final int post;
   final int thread;
@@ -66,7 +66,8 @@ class _ThreadRepliesToState extends State<ThreadRepliesTo> {
               return const Center(child: CupertinoActivityIndicator());
             default:
               if (snapshot.hasError) {
-                return ReloadWidget(
+                return ReloadWidget.forError(
+                  snapshot.error,
                   onReload: () {
                     loadPost();
                   },

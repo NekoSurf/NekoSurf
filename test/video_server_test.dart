@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
@@ -108,6 +107,7 @@ void main() {
 
     final String local = await videos.source(upstream.url);
     expect(local, startsWith('http://127.0.0.1:'));
+    expect(await videos.cachedFile(upstream.url), isNull);
 
     final (HttpClientResponse response, Uint8List body) = await _get(local);
     expect(response.statusCode, HttpStatus.ok);
@@ -118,6 +118,7 @@ void main() {
     final String cached = await videos.source(upstream.url);
     expect(cached, isNot(startsWith('http')));
     expect(File(cached).readAsBytesSync(), bytes);
+    expect((await videos.cachedFile(upstream.url))?.path, cached);
     expect(videos.progressOf(upstream.url).value, 1);
     expect(upstream.requests, 1);
     await upstream.server.close(force: true);

@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/archived.dart';
+import 'package:flutter_chan/API/urls.dart' as urls;
 import 'package:flutter_chan/Models/bookmark.dart';
 import 'package:flutter_chan/Models/bookmark_status.dart';
 import 'package:flutter_chan/Models/post.dart';
@@ -18,7 +19,7 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:provider/provider.dart';
 
 class BookmarksPost extends StatefulWidget {
-  const BookmarksPost({Key? key, required this.favorite}) : super(key: key);
+  const BookmarksPost({super.key, required this.favorite});
 
   final Bookmark favorite;
 
@@ -89,7 +90,7 @@ class _BookmarksPostState extends State<BookmarksPost> {
           selector: (_, watched) => replies == null || threadNo == null
               ? 0
               : watched.newReplies(threadNo, replies) ?? 0,
-          builder: (_, newReplies, __) => _BookmarkCard(
+          builder: (_, newReplies, _) => _BookmarkCard(
             favorite: widget.favorite,
             status: status,
             replyCount: replyCount,
@@ -117,7 +118,7 @@ class _BookmarksPostState extends State<BookmarksPost> {
                 foregroundColor: Colors.white,
                 icon: CupertinoIcons.trash,
                 onPressed: (context) => {
-                  bookmarks.removeBookmarks(widget.favorite),
+                  bookmarks.removeBookmark(widget.favorite),
                 },
               ),
             ],
@@ -319,8 +320,10 @@ class _BookmarkCard extends StatelessWidget {
                 width: 76,
                 height: 76,
                 child: ImageViewer(
-                  url:
-                      'https://i.4cdn.org/${favorite.board}/${favorite.imageUrl}',
+                  url: urls.boardFile(
+                    '${favorite.board}',
+                    '${favorite.imageUrl}',
+                  ),
                   fit: BoxFit.cover,
                 ),
               ),

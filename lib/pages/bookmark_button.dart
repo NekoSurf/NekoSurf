@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_chan/Models/bookmark.dart';
 import 'package:flutter_chan/blocs/bookmarks_model.dart';
@@ -7,7 +5,7 @@ import 'package:flutter_chan/widgets/dash_header.dart';
 import 'package:provider/provider.dart';
 
 class BookmarkButton extends StatefulWidget {
-  const BookmarkButton({Key? key, this.favorite}) : super(key: key);
+  const BookmarkButton({super.key, this.favorite});
 
   final Bookmark? favorite;
 
@@ -16,28 +14,22 @@ class BookmarkButton extends StatefulWidget {
 }
 
 class _BookmarkButtonState extends State<BookmarkButton> {
-  bool isFavorite = false;
-  late String favoriteString;
-
-  @override
-  void initState() {
-    super.initState();
-
-    favoriteString = json.encode(widget.favorite);
-  }
-
   @override
   Widget build(BuildContext context) {
     final bookmarks = Provider.of<BookmarksProvider>(context);
-
-    isFavorite = bookmarks.getBookmarks().contains(favoriteString);
+    final Bookmark? favorite = widget.favorite;
+    final bool isFavorite =
+        favorite != null && bookmarks.isBookmarked(favorite);
 
     return DashIconButton(
       onPressed: () {
+        if (favorite == null) {
+          return;
+        }
         if (isFavorite) {
-          bookmarks.removeBookmarks(widget.favorite);
+          bookmarks.removeBookmark(favorite);
         } else {
-          bookmarks.addBookmarks(widget.favorite);
+          bookmarks.addBookmark(favorite);
         }
       },
       icon: Icon(

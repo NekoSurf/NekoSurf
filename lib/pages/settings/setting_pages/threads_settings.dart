@@ -9,15 +9,11 @@ import 'package:flutter_chan/widgets/dash_scaffold.dart';
 import 'package:provider/provider.dart';
 
 class ThreadsSettings extends StatelessWidget {
-  const ThreadsSettings({Key? key}) : super(key: key);
+  const ThreadsSettings({super.key});
 
-  static void _showAddFilter(
-    BuildContext context,
-    SettingsProvider settings,
-  ) {
+  static void _showAddFilter(BuildContext context, SettingsProvider settings) {
     final TextEditingController controller = TextEditingController();
-    final bool isDark =
-        CupertinoTheme.brightnessOf(context) == Brightness.dark;
+    final bool isDark = CupertinoTheme.brightnessOf(context) == Brightness.dark;
 
     showDashDialog<void>(
       context: context,

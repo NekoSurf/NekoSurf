@@ -9,8 +9,11 @@ const double kDashHeaderHeight = 62;
 const double kDashTabBarHeight = 64;
 
 class DashIconButton extends StatefulWidget {
-  const DashIconButton({Key? key, required this.icon, required this.onPressed})
-    : super(key: key);
+  const DashIconButton({
+    super.key,
+    required this.icon,
+    required this.onPressed,
+  });
 
   final Widget icon;
   final VoidCallback? onPressed;
@@ -57,14 +60,14 @@ class _DashIconButtonState extends State<DashIconButton> {
 
 class DashHeader extends StatelessWidget {
   const DashHeader({
-    Key? key,
+    super.key,
     required this.title,
     this.subtitle,
     this.leading,
     this.showBack = false,
     this.actions = const [],
     this.elevated = false,
-  }) : super(key: key);
+  });
 
   final String title;
   final String? subtitle;
@@ -170,11 +173,11 @@ class DashTab {
 
 class DashTabBar extends StatelessWidget {
   const DashTabBar({
-    Key? key,
+    super.key,
     required this.tabs,
     required this.selectedIndex,
     required this.onSelected,
-  }) : super(key: key);
+  });
 
   final List<DashTab> tabs;
   final int selectedIndex;

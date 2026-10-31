@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_chan/API/urls.dart' as urls;
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/history_model.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
@@ -7,6 +8,7 @@ import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_widgets.dart';
 import 'package:flutter_chan/pages/thread/thread_page.dart';
+import 'package:flutter_chan/services/image_cache.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/dash_dialogs.dart';
 import 'package:flutter_chan/widgets/dash_header.dart';
@@ -17,7 +19,7 @@ import 'package:provider/provider.dart';
 
 /// Every thread opened recently, newest first and grouped by day.
 class HistoryPage extends StatefulWidget {
-  const HistoryPage({Key? key}) : super(key: key);
+  const HistoryPage({super.key});
 
   @override
   State<HistoryPage> createState() => _HistoryPageState();
@@ -157,7 +159,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 selector: (_, watched) => replies == null
                     ? 0
                     : watched.newReplies(t.no, replies) ?? 0,
-                builder: (_, newReplies, __) => _HistoryRow(
+                builder: (_, newReplies, _) => _HistoryRow(
                   thread: t,
                   isDark: isDark,
                   isArchived: history.isArchived(t),
@@ -254,13 +256,14 @@ class _HistoryRow extends StatelessWidget {
                               fontWeight: FontWeight.w800,
                             ),
                           )
-                        : Image.network(
-                            'https://i.4cdn.org/${thread.board}/${thread.imageUrl}',
+                        : Image(
+                            image: thumbnailImage(
+                              urls.boardFile(thread.board, thread.imageUrl!),
+                            ),
                             width: 64,
                             height: 64,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
-                                const SizedBox.shrink(),
+                            errorBuilder: (_, _, _) => const SizedBox.shrink(),
                           ),
                   ),
                 ),

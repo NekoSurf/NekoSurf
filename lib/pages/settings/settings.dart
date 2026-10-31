@@ -12,7 +12,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
 class Settings extends StatefulWidget {
-  const Settings({Key? key}) : super(key: key);
+  const Settings({super.key});
 
   @override
   State<Settings> createState() => _SettingsState();
@@ -61,7 +61,7 @@ class _SettingsState extends State<Settings> {
                 icon: CupertinoIcons.tray_full_fill,
                 color: const Color(0xFFFBBF24),
                 title: 'Data',
-                subtitle: 'Watched posts, history, video cache',
+                subtitle: 'Watched posts, history, caches',
                 showChevron: true,
                 onTap: () => _push(const DataSettings()),
               ),

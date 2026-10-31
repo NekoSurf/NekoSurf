@@ -1,7 +1,6 @@
 import 'dart:math';
 
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/API/archive.dart';
 import 'package:flutter_chan/Models/post.dart';
@@ -21,8 +20,7 @@ import 'package:provider/provider.dart';
 /// 4chan's archive lists only thread numbers, so each row fetches its own
 /// preview through [ArchivePreviewLoader] as it scrolls into view.
 class ArchivePage extends StatefulWidget {
-  const ArchivePage({Key? key, required this.board, required this.boardName})
-    : super(key: key);
+  const ArchivePage({super.key, required this.board, required this.boardName});
 
   final String board;
   final String boardName;
@@ -37,7 +35,7 @@ class _ArchivePageState extends State<ArchivePage> {
 
   List<int> _threads = const <int>[];
   bool _isLoading = true;
-  bool _hasError = false;
+  Object? _error;
 
   @override
   void initState() {
@@ -55,7 +53,7 @@ class _ArchivePageState extends State<ArchivePage> {
   Future<void> _load() async {
     setState(() {
       _isLoading = true;
-      _hasError = false;
+      _error = null;
     });
 
     try {
@@ -66,11 +64,11 @@ class _ArchivePageState extends State<ArchivePage> {
           _isLoading = false;
         });
       }
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _hasError = true;
+          _error = error;
         });
       }
     }
@@ -117,7 +115,7 @@ class _ArchivePageState extends State<ArchivePage> {
             subtitle: 'Newest first · previews load as you scroll',
           ),
         ),
-        if (!_isLoading && !_hasError)
+        if (!_isLoading && _error == null)
           SliverToBoxAdapter(
             child: DashSearchField(
               isDark: isDark,
@@ -130,8 +128,10 @@ class _ArchivePageState extends State<ArchivePage> {
           const SliverFillRemaining(
             child: Center(child: CupertinoActivityIndicator()),
           )
-        else if (_hasError)
-          SliverFillRemaining(child: ReloadWidget(onReload: _load))
+        else if (_error != null)
+          SliverFillRemaining(
+            child: ReloadWidget.forError(_error, onReload: _load),
+          )
         else
           ListenableBuilder(
             listenable: _loader,
@@ -237,12 +237,12 @@ class _ArchivePageState extends State<ArchivePage> {
 /// when it's scrolled away.
 class _ArchiveRow extends StatefulWidget {
   const _ArchiveRow({
-    Key? key,
+    super.key,
     required this.board,
     required this.no,
     required this.loader,
     required this.grid,
-  }) : super(key: key);
+  });
 
   final String board;
   final int no;

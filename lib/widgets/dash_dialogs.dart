@@ -17,7 +17,7 @@ Future<T?> showDashDialog<T>({
     barrierLabel: 'Dismiss',
     barrierColor: barrierColor ?? Colors.black.withValues(alpha: 0.55),
     transitionDuration: const Duration(milliseconds: 200),
-    pageBuilder: (ctx, _, __) => builder(ctx),
+    pageBuilder: (ctx, _, _) => builder(ctx),
     transitionBuilder: (ctx, animation, _, child) {
       final curved = CurvedAnimation(
         parent: animation,
@@ -36,11 +36,11 @@ Future<T?> showDashDialog<T>({
 
 class DashDialog extends StatelessWidget {
   const DashDialog({
-    Key? key,
+    super.key,
     this.title,
     this.content,
     this.actions = const [],
-  }) : super(key: key);
+  });
 
   final Widget? title;
   final Widget? content;
@@ -124,12 +124,12 @@ class DashDialog extends StatelessWidget {
 
 class DashDialogAction extends StatelessWidget {
   const DashDialogAction({
-    Key? key,
+    super.key,
     required this.child,
     required this.onPressed,
     this.isDefaultAction = false,
     this.isDestructiveAction = false,
-  }) : super(key: key);
+  });
 
   final Widget child;
   final VoidCallback? onPressed;
@@ -213,7 +213,7 @@ Future<void> showDashMenu(
     barrierLabel: 'Dismiss',
     barrierColor: Colors.black.withValues(alpha: 0.25),
     transitionDuration: const Duration(milliseconds: 160),
-    pageBuilder: (ctx, _, __) =>
+    pageBuilder: (ctx, _, _) =>
         _DashMenu(anchor: anchor, entries: entries, title: title),
     transitionBuilder: (ctx, animation, _, child) {
       final curved = CurvedAnimation(
@@ -227,11 +227,11 @@ Future<void> showDashMenu(
 
 class DashMenuAnchor extends StatelessWidget {
   const DashMenuAnchor({
-    Key? key,
+    super.key,
     required this.menuChildren,
     required this.builder,
     this.title,
-  }) : super(key: key);
+  });
 
   final List<DashMenuEntry> menuChildren;
   final Widget Function(BuildContext context, VoidCallback open) builder;

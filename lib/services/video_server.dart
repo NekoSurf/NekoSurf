@@ -111,6 +111,18 @@ class VideoServer {
   /// How much of [url] has arrived, from 0 to 1; null while unknown.
   ValueListenable<double?> progressOf(String url) => _progressOf(url);
 
+  /// The finished copy of [url] on disk, if it's been watched to the end
+  /// of its download; null otherwise (also while it's still arriving).
+  Future<File?> cachedFile(String url) async {
+    try {
+      final File file = await _fileFor(url);
+      if (file.existsSync() && !_downloads.containsKey(url)) {
+        return file;
+      }
+    } catch (_) {}
+    return null;
+  }
+
   /// Forgets [url]'s cached copy (e.g. one that wouldn't play), so it's
   /// downloaded again next time.
   Future<void> evict(String url) async {
@@ -328,6 +340,12 @@ class VideoServer {
     return null;
   }
 
+  /// 4chan's videos are webm or mp4; [path] ends like the original.
+  static ContentType _contentType(String path) =>
+      path.toLowerCase().endsWith('.mp4')
+      ? ContentType('video', 'mp4')
+      : ContentType('video', 'webm');
+
   static final RegExp _rangePattern = RegExp(r'^bytes=(\d+)-(\d+)?$');
 
   static (int, int?)? _parseRange(HttpRequest request) {
@@ -348,7 +366,7 @@ class VideoServer {
     final int end = min(range?.$2 ?? length - 1, length - 1);
 
     response.headers.set(HttpHeaders.acceptRangesHeader, 'bytes');
-    response.headers.contentType = ContentType('video', 'webm');
+    response.headers.contentType = _contentType(file.path);
     if (range != null) {
       response.statusCode = HttpStatus.partialContent;
       response.headers.set(
@@ -381,7 +399,7 @@ class VideoServer {
     }
 
     response.headers.set(HttpHeaders.acceptRangesHeader, 'bytes');
-    response.headers.contentType = ContentType('video', 'webm');
+    response.headers.contentType = _contentType(download.url);
     if (range != null) {
       response.statusCode = HttpStatus.partialContent;
       response.headers.set(
@@ -437,7 +455,7 @@ class VideoServer {
 
     response.statusCode = HttpStatus.partialContent;
     response.headers.set(HttpHeaders.acceptRangesHeader, 'bytes');
-    response.headers.contentType = ContentType('video', 'webm');
+    response.headers.contentType = _contentType(url);
     response.headers.set(
       HttpHeaders.contentRangeHeader,
       'bytes $start-$end/$total',

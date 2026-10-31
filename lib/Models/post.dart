@@ -90,6 +90,15 @@ class Post {
   int? archived;
   List<Post>? repliedPosts;
 
+  /// Whether a file is attached ([tim] and [ext] are set).
+  bool get hasFile => tim != null && ext != null;
+
+  /// Whether the attached file is a video; 4chan takes webm and mp4.
+  bool get isVideo {
+    final String? lower = ext?.toLowerCase();
+    return lower == '.webm' || lower == '.mp4';
+  }
+
   Map<String, dynamic> toJson() => {
     'no': no,
     'sticky': sticky,

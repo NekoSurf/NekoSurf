@@ -2,12 +2,11 @@ import 'dart:convert';
 
 import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/API/http_client.dart';
-import 'package:flutter_chan/Models/bookmark.dart';
+import 'package:flutter_chan/API/urls.dart' as urls;
 import 'package:flutter_chan/Models/bookmark_status.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/enums/enums.dart';
 import 'package:http/http.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 /// What one board's catalog and archive say about its threads.
 class _BoardSnapshot {
@@ -38,9 +37,7 @@ Future<_BoardSnapshot> _boardSnapshot(String board, {bool force = false}) {
     final List<Post> catalog = await fetchCatalog(board);
     Set<int>? archived;
     try {
-      final Response response = await httpClient.get(
-        Uri.parse('https://a.4cdn.org/$board/archive.json'),
-      );
+      final Response response = await httpClient.get(urls.archive(board));
       if (response.statusCode == 200) {
         archived = (jsonDecode(response.body) as List).cast<int>().toSet();
       }
@@ -93,7 +90,7 @@ Future<BookmarkStatus> _fetchBookmarkStatusFromThread(
   final BookmarkStatus bookmarkStatus = BookmarkStatus();
 
   final Response response = await httpClient.get(
-    Uri.parse('https://a.4cdn.org/$board/thread/$thread.json'),
+    urls.thread(board ?? '', thread ?? ''),
   );
 
   if (response.statusCode == 200) {
@@ -146,9 +143,7 @@ Future<ThreadCheck?> fetchThreadStatus(
   // Deleted, newer than the snapshot, or archived after the archive list was
   // fetched: only the thread itself can tell, and this case is rare.
   try {
-    final Response response = await httpClient.get(
-      Uri.parse('https://a.4cdn.org/$board/thread/$thread.json'),
-    );
+    final Response response = await httpClient.get(urls.thread(board, thread));
 
     if (response.statusCode == 404) {
       return (status: ThreadStatus.deleted, replies: null);
@@ -166,22 +161,4 @@ Future<ThreadCheck?> fetchThreadStatus(
   } catch (_) {
     return null;
   }
-}
-
-Future<void> removeFavorite(Bookmark favorite) async {
-  final SharedPreferences prefs = await SharedPreferences.getInstance();
-
-  final List<String>? favoriteThreadsPrefs = prefs.getStringList(
-    'favoriteThreads',
-  );
-
-  favoriteThreadsPrefs?.remove(json.encode(favorite));
-
-  prefs.setStringList('favoriteThreads', favoriteThreadsPrefs ?? []);
-}
-
-Future<void> clearBookmarks() async {
-  final SharedPreferences prefs = await SharedPreferences.getInstance();
-
-  prefs.setStringList('favoriteThreads', []);
 }

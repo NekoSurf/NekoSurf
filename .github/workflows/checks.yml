@@ -1,0 +1,38 @@
+name: Checks
+
+# The analyzer and the tests, on every push to main and every PR. Prepare
+# Release runs them as well, before it bumps the version and tags.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+    inputs:
+      ref:
+        description: "Branch, tag or SHA to check (empty = triggering ref)"
+        type: string
+        default: ""
+
+env:
+  # Keep in step with _build.yml.
+  FLUTTER_VERSION: "3.44.6"
+
+jobs:
+  checks:
+    name: Analyze and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: "stable"
+
+      - run: flutter pub get
+
+      - run: flutter analyze
+
+      - run: flutter test

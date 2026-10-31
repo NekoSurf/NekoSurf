@@ -19,8 +19,7 @@ import 'package:flutter_chan/widgets/reload.dart';
 import 'package:provider/provider.dart';
 
 class BoardPage extends StatefulWidget {
-  const BoardPage({Key? key, required this.board, required this.boardName})
-    : super(key: key);
+  const BoardPage({super.key, required this.board, required this.boardName});
 
   final String board;
   final String boardName;
@@ -35,7 +34,7 @@ class BoardPageState extends State<BoardPage> {
   List<Post> _catalog = [];
   List<Post> filteredBoards = [];
   bool _isLoading = true;
-  bool _hasError = false;
+  Object? _error;
 
   bool isFavorite = false;
   bool _hasArchive = false;
@@ -83,7 +82,7 @@ class BoardPageState extends State<BoardPage> {
   Future<void> loadBoard() async {
     setState(() {
       _isLoading = true;
-      _hasError = false;
+      _error = null;
     });
 
     try {
@@ -96,11 +95,11 @@ class BoardPageState extends State<BoardPage> {
         _isLoading = false;
         _applyView();
       });
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _hasError = true;
+          _error = error;
         });
       }
     }
@@ -285,8 +284,10 @@ class BoardPageState extends State<BoardPage> {
           const SliverFillRemaining(
             child: Center(child: CupertinoActivityIndicator()),
           )
-        else if (_hasError)
-          SliverFillRemaining(child: ReloadWidget(onReload: loadBoard))
+        else if (_error != null)
+          SliverFillRemaining(
+            child: ReloadWidget.forError(_error, onReload: loadBoard),
+          )
         else
           getBoardSliverView(visibleThreads, settings),
       ],

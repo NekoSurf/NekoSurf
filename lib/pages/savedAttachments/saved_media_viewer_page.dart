@@ -12,11 +12,11 @@ import 'package:provider/provider.dart';
 
 class SavedMediaViewerPage extends StatefulWidget {
   const SavedMediaViewerPage({
-    Key? key,
+    super.key,
     required this.attachments,
     required this.initialIndex,
     required this.directoryPath,
-  }) : super(key: key);
+  });
 
   final List<SavedAttachment> attachments;
   final int initialIndex;
@@ -69,7 +69,7 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
     return _attachments
         .map((SavedAttachment attachment) {
           final bool isVideo =
-              attachment.savedAttachmentType == SavedAttachmentType.Video;
+              attachment.savedAttachmentType == SavedAttachmentType.video;
           final String path = _filePath(attachment);
 
           return SharedMediaViewerItem(
@@ -97,14 +97,22 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
     setState(() {
       _isDownloading = true;
     });
-    await saveVideo(fileName, fileName, context, isSaved: true);
+    final bool saved = await saveVideo(
+      fileName,
+      fileName,
+      context,
+      isSaved: true,
+    );
     if (!mounted) {
       return;
     }
     setState(() {
       _isDownloading = false;
-      _didDownload = true;
+      _didDownload = saved;
     });
+    if (!saved) {
+      return;
+    }
     _downloadSuccessTimer = Timer(const Duration(milliseconds: 1200), () {
       if (!mounted) {
         return;

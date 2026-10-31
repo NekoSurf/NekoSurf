@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_chan/API/save_videos.dart';
 import 'package:flutter_chan/blocs/bookmarks_model.dart';
 import 'package:flutter_chan/blocs/favorite_model.dart';
 import 'package:flutter_chan/blocs/history_model.dart';
@@ -10,8 +13,10 @@ import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/pages/boards/board_list.dart';
 import 'package:flutter_chan/services/fast_page_transitions.dart';
+import 'package:flutter_chan/services/image_cache.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 Future<void> main() async {
@@ -21,17 +26,27 @@ Future<void> main() async {
   VisibilityDetectorController.instance.updateInterval = const Duration(
     milliseconds: 16,
   );
-  FlutterError.onError = (FlutterErrorDetails details) {
-    print('Error From INSIDE FRAME_WORK');
-    print('----------------------');
-    print('Error :  ${details.exception}');
-    print('StackTrace :  ${details.stack}');
+  // Errors from async code outside the framework go the same way as the
+  // framework's own (FlutterError.onError, which prints them), so there's
+  // one place to hook in logging.
+  WidgetsBinding.instance.platformDispatcher.onError = (error, stack) {
+    FlutterError.reportError(
+      FlutterErrorDetails(exception: error, stack: stack, library: 'NekoSurf'),
+    );
+    return true;
   };
-  runApp(const MyApp());
+  // Loaded before the first frame, so it shows the saved settings,
+  // favorites and bookmarks rather than defaults.
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+  unawaited(deleteSaveLeftovers());
+  unawaited(deleteOldImageCache());
+  runApp(MyApp(prefs: prefs));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key, required this.prefs});
+
+  final SharedPreferences prefs;
 
   @override
   Widget build(BuildContext context) {
@@ -41,22 +56,22 @@ class MyApp extends StatelessWidget {
           create: (_) => ThemeChanger(ThemeData.dark()),
         ),
         ChangeNotifierProvider<BookmarksProvider>(
-          create: (_) => BookmarksProvider([]),
+          create: (_) => BookmarksProvider(prefs),
         ),
         ChangeNotifierProvider<FavoriteProvider>(
-          create: (_) => FavoriteProvider([]),
+          create: (_) => FavoriteProvider(prefs),
         ),
         ChangeNotifierProvider<SettingsProvider>(
-          create: (_) => SettingsProvider(),
+          create: (_) => SettingsProvider(prefs),
         ),
         ChangeNotifierProvider<HistoryProvider>(
-          create: (_) => HistoryProvider(),
+          create: (_) => HistoryProvider(prefs),
         ),
         ChangeNotifierProvider<SavedAttachmentsProvider>(
-          create: (_) => SavedAttachmentsProvider([]),
+          create: (_) => SavedAttachmentsProvider(prefs),
         ),
         ChangeNotifierProvider<WatchedPostsProvider>(
-          create: (_) => WatchedPostsProvider(),
+          create: (_) => WatchedPostsProvider(prefs),
           lazy: false,
         ),
       ],
@@ -66,7 +81,7 @@ class MyApp extends StatelessWidget {
 }
 
 class AppWithTheme extends StatefulWidget {
-  const AppWithTheme({Key? key}) : super(key: key);
+  const AppWithTheme({super.key});
 
   @override
   State<AppWithTheme> createState() => _AppWithThemeState();
