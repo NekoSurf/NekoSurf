@@ -1,7 +1,6 @@
-import 'dart:convert';
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_chan/API/urls.dart' as urls;
 import 'package:flutter_chan/Models/bookmark.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/bookmarks_model.dart';
@@ -12,7 +11,6 @@ import 'package:flutter_chan/pages/thread/thread_page.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/services/thread_filters.dart';
 import 'package:flutter_chan/widgets/image_viewer.dart';
-
 import 'package:provider/provider.dart';
 
 class GridPost extends StatefulWidget {
@@ -34,7 +32,6 @@ class GridPost extends StatefulWidget {
 class _GridPostState extends State<GridPost> {
   late Bookmark favorite;
   bool isFavorite = false;
-  late String favoriteString;
 
   @override
   void initState() {
@@ -47,8 +44,6 @@ class _GridPostState extends State<GridPost> {
       imageUrl: '${widget.post.tim}s.jpg',
       board: widget.board,
     );
-
-    favoriteString = json.encode(favorite);
   }
 
   @override
@@ -63,7 +58,7 @@ class _GridPostState extends State<GridPost> {
     ).trim();
     final String excerpt = unescape(cleanTags(widget.post.com ?? '')).trim();
 
-    isFavorite = bookmarks.getBookmarks().contains(favoriteString);
+    isFavorite = bookmarks.isBookmarked(favorite);
 
     return GestureDetector(
       onTap: () => {
@@ -104,8 +99,7 @@ class _GridPostState extends State<GridPost> {
                   fit: StackFit.expand,
                   children: [
                     ImageViewer(
-                      url:
-                          'https://i.4cdn.org/${widget.board}/${widget.post.tim}s.jpg',
+                      url: urls.thumbnail(widget.board, widget.post.tim),
                       fit: BoxFit.cover,
                     ),
                     DecoratedBox(
@@ -185,8 +179,8 @@ class _GridPostState extends State<GridPost> {
                       right: 10,
                       child: GestureDetector(
                         onTap: () => isFavorite
-                            ? bookmarks.removeBookmarks(favorite)
-                            : bookmarks.addBookmarks(favorite),
+                            ? bookmarks.removeBookmark(favorite)
+                            : bookmarks.addBookmark(favorite),
                         child: Container(
                           width: 32,
                           height: 32,

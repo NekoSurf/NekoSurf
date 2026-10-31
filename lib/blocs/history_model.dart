@@ -70,8 +70,15 @@ class HistoryBoard {
 }
 
 class HistoryProvider with ChangeNotifier {
-  HistoryProvider() {
-    _ready = _load();
+  HistoryProvider(this._prefs) {
+    _threads = _decode(
+      _prefs.getStringList(_threadsKey),
+      (m) => HistoryThread.fromJson(m),
+    );
+    _boards = _decode(
+      _prefs.getStringList(_boardsKey),
+      (m) => HistoryBoard.fromJson(m),
+    );
   }
 
   static const String _threadsKey = 'historyThreads';
@@ -79,7 +86,7 @@ class HistoryProvider with ChangeNotifier {
   static const int maxThreads = 100;
   static const int maxBoards = 8;
 
-  late final Future<void> _ready;
+  final SharedPreferences _prefs;
   List<HistoryThread> _threads = [];
   List<HistoryBoard> _boards = [];
   final Set<String> _archived = {};
@@ -96,20 +103,15 @@ class HistoryProvider with ChangeNotifier {
 
   String _key(HistoryThread t) => '${t.board}/${t.no}';
 
-  Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
+  Future<void> _saveThreads() => _prefs.setStringList(
+    _threadsKey,
+    _threads.map((t) => json.encode(t.toJson())).toList(),
+  );
 
-    _threads = _decode(
-      prefs.getStringList(_threadsKey),
-      (m) => HistoryThread.fromJson(m),
-    );
-    _boards = _decode(
-      prefs.getStringList(_boardsKey),
-      (m) => HistoryBoard.fromJson(m),
-    );
-
-    notifyListeners();
-  }
+  Future<void> _saveBoards() => _prefs.setStringList(
+    _boardsKey,
+    _boards.map((b) => json.encode(b.toJson())).toList(),
+  );
 
   List<T> _decode<T>(
     List<String>? raw,
@@ -151,11 +153,7 @@ class HistoryProvider with ChangeNotifier {
     }
 
     notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(
-      _threadsKey,
-      _threads.map((t) => json.encode(t.toJson())).toList(),
-    );
+    await _saveThreads();
   }
 
   Future<void> recordBoard({
@@ -173,11 +171,7 @@ class HistoryProvider with ChangeNotifier {
     }
 
     notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(
-      _boardsKey,
-      _boards.map((b) => json.encode(b.toJson())).toList(),
-    );
+    await _saveBoards();
   }
 
   static const Duration _checkInterval = Duration(minutes: 5);
@@ -186,7 +180,6 @@ class HistoryProvider with ChangeNotifier {
   /// Drops threads that 4chan no longer has and remembers which are archived.
   /// Runs at most every few minutes unless [force]d (pull to refresh).
   Future<void> checkThreads({bool force = false}) async {
-    await _ready;
     final DateTime now = DateTime.now();
     if (!force &&
         _lastCheck != null &&
@@ -226,30 +219,21 @@ class HistoryProvider with ChangeNotifier {
     notifyListeners();
 
     if (deleted.isNotEmpty) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList(
-        _threadsKey,
-        _threads.map((t) => json.encode(t.toJson())).toList(),
-      );
+      await _saveThreads();
     }
   }
 
   Future<void> removeThread(HistoryThread thread) async {
     _threads.removeWhere((t) => t.board == thread.board && t.no == thread.no);
     notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(
-      _threadsKey,
-      _threads.map((t) => json.encode(t.toJson())).toList(),
-    );
+    await _saveThreads();
   }
 
   Future<void> clear() async {
     _threads = [];
     _boards = [];
     notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_threadsKey);
-    await prefs.remove(_boardsKey);
+    await _prefs.remove(_threadsKey);
+    await _prefs.remove(_boardsKey);
   }
 }

@@ -3,9 +3,11 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/save_videos.dart';
+import 'package:flutter_chan/API/urls.dart' as urls;
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/saved_attachments_model.dart';
 import 'package:flutter_chan/pages/media/shared_media_viewer.dart';
+import 'package:flutter_chan/services/image_cache.dart';
 import 'package:flutter_chan/services/reverse_image_search.dart';
 import 'package:flutter_chan/widgets/media_video.dart';
 import 'package:provider/provider.dart';
@@ -428,10 +430,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
 
   int? get _currentPostId => _currentPost.no ?? _currentPost.tim;
 
-  bool _isVideo(Post post) => post.ext == '.webm' || post.ext == '.mp4';
-
-  String _mediaUrl(Post post) =>
-      'https://i.4cdn.org/${widget.board}/${post.tim}${post.ext}';
+  String _mediaUrl(Post post) => urls.file(widget.board, post.tim, post.ext);
 
   String _fileName(Post post) => '${post.filename}${post.ext}';
   // `tim` is unique per upload; user-provided `filename` is not.
@@ -452,11 +451,9 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
           return SharedMediaViewerItem(
             id: '${post.no ?? post.tim}',
             source: mediaUrl,
-            isVideo: _isVideo(post),
-            imageProvider: NetworkImage(mediaUrl),
-            thumbnail: NetworkImage(
-              'https://i.4cdn.org/${widget.board}/${post.tim}s.jpg',
-            ),
+            isVideo: post.isVideo,
+            imageProvider: fullImage(mediaUrl),
+            thumbnail: thumbnailImage(urls.thumbnail(widget.board, post.tim)),
             width: post.w,
             height: post.h,
           );
@@ -621,8 +618,8 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
           // Search engines only take images, so videos use their thumbnail.
           onSearch: (anchor) => showReverseImageSearchMenu(
             anchor,
-            _isVideo(_currentPost)
-                ? 'https://i.4cdn.org/${widget.board}/${_currentPost.tim}s.jpg'
+            _currentPost.isVideo
+                ? urls.thumbnail(widget.board, _currentPost.tim)
                 : _mediaUrl(_currentPost),
           ),
         ),

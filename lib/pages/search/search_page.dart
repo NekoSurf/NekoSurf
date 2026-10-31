@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/API/global_search.dart';
+import 'package:flutter_chan/API/urls.dart' as urls;
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/favorite_model.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
@@ -577,7 +578,7 @@ class _SearchResultTile extends StatelessWidget {
                   width: 72,
                   height: 72,
                   child: ImageViewer(
-                    url: 'https://i.4cdn.org/$board/${post.tim}s.jpg',
+                    url: urls.thumbnail(board, post.tim),
                     fit: BoxFit.cover,
                   ),
                 ),

@@ -1,5 +1,7 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_chan/services/image_cache.dart';
 
+/// A thumbnail, from the disk cache when it's been seen before.
 class ImageViewer extends StatelessWidget {
   const ImageViewer({
     super.key,
@@ -34,14 +36,14 @@ class ImageViewer extends StatelessWidget {
         ? InteractiveViewer(
             minScale: 0.5,
             maxScale: 5,
-            child: Image.network(
-              url,
+            child: Image(
+              image: thumbnailImage(url),
               loadingBuilder: _loadingBuilder,
               errorBuilder: imageErrorPlaceholder,
             ),
           )
-        : Image.network(
-            url,
+        : Image(
+            image: thumbnailImage(url),
             fit: fit,
             height: height,
             width: width,

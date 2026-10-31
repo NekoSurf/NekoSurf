@@ -7,14 +7,15 @@ import 'package:flutter_chan/Models/watched_posts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
-  WatchedPostsProvider() {
-    loadWatchedPosts();
+  WatchedPostsProvider(this._prefs) {
+    _load();
 
     WidgetsBinding.instance.addObserver(this);
 
     _startCleanupTimer();
   }
 
+  final SharedPreferences _prefs;
   Timer? _cleanupTimer;
   Timer? _saveDebounceTimer;
   bool _hasPendingSave = false;
@@ -75,15 +76,12 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
   List<WatchedPosts> get watchedPosts =>
       List.unmodifiable(_watchedPostsByThread.values);
 
-  Future<void> loadWatchedPosts() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final List<String>? watchedPostsList = prefs.getStringList(
+  void _load() {
+    final List<String>? watchedPostsList = _prefs.getStringList(
       _watchedPostsStorageKey,
     );
 
     if (watchedPostsList != null) {
-      _watchedPostsByThread.clear();
-
       for (final String watchedPostsString in watchedPostsList) {
         try {
           final Map<String, dynamic> watchedPostsMap =
@@ -98,7 +96,6 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
           debugPrint('Error parsing watched posts entry: $e');
         }
       }
-      notifyListeners();
     }
 
     clearOldWatchedPosts();
@@ -152,11 +149,10 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   Future<void> _saveWatchedPosts() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
     final List<String> watchedPostsStrings = _watchedPostsByThread.values
         .map((media) => json.encode(media.toJson()))
         .toList();
-    await prefs.setStringList(_watchedPostsStorageKey, watchedPostsStrings);
+    await _prefs.setStringList(_watchedPostsStorageKey, watchedPostsStrings);
   }
 
   Future<void> clearAllWatchedPosts() async {
@@ -166,8 +162,7 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   Future<void> clearOldWatchedPosts() async {
-    final settings = await SharedPreferences.getInstance();
-    final int retentionDays = settings.getInt('watchedPostsRetentionDays') ?? 7;
+    final int retentionDays = _prefs.getInt('watchedPostsRetentionDays') ?? 7;
 
     final DateTime cutoffDate = DateTime.now().subtract(
       Duration(days: retentionDays),

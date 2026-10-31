@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/API/http_client.dart';
+import 'package:flutter_chan/API/urls.dart' as urls;
 import 'package:flutter_chan/Models/post.dart';
 import 'package:http/http.dart';
 
@@ -12,11 +13,9 @@ import 'package:http/http.dart';
 /// The archive only lists numbers; titles and images need one request per
 /// thread, which [ArchivePreviewLoader] spreads out.
 Future<List<int>> fetchArchive(String board) async {
-  final Response response = await httpClient.get(
-    Uri.parse('https://a.4cdn.org/$board/archive.json'),
-  );
+  final Response response = await httpClient.get(urls.archive(board));
   if (response.statusCode != 200) {
-    throw Exception('Failed to load archive.');
+    throw ApiException(response.statusCode, 'archive');
   }
 
   return (jsonDecode(response.body) as List).cast<int>().reversed.toList();

@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_chan/API/urls.dart' as urls;
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/history_model.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
@@ -7,6 +8,7 @@ import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_widgets.dart';
 import 'package:flutter_chan/pages/thread/thread_page.dart';
+import 'package:flutter_chan/services/image_cache.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/dash_dialogs.dart';
 import 'package:flutter_chan/widgets/dash_header.dart';
@@ -254,8 +256,10 @@ class _HistoryRow extends StatelessWidget {
                               fontWeight: FontWeight.w800,
                             ),
                           )
-                        : Image.network(
-                            'https://i.4cdn.org/${thread.board}/${thread.imageUrl}',
+                        : Image(
+                            image: thumbnailImage(
+                              urls.boardFile(thread.board, thread.imageUrl!),
+                            ),
                             width: 64,
                             height: 64,
                             fit: BoxFit.cover,

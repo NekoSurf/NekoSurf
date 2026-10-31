@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
@@ -17,6 +18,45 @@ class ReloadWidget extends StatelessWidget {
     this.secondaryLabel,
     this.onSecondary,
   });
+
+  /// Says what went wrong with [error]: 4chan limiting requests, not
+  /// having the page, or failing itself; otherwise (no connection, most
+  /// likely) the default.
+  factory ReloadWidget.forError(
+    Object? error, {
+    Key? key,
+    required Function() onReload,
+  }) {
+    final (IconData icon, String title, String message) = switch (error) {
+      ApiException(isRateLimited: true) => (
+        CupertinoIcons.hourglass,
+        'Too many requests',
+        '4chan is limiting requests for now. Wait a moment, then try again.',
+      ),
+      ApiException(statusCode: 404) => (
+        CupertinoIcons.question_circle,
+        'Not found',
+        "4chan doesn't have this page (anymore).",
+      ),
+      ApiException(statusCode: >= 500) => (
+        CupertinoIcons.exclamationmark_triangle,
+        '4chan is having trouble',
+        'Its servers answered with an error. Try again in a bit.',
+      ),
+      _ => (
+        CupertinoIcons.wifi_exclamationmark,
+        'Loading failed',
+        'Check your connection and try again.',
+      ),
+    };
+    return ReloadWidget(
+      key: key,
+      onReload: onReload,
+      icon: icon,
+      title: title,
+      message: message,
+    );
+  }
 
   final Function() onReload;
   final IconData icon;

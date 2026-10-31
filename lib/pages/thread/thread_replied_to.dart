@@ -66,7 +66,8 @@ class _ThreadRepliesToState extends State<ThreadRepliesTo> {
               return const Center(child: CupertinoActivityIndicator());
             default:
               if (snapshot.hasError) {
-                return ReloadWidget(
+                return ReloadWidget.forError(
+                  snapshot.error,
                   onReload: () {
                     loadPost();
                   },

@@ -35,7 +35,7 @@ class _ArchivePageState extends State<ArchivePage> {
 
   List<int> _threads = const <int>[];
   bool _isLoading = true;
-  bool _hasError = false;
+  Object? _error;
 
   @override
   void initState() {
@@ -53,7 +53,7 @@ class _ArchivePageState extends State<ArchivePage> {
   Future<void> _load() async {
     setState(() {
       _isLoading = true;
-      _hasError = false;
+      _error = null;
     });
 
     try {
@@ -64,11 +64,11 @@ class _ArchivePageState extends State<ArchivePage> {
           _isLoading = false;
         });
       }
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _hasError = true;
+          _error = error;
         });
       }
     }
@@ -115,7 +115,7 @@ class _ArchivePageState extends State<ArchivePage> {
             subtitle: 'Newest first · previews load as you scroll',
           ),
         ),
-        if (!_isLoading && !_hasError)
+        if (!_isLoading && _error == null)
           SliverToBoxAdapter(
             child: DashSearchField(
               isDark: isDark,
@@ -128,8 +128,10 @@ class _ArchivePageState extends State<ArchivePage> {
           const SliverFillRemaining(
             child: Center(child: CupertinoActivityIndicator()),
           )
-        else if (_hasError)
-          SliverFillRemaining(child: ReloadWidget(onReload: _load))
+        else if (_error != null)
+          SliverFillRemaining(
+            child: ReloadWidget.forError(_error, onReload: _load),
+          )
         else
           ListenableBuilder(
             listenable: _loader,
