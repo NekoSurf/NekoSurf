@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_chan/API/save_videos.dart';
 import 'package:flutter_chan/blocs/bookmarks_model.dart';
 import 'package:flutter_chan/blocs/favorite_model.dart';
 import 'package:flutter_chan/blocs/history_model.dart';
@@ -34,6 +37,7 @@ Future<void> main() async {
   // Loaded before the first frame, so it shows the saved settings,
   // favorites and bookmarks rather than defaults.
   final SharedPreferences prefs = await SharedPreferences.getInstance();
+  unawaited(deleteSaveLeftovers());
   runApp(MyApp(prefs: prefs));
 }
 

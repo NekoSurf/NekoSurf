@@ -235,6 +235,10 @@ class _DataSettingsState extends State<DataSettings> {
 
 String formatCacheSize(int bytes) {
   const int megabyte = 1024 * 1024;
+  // Thumbnails are a few KB each; don't show a full cache as "0 MB".
+  if (bytes < megabyte) {
+    return '${(bytes / 1024).ceil()} KB';
+  }
   if (bytes >= 1024 * megabyte) {
     final double gigabytes = bytes / (1024 * megabyte);
     return '${gigabytes.toStringAsFixed(gigabytes < 10 ? 1 : 0)} GB'
