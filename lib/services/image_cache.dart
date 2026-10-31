@@ -62,3 +62,35 @@ Future<void> clearImageCache() async {
   await _thumbnails.emptyCache();
   await _images.emptyCache();
 }
+
+/// The cache manager's default cache, where versions before 453156c kept
+/// media. Nothing reads it any more.
+const String _oldCacheKey = 'libCachedImageData';
+
+/// Deletes the cache older versions left behind. Meant for launch.
+Future<void> deleteOldImageCache() async {
+  try {
+    await deleteOldImageCacheIn(
+      await getTemporaryDirectory(),
+      await getApplicationSupportDirectory(),
+    );
+  } catch (e) {
+    debugPrint('deleteOldImageCache error: $e');
+  }
+}
+
+/// The cached files are in [temp], the database listing them in [support].
+@visibleForTesting
+Future<void> deleteOldImageCacheIn(Directory temp, Directory support) async {
+  final List<FileSystemEntity> old = [
+    Directory('${temp.path}/$_oldCacheKey'),
+    // SQLite may have left a journal or WAL files beside the database.
+    for (final String suffix in const ['', '-journal', '-wal', '-shm'])
+      File('${support.path}/$_oldCacheKey.db$suffix'),
+  ];
+  for (final FileSystemEntity entity in old) {
+    if (await entity.exists()) {
+      await entity.delete(recursive: true);
+    }
+  }
+}

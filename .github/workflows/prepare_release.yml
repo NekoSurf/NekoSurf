@@ -31,8 +31,15 @@ env:
   BUNDLE_ID: com.wrngwrld.Chanyan
 
 jobs:
+  # Nothing is tagged or pushed if the analyzer or a test fails.
+  checks:
+    uses: ./.github/workflows/checks.yml
+    with:
+      ref: main
+
   prepare:
     name: Bump version and tag
+    needs: checks
     runs-on: ubuntu-latest
     permissions:
       contents: write
