@@ -97,14 +97,22 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
     setState(() {
       _isDownloading = true;
     });
-    await saveVideo(fileName, fileName, context, isSaved: true);
+    final bool saved = await saveVideo(
+      fileName,
+      fileName,
+      context,
+      isSaved: true,
+    );
     if (!mounted) {
       return;
     }
     setState(() {
       _isDownloading = false;
-      _didDownload = true;
+      _didDownload = saved;
     });
+    if (!saved) {
+      return;
+    }
     _downloadSuccessTimer = Timer(const Duration(milliseconds: 1200), () {
       if (!mounted) {
         return;
