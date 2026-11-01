@@ -182,7 +182,9 @@ Future<bool> _saveToGallery(String path, String name) async {
   }
 }
 
-Future<void> saveVideo(
+/// Saves an attachment to Photos/gallery; returns whether it got there.
+/// Failures are shown in a snackbar.
+Future<bool> saveVideo(
   String url,
   String fileName,
   BuildContext context, {
@@ -201,7 +203,7 @@ Future<void> saveVideo(
         'Permission denied',
       );
     }
-    return;
+    return false;
   }
 
   String toMp4Name(String name) {
@@ -223,7 +225,7 @@ Future<void> saveVideo(
         'Download failed :(',
       );
     }
-    return;
+    return false;
   }
 
   Directory? work;
@@ -244,13 +246,13 @@ Future<void> saveVideo(
             'File not found',
           );
         }
-        return;
+        return false;
       }
 
       if (!await _saveToGallery(savedPath, savedName)) {
         throw Exception('gallery save failed');
       }
-      return;
+      return true;
     }
 
     work = await _newWorkFolder();
@@ -270,12 +272,13 @@ Future<void> saveVideo(
       if (!await _saveToGallery(outputFile.path, outputName)) {
         throw Exception('gallery save failed');
       }
-      return;
+      return true;
     }
 
     if (!await _saveToGallery(downloadedFile.path, fileName)) {
       throw Exception('gallery save failed');
     }
+    return true;
   } catch (e) {
     debugPrint('saveVideo error: $e');
     if (context.mounted) {
@@ -286,6 +289,7 @@ Future<void> saveVideo(
         'Download failed :(',
       );
     }
+    return false;
   } finally {
     if (work != null) {
       await _deleteQuietly(work);
