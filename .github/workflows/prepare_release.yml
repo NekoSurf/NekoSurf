@@ -9,6 +9,10 @@ name: Prepare Release
 #
 # For a longer GitHub release description, commit it to RELEASE_NOTES.md on
 # main before running. It's used as the release body and then removed.
+#
+# TestFlight's "What to Test" comes from ios/TestFlight/WhatToTest.en-US.txt
+# in the tagged commit, which Xcode Cloud reads; the release commit writes
+# the what_to_test input there, replacing the last release's.
 on:
   workflow_dispatch:
     inputs:
@@ -23,6 +27,10 @@ on:
       notes:
         description: "One-line notes for AltStore (and GitHub, if there's no RELEASE_NOTES.md)"
         required: true
+        type: string
+      what_to_test:
+        description: "What to Test on TestFlight (empty = the one-line notes)"
+        required: false
         type: string
 
 concurrency: release
@@ -73,12 +81,18 @@ jobs:
         id: version
         env:
           VERSION: ${{ inputs.version }}
+          WHAT_TO_TEST: ${{ inputs.what_to_test || inputs.notes }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
         run: |
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error::Version must look like 1.2.3, got '$VERSION'"
+            exit 1
+          fi
+
+          if (( ${#WHAT_TO_TEST} > 4000 )); then
+            echo "::error::TestFlight takes up to 4000 characters of What to Test, got ${#WHAT_TO_TEST}"
             exit 1
           fi
 
@@ -101,6 +115,7 @@ jobs:
           VERSION: ${{ inputs.version }}
           TITLE: ${{ inputs.title }}
           NOTES: ${{ inputs.notes }}
+          WHAT_TO_TEST: ${{ inputs.what_to_test || inputs.notes }}
           BUILD: ${{ steps.version.outputs.build }}
           TAG: ${{ steps.version.outputs.tag }}
         run: |
@@ -110,6 +125,10 @@ jobs:
           else
             printf '%s\n' "$NOTES" > "$RUNNER_TEMP/notes.md"
           fi
+
+          mkdir -p ios/TestFlight
+          printf '%s\n' "$WHAT_TO_TEST" > ios/TestFlight/WhatToTest.en-US.txt
+          git add ios/TestFlight/WhatToTest.en-US.txt
 
           sed -i -E "s/^version: .*/version: $VERSION+$BUILD/" pubspec.yaml
           git config user.name "github-actions[bot]"
