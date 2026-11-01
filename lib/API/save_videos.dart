@@ -64,8 +64,12 @@ Future<String> _ensureThumbnailsDir() async {
 /// which needs no permission; Photos access is only asked for when saving
 /// to the photo library. On Android it's Download/4Chan, which needs
 /// storage access: without it, this explains why in a sheet over
-/// [context] (when given and still there) and throws.
-Future<Directory> requestDirectory({BuildContext? context}) async {
+/// [context] (when given and still there) and throws. With [ask] false it
+/// only checks for that access, without asking for it.
+Future<Directory> requestDirectory({
+  BuildContext? context,
+  bool ask = true,
+}) async {
   if (!Platform.isAndroid) {
     await _ensureThumbnailsDir();
     return getApplicationDocumentsDirectory();
@@ -76,7 +80,10 @@ Future<Directory> requestDirectory({BuildContext? context}) async {
       ? Permission.manageExternalStorage
       : Permission.storage;
 
-  if (!await _requestPermission(permission)) {
+  final bool granted = ask
+      ? await _requestPermission(permission)
+      : await permission.isGranted;
+  if (!granted) {
     if (context != null && context.mounted) {
       await showCupertinoModalBottomSheet(
         expand: false,
