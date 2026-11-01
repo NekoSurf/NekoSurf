@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:country_flags/country_flags.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -16,7 +14,6 @@ import 'package:flutter_chan/services/thread_filters.dart';
 import 'package:flutter_chan/widgets/image_viewer.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:intl/intl.dart';
-
 import 'package:provider/provider.dart';
 
 class ListPost extends StatefulWidget {
@@ -38,7 +35,6 @@ class ListPost extends StatefulWidget {
 class _ListPostState extends State<ListPost> {
   late Bookmark favorite;
   bool isFavorite = false;
-  late String favoriteString;
 
   @override
   void initState() {
@@ -51,8 +47,6 @@ class _ListPostState extends State<ListPost> {
       imageUrl: '${widget.post.tim}s.jpg',
       board: widget.board,
     );
-
-    favoriteString = json.encode(favorite);
   }
 
   @override
@@ -72,7 +66,7 @@ class _ListPostState extends State<ListPost> {
     ).trim();
     final String posterName = (widget.post.name ?? 'Anonymous').trim();
 
-    isFavorite = bookmarks.getBookmarks().contains(favoriteString);
+    isFavorite = bookmarks.isBookmarked(favorite);
 
     return Slidable(
       endActionPane: isFavorite
@@ -88,7 +82,7 @@ class _ListPostState extends State<ListPost> {
                     right: Radius.circular(20),
                   ),
                   icon: CupertinoIcons.trash_fill,
-                  onPressed: (context) => {bookmarks.removeBookmarks(favorite)},
+                  onPressed: (context) => {bookmarks.removeBookmark(favorite)},
                 ),
               ],
             )
@@ -104,7 +98,7 @@ class _ListPostState extends State<ListPost> {
                     right: Radius.circular(20),
                   ),
                   icon: CupertinoIcons.bookmark_fill,
-                  onPressed: (context) => {bookmarks.addBookmarks(favorite)},
+                  onPressed: (context) => {bookmarks.addBookmark(favorite)},
                 ),
               ],
             ),
@@ -373,8 +367,8 @@ class _ListPostState extends State<ListPost> {
 
                   GestureDetector(
                     onTap: () => isFavorite
-                        ? bookmarks.removeBookmarks(favorite)
-                        : bookmarks.addBookmarks(favorite),
+                        ? bookmarks.removeBookmark(favorite)
+                        : bookmarks.addBookmark(favorite),
                     child: Icon(
                       isFavorite
                           ? CupertinoIcons.bookmark_fill

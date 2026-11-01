@@ -17,6 +17,9 @@ class Bookmark {
   String? imageUrl;
   String? board;
 
+  /// The thread it's for; two bookmarks with the same key are the same.
+  String get key => '$board/$no';
+
   Map<String, dynamic> toJson() {
     return {
       'no': no,
