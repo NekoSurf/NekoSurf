@@ -6,24 +6,15 @@ import 'package:flutter_chan/enums/enums.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class BookmarksProvider with ChangeNotifier {
-  BookmarksProvider(this.list) {
-    loadPreferences();
+  BookmarksProvider(this._prefs) {
+    list = _prefs.getStringList(_key) ?? [];
   }
 
+  static const String _key = 'favoriteThreads';
+
+  final SharedPreferences _prefs;
   List<String> list = [];
   Sort sort = Sort.byNewest;
-
-  Future<void> loadPreferences() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    List<String>? bookmarksPrefs = prefs.getStringList('favoriteThreads');
-
-    bookmarksPrefs ??= [];
-
-    list = bookmarksPrefs;
-
-    notifyListeners();
-  }
 
   Iterable<String> getBookmarks() {
     if (sort == Sort.byNewest) {
@@ -34,38 +25,28 @@ class BookmarksProvider with ChangeNotifier {
   }
 
   Future<void> addBookmarks(Bookmark? favorite) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-
     list.add(json.encode(favorite));
-
-    prefs.setStringList('favoriteThreads', list);
-
-    notifyListeners();
+    await _save();
   }
 
   Future<void> removeBookmarks(Bookmark? favorite) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-
     list.remove(json.encode(favorite));
-
-    prefs.setStringList('favoriteThreads', list);
-
-    notifyListeners();
+    await _save();
   }
 
   Future<void> clearBookmarks() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-
     list = [];
-
-    prefs.setStringList('favoriteThreads', list);
-
-    notifyListeners();
+    await _save();
   }
 
   void setSort(Sort sortBy) {
     sort = sortBy;
 
     notifyListeners();
+  }
+
+  Future<void> _save() async {
+    notifyListeners();
+    await _prefs.setStringList(_key, list);
   }
 }
