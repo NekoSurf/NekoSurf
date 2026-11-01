@@ -648,6 +648,8 @@ Future<void> _download(String url, File file) async {
       http.Request('GET', uri),
     );
     if (response.statusCode != HttpStatus.ok) {
+      // Read to the end, or the connection isn't reused.
+      await response.stream.drain<void>();
       throw HttpException('HTTP ${response.statusCode}', uri: uri);
     }
     final IOSink sink = file.openWrite();
