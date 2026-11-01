@@ -40,21 +40,29 @@ ImageProvider<Object> fullImage(String url) =>
 /// What cached images take up on disk, in bytes.
 Future<int> imageCacheSize() async {
   try {
-    final Directory temp = await getTemporaryDirectory();
-    int total = 0;
-    for (final String key in const [_thumbnailsKey, _imagesKey]) {
-      final Directory dir = Directory('${temp.path}/$key');
-      if (!dir.existsSync()) {
-        continue;
-      }
-      for (final File file in dir.listSync().whereType<File>()) {
-        total += file.lengthSync();
-      }
-    }
-    return total;
+    return await imageCacheSizeIn(await getTemporaryDirectory());
   } catch (_) {
     return 0;
   }
+}
+
+/// The caches are folders of [temp]. A full one holds thousands of files,
+/// too many to look at synchronously on the UI isolate.
+@visibleForTesting
+Future<int> imageCacheSizeIn(Directory temp) async {
+  int total = 0;
+  for (final String key in const [_thumbnailsKey, _imagesKey]) {
+    final Directory dir = Directory('${temp.path}/$key');
+    if (!await dir.exists()) {
+      continue;
+    }
+    await for (final FileSystemEntity entity in dir.list()) {
+      if (entity is File) {
+        total += await entity.length();
+      }
+    }
+  }
+  return total;
 }
 
 /// Deletes every cached image from disk.
