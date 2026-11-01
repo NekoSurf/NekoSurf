@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -10,9 +11,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 enum SavedFilter { all, images, videos }
 
 class SavedAttachmentsProvider with ChangeNotifier {
-  SavedAttachmentsProvider(this.list) {
-    loadPreferences();
+  SavedAttachmentsProvider(this._prefs) {
+    final List<String> stored = _prefs.getStringList(_key) ?? [];
+    list = _normalizeSavedEntries(stored);
+    if (!_listsEqual(stored, list)) {
+      unawaited(_prefs.setStringList(_key, list));
+    }
   }
+
+  static const String _key = 'savedAttachments';
+
+  final SharedPreferences _prefs;
 
   List<String> list = [];
 
@@ -85,21 +94,6 @@ class SavedAttachmentsProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> loadPreferences() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    final List<String> savedAttachmentsPrefs =
-        prefs.getStringList('savedAttachments') ?? [];
-
-    list = _normalizeSavedEntries(savedAttachmentsPrefs);
-
-    if (!_listsEqual(savedAttachmentsPrefs, list)) {
-      await prefs.setStringList('savedAttachments', list);
-    }
-
-    notifyListeners();
-  }
-
   Future<void> setList(List<SavedAttachment> savedAttachments) async {
     list = [];
 
@@ -107,11 +101,8 @@ class SavedAttachmentsProvider with ChangeNotifier {
       list.add(json.encode(element));
     }
 
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    prefs.setStringList('savedAttachments', list);
-
     notifyListeners();
+    await _prefs.setStringList(_key, list);
   }
 
   List<SavedAttachment> getSavedAttachments() {
@@ -151,13 +142,9 @@ class SavedAttachmentsProvider with ChangeNotifier {
 
       if (savedAttachment != null) {
         savedAttachment.originalName = fileName;
-        final SharedPreferences prefs = await SharedPreferences.getInstance();
-
         list.add(json.encode(savedAttachment));
-
-        prefs.setStringList('savedAttachments', list);
-
         notifyListeners();
+        await _prefs.setStringList(_key, list);
       }
     } else {
       debugPrint('Already saved');
@@ -165,8 +152,6 @@ class SavedAttachmentsProvider with ChangeNotifier {
   }
 
   Future<void> removeSavedAttachments(String path, BuildContext context) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-
     final List<SavedAttachment> savedAttachmentList = getSavedAttachments();
 
     final List<SavedAttachment> newList = List<SavedAttachment>.from(
@@ -189,7 +174,7 @@ class SavedAttachmentsProvider with ChangeNotifier {
       }
     }
 
-    prefs.setStringList('savedAttachments', list);
+    unawaited(_prefs.setStringList(_key, list));
 
     try {
       Directory directory;
@@ -212,12 +197,10 @@ class SavedAttachmentsProvider with ChangeNotifier {
   }
 
   Future<void> clearSavedAttachments(BuildContext context) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-
     final List<SavedAttachment> all = getSavedAttachments();
     list = [];
 
-    prefs.setStringList('savedAttachments', list);
+    unawaited(_prefs.setStringList(_key, list));
 
     notifyListeners();
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/enums/enums.dart';
@@ -6,9 +8,47 @@ import 'package:flutter_chan/services/video_server.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsProvider with ChangeNotifier {
-  SettingsProvider() {
-    loadPreferences();
+  SettingsProvider(this._prefs) {
+    T? byName<T extends Enum>(List<T> values, String key) {
+      final String? name = _prefs.getString(key);
+      for (final T value in values) {
+        if (value.name == name) {
+          return value;
+        }
+      }
+      return null;
+    }
+
+    boardSort = byName(Sort.values, 'boardSort') ?? boardSort;
+    boardSortDirection =
+        byName(SortDirection.values, 'boardSortDirection') ??
+        boardSortDirection;
+    boardViewMode = byName(ViewMode.values, 'boardViewMode') ?? boardViewMode;
+    allowNSFW = _prefs.getBool('allowNSFW') ?? allowNSFW;
+    watchedPostsRetentionDays =
+        _prefs.getInt('watchedPostsRetentionDays') ?? watchedPostsRetentionDays;
+    autoScrollToLastSeen =
+        _prefs.getBool('autoScrollToLastSeen') ?? autoScrollToLastSeen;
+    showStickyThreads =
+        _prefs.getBool('showStickyThreads') ?? showStickyThreads;
+    feedVideosStartMuted =
+        _prefs.getBool('feedVideosStartMuted') ?? feedVideosStartMuted;
+    trackHistory = _prefs.getBool('trackHistory') ?? trackHistory;
+    fullscreenAutoAdvance =
+        _prefs.getBool('fullscreenAutoAdvance') ?? fullscreenAutoAdvance;
+    hiddenThreadPatterns = _prefs.getStringList('hiddenThreadPatterns') ?? [];
+    videoCacheMegabytes =
+        _prefs.getInt('videoCacheMegabytes') ?? videoCacheMegabytes;
+
+    unawaited(
+      VideoServer.instance.setMaxCacheBytes(videoCacheMegabytes * _megabyte),
+    );
+    // Settings that no longer exist.
+    unawaited(_prefs.remove('useCachingOnVideos'));
+    unawaited(_prefs.remove('inlineMediaInThreadFeed'));
   }
+
+  final SharedPreferences _prefs;
 
   bool allowNSFW = false;
   Sort boardSort = Sort.byImagesCount;
@@ -24,204 +64,100 @@ class SettingsProvider with ChangeNotifier {
   List<String> hiddenThreadPatterns = [];
   List<RegExp>? _hiddenPatternRegexes;
 
-  Future<void> loadPreferences() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    if (prefs.getString('boardSort') != null) {
-      final Sort boardSortPrefs = Sort.values.firstWhere(
-        (element) => element.name == prefs.getString('boardSort'),
-      );
-      boardSort = boardSortPrefs;
-    }
-
-    if (prefs.getString('boardSortDirection') != null) {
-      boardSortDirection = SortDirection.values.firstWhere(
-        (element) => element.name == prefs.getString('boardSortDirection'),
-      );
-    }
-
-    if (prefs.getBool('allowNSFW') != null) {
-      final bool? allowNSFWPrefs = prefs.getBool('allowNSFW');
-
-      allowNSFW = allowNSFWPrefs!;
-    }
-
-    await prefs.remove('useCachingOnVideos');
-
-    if (prefs.getInt('watchedPostsRetentionDays') != null) {
-      watchedPostsRetentionDays = prefs.getInt('watchedPostsRetentionDays')!;
-    }
-
-    if (prefs.getBool('autoScrollToLastSeen') != null) {
-      autoScrollToLastSeen = prefs.getBool('autoScrollToLastSeen')!;
-    }
-
-    if (prefs.getString('boardViewMode') != null) {
-      boardViewMode = ViewMode.values.firstWhere(
-        (element) => element.name == prefs.getString('boardViewMode'),
-        orElse: () => ViewMode.grid,
-      );
-    }
-
-    if (prefs.getBool('showStickyThreads') != null) {
-      showStickyThreads = prefs.getBool('showStickyThreads')!;
-    }
-
-    if (prefs.getBool('feedVideosStartMuted') != null) {
-      feedVideosStartMuted = prefs.getBool('feedVideosStartMuted')!;
-    }
-
-    if (prefs.getBool('trackHistory') != null) {
-      trackHistory = prefs.getBool('trackHistory')!;
-    }
-
-    fullscreenAutoAdvance = prefs.getBool('fullscreenAutoAdvance') ?? false;
-
-    hiddenThreadPatterns = prefs.getStringList('hiddenThreadPatterns') ?? [];
-
-    videoCacheMegabytes =
-        prefs.getInt('videoCacheMegabytes') ?? videoCacheMegabytes;
-    await VideoServer.instance.setMaxCacheBytes(
-      videoCacheMegabytes * _megabyte,
-    );
-
-    await prefs.remove('inlineMediaInThreadFeed');
-
-    notifyListeners();
-  }
-
-  bool getNSFW() {
-    return allowNSFW;
-  }
-
-  Future<void> setNSFW(bool boolean) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    allowNSFW = boolean;
-    prefs.setBool('allowNSFW', boolean);
-
-    notifyListeners();
-  }
-
-  Sort getBoardSort() {
-    return boardSort;
-  }
-
-  Future<void> setBoardSort(Sort sort) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    boardSort = sort;
-    prefs.setString('boardSort', sort.name);
-
-    notifyListeners();
-  }
-
-  SortDirection getBoardSortDirection() {
-    return boardSortDirection;
-  }
-
-  Future<void> setBoardSortDirection(SortDirection direction) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    boardSortDirection = direction;
-    prefs.setString('boardSortDirection', direction.name);
-
-    notifyListeners();
-  }
-
-  bool getAutoScrollToLastSeen() {
-    return autoScrollToLastSeen;
-  }
-
-  Future<void> setAutoScrollToLastSeen(bool value) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    autoScrollToLastSeen = value;
-    prefs.setBool('autoScrollToLastSeen', value);
-
-    notifyListeners();
-  }
-
-  int getWatchedPostsRetentionDays() {
-    return watchedPostsRetentionDays;
-  }
-
-  Future<void> setWatchedPostsRetentionDays(int days) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    watchedPostsRetentionDays = days;
-    prefs.setInt('watchedPostsRetentionDays', days);
-    notifyListeners();
-  }
-
   static const int _megabyte = 1024 * 1024;
 
-  int getVideoCacheMegabytes() {
-    return videoCacheMegabytes;
+  /// Tells listeners right away and stores [value] under [key].
+  Future<void> _save(String key, Object value) async {
+    notifyListeners();
+    if (value is bool) {
+      await _prefs.setBool(key, value);
+    } else if (value is int) {
+      await _prefs.setInt(key, value);
+    } else if (value is String) {
+      await _prefs.setString(key, value);
+    } else if (value is List<String>) {
+      await _prefs.setStringList(key, value);
+    }
   }
 
+  bool getNSFW() => allowNSFW;
+
+  Future<void> setNSFW(bool value) {
+    allowNSFW = value;
+    return _save('allowNSFW', value);
+  }
+
+  Sort getBoardSort() => boardSort;
+
+  Future<void> setBoardSort(Sort sort) {
+    boardSort = sort;
+    return _save('boardSort', sort.name);
+  }
+
+  SortDirection getBoardSortDirection() => boardSortDirection;
+
+  Future<void> setBoardSortDirection(SortDirection direction) {
+    boardSortDirection = direction;
+    return _save('boardSortDirection', direction.name);
+  }
+
+  bool getAutoScrollToLastSeen() => autoScrollToLastSeen;
+
+  Future<void> setAutoScrollToLastSeen(bool value) {
+    autoScrollToLastSeen = value;
+    return _save('autoScrollToLastSeen', value);
+  }
+
+  int getWatchedPostsRetentionDays() => watchedPostsRetentionDays;
+
+  Future<void> setWatchedPostsRetentionDays(int days) {
+    watchedPostsRetentionDays = days;
+    return _save('watchedPostsRetentionDays', days);
+  }
+
+  int getVideoCacheMegabytes() => videoCacheMegabytes;
+
   Future<void> setVideoCacheMegabytes(int megabytes) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
     videoCacheMegabytes = megabytes;
-    prefs.setInt('videoCacheMegabytes', megabytes);
-    notifyListeners();
+    await _save('videoCacheMegabytes', megabytes);
     await VideoServer.instance.setMaxCacheBytes(megabytes * _megabyte);
   }
 
-  ViewMode getBoardViewMode() {
-    return boardViewMode;
-  }
+  ViewMode getBoardViewMode() => boardViewMode;
 
-  Future<void> setBoardViewMode(ViewMode mode) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
+  Future<void> setBoardViewMode(ViewMode mode) {
     boardViewMode = mode;
-    prefs.setString('boardViewMode', mode.name);
-    notifyListeners();
+    return _save('boardViewMode', mode.name);
   }
 
-  bool getShowStickyThreads() {
-    return showStickyThreads;
-  }
+  bool getShowStickyThreads() => showStickyThreads;
 
-  Future<void> setShowStickyThreads(bool value) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
+  Future<void> setShowStickyThreads(bool value) {
     showStickyThreads = value;
-    prefs.setBool('showStickyThreads', value);
-    notifyListeners();
+    return _save('showStickyThreads', value);
   }
 
-  bool getFeedVideosStartMuted() {
-    return feedVideosStartMuted;
-  }
+  bool getFeedVideosStartMuted() => feedVideosStartMuted;
 
-  Future<void> setFeedVideosStartMuted(bool value) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
+  Future<void> setFeedVideosStartMuted(bool value) {
     feedVideosStartMuted = value;
-    prefs.setBool('feedVideosStartMuted', value);
-    notifyListeners();
+    return _save('feedVideosStartMuted', value);
   }
 
-  bool getTrackHistory() {
-    return trackHistory;
-  }
+  bool getTrackHistory() => trackHistory;
 
-  Future<void> setTrackHistory(bool value) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
+  Future<void> setTrackHistory(bool value) {
     trackHistory = value;
-    prefs.setBool('trackHistory', value);
-    notifyListeners();
+    return _save('trackHistory', value);
   }
 
   /// Fullscreen videos move on to the next item when they end, instead of
   /// looping.
-  bool getFullscreenAutoAdvance() {
-    return fullscreenAutoAdvance;
-  }
+  bool getFullscreenAutoAdvance() => fullscreenAutoAdvance;
 
-  Future<void> setFullscreenAutoAdvance(bool value) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
+  Future<void> setFullscreenAutoAdvance(bool value) {
     fullscreenAutoAdvance = value;
-    prefs.setBool('fullscreenAutoAdvance', value);
-    notifyListeners();
+    return _save('fullscreenAutoAdvance', value);
   }
 
   List<String> getHiddenThreadPatterns() {
@@ -266,11 +202,9 @@ class SettingsProvider with ChangeNotifier {
       return;
     }
 
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
     hiddenThreadPatterns = [...hiddenThreadPatterns, trimmed];
     _hiddenPatternRegexes = null;
-    prefs.setStringList('hiddenThreadPatterns', hiddenThreadPatterns);
-    notifyListeners();
+    await _save('hiddenThreadPatterns', hiddenThreadPatterns);
   }
 
   Future<void> removeHiddenThreadPattern(String pattern) async {
@@ -278,12 +212,10 @@ class SettingsProvider with ChangeNotifier {
       return;
     }
 
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
     hiddenThreadPatterns = hiddenThreadPatterns
         .where((p) => p != pattern)
         .toList();
     _hiddenPatternRegexes = null;
-    prefs.setStringList('hiddenThreadPatterns', hiddenThreadPatterns);
-    notifyListeners();
+    await _save('hiddenThreadPatterns', hiddenThreadPatterns);
   }
 }

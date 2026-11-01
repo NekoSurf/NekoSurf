@@ -12,6 +12,7 @@ import 'package:flutter_chan/pages/boards/board_list.dart';
 import 'package:flutter_chan/services/fast_page_transitions.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 Future<void> main() async {
@@ -30,11 +31,16 @@ Future<void> main() async {
     );
     return true;
   };
-  runApp(const MyApp());
+  // Loaded before the first frame, so it shows the saved settings,
+  // favorites and bookmarks rather than defaults.
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+  runApp(MyApp(prefs: prefs));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({super.key, required this.prefs});
+
+  final SharedPreferences prefs;
 
   @override
   Widget build(BuildContext context) {
@@ -44,22 +50,22 @@ class MyApp extends StatelessWidget {
           create: (_) => ThemeChanger(ThemeData.dark()),
         ),
         ChangeNotifierProvider<BookmarksProvider>(
-          create: (_) => BookmarksProvider([]),
+          create: (_) => BookmarksProvider(prefs),
         ),
         ChangeNotifierProvider<FavoriteProvider>(
-          create: (_) => FavoriteProvider([]),
+          create: (_) => FavoriteProvider(prefs),
         ),
         ChangeNotifierProvider<SettingsProvider>(
-          create: (_) => SettingsProvider(),
+          create: (_) => SettingsProvider(prefs),
         ),
         ChangeNotifierProvider<HistoryProvider>(
-          create: (_) => HistoryProvider(),
+          create: (_) => HistoryProvider(prefs),
         ),
         ChangeNotifierProvider<SavedAttachmentsProvider>(
-          create: (_) => SavedAttachmentsProvider([]),
+          create: (_) => SavedAttachmentsProvider(prefs),
         ),
         ChangeNotifierProvider<WatchedPostsProvider>(
-          create: (_) => WatchedPostsProvider(),
+          create: (_) => WatchedPostsProvider(prefs),
           lazy: false,
         ),
       ],

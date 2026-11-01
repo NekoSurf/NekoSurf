@@ -1,47 +1,30 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_chan/enums/enums.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Favorite boards, in the order they were added.
 class FavoriteProvider with ChangeNotifier {
-  FavoriteProvider(this.list) {
-    loadPreferences();
-  }
+  FavoriteProvider(this._prefs)
+    : list = _prefs.getStringList(_key) ?? <String>[];
 
-  List<String> list = [];
-  Sort sort = Sort.byNewest;
+  static const String _key = 'favoriteBoards';
 
-  Future<void> loadPreferences() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    List<String>? favoritePrefs = prefs.getStringList('favoriteBoards');
-
-    favoritePrefs ??= [];
-
-    list = favoritePrefs;
-
-    notifyListeners();
-  }
+  final SharedPreferences _prefs;
+  List<String> list;
 
   List<String> getFavorites() => list;
 
   Future<void> addFavorites(String board) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    if (!list.contains(board)) {
-      list.add(board);
-      prefs.setStringList('favoriteBoards', list);
+    if (list.contains(board)) {
+      return;
     }
-
+    list.add(board);
     notifyListeners();
+    await _prefs.setStringList(_key, list);
   }
 
   Future<void> removeFavorites(String board) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-
     list.remove(board);
-
-    prefs.setStringList('favoriteBoards', list);
-
     notifyListeners();
+    await _prefs.setStringList(_key, list);
   }
 }
