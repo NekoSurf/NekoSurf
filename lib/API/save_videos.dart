@@ -1,13 +1,14 @@
 import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
-import 'package:dio/dio.dart';
 import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_chan/API/http_client.dart';
 import 'package:flutter_chan/Models/saved_attachment.dart';
 import 'package:flutter_chan/blocs/saved_attachments_model.dart';
 import 'package:flutter_chan/pages/savedAttachments/permission_denied.dart';
+import 'package:http/http.dart' as http;
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -417,8 +418,6 @@ Future<SavedAttachment?> saveAttachment(
   BuildContext context,
   SavedAttachmentsProvider savedAttachmentsProvider,
 ) async {
-  final Dio dio = Dio();
-
   try {
     final Directory baseDirectory = await requestDirectory(context: context);
     if (!await baseDirectory.exists()) {
@@ -431,7 +430,7 @@ Future<SavedAttachment?> saveAttachment(
     }
     final String thumbsDir = await _ensureThumbnailsDir();
 
-    final File downloadedFile = await _downloadToTemp(url, fileName, dio: dio);
+    final File downloadedFile = await _downloadToTemp(url, fileName);
     final String ext = '.${fileName.split('.').last}'.toLowerCase();
 
     String finalFileName = fileName;
@@ -457,7 +456,6 @@ Future<SavedAttachment?> saveAttachment(
         fileName,
         thumbnailUrl,
         thumbsDir,
-        dio,
       );
     } else {
       final File outputFile = File('${savedDir.path}/$savedName');
@@ -471,7 +469,6 @@ Future<SavedAttachment?> saveAttachment(
           fileName,
           thumbnailUrl,
           thumbsDir,
-          dio,
         );
       }
     }
@@ -517,7 +514,6 @@ Future<String> _videoThumbnail(
   String fileName,
   String thumbnailUrl,
   String thumbsDir,
-  Dio dio,
 ) async {
   final String thumbName = '${getNameWithoutExtension(fileName)}.jpg';
   final File out = File('$thumbsDir/$thumbName');
@@ -536,26 +532,49 @@ Future<String> _videoThumbnail(
   } catch (e) {
     debugPrint('thumbnail extraction failed: $e');
   }
-  return downloadThumbnail(fileName, thumbnailUrl, '$thumbsDir/', dio);
+  return downloadThumbnail(fileName, thumbnailUrl, '$thumbsDir/');
 }
 
 /// Downloads [url] into the temporary directory without any caching.
-Future<File> _downloadToTemp(String url, String fileName, {Dio? dio}) async {
+Future<File> _downloadToTemp(String url, String fileName) async {
   final Directory tempDir = await getTemporaryDirectory();
   final File file = File('${tempDir.path}/$fileName');
-  await (dio ?? Dio()).download(url, file.path);
+  await _download(url, file);
   return file;
+}
+
+/// Downloads [url] into [file], leaving no partial file behind on failure.
+Future<void> _download(String url, File file) async {
+  final Uri uri = Uri.parse(url);
+  try {
+    final http.StreamedResponse response = await httpClient.send(
+      http.Request('GET', uri),
+    );
+    if (response.statusCode != HttpStatus.ok) {
+      throw HttpException('HTTP ${response.statusCode}', uri: uri);
+    }
+    final IOSink sink = file.openWrite();
+    try {
+      await sink.addStream(response.stream);
+    } finally {
+      await sink.close();
+    }
+  } catch (_) {
+    if (await file.exists()) {
+      await file.delete();
+    }
+    rethrow;
+  }
 }
 
 Future<String> downloadThumbnail(
   String fileName,
   String thumbnailUrl,
   String path,
-  Dio dio,
 ) async {
   final String nameWithoutExtension = getNameWithoutExtension(fileName);
 
-  await dio.download(thumbnailUrl, '$path$nameWithoutExtension.jpg');
+  await _download(thumbnailUrl, File('$path$nameWithoutExtension.jpg'));
 
   return '$nameWithoutExtension.jpg';
 }
