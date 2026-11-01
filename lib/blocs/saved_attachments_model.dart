@@ -179,9 +179,7 @@ class SavedAttachmentsProvider with ChangeNotifier {
     try {
       Directory directory;
       try {
-        directory = await requestDirectory(
-          context: context.mounted ? context : null,
-        );
+        directory = await requestDirectory(context: context);
       } catch (e) {
         return;
       }
@@ -207,9 +205,7 @@ class SavedAttachmentsProvider with ChangeNotifier {
     try {
       Directory directory;
       try {
-        directory = await requestDirectory(
-          context: context.mounted ? context : null,
-        );
+        directory = await requestDirectory(context: context);
       } catch (e) {
         return;
       }
