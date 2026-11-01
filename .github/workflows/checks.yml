@@ -14,8 +14,8 @@ on:
         default: ""
 
 env:
-  # Keep in step with _build.yml.
-  FLUTTER_VERSION: "3.44.6"
+  # Keep in step with _build.yml and ios/ci_scripts/ci_post_clone.sh.
+  FLUTTER_VERSION: "3.47.9"
 
 jobs:
   checks:
