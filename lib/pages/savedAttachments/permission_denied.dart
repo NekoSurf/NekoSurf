@@ -47,7 +47,7 @@ class PermissionDenied extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Allow access to Photos in your device settings so saved attachments can be stored and shown here.',
+                'Allow storage access in your device settings so saved attachments can be stored and shown here.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14.5,

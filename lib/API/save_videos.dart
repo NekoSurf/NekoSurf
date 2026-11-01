@@ -58,50 +58,45 @@ Future<String> _ensureThumbnailsDir() async {
   return _thumbnailsDir;
 }
 
-/// Where saved media lives, after asking for permission. Without it, this
-/// explains why in a sheet over [context] (when given and still there)
-/// and throws.
+/// Where saved media lives.
+///
+/// On iOS that's the app's own Documents folder (browsable in Files),
+/// which needs no permission; Photos access is only asked for when saving
+/// to the photo library. On Android it's Download/4Chan, which needs
+/// storage access: without it, this explains why in a sheet over
+/// [context] (when given and still there) and throws.
 Future<Directory> requestDirectory({BuildContext? context}) async {
-  Directory directory = Directory('');
-  if (Platform.isAndroid) {
-    final int sdkVersion =
-        (await DeviceInfoPlugin().androidInfo).version.sdkInt;
-
-    final permission = sdkVersion >= 30
-        ? Permission.manageExternalStorage
-        : Permission.storage;
-
-    if (await _requestPermission(permission)) {
-      directory = (await getExternalStorageDirectory())!;
-      String newPath = '';
-      final List<String> paths = directory.path.split('/');
-      for (int x = 1; x < paths.length; x++) {
-        final String folder = paths[x];
-        if (folder != 'Android') {
-          newPath += '/$folder';
-        } else {
-          break;
-        }
-      }
-      newPath = '$newPath/Download/4Chan';
-      directory = Directory(newPath);
-      await _ensureThumbnailsDir();
-    }
-  } else {
-    if (await _requestPermission(Permission.photosAddOnly)) {
-      directory = await getApplicationDocumentsDirectory();
-      await _ensureThumbnailsDir();
-    } else {
-      if (context != null && context.mounted) {
-        await showCupertinoModalBottomSheet(
-          expand: false,
-          context: context,
-          builder: (context) => const PermissionDenied(),
-        );
-      }
-      throw 'Permission denied';
-    }
+  if (!Platform.isAndroid) {
+    await _ensureThumbnailsDir();
+    return getApplicationDocumentsDirectory();
   }
+
+  final int sdkVersion = (await DeviceInfoPlugin().androidInfo).version.sdkInt;
+  final permission = sdkVersion >= 30
+      ? Permission.manageExternalStorage
+      : Permission.storage;
+
+  if (!await _requestPermission(permission)) {
+    if (context != null && context.mounted) {
+      await showCupertinoModalBottomSheet(
+        expand: false,
+        context: context,
+        builder: (context) => const PermissionDenied(),
+      );
+    }
+    throw const FileSystemException('Storage permission denied');
+  }
+
+  final Directory external = (await getExternalStorageDirectory())!;
+  String newPath = '';
+  for (final String folder in external.path.split('/').skip(1)) {
+    if (folder == 'Android') {
+      break;
+    }
+    newPath += '/$folder';
+  }
+  final Directory directory = Directory('$newPath/Download/4Chan');
+  await _ensureThumbnailsDir();
 
   if (!await directory.exists()) {
     await directory.create(recursive: true);
