@@ -14,6 +14,7 @@ import 'package:flutter_chan/pages/bookmark_button.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/pages/thread/thread_gallery_page.dart';
 import 'package:flutter_chan/pages/thread/thread_page_post.dart';
+import 'package:flutter_chan/services/image_cache.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/cupertino_menu.dart';
 import 'package:flutter_chan/widgets/dash_header.dart';
@@ -485,7 +486,7 @@ class ThreadPageState extends State<ThreadPage> {
         continue;
       }
 
-      final NetworkImage thumbnailProvider = NetworkImage(
+      final ImageProvider<Object> thumbnailProvider = thumbnailImage(
         urls.thumbnail(widget.board, tim),
       );
 

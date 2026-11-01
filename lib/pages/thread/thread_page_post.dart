@@ -12,6 +12,7 @@ import 'package:flutter_chan/pages/replies_row.dart';
 import 'package:flutter_chan/pages/thread/thread_media_viewer_page.dart';
 import 'package:flutter_chan/pages/thread/thread_post_comment.dart';
 import 'package:flutter_chan/pages/thread/thread_replies.dart';
+import 'package:flutter_chan/services/image_cache.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/feed_video_player.dart';
 import 'package:flutter_chan/widgets/image_viewer.dart';
@@ -158,8 +159,8 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: Image.network(
-              _thumbnailUrl(),
+            child: Image(
+              image: thumbnailImage(_thumbnailUrl()),
               fit: BoxFit.cover,
               errorBuilder: imageErrorPlaceholder,
               loadingBuilder: (context, child, loadingProgress) {
@@ -176,12 +177,15 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
           ),
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: Image.network(
-              _fullMediaUrl(),
-              fit: BoxFit.cover,
+            child: Image(
               // Decode at display size: a 4000px original fills ~48 MB once
               // decoded, for a card about 400pt wide.
-              cacheWidth: _inlineDecodeWidth(context),
+              image: ResizeImage.resizeIfNeeded(
+                _inlineDecodeWidth(context),
+                null,
+                fullImage(_fullMediaUrl()),
+              ),
+              fit: BoxFit.cover,
               // The thumbnail underneath stays visible if this fails.
               errorBuilder: (_, _, _) => const SizedBox.shrink(),
               loadingBuilder: (context, child, loadingProgress) {

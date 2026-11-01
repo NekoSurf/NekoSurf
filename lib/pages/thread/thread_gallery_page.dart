@@ -4,6 +4,7 @@ import 'package:flutter_chan/API/urls.dart' as urls;
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/pages/thread/thread_media_viewer_page.dart';
+import 'package:flutter_chan/services/image_cache.dart';
 import 'package:flutter_chan/widgets/dash_scaffold.dart';
 import 'package:flutter_chan/widgets/image_viewer.dart';
 
@@ -79,10 +80,13 @@ class ThreadGalleryPage extends StatelessWidget {
                       fit: StackFit.expand,
                       children: [
                         ColoredBox(color: DashColors.border(isDark)),
-                        Image.network(
-                          urls.thumbnail(board, post.tim),
+                        Image(
+                          image: ResizeImage.resizeIfNeeded(
+                            decodeWidth,
+                            null,
+                            thumbnailImage(urls.thumbnail(board, post.tim)),
+                          ),
                           fit: BoxFit.cover,
-                          cacheWidth: decodeWidth,
                           frameBuilder: fadeInImageFrame,
                           errorBuilder: imageErrorPlaceholder,
                         ),

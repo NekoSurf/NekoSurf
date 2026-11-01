@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_chan/services/image_cache.dart';
 import 'package:flutter_chan/widgets/image_viewer.dart';
 import 'package:flutter_chan/widgets/media_video.dart';
 import 'package:flutter_chan/widgets/video_scrub_gesture.dart';
@@ -139,8 +140,8 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     final Widget view = MediaVideoView(
       video: _video,
       fit: BoxFit.cover,
-      thumbnail: Image.network(
-        widget.thumbnailUrl,
+      thumbnail: Image(
+        image: thumbnailImage(widget.thumbnailUrl),
         fit: BoxFit.cover,
         gaplessPlayback: true,
         errorBuilder: imageErrorPlaceholder,

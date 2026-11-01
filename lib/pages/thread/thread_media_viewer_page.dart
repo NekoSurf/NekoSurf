@@ -7,6 +7,7 @@ import 'package:flutter_chan/API/urls.dart' as urls;
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/saved_attachments_model.dart';
 import 'package:flutter_chan/pages/media/shared_media_viewer.dart';
+import 'package:flutter_chan/services/image_cache.dart';
 import 'package:flutter_chan/services/reverse_image_search.dart';
 import 'package:flutter_chan/widgets/media_video.dart';
 import 'package:provider/provider.dart';
@@ -451,8 +452,8 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
             id: '${post.no ?? post.tim}',
             source: mediaUrl,
             isVideo: post.isVideo,
-            imageProvider: NetworkImage(mediaUrl),
-            thumbnail: NetworkImage(urls.thumbnail(widget.board, post.tim)),
+            imageProvider: fullImage(mediaUrl),
+            thumbnail: thumbnailImage(urls.thumbnail(widget.board, post.tim)),
             width: post.w,
             height: post.h,
           );
