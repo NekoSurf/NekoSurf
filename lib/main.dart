@@ -13,6 +13,7 @@ import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/pages/boards/board_list.dart';
 import 'package:flutter_chan/services/fast_page_transitions.dart';
+import 'package:flutter_chan/services/image_cache.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -38,6 +39,7 @@ Future<void> main() async {
   // favorites and bookmarks rather than defaults.
   final SharedPreferences prefs = await SharedPreferences.getInstance();
   unawaited(deleteSaveLeftovers());
+  unawaited(deleteOldImageCache());
   runApp(MyApp(prefs: prefs));
 }
 
