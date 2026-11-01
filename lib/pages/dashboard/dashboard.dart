@@ -144,7 +144,10 @@ class DashboardState extends State<Dashboard> {
                   child: Center(child: CupertinoActivityIndicator()),
                 )
               else if (snapshot.hasError)
-                ReloadWidget(onReload: () => setState(_load))
+                ReloadWidget.forError(
+                  snapshot.error,
+                  onReload: () => setState(_load),
+                )
               else
                 ..._sections(boards, isDark, favorites),
             ],

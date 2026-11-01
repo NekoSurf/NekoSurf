@@ -137,4 +137,10 @@ void main() {
     );
     expect(urls.threadPage('g', 123), 'https://boards.4chan.org/g/thread/123');
   });
+
+  test('ApiException keeps the status for the UI', () {
+    expect(const ApiException(429, 'catalog').isRateLimited, isTrue);
+    expect(const ApiException(503, 'catalog').isRateLimited, isFalse);
+    expect(const ApiException(503, 'catalog').toString(), contains('503'));
+  });
 }

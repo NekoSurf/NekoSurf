@@ -15,7 +15,7 @@ import 'package:http/http.dart';
 Future<List<int>> fetchArchive(String board) async {
   final Response response = await httpClient.get(urls.archive(board));
   if (response.statusCode != 200) {
-    throw Exception('Failed to load archive.');
+    throw ApiException(response.statusCode, 'archive');
   }
 
   return (jsonDecode(response.body) as List).cast<int>().reversed.toList();
