@@ -534,14 +534,22 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
     setState(() {
       _isDownloading = true;
     });
-    await saveVideo(_mediaUrl(post), _fileName(post), context, isSaved: false);
+    final bool saved = await saveVideo(
+      _mediaUrl(post),
+      _fileName(post),
+      context,
+      isSaved: false,
+    );
     if (!mounted) {
       return;
     }
     setState(() {
       _isDownloading = false;
-      _didDownload = true;
+      _didDownload = saved;
     });
+    if (!saved) {
+      return;
+    }
     _downloadSuccessTimer = Timer(const Duration(milliseconds: 1200), () {
       if (!mounted) {
         return;
