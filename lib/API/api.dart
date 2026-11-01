@@ -20,16 +20,12 @@ Future<List<Post>> fetchAllThreadsFromBoard(
 
 /// Every live thread on [board], in catalog order.
 Future<List<Post>> fetchCatalog(String board) async {
-  try {
-    final Response response = await httpClient.get(urls.catalog(board));
-    if (response.statusCode != 200) {
-      throw Exception('Failed to load OPs.');
-    }
-
-    return await compute(_parseCatalog, response.body);
-  } catch (e) {
-    throw Exception('Failed to load OPs.');
+  final Response response = await httpClient.get(urls.catalog(board));
+  if (response.statusCode != 200) {
+    throw ApiException(response.statusCode, 'catalog');
   }
+
+  return compute(_parseCatalog, response.body);
 }
 
 /// Every live thread on all [boards], each tagged with its board. One failing
@@ -113,9 +109,28 @@ List<Post> filterThreads(List<Post> threads, String query) {
   }).toList();
 }
 
+/// 4chan answered with [statusCode] instead of the [what] asked for.
+class ApiException implements Exception {
+  const ApiException(this.statusCode, this.what);
+
+  final int statusCode;
+  final String what;
+
+  /// 4chan's servers limit how often they're asked; this is them saying no.
+  bool get isRateLimited => statusCode == 429;
+
+  @override
+  String toString() => "Couldn't load the $what (HTTP $statusCode).";
+}
+
 /// The thread was deleted or has dropped out of the archive.
 class ThreadNotFound implements Exception {
   const ThreadNotFound();
+
+  @override
+  String toString() =>
+      'The thread was deleted or has dropped out of the '
+      'archive.';
 }
 
 Future<List<Post>> fetchAllPostsFromThread(String board, int thread) async {
@@ -126,7 +141,7 @@ Future<List<Post>> fetchAllPostsFromThread(String board, int thread) async {
   } else if (response.statusCode == 404) {
     throw const ThreadNotFound();
   } else {
-    throw Exception('Failed to load posts.');
+    throw ApiException(response.statusCode, 'thread');
   }
 }
 
@@ -316,7 +331,7 @@ Future<List<Board>> _fetchAllBoards() async {
         .toList();
     return boards;
   } else {
-    throw Exception('Failed to load boards.');
+    throw ApiException(response.statusCode, 'board list');
   }
 }
 

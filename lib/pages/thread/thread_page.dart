@@ -730,7 +730,10 @@ class ThreadPageState extends State<ThreadPage> {
                 );
               }
               if (snapshot.hasError) {
-                return ReloadWidget(onReload: () => loadThread());
+                return ReloadWidget.forError(
+                  snapshot.error,
+                  onReload: () => loadThread(),
+                );
               } else {
                 _startPreloadingIfNeeded();
 
