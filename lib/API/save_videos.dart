@@ -132,15 +132,36 @@ Future<bool> checkAndRequestPermissions({required bool skipIfExists}) async {
   return false; // Unsupported platforms
 }
 
+/// Converts a webm to an H.264 mp4 with the hardware encoder (iOS only).
+/// It needs more bits than VP9 for the same picture: at twice the webm's
+/// bitrate it's about as close to the webm as MPEG-4 at -qscale 0 was, at
+/// a fraction of that size.
 Future<int> convertWebMToMP4(File webmFile, File mp4File) async {
   mp4File = File(mp4File.path.replaceAll('.webm', '.mp4'));
 
+  final int? sourceBitrate = await _bitrate(webmFile);
+  final int bitrate = sourceBitrate == null ? 4000000 : 2 * sourceBitrate;
+
   // yuv420p + aac keep the mp4 compatible with the Photos library.
   final FFmpegSession session = await FFmpegKit.executeAsync(
-    '-y -i "${webmFile.path}" -c:v mpeg4 -qscale 0 -pix_fmt yuv420p -c:a aac "${mp4File.path}"',
+    '-y -i "${webmFile.path}" -c:v h264_videotoolbox -allow_sw 1 -b:v $bitrate -pix_fmt yuv420p -c:a aac "${mp4File.path}"',
   );
 
   return session.getReturnCode();
+}
+
+/// [file]'s overall bitrate in bits per second, or null if ffprobe can't
+/// tell.
+Future<int?> _bitrate(File file) async {
+  try {
+    final FFprobeSession session = await FFprobeKit.getMediaInformationAsync(
+      file.path,
+    );
+    return int.tryParse(session.getMediaInformation()?.bitrate ?? '');
+  } catch (e) {
+    debugPrint('bitrate probe failed for ${file.path}: $e');
+    return null;
+  }
 }
 
 /// saver_gallery never answers on iOS for videos Photos rejects, so cap the wait.
