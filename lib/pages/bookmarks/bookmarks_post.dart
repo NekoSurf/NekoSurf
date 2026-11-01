@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/archived.dart';
+import 'package:flutter_chan/API/urls.dart' as urls;
 import 'package:flutter_chan/Models/bookmark.dart';
 import 'package:flutter_chan/Models/bookmark_status.dart';
 import 'package:flutter_chan/Models/post.dart';
@@ -319,8 +320,10 @@ class _BookmarkCard extends StatelessWidget {
                 width: 76,
                 height: 76,
                 child: ImageViewer(
-                  url:
-                      'https://i.4cdn.org/${favorite.board}/${favorite.imageUrl}',
+                  url: urls.boardFile(
+                    '${favorite.board}',
+                    '${favorite.imageUrl}',
+                  ),
                   fit: BoxFit.cover,
                 ),
               ),

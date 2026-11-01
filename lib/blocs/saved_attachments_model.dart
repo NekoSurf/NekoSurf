@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/save_videos.dart';
+import 'package:flutter_chan/API/urls.dart' as urls;
 import 'package:flutter_chan/Models/saved_attachment.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -140,8 +141,8 @@ class SavedAttachmentsProvider with ChangeNotifier {
 
     if (!_containsId(nameWithoutExtension)) {
       final SavedAttachment? savedAttachment = await saveAttachment(
-        'https://i.4cdn.org/$board/$downloadName',
-        'https://i.4cdn.org/$board/${nameWithoutExtension}s.jpg',
+        urls.boardFile(board, downloadName),
+        urls.boardFile(board, '${nameWithoutExtension}s.jpg'),
         downloadName,
         fileName,
         context,

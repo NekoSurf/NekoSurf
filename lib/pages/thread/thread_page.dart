@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/api.dart';
+import 'package:flutter_chan/API/urls.dart' as urls;
 import 'package:flutter_chan/Models/bookmark.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/history_model.dart';
@@ -352,11 +353,6 @@ class ThreadPageState extends State<ThreadPage> {
     }
   }
 
-  bool _isVideoPost(Post post) {
-    final ext = post.ext?.toLowerCase();
-    return ext == '.webm' || ext == '.mp4';
-  }
-
   List<ItemPosition> _visiblePositions() {
     return itemPositionsListener.itemPositions.value
         .where(
@@ -436,7 +432,7 @@ class ThreadPageState extends State<ThreadPage> {
       }
 
       final Post post = allPosts[index];
-      if (!_isVideoPost(post)) {
+      if (!post.isVideo) {
         continue;
       }
 
@@ -460,7 +456,7 @@ class ThreadPageState extends State<ThreadPage> {
       }
 
       final Post post = allPosts[index];
-      if (!_isVideoPost(post)) {
+      if (!post.isVideo) {
         continue;
       }
 
@@ -490,7 +486,7 @@ class ThreadPageState extends State<ThreadPage> {
       }
 
       final NetworkImage thumbnailProvider = NetworkImage(
-        'https://i.4cdn.org/${widget.board}/${tim}s.jpg',
+        urls.thumbnail(widget.board, tim),
       );
 
       try {
@@ -671,7 +667,7 @@ class ThreadPageState extends State<ThreadPage> {
                 SharePlus.instance.share(
                   ShareParams(
                     uri: Uri.parse(
-                      'https://boards.4chan.org/${widget.board}/thread/${widget.thread}',
+                      urls.threadPage(widget.board, widget.thread),
                     ),
                   ),
                 );
@@ -681,9 +677,7 @@ class ThreadPageState extends State<ThreadPage> {
               title: 'Open in Browser',
               icon: CupertinoIcons.globe,
               onPressed: () {
-                launchURL(
-                  'https://boards.4chan.org/${widget.board}/thread/${widget.thread}',
-                );
+                launchURL(urls.threadPage(widget.board, widget.thread));
               },
             ),
             buildMenuItem(
@@ -731,9 +725,8 @@ class ThreadPageState extends State<ThreadPage> {
                   title: 'Thread not found',
                   message: 'It was deleted or has dropped out of the archive.',
                   secondaryLabel: 'Open on 4chan',
-                  onSecondary: () => launchURL(
-                    'https://boards.4chan.org/${widget.board}/thread/${widget.thread}',
-                  ),
+                  onSecondary: () =>
+                      launchURL(urls.threadPage(widget.board, widget.thread)),
                 );
               }
               if (snapshot.hasError) {

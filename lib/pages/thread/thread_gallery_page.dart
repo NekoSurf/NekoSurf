@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_chan/API/urls.dart' as urls;
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/pages/thread/thread_media_viewer_page.dart';
@@ -20,11 +21,6 @@ class ThreadGalleryPage extends StatelessWidget {
   final int thread;
   final List<Post> mediaPosts;
 
-  static bool _isVideo(Post post) {
-    final String? ext = post.ext?.toLowerCase();
-    return ext == '.webm' || ext == '.mp4';
-  }
-
   void _open(BuildContext context, int index) {
     Navigator.of(context).push<int>(
       ThreadMediaViewerRoute(
@@ -39,7 +35,7 @@ class ThreadGalleryPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool isDark = CupertinoTheme.brightnessOf(context) == Brightness.dark;
-    final int videos = mediaPosts.where(_isVideo).length;
+    final int videos = mediaPosts.where((post) => post.isVideo).length;
     final int images = mediaPosts.length - videos;
     final double width = MediaQuery.sizeOf(context).width;
     final int columns = (width / 130).floor().clamp(3, 8);
@@ -84,13 +80,13 @@ class ThreadGalleryPage extends StatelessWidget {
                       children: [
                         ColoredBox(color: DashColors.border(isDark)),
                         Image.network(
-                          'https://i.4cdn.org/$board/${post.tim}s.jpg',
+                          urls.thumbnail(board, post.tim),
                           fit: BoxFit.cover,
                           cacheWidth: decodeWidth,
                           frameBuilder: fadeInImageFrame,
                           errorBuilder: imageErrorPlaceholder,
                         ),
-                        if (_isVideo(post))
+                        if (post.isVideo)
                           const Positioned(
                             right: 6,
                             bottom: 6,

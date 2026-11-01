@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:country_flags/country_flags.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_chan/API/urls.dart' as urls;
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
@@ -92,22 +93,10 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     widget.onDismiss(focusedPostId);
   }
 
-  String _thumbnailUrl() {
-    return 'https://i.4cdn.org/${widget.board}/${widget.post.tim}s.jpg';
-  }
+  String _thumbnailUrl() => urls.thumbnail(widget.board, widget.post.tim);
 
-  String _fullMediaUrl() {
-    return 'https://i.4cdn.org/${widget.board}/${widget.post.tim}${widget.post.ext}';
-  }
-
-  bool _isVideoPost() {
-    final ext = widget.post.ext?.toLowerCase();
-    return ext == '.webm' || ext == '.mp4';
-  }
-
-  bool _hasRenderableMedia() {
-    return widget.post.tim != null && widget.post.ext != null;
-  }
+  String _fullMediaUrl() =>
+      urls.file(widget.board, widget.post.tim, widget.post.ext);
 
   Future<void> _openMediaViewer(
     List<Post> allPosts,
@@ -231,15 +220,18 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
   }
 
   Widget _buildInlineVideoMedia() {
-    if (!_hasRenderableMedia()) {
+    if (!widget.post.hasFile) {
       return const SizedBox.shrink();
     }
     final mediaId = widget.post.tim;
     if (mediaId == null) {
       return _buildInlineImageMedia();
     }
-    final fileName = '$mediaId${widget.post.ext ?? '.webm'}';
-    final mediaUrl = 'https://i.4cdn.org/${widget.board}/$fileName';
+    final mediaUrl = urls.file(
+      widget.board,
+      mediaId,
+      widget.post.ext ?? '.webm',
+    );
     final itemKey = widget.post.no ?? mediaId;
 
     try {
@@ -270,7 +262,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeChanger>(context);
     final bool isDark = theme.isDark;
-    final bool hasMedia = _hasRenderableMedia();
+    final bool hasMedia = widget.post.hasFile;
 
     final Color primaryText = DashColors.text(isDark);
     final Color secondaryText = DashColors.muted(isDark);
@@ -394,7 +386,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                   ],
                   if (hasMedia) ...[
                     const SizedBox(height: 10),
-                    if (_isVideoPost())
+                    if (widget.post.isVideo)
                       _buildInlineVideoMedia()
                     else
                       _buildInlineImageMedia(),
