@@ -205,6 +205,7 @@ Future<void> saveVideo(
     return;
   }
 
+  Directory? work;
   try {
     if (isSaved) {
       // On iOS, saved attachments are converted from .webm to .mp4
@@ -231,7 +232,8 @@ Future<void> saveVideo(
       return;
     }
 
-    final File downloadedFile = await _downloadToTemp(url, fileName);
+    work = await _newWorkFolder();
+    final File downloadedFile = await _downloadInto(work, url, fileName);
     final String ext = '.${fileName.split('.').last}'.toLowerCase();
 
     if (Platform.isIOS && ext == '.webm') {
@@ -262,6 +264,10 @@ Future<void> saveVideo(
         context,
         'Download failed :(',
       );
+    }
+  } finally {
+    if (work != null) {
+      await _deleteQuietly(work);
     }
   }
 }
@@ -369,7 +375,8 @@ Future<void> shareMedia(
       return;
     }
 
-    final File downloadedFile = await _downloadToTemp(url, fileName);
+    final Directory shareFolder = await _newShareFolder();
+    final File downloadedFile = await _downloadInto(shareFolder, url, fileName);
     final String ext = '.${fileName.split('.').last}'.toLowerCase();
 
     if (Platform.isIOS && ext == '.webm') {
@@ -380,6 +387,8 @@ Future<void> shareMedia(
         downloadedFile,
         fileDownloadPath,
       );
+      // Only the mp4 is shared.
+      await _deleteQuietly(downloadedFile);
 
       if (returnCode == 0) {
         await SharePlus.instance.share(
@@ -414,6 +423,7 @@ Future<SavedAttachment?> saveAttachment(
   BuildContext context,
   SavedAttachmentsProvider savedAttachmentsProvider,
 ) async {
+  Directory? work;
   try {
     final Directory baseDirectory = await requestDirectory(context: context);
     if (!await baseDirectory.exists()) {
@@ -426,7 +436,8 @@ Future<SavedAttachment?> saveAttachment(
     }
     final String thumbsDir = await _ensureThumbnailsDir();
 
-    final File downloadedFile = await _downloadToTemp(url, fileName);
+    work = await _newWorkFolder();
+    final File downloadedFile = await _downloadInto(work, url, fileName);
     final String ext = '.${fileName.split('.').last}'.toLowerCase();
 
     String finalFileName = fileName;
@@ -480,6 +491,10 @@ Future<SavedAttachment?> saveAttachment(
   } catch (e, st) {
     debugPrint('saveAttachment error: $e\n$st');
     return null;
+  } finally {
+    if (work != null) {
+      await _deleteQuietly(work);
+    }
   }
 }
 
@@ -531,11 +546,81 @@ Future<String> _videoThumbnail(
   return downloadThumbnail(fileName, thumbnailUrl, '$thumbsDir/');
 }
 
-/// Puts [url] into the temporary directory as [fileName]: copied from the
-/// video cache when it was watched already, otherwise downloaded.
-Future<File> _downloadToTemp(String url, String fileName) async {
-  final Directory tempDir = await getTemporaryDirectory();
-  final File file = File('${tempDir.path}/$fileName');
+// Saving and sharing download and convert in folders of their own in the
+// temporary directory, so they can't overwrite each other's files, and
+// what they leave there can be found and deleted.
+const String _workingFolderName = 'working';
+const String _sharedFolderName = 'shared';
+
+/// 4chan's file types. Older versions downloaded and converted right in the
+/// temporary directory, and left the files there.
+const List<String> _mediaExtensions = [
+  '.jpg',
+  '.png',
+  '.gif',
+  '.webm',
+  '.mp4',
+  '.pdf',
+];
+
+/// A folder for one save's files, deleted by the save when it's done.
+Future<Directory> _newWorkFolder() async {
+  final Directory temp = await getTemporaryDirectory();
+  final Directory working = await Directory(
+    '${temp.path}/$_workingFolderName',
+  ).create(recursive: true);
+  return working.createTemp();
+}
+
+/// A folder for a share's files, in place of the last share's. The app a
+/// file is shared to may still read it after the share sheet closes, so
+/// it's kept until the next share, or the next launch.
+Future<Directory> _newShareFolder() async {
+  final Directory temp = await getTemporaryDirectory();
+  final Directory shared = Directory('${temp.path}/$_sharedFolderName');
+  await _deleteQuietly(shared);
+  return shared.create(recursive: true);
+}
+
+Future<void> _deleteQuietly(FileSystemEntity entity) async {
+  try {
+    await entity.delete(recursive: true);
+  } on FileSystemException {
+    // Gone already.
+  }
+}
+
+/// Deletes what saving and sharing left in the temporary directory. Meant
+/// for launch, when nothing is being saved or shared.
+Future<void> deleteSaveLeftovers() async {
+  try {
+    await deleteSaveLeftoversIn(await getTemporaryDirectory());
+  } catch (e) {
+    debugPrint('deleteSaveLeftovers error: $e');
+  }
+}
+
+@visibleForTesting
+Future<void> deleteSaveLeftoversIn(Directory temp) async {
+  await for (final FileSystemEntity entity in temp.list()) {
+    final String name = entity.path.split('/').last;
+    final bool isLeftover = entity is Directory
+        ? name == _workingFolderName || name == _sharedFolderName
+        : _mediaExtensions.any(name.toLowerCase().endsWith);
+    if (isLeftover) {
+      await _deleteQuietly(entity);
+    }
+  }
+}
+
+/// Puts [url] into [folder] as [fileName]: copied from the video cache when
+/// it was watched already, otherwise downloaded.
+Future<File> _downloadInto(
+  Directory folder,
+  String url,
+  String fileName,
+) async {
+  final File file = File('${folder.path}/$fileName');
   final File? cached = await VideoServer.instance.cachedFile(url);
   if (cached != null) {
     try {
