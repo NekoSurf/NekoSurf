@@ -340,6 +340,12 @@ class VideoServer {
     return null;
   }
 
+  /// 4chan's videos are webm or mp4; [path] ends like the original.
+  static ContentType _contentType(String path) =>
+      path.toLowerCase().endsWith('.mp4')
+      ? ContentType('video', 'mp4')
+      : ContentType('video', 'webm');
+
   static final RegExp _rangePattern = RegExp(r'^bytes=(\d+)-(\d+)?$');
 
   static (int, int?)? _parseRange(HttpRequest request) {
@@ -360,7 +366,7 @@ class VideoServer {
     final int end = min(range?.$2 ?? length - 1, length - 1);
 
     response.headers.set(HttpHeaders.acceptRangesHeader, 'bytes');
-    response.headers.contentType = ContentType('video', 'webm');
+    response.headers.contentType = _contentType(file.path);
     if (range != null) {
       response.statusCode = HttpStatus.partialContent;
       response.headers.set(
@@ -393,7 +399,7 @@ class VideoServer {
     }
 
     response.headers.set(HttpHeaders.acceptRangesHeader, 'bytes');
-    response.headers.contentType = ContentType('video', 'webm');
+    response.headers.contentType = _contentType(download.url);
     if (range != null) {
       response.statusCode = HttpStatus.partialContent;
       response.headers.set(
@@ -449,7 +455,7 @@ class VideoServer {
 
     response.statusCode = HttpStatus.partialContent;
     response.headers.set(HttpHeaders.acceptRangesHeader, 'bytes');
-    response.headers.contentType = ContentType('video', 'webm');
+    response.headers.contentType = _contentType(url);
     response.headers.set(
       HttpHeaders.contentRangeHeader,
       'bytes $start-$end/$total',
