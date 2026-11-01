@@ -31,8 +31,17 @@ env:
   BUNDLE_ID: com.wrngwrld.Chanyan
 
 jobs:
+  # Nothing is tagged or pushed if the analyzer or a test fails. They check
+  # the commit main was at when the release started, the one prepare
+  # releases.
+  checks:
+    uses: ./.github/workflows/checks.yml
+    with:
+      ref: ${{ github.sha }}
+
   prepare:
     name: Bump version and tag
+    needs: checks
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -44,6 +53,15 @@ jobs:
           ref: main
           fetch-depth: 0
           ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
+
+      # A commit that landed while the checks ran wasn't checked. Later
+      # ones make the push to main fail.
+      - name: Make sure main is the checked commit
+        run: |
+          if [ "$(git rev-parse HEAD)" != "$GITHUB_SHA" ]; then
+            echo "::error::main isn't at $GITHUB_SHA, the commit that was checked. Start the release from main, and again if main moved meanwhile."
+            exit 1
+          fi
 
       - uses: actions/setup-python@v5
         with:
