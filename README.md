@@ -12,14 +12,14 @@ It is designed for smooth browsing with modern card-based layouts, media-first n
 
 ## Sources
 
-<a href="https://intradeus.github.io/http-protocol-redirector?r=altstore://source?url=https://raw.githubusercontent.com/NekoSurf/NekoSurf/refs/heads/main/source.json">
+<a href="https://altdirect.app/?url=https://raw.githubusercontent.com/NekoSurf/NekoSurf/refs/heads/main/source.json&r=altstore">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/icons/altstore_dark.png">
     <source media="(prefers-color-scheme: light)" srcset="assets/icons/altstore_light.png">
     <img alt="Add to AltStore" src="assets/icons/altstore_light.png" height="55">
   </picture>
 </a>
-<a href="https://intradeus.github.io/http-protocol-redirector?r=sidestore://source?url=https://raw.githubusercontent.com/NekoSurf/NekoSurf/refs/heads/main/source.json">
+<a href="https://altdirect.app/?url=https://raw.githubusercontent.com/NekoSurf/NekoSurf/refs/heads/main/source.json&r=sidestore">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/icons/sidestore_dark.png">
     <source media="(prefers-color-scheme: light)" srcset="assets/icons/sidestore_light.png">
