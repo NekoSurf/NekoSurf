@@ -394,8 +394,9 @@ class MediaVideo extends ChangeNotifier {
         await player.play();
       }
       _resumePlaying = true;
-    } catch (_) {
+    } catch (error) {
       if (token == _token) {
+        debugPrint('Video failed to open [$source]: $error');
         _fail();
       }
     } finally {
@@ -463,6 +464,15 @@ class MediaVideo extends ChangeNotifier {
             _completed.add(null);
           }
         }),
+      )
+      ..add(
+        // Only logged: some are bogus (see _firstFrameTimeout), but they
+        // explain a video that then doesn't play.
+        player.stream.error.listen((String error) {
+          if (current()) {
+            debugPrint('mpv error [$source]: $error');
+          }
+        }),
       );
   }
 
@@ -479,6 +489,10 @@ class MediaVideo extends ChangeNotifier {
         _armFirstFrameTimer(lease);
         return;
       }
+      debugPrint(
+        'Video showed no frame within '
+        '${_firstFrameTimeout.inSeconds}s [$source]',
+      );
       _fail();
     });
   }
