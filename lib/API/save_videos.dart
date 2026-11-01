@@ -212,25 +212,12 @@ Future<bool> saveVideo(
         : name;
   }
 
-  Directory directory;
-
-  try {
-    directory = await requestDirectory();
-  } catch (_) {
-    if (context.mounted) {
-      showCupertinoSnackbar(
-        const Duration(milliseconds: 1800),
-        true,
-        context,
-        'Download failed :(',
-      );
-    }
-    return false;
-  }
-
   Directory? work;
   try {
     if (isSaved) {
+      // Only saved media is in this folder; everything else is downloaded
+      // to a work folder, so it needs no storage access on Android.
+      final Directory directory = await requestDirectory();
       // On iOS, saved attachments are converted from .webm to .mp4
       // On Android, they remain as .webm
       final String savedName = Platform.isIOS ? toMp4Name(fileName) : fileName;
@@ -377,14 +364,13 @@ Future<void> shareMedia(
   BuildContext context, {
   bool isSaved = false,
 }) async {
-  Directory directory;
-  try {
-    directory = await requestDirectory(context: context);
-  } catch (_) {
-    return;
-  }
-
   if (isSaved) {
+    final Directory directory;
+    try {
+      directory = await requestDirectory(context: context);
+    } catch (_) {
+      return;
+    }
     // On iOS, saved attachments are converted from .webm to .mp4
     // On Android, they remain as .webm
     final String savedName = Platform.isIOS
@@ -396,10 +382,6 @@ Future<void> shareMedia(
   }
 
   try {
-    if (!await directory.exists()) {
-      return;
-    }
-
     final Directory shareFolder = await _newShareFolder();
     final File downloadedFile = await _downloadInto(shareFolder, url, fileName);
     final String ext = '.${fileName.split('.').last}'.toLowerCase();
