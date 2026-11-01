@@ -10,11 +10,11 @@ import 'package:flutter_chan/widgets/image_viewer.dart';
 /// fullscreen viewer at that item, paging through the thread's media.
 class ThreadGalleryPage extends StatelessWidget {
   const ThreadGalleryPage({
-    Key? key,
+    super.key,
     required this.board,
     required this.thread,
     required this.mediaPosts,
-  }) : super(key: key);
+  });
 
   final String board;
   final int thread;

@@ -24,7 +24,7 @@ enum SearchScope { favorites, everywhere }
 /// Searches thread openers on the favorite boards (live, through the
 /// catalog API) or every post on 4chan (through find.4chan.org).
 class SearchPage extends StatefulWidget {
-  const SearchPage({Key? key}) : super(key: key);
+  const SearchPage({super.key});
 
   @override
   State<SearchPage> createState() => _SearchPageState();
@@ -442,8 +442,11 @@ class _SearchPageState extends State<SearchPage> {
 /// One post from find.4chan.org: an opening post or a reply, which opens
 /// its thread scrolled to it.
 class _SearchResultTile extends StatelessWidget {
-  const _SearchResultTile({Key? key, required this.post, required this.isDark})
-    : super(key: key);
+  const _SearchResultTile({
+    super.key,
+    required this.post,
+    required this.isDark,
+  });
 
   final Post post;
   final bool isDark;

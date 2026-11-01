@@ -26,10 +26,11 @@ class BookmarksProvider with ChangeNotifier {
   }
 
   Iterable<String> getBookmarks() {
-    if (sort == Sort.byNewest)
+    if (sort == Sort.byNewest) {
       return list.reversed;
-    else
+    } else {
       return list;
+    }
   }
 
   Future<void> addBookmarks(Bookmark? favorite) async {

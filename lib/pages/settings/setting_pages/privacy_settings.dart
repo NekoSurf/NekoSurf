@@ -6,7 +6,7 @@ import 'package:flutter_chan/widgets/dash_scaffold.dart';
 import 'package:provider/provider.dart';
 
 class PrivacySettings extends StatelessWidget {
-  const PrivacySettings({Key? key}) : super(key: key);
+  const PrivacySettings({super.key});
 
   @override
   Widget build(BuildContext context) {

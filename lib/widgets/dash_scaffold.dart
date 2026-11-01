@@ -5,7 +5,7 @@ import 'package:flutter_chan/widgets/dash_header.dart';
 
 class DashScaffold extends StatefulWidget {
   const DashScaffold({
-    Key? key,
+    super.key,
     required this.title,
     required this.slivers,
     this.subtitle,
@@ -15,7 +15,7 @@ class DashScaffold extends StatefulWidget {
     this.onRefresh,
     this.keyboardDismiss = false,
     this.reserveTabBarSpace = false,
-  }) : super(key: key);
+  });
 
   final String title;
   final String? subtitle;
@@ -104,12 +104,12 @@ class _DashScaffoldState extends State<DashScaffold> {
 /// Custom header around a non-sliver body (e.g. the thread list).
 class DashBarScaffold extends StatelessWidget {
   const DashBarScaffold({
-    Key? key,
+    super.key,
     required this.title,
     required this.body,
     this.subtitle,
     this.actions = const [],
-  }) : super(key: key);
+  });
 
   final String title;
   final String? subtitle;

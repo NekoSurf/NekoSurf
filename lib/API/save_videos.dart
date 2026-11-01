@@ -56,11 +56,11 @@ Future<String> _ensureThumbnailsDir() async {
   return _thumbnailsDir;
 }
 
-Future<Directory> requestDirectory(
-  Directory directory,
-  BuildContext context, {
-  bool showErrorDialog = true,
-}) async {
+/// Where saved media lives, after asking for permission. Without it, this
+/// explains why in a sheet over [context] (when given and still there)
+/// and throws.
+Future<Directory> requestDirectory({BuildContext? context}) async {
+  Directory directory = Directory('');
   if (Platform.isAndroid) {
     final int sdkVersion =
         (await DeviceInfoPlugin().androidInfo).version.sdkInt;
@@ -90,7 +90,7 @@ Future<Directory> requestDirectory(
       directory = await getApplicationDocumentsDirectory();
       await _ensureThumbnailsDir();
     } else {
-      if (showErrorDialog) {
+      if (context != null && context.mounted) {
         await showCupertinoModalBottomSheet(
           expand: false,
           context: context,
@@ -175,12 +175,14 @@ Future<void> saveVideo(
   );
 
   if (!hasPermission) {
-    showCupertinoSnackbar(
-      const Duration(milliseconds: 1800),
-      true,
-      context,
-      'Permission denied',
-    );
+    if (context.mounted) {
+      showCupertinoSnackbar(
+        const Duration(milliseconds: 1800),
+        true,
+        context,
+        'Permission denied',
+      );
+    }
     return;
   }
 
@@ -193,18 +195,16 @@ Future<void> saveVideo(
   Directory directory;
 
   try {
-    directory = await requestDirectory(
-      Directory(''),
-      context,
-      showErrorDialog: false,
-    );
+    directory = await requestDirectory();
   } catch (_) {
-    showCupertinoSnackbar(
-      const Duration(milliseconds: 1800),
-      true,
-      context,
-      'Download failed :(',
-    );
+    if (context.mounted) {
+      showCupertinoSnackbar(
+        const Duration(milliseconds: 1800),
+        true,
+        context,
+        'Download failed :(',
+      );
+    }
     return;
   }
 
@@ -217,12 +217,14 @@ Future<void> saveVideo(
       final File savedFile = File(savedPath);
 
       if (!await savedFile.exists()) {
-        showCupertinoSnackbar(
-          const Duration(milliseconds: 1800),
-          true,
-          context,
-          'File not found',
-        );
+        if (context.mounted) {
+          showCupertinoSnackbar(
+            const Duration(milliseconds: 1800),
+            true,
+            context,
+            'File not found',
+          );
+        }
         return;
       }
 
@@ -256,12 +258,14 @@ Future<void> saveVideo(
     }
   } catch (e) {
     debugPrint('saveVideo error: $e');
-    showCupertinoSnackbar(
-      const Duration(milliseconds: 1800),
-      true,
-      context,
-      'Download failed :(',
-    );
+    if (context.mounted) {
+      showCupertinoSnackbar(
+        const Duration(milliseconds: 1800),
+        true,
+        context,
+        'Download failed :(',
+      );
+    }
   }
 }
 
@@ -284,11 +288,7 @@ Future<int> saveSavedAttachmentsToGallery(
 
   final Directory directory;
   try {
-    directory = await requestDirectory(
-      Directory(''),
-      context,
-      showErrorDialog: false,
-    );
+    directory = await requestDirectory();
   } catch (_) {
     return fileNames.length;
   }
@@ -322,7 +322,7 @@ Future<void> shareSavedAttachments(
 ) async {
   final Directory directory;
   try {
-    directory = await requestDirectory(Directory(''), context);
+    directory = await requestDirectory(context: context);
   } catch (_) {
     return;
   }
@@ -351,7 +351,7 @@ Future<void> shareMedia(
 }) async {
   Directory directory;
   try {
-    directory = await requestDirectory(Directory(''), context);
+    directory = await requestDirectory(context: context);
   } catch (_) {
     return;
   }
@@ -390,7 +390,7 @@ Future<void> shareMedia(
             files: [XFile(fileDownloadPath.path.replaceAll('.webm', '.mp4'))],
           ),
         );
-      } else {
+      } else if (context.mounted) {
         showCupertinoSnackbar(
           const Duration(milliseconds: 1800),
           true,
@@ -420,10 +420,7 @@ Future<SavedAttachment?> saveAttachment(
   final Dio dio = Dio();
 
   try {
-    final Directory baseDirectory = await requestDirectory(
-      Directory(''),
-      context,
-    );
+    final Directory baseDirectory = await requestDirectory(context: context);
     if (!await baseDirectory.exists()) {
       return null;
     }
@@ -481,8 +478,8 @@ Future<SavedAttachment?> saveAttachment(
 
     return SavedAttachment(
       savedAttachmentType: isVideoLike
-          ? SavedAttachmentType.Video
-          : SavedAttachmentType.Image,
+          ? SavedAttachmentType.video
+          : SavedAttachmentType.image,
       fileName: finalFileName,
       thumbnail: thumbnailPath,
       id: getNameWithoutExtension(fileName),

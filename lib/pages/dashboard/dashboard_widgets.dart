@@ -4,13 +4,13 @@ import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 
 class DashCard extends StatelessWidget {
   const DashCard({
-    Key? key,
+    super.key,
     required this.isDark,
     required this.child,
     this.padding = EdgeInsets.zero,
     this.onTap,
     this.radius = 20,
-  }) : super(key: key);
+  });
 
   final bool isDark;
   final Widget child;
@@ -38,12 +38,12 @@ class DashCard extends StatelessWidget {
 
 class DashSectionHeader extends StatelessWidget {
   const DashSectionHeader({
-    Key? key,
+    super.key,
     required this.title,
     required this.isDark,
     this.actionLabel,
     this.onAction,
-  }) : super(key: key);
+  });
 
   final String title;
   final bool isDark;
@@ -86,7 +86,7 @@ class DashSectionHeader extends StatelessWidget {
 }
 
 class DashHero extends StatelessWidget {
-  const DashHero({Key? key, required this.isDark}) : super(key: key);
+  const DashHero({super.key, required this.isDark});
 
   final bool isDark;
 
@@ -178,11 +178,11 @@ class DashHero extends StatelessWidget {
 
 class DashFeedCard extends StatelessWidget {
   const DashFeedCard({
-    Key? key,
+    super.key,
     required this.isDark,
     required this.boardCount,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   final bool isDark;
   final int boardCount;
@@ -248,13 +248,13 @@ class DashFeedCard extends StatelessWidget {
 
 class DashBoardChip extends StatelessWidget {
   const DashBoardChip({
-    Key? key,
+    super.key,
     required this.board,
     required this.title,
     required this.isDark,
     required this.onTap,
     this.nsfw = false,
-  }) : super(key: key);
+  });
 
   final String board;
   final String title;
@@ -314,7 +314,7 @@ class DashBoardChip extends StatelessWidget {
 
 class DashBoardRow extends StatelessWidget {
   const DashBoardRow({
-    Key? key,
+    super.key,
     required this.board,
     required this.title,
     required this.description,
@@ -323,7 +323,7 @@ class DashBoardRow extends StatelessWidget {
     required this.nsfw,
     required this.onTap,
     required this.onToggleFavorite,
-  }) : super(key: key);
+  });
 
   final String board;
   final String title;
@@ -440,13 +440,13 @@ class DashBoardRow extends StatelessWidget {
 
 class DashPageHeader extends StatelessWidget {
   const DashPageHeader({
-    Key? key,
+    super.key,
     required this.isDark,
     required this.badge,
     required this.color,
     required this.title,
     required this.subtitle,
-  }) : super(key: key);
+  });
 
   final bool isDark;
   final Widget badge;
@@ -520,12 +520,12 @@ class DashPageHeader extends StatelessWidget {
 
 class DashSearchField extends StatelessWidget {
   const DashSearchField({
-    Key? key,
+    super.key,
     required this.isDark,
     required this.controller,
     required this.onChanged,
     this.placeholder = 'Search threads',
-  }) : super(key: key);
+  });
 
   final bool isDark;
   final TextEditingController controller;
@@ -547,8 +547,7 @@ class DashSearchField extends StatelessWidget {
 }
 
 class DashListSection extends StatelessWidget {
-  const DashListSection({Key? key, required this.children, this.header})
-    : super(key: key);
+  const DashListSection({super.key, required this.children, this.header});
 
   final List<Widget> children;
   final Widget? header;
@@ -572,7 +571,7 @@ class DashListSection extends StatelessWidget {
 
 /// "+12 new" pill for replies posted since you last read a thread.
 class NewRepliesBadge extends StatelessWidget {
-  const NewRepliesBadge({Key? key, required this.count}) : super(key: key);
+  const NewRepliesBadge({super.key, required this.count});
 
   final int count;
 

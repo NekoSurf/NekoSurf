@@ -25,7 +25,7 @@ import 'package:flutter_chan/widgets/dash_scaffold.dart';
 import 'package:provider/provider.dart';
 
 class BoardList extends StatefulWidget {
-  const BoardList({Key? key}) : super(key: key);
+  const BoardList({super.key});
 
   @override
   BoardListState createState() => BoardListState();
@@ -126,6 +126,9 @@ class BoardListState extends State<BoardList> {
             warningText = e.toString();
           });
           return true;
+        }
+        if (!mounted) {
+          return false;
         }
 
         controller.clear();

@@ -583,7 +583,8 @@ class MediaVideoView extends StatelessWidget {
           surface = Video(
             controller: controller,
             fit: fit,
-            controls: NoVideoControls,
+            // No controls: media_kit's NoVideoControls is an untyped null.
+            controls: null,
             // Not black: the bars around the video show what's behind it
             // (the blurred thumbnail in fullscreen).
             fill: Colors.transparent,

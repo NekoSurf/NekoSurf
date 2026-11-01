@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -54,7 +55,7 @@ Future<Uri?> checkForAppUpdate() async {
       return null;
     }
 
-    print(
+    debugPrint(
       'Latest version: $latestVersion, Installed version: $installedVersion',
     );
 

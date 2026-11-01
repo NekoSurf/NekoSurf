@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math';
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/save_videos.dart';
 import 'package:flutter_chan/Models/post.dart';
@@ -379,13 +378,13 @@ class ThreadMediaViewerRoute extends MaterialPageRoute<int>
 
 class ThreadMediaViewerPage extends StatefulWidget {
   const ThreadMediaViewerPage({
-    Key? key,
+    super.key,
     required this.mediaPosts,
     required this.initialIndex,
     required this.board,
     required this.thread,
     required this.currentPostIdNotifier,
-  }) : super(key: key);
+  });
 
   final List<Post> mediaPosts;
   final int initialIndex;
