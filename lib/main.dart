@@ -21,11 +21,14 @@ Future<void> main() async {
   VisibilityDetectorController.instance.updateInterval = const Duration(
     milliseconds: 16,
   );
-  FlutterError.onError = (FlutterErrorDetails details) {
-    print('Error From INSIDE FRAME_WORK');
-    print('----------------------');
-    print('Error :  ${details.exception}');
-    print('StackTrace :  ${details.stack}');
+  // Errors from async code outside the framework go the same way as the
+  // framework's own (FlutterError.onError, which prints them), so there's
+  // one place to hook in logging.
+  WidgetsBinding.instance.platformDispatcher.onError = (error, stack) {
+    FlutterError.reportError(
+      FlutterErrorDetails(exception: error, stack: stack, library: 'NekoSurf'),
+    );
+    return true;
   };
   runApp(const MyApp());
 }
