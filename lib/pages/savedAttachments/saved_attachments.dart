@@ -54,8 +54,15 @@ class _SavedAttachmentsState extends State<SavedAttachments>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Files may have been deleted in the Files app while backgrounded.
-    if (state == AppLifecycleState.resumed && !_isLoading) {
+    if (state != AppLifecycleState.resumed || _isLoading) {
+      return;
+    }
+    if (_hasPermissionError) {
+      // Access may have been granted in Settings meanwhile. Only check:
+      // asking for it again opens Settings again on Android.
+      _loadAttachments(ask: false);
+    } else {
+      // Files may have been deleted in the Files app while backgrounded.
       _reconcile();
     }
   }
@@ -69,15 +76,19 @@ class _SavedAttachmentsState extends State<SavedAttachments>
   }
 
   Future<void> _reconcile() async {
+    // Without the folder every saved file would look deleted.
+    if (directory.path.isEmpty) {
+      return;
+    }
     await Provider.of<SavedAttachmentsProvider>(
       context,
       listen: false,
     ).reconcileWithDisk(directory.path);
   }
 
-  Future<void> _loadAttachments() async {
+  Future<void> _loadAttachments({bool ask = true}) async {
     try {
-      directory = await requestDirectory();
+      directory = await requestDirectory(ask: ask);
     } catch (e) {
       if (!mounted) {
         return;
@@ -99,7 +110,10 @@ class _SavedAttachmentsState extends State<SavedAttachments>
       return;
     }
 
-    setState(() => _isLoading = false);
+    setState(() {
+      _hasPermissionError = false;
+      _isLoading = false;
+    });
   }
 
   Future<int> _totalSize(List<SavedAttachment> all) async {

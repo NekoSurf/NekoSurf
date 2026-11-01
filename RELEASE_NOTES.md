@@ -19,4 +19,5 @@
 - A bookmarked thread whose title or image changed no longer shows as not bookmarked, and can't be bookmarked twice; duplicates you already have are merged
 - When something fails to load, the app says why: 4chan limiting requests, a page or thread that's gone, 4chan having trouble, or no connection
 - The save button only shows a checkmark when the save actually worked
+- On Android, coming back to the Saved tab after allowing storage access in Settings no longer empties it, and shows your saved files right away
 - Cache sizes under 1 MB show in KB instead of "0 MB"
