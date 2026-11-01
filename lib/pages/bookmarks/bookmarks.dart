@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_chan/Models/bookmark.dart';
 import 'package:flutter_chan/blocs/bookmarks_model.dart';
@@ -21,9 +19,9 @@ class _BookmarksState extends State<Bookmarks> {
   Widget build(BuildContext context) {
     final bool isDark = CupertinoTheme.brightnessOf(context) == Brightness.dark;
     final bookmarks = Provider.of<BookmarksProvider>(context);
-    final bookmarkStrings = bookmarks.getBookmarks().toList(growable: false);
+    final List<Bookmark> items = bookmarks.bookmarks;
 
-    if (bookmarkStrings.isEmpty) {
+    if (items.isEmpty) {
       return SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(32, 80, 32, 0),
@@ -56,15 +54,13 @@ class _BookmarksState extends State<Bookmarks> {
     } else {
       return SliverList(
         delegate: SliverChildBuilderDelegate((BuildContext context, int index) {
-          final String string = bookmarkStrings[index];
+          final Bookmark bookmark = items[index];
 
           return BookmarksPost(
-            key: ValueKey<String>(string),
-            favorite: Bookmark.fromJson(
-              json.decode(string) as Map<String, dynamic>,
-            ),
+            key: ValueKey<String>(bookmark.key),
+            favorite: bookmark,
           );
-        }, childCount: bookmarkStrings.length),
+        }, childCount: items.length),
       );
     }
   }

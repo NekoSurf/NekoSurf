@@ -118,7 +118,7 @@ class _BookmarksPostState extends State<BookmarksPost> {
                 foregroundColor: Colors.white,
                 icon: CupertinoIcons.trash,
                 onPressed: (context) => {
-                  bookmarks.removeBookmarks(widget.favorite),
+                  bookmarks.removeBookmark(widget.favorite),
                 },
               ),
             ],
