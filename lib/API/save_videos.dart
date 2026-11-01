@@ -8,6 +8,7 @@ import 'package:flutter_chan/API/http_client.dart';
 import 'package:flutter_chan/Models/saved_attachment.dart';
 import 'package:flutter_chan/blocs/saved_attachments_model.dart';
 import 'package:flutter_chan/pages/savedAttachments/permission_denied.dart';
+import 'package:flutter_chan/services/video_server.dart';
 import 'package:http/http.dart' as http;
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:path_provider/path_provider.dart';
@@ -535,10 +536,19 @@ Future<String> _videoThumbnail(
   return downloadThumbnail(fileName, thumbnailUrl, '$thumbsDir/');
 }
 
-/// Downloads [url] into the temporary directory without any caching.
+/// Puts [url] into the temporary directory as [fileName]: copied from the
+/// video cache when it was watched already, otherwise downloaded.
 Future<File> _downloadToTemp(String url, String fileName) async {
   final Directory tempDir = await getTemporaryDirectory();
   final File file = File('${tempDir.path}/$fileName');
+  final File? cached = await VideoServer.instance.cachedFile(url);
+  if (cached != null) {
+    try {
+      return await cached.copy(file.path);
+    } catch (_) {
+      // Pruned meanwhile: download it after all.
+    }
+  }
   await _download(url, file);
   return file;
 }
