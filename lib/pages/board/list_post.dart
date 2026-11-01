@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:country_flags/country_flags.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_chan/API/urls.dart' as urls;
 import 'package:flutter_chan/Models/bookmark.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/bookmarks_model.dart';
@@ -316,12 +317,13 @@ class _ListPostState extends State<ListPost> {
                           fit: StackFit.expand,
                           children: [
                             ImageViewer(
-                              url:
-                                  'https://i.4cdn.org/${widget.board}/${widget.post.tim}s.jpg',
+                              url: urls.thumbnail(
+                                widget.board,
+                                widget.post.tim,
+                              ),
                               fit: BoxFit.cover,
                             ),
-                            if (widget.post.ext == '.webm' ||
-                                widget.post.ext == '.mp4')
+                            if (widget.post.isVideo)
                               const Center(
                                 child: Icon(
                                   CupertinoIcons.play_circle_fill,

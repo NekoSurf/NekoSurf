@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_chan/API/http_client.dart';
+import 'package:flutter_chan/API/urls.dart' as urls;
 import 'package:flutter_chan/Models/board.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/enums/enums.dart';
@@ -20,9 +21,7 @@ Future<List<Post>> fetchAllThreadsFromBoard(
 /// Every live thread on [board], in catalog order.
 Future<List<Post>> fetchCatalog(String board) async {
   try {
-    final Response response = await httpClient.get(
-      Uri.parse('https://a.4cdn.org/$board/catalog.json'),
-    );
+    final Response response = await httpClient.get(urls.catalog(board));
     if (response.statusCode != 200) {
       throw Exception('Failed to load OPs.');
     }
@@ -120,9 +119,7 @@ class ThreadNotFound implements Exception {
 }
 
 Future<List<Post>> fetchAllPostsFromThread(String board, int thread) async {
-  final Response response = await httpClient.get(
-    Uri.parse('https://a.4cdn.org/$board/thread/$thread.json'),
-  );
+  final Response response = await httpClient.get(urls.thread(board, thread));
 
   if (response.statusCode == 200) {
     return compute(_parseThread, response.body);
@@ -139,7 +136,7 @@ Future<List<Post>> fetchAllPostsFromThread(String board, int thread) async {
 Future<({int status, List<Post>? posts, String? lastModified})>
 fetchThreadUpdate(String board, int thread, {String? lastModified}) async {
   final Response response = await httpClient.get(
-    Uri.parse('https://a.4cdn.org/$board/thread/$thread.json'),
+    urls.thread(board, thread),
     headers: {'If-Modified-Since': ?lastModified},
   );
 
@@ -311,9 +308,7 @@ Future<List<Board>> fetchAllBoards({bool refresh = false}) {
 }
 
 Future<List<Board>> _fetchAllBoards() async {
-  final Response response = await httpClient.get(
-    Uri.parse('https://a.4cdn.org/boards.json'),
-  );
+  final Response response = await httpClient.get(urls.boards);
 
   if (response.statusCode == 200) {
     final List<Board> boards = (jsonDecode(response.body)['boards'] as List)
