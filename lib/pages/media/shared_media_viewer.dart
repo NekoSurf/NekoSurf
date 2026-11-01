@@ -140,7 +140,7 @@ class _SnappyPagePhysics extends ClampingScrollPhysics {
 
 class SharedMediaViewer extends StatefulWidget {
   const SharedMediaViewer({
-    Key? key,
+    super.key,
     required this.items,
     required this.initialIndex,
     required this.onClose,
@@ -148,7 +148,7 @@ class SharedMediaViewer extends StatefulWidget {
     this.mediaNameBuilder,
     this.actions,
     this.onIndexChanged,
-  }) : super(key: key);
+  });
 
   final List<SharedMediaViewerItem> items;
   final int initialIndex;
@@ -748,7 +748,7 @@ class _ActionPill extends StatelessWidget {
 
 class _SharedMediaVideoPage extends StatefulWidget {
   const _SharedMediaVideoPage({
-    Key? key,
+    super.key,
     required this.item,
     required this.isActive,
     required this.chromeVisible,
@@ -760,7 +760,7 @@ class _SharedMediaVideoPage extends StatefulWidget {
     required this.onToggleAutoAdvance,
     required this.onCompleted,
     this.thumbnail,
-  }) : super(key: key);
+  });
 
   final double rate;
   final VoidCallback onCycleRate;
@@ -1122,11 +1122,11 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
 
 class _SharedMediaImagePage extends StatefulWidget {
   const _SharedMediaImagePage({
-    Key? key,
+    super.key,
     required this.item,
     required this.onTap,
     required this.onZoomStateChanged,
-  }) : super(key: key);
+  });
 
   final SharedMediaViewerItem item;
   final VoidCallback onTap;

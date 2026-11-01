@@ -5,10 +5,10 @@ import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 /// Pill shown after a thread auto-scrolls to the last seen post.
 class ResumeToast extends StatelessWidget {
   const ResumeToast({
-    Key? key,
+    super.key,
     required this.visible,
     required this.onBackToTop,
-  }) : super(key: key);
+  });
 
   final bool visible;
   final VoidCallback onBackToTop;

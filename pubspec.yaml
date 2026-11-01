@@ -44,7 +44,6 @@ dependencies:
   provider: ^6.1.5
   flutter_slidable: ^4.0.3
   intl: ^0.20.3
-  lint: ^2.8.0
   scrollable_positioned_list: ^0.3.8
   package_info_plus: ^10.2.1
   app_settings: ^8.0.0
@@ -61,6 +60,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_lints: ^6.0.0
 
 dependency_overrides:
   media_kit:

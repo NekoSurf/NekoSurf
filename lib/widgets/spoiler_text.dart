@@ -3,7 +3,7 @@ import 'package:flutter_chan/blocs/theme.dart';
 import 'package:provider/provider.dart';
 
 class SpoilerText extends StatefulWidget {
-  const SpoilerText({Key? key, required this.text}) : super(key: key);
+  const SpoilerText({super.key, required this.text});
 
   final String text;
 

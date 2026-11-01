@@ -19,8 +19,7 @@ import 'package:flutter_chan/widgets/reload.dart';
 import 'package:provider/provider.dart';
 
 class BoardPage extends StatefulWidget {
-  const BoardPage({Key? key, required this.board, required this.boardName})
-    : super(key: key);
+  const BoardPage({super.key, required this.board, required this.boardName});
 
   final String board;
   final String boardName;

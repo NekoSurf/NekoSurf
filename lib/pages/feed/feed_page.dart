@@ -15,7 +15,7 @@ import 'package:flutter_chan/widgets/reload.dart';
 import 'package:provider/provider.dart';
 
 class FeedPage extends StatefulWidget {
-  const FeedPage({Key? key}) : super(key: key);
+  const FeedPage({super.key});
 
   @override
   State<FeedPage> createState() => _FeedPageState();

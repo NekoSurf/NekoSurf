@@ -4,11 +4,11 @@ import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 
 class SettingsGroup extends StatelessWidget {
   const SettingsGroup({
-    Key? key,
+    super.key,
     required this.children,
     this.title,
     this.footer,
-  }) : super(key: key);
+  });
 
   final String? title;
   final String? footer;
@@ -77,7 +77,7 @@ class SettingsGroup extends StatelessWidget {
 
 class SettingsRow extends StatelessWidget {
   const SettingsRow({
-    Key? key,
+    super.key,
     required this.icon,
     required this.color,
     required this.title,
@@ -87,7 +87,7 @@ class SettingsRow extends StatelessWidget {
     this.onTap,
     this.showChevron = false,
     this.destructive = false,
-  }) : super(key: key);
+  });
 
   final IconData icon;
   final Color color;
@@ -180,8 +180,11 @@ class SettingsRow extends StatelessWidget {
 }
 
 class SettingsSwitch extends StatelessWidget {
-  const SettingsSwitch({Key? key, required this.value, required this.onChanged})
-    : super(key: key);
+  const SettingsSwitch({
+    super.key,
+    required this.value,
+    required this.onChanged,
+  });
 
   final bool value;
   final ValueChanged<bool> onChanged;

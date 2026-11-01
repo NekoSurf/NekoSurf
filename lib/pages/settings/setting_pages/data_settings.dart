@@ -11,7 +11,7 @@ import 'package:flutter_chan/widgets/dash_scaffold.dart';
 import 'package:provider/provider.dart';
 
 class DataSettings extends StatefulWidget {
-  const DataSettings({Key? key}) : super(key: key);
+  const DataSettings({super.key});
 
   @override
   State<DataSettings> createState() => _DataSettingsState();

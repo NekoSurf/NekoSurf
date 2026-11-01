@@ -9,14 +9,14 @@ import 'package:provider/provider.dart';
 /// optionally a second way out, like opening the page in the browser.
 class ReloadWidget extends StatelessWidget {
   const ReloadWidget({
-    Key? key,
+    super.key,
     required this.onReload,
     this.icon = CupertinoIcons.wifi_exclamationmark,
     this.title = 'Loading failed',
     this.message = 'Check your connection and try again.',
     this.secondaryLabel,
     this.onSecondary,
-  }) : super(key: key);
+  });
 
   final Function() onReload;
   final IconData icon;

@@ -140,7 +140,7 @@ Future<({int status, List<Post>? posts, String? lastModified})>
 fetchThreadUpdate(String board, int thread, {String? lastModified}) async {
   final Response response = await httpClient.get(
     Uri.parse('https://a.4cdn.org/$board/thread/$thread.json'),
-    headers: {if (lastModified != null) 'If-Modified-Since': lastModified},
+    headers: {'If-Modified-Since': ?lastModified},
   );
 
   return (
@@ -343,6 +343,6 @@ Future<void> launchURL(String url) async {
     mode: LaunchMode.platformDefault,
   ).catchError((_) => false);
   if (!launched) {
-    print('Could not launch $url');
+    debugPrint('Could not launch $url');
   }
 }

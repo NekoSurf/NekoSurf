@@ -11,12 +11,12 @@ import 'package:url_launcher/url_launcher.dart';
 
 class ThreadPostComment extends StatefulWidget {
   const ThreadPostComment({
-    Key? key,
+    super.key,
     required this.com,
     required this.thread,
     required this.board,
     required this.allPosts,
-  }) : super(key: key);
+  });
 
   final String com;
   final int thread;

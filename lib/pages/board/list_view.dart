@@ -4,11 +4,11 @@ import 'package:flutter_chan/pages/board/list_post.dart';
 
 class BoardListView extends StatelessWidget {
   const BoardListView({
-    Key? key,
+    super.key,
     required this.board,
     required this.threads,
     this.showBoard = false,
-  }) : super(key: key);
+  });
 
   final String board;
   final List<Post> threads;

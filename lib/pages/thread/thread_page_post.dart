@@ -19,7 +19,7 @@ import 'package:provider/provider.dart';
 
 class ThreadPagePost extends StatefulWidget {
   const ThreadPagePost({
-    Key? key,
+    super.key,
     required this.board,
     required this.post,
     required this.thread,
@@ -28,7 +28,7 @@ class ThreadPagePost extends StatefulWidget {
     this.replies,
     this.replyCount = 0,
     this.preloadVideo = false,
-  }) : super(key: key);
+  });
 
   final String board;
   final int thread;
@@ -348,11 +348,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                                   ),
                                 ),
                                 const SizedBox(width: 6),
-                                if (widget.post.country != null &&
-                                    CountryFlag.fromCountryCode(
-                                          widget.post.country!,
-                                        ) !=
-                                        null)
+                                if (widget.post.country != null)
                                   Padding(
                                     padding: const EdgeInsets.only(left: 6),
                                     child: SizedBox(

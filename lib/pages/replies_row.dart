@@ -1,14 +1,13 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 
 class RepliesRow extends StatelessWidget {
   const RepliesRow({
-    Key? key,
+    super.key,
     this.replies = '-',
     this.imageReplies = '-',
     this.showImageReplies = true,
-  }) : super(key: key);
+  });
 
   final dynamic replies;
   final dynamic imageReplies;
