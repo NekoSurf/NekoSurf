@@ -8,10 +8,15 @@ import 'package:flutter_test/flutter_test.dart';
 /// Stands in for 4chan's image server: serves [bytes] in slow chunks,
 /// honours ranges, and can drop the first connection halfway.
 class _Upstream {
-  _Upstream(this.bytes, {this.dropFirstAfter});
+  _Upstream(
+    this.bytes, {
+    this.dropFirstAfter,
+    this.chunkDelay = const Duration(milliseconds: 5),
+  });
 
   final Uint8List bytes;
   final int? dropFirstAfter;
+  final Duration chunkDelay;
   late final HttpServer server;
   int requests = 0;
   final List<String?> ranges = <String?>[];
@@ -55,7 +60,7 @@ class _Upstream {
       }
       request.response.add(bytes.sublist(at, min(at + chunk, end + 1)));
       await request.response.flush();
-      await Future<void>.delayed(const Duration(milliseconds: 5));
+      await Future<void>.delayed(chunkDelay);
     }
     await request.response.close();
   }
@@ -185,6 +190,55 @@ void main() {
     // The retry asked only for the rest.
     expect(upstream.ranges.last, startsWith('bytes='));
     expect(upstream.ranges.last, isNot('bytes=0-'));
+    await upstream.server.close(force: true);
+  });
+
+  test('holds a preload while a watched video arrives', () async {
+    final Uint8List bytes = _video(1024 * 1024);
+    final _Upstream upstream = _Upstream(
+      bytes,
+      chunkDelay: const Duration(milliseconds: 20),
+    );
+    await upstream.start();
+    final String preloaded = upstream.url.replaceFirst('.webm', 'p.webm');
+
+    await videos.prefetch(preloaded);
+    await Future<void>.delayed(const Duration(milliseconds: 60));
+    await _get(await videos.source(upstream.url));
+    expect(videos.progressOf(preloaded).value, lessThan(0.6));
+
+    // Then it continues where it stopped.
+    while (await videos.cachedFile(preloaded) == null) {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+    expect((await videos.cachedFile(preloaded))!.readAsBytesSync(), bytes);
+    expect(upstream.ranges.whereType<String>(), [
+      isNot(startsWith('bytes=0-')),
+    ]);
+    await upstream.server.close(force: true);
+  });
+
+  test('continues a video nobody watches after the watched ones', () async {
+    final Uint8List bytes = _video(1024 * 1024);
+    final _Upstream upstream = _Upstream(
+      bytes,
+      chunkDelay: const Duration(milliseconds: 20),
+    );
+    await upstream.start();
+    final String scrolledPast = upstream.url.replaceFirst('.webm', 'a.webm');
+
+    // Its player keeps reading while the download is held.
+    final Future<(HttpClientResponse, Uint8List)> reading = _get(
+      await videos.source(scrolledPast),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 60));
+    videos.unwatch(scrolledPast);
+    await _get(await videos.source(upstream.url));
+    expect(videos.progressOf(scrolledPast).value, lessThan(0.6));
+
+    final (HttpClientResponse response, Uint8List body) = await reading;
+    expect(response.statusCode, HttpStatus.ok);
+    expect(body, bytes);
     await upstream.server.close(force: true);
   });
 

@@ -17,6 +17,12 @@ import 'package:path_provider/path_provider.dart';
 /// instantly and never downloads twice. Preloading starts the download
 /// without a player.
 ///
+/// Videos someone is watching ([watch]) download first. Every other
+/// download (preloads, and videos scrolled away from or covered by the
+/// fullscreen viewer) is held while a watched one is still arriving, then
+/// continues in the background, two at a time: on a slow connection the
+/// video on screen gets all of it instead of a sixth.
+///
 /// A dropped download continues from where it stopped (HTTP ranges), with
 /// a longer back-off when 4chan's image server rate-limits (429).
 class VideoServer {
@@ -47,7 +53,8 @@ class VideoServer {
     await _pruneSoon();
   }
 
-  static const int _maxPrefetches = 2;
+  // Downloads nobody watches, at once.
+  static const int _maxBackground = 2;
   // Scrolling on queues new prefetches; the oldest are dropped.
   static const int _maxQueued = 6;
 
@@ -59,8 +66,9 @@ class VideoServer {
   final Map<String, String> _ids = <String, String>{};
   final Map<String, ValueNotifier<double?>> _progress =
       <String, ValueNotifier<double?>>{};
+  final Set<String> _watched = <String>{};
+  // Background downloads waiting their turn, next first.
   final List<_Download> _queued = <_Download>[];
-  int _prefetching = 0;
 
   Future<HttpServer>? _server;
   Future<Directory>? _dir;
@@ -70,8 +78,10 @@ class VideoServer {
   void close() => _closeServer();
 
   /// What mpv should open for [url]: the cached file if it's complete,
-  /// otherwise a local stream of the download, which starts now.
+  /// otherwise a local stream of the download, which starts now. [url]
+  /// counts as watched from now on, until [unwatch].
   Future<String> source(String url) async {
+    _watched.add(url);
     final File file = await _fileFor(url);
     if (file.existsSync() && !_downloads.containsKey(url)) {
       _progressOf(url).value = 1;
@@ -80,10 +90,24 @@ class VideoServer {
     }
 
     final _Download download = _downloadFor(url, file);
-    _queued.remove(download);
-    download.start();
+    _schedule();
     final HttpServer server = await (_server ??= _openServer());
     return 'http://127.0.0.1:${server.port}/${download.id}';
+  }
+
+  /// [url] is on screen and playing (again): its download goes first.
+  void watch(String url) {
+    if (_watched.add(url)) {
+      _schedule();
+    }
+  }
+
+  /// Nobody watches [url] anymore: its download continues in the
+  /// background, after the watched ones.
+  void unwatch(String url) {
+    if (_watched.remove(url)) {
+      _schedule();
+    }
   }
 
   /// Starts downloading [url] in the background, so it starts from disk.
@@ -92,20 +116,22 @@ class VideoServer {
     if (file.existsSync() || _downloads.containsKey(url)) {
       return;
     }
-    final _Download download = _downloadFor(url, file);
-    if (_prefetching < _maxPrefetches) {
-      _prefetching++;
-      download.prefetch = true;
-      download.start();
-    } else {
-      _queued.add(download);
-      while (_queued.length > _maxQueued) {
-        final _Download dropped = _queued.removeAt(0);
-        if (!dropped.started && _downloads[dropped.url] == dropped) {
-          _downloads.remove(dropped.url);
-        }
+    _queued.add(_downloadFor(url, file));
+    int waiting = _queued.where((download) => !download.started).length;
+    for (int i = 0; waiting > _maxQueued && i < _queued.length;) {
+      final _Download dropped = _queued[i];
+      // Held downloads have their bytes on disk already; they stay.
+      if (dropped.started) {
+        i++;
+        continue;
+      }
+      _queued.removeAt(i);
+      waiting--;
+      if (_downloads[dropped.url] == dropped) {
+        _downloads.remove(dropped.url);
       }
     }
+    _schedule();
   }
 
   /// How much of [url] has arrived, from 0 to 1; null while unknown.
@@ -126,7 +152,12 @@ class VideoServer {
   /// Forgets [url]'s cached copy (e.g. one that wouldn't play), so it's
   /// downloaded again next time.
   Future<void> evict(String url) async {
-    _downloads.remove(url)?.cancel();
+    final _Download? download = _downloads.remove(url);
+    if (download != null) {
+      _queued.remove(download);
+      download.cancel();
+      _schedule();
+    }
     _progressOf(url).value = null;
     try {
       final File file = await _fileFor(url);
@@ -183,27 +214,44 @@ class VideoServer {
           if (_downloads[url] == download) {
             _downloads.remove(url);
           }
+          _queued.remove(download);
           if (!download.failed) {
             unawaited(_pruneSoon());
           }
-          if (download.prefetch) {
-            _prefetching--;
-            _startQueued();
-          }
+          _schedule();
         },
       );
     });
   }
 
-  void _startQueued() {
-    while (_prefetching < _maxPrefetches && _queued.isNotEmpty) {
-      final _Download next = _queued.removeAt(0);
-      if (_downloads[next.url] != next || next.started) {
-        continue;
+  /// Runs the watched downloads; holds the others while one of those is
+  /// still arriving, and otherwise runs [_maxBackground] of them.
+  void _schedule() {
+    final bool watching = _downloads.keys.any(_watched.contains);
+    int background = 0;
+    for (final _Download download in _downloads.values) {
+      if (_watched.contains(download.url)) {
+        _queued.remove(download);
+        download.start();
+      } else if (download.active) {
+        if (watching || background >= _maxBackground) {
+          download.hold();
+          // Its bytes are on disk already: it continues first.
+          _queued.insert(0, download);
+        } else {
+          background++;
+        }
       }
-      _prefetching++;
-      next.prefetch = true;
-      next.start();
+    }
+    if (watching) {
+      return;
+    }
+    while (background < _maxBackground && _queued.isNotEmpty) {
+      final _Download next = _queued.removeAt(0);
+      if (_downloads[next.url] == next) {
+        next.start();
+        background++;
+      }
     }
   }
 
@@ -488,10 +536,11 @@ class _Download {
   final ValueNotifier<double?> progress;
   final void Function(_Download) onDone;
 
-  bool prefetch = false;
   bool started = false;
   bool failed = false;
   bool _cancelled = false;
+  bool _held = false;
+  bool _running = false;
   int received = 0;
   final Completer<int> _total = Completer<int>();
   Completer<void> _changed = Completer<void>();
@@ -508,37 +557,64 @@ class _Download {
     changed.complete();
   }
 
+  /// Downloading, or about to: started and not held.
+  bool get active => _running && !_held;
+
+  /// Starts the download, or continues a held one where it stopped.
   void start() {
-    if (started) {
+    _held = false;
+    if (_running || _cancelled) {
       return;
     }
-    started = true;
-    unawaited(_run());
+    _running = true;
+    // Not right away: watch() runs during builds, where [progress] must not
+    // notify yet.
+    scheduleMicrotask(() => unawaited(_run()));
+  }
+
+  /// Stops fetching for now, keeping what arrived; readers wait for
+  /// [start].
+  void hold() {
+    _held = true;
   }
 
   void cancel() {
     _cancelled = true;
+    if (!_running) {
+      // Held or never started: no fetch is left to notice.
+      _fail();
+    }
   }
 
   Future<void> _run() async {
-    progress.value = null;
-    try {
-      // Created empty before anyone learns the size, so readers can open it.
-      part.writeAsBytesSync(const <int>[]);
-    } catch (_) {}
-
-    for (int attempt = 1; !_cancelled; attempt++) {
+    if (!started) {
+      started = true;
+      progress.value = null;
       try {
-        await _fetch();
+        // Created empty before anyone learns the size, so readers can open
+        // it.
+        part.writeAsBytesSync(const <int>[]);
+      } catch (_) {}
+    }
+
+    int attempt = 0;
+    while (!_cancelled && !_held) {
+      try {
+        final bool complete = await _fetch();
         if (_cancelled) {
           break;
         }
+        if (!complete) {
+          // Held meanwhile (and maybe started again since).
+          continue;
+        }
         await part.rename(file.path);
+        _running = false;
         progress.value = 1;
         _finish();
         return;
       } catch (error) {
-        if (_cancelled || attempt >= _attempts) {
+        if (_cancelled || ++attempt >= _attempts) {
           break;
         }
         // 4chan's image server answers bursts with 429; back off longer.
@@ -552,6 +628,15 @@ class _Download {
       }
     }
 
+    _running = false;
+    if (_held && !_cancelled) {
+      // Continues from [received] on the next start().
+      return;
+    }
+    _fail();
+  }
+
+  void _fail() {
     failed = true;
     if (!_total.isCompleted) {
       _total.completeError(StateError('Download failed: $url'));
@@ -566,8 +651,9 @@ class _Download {
     _notify();
   }
 
-  /// Fetches the rest of the file, continuing after [received].
-  Future<void> _fetch() async {
+  /// Fetches the rest of the file, continuing after [received]; false if it
+  /// was held before the end.
+  Future<bool> _fetch() async {
     final http.Request request = http.Request('GET', Uri.parse(url));
     if (received > 0) {
       request.headers[HttpHeaders.rangeHeader] = 'bytes=$received-';
@@ -594,6 +680,7 @@ class _Download {
     }
     final int total = await _total.future;
 
+    bool held = false;
     final IOSink sink = part.openWrite(mode: FileMode.append);
     try {
       await for (final List<int> chunk in response.stream.timeout(
@@ -608,14 +695,23 @@ class _Download {
         received += chunk.length;
         progress.value = total > 0 ? received / total : null;
         _notify();
+        if (_held) {
+          // Ends the request; the next one asks for the rest.
+          held = true;
+          break;
+        }
       }
     } finally {
       await sink.close();
     }
 
-    if (!_cancelled && received < total) {
-      throw StateError('Download ended early: $url');
+    if (received >= total) {
+      return true;
     }
+    if (_cancelled || held) {
+      return false;
+    }
+    throw StateError('Download ended early: $url');
   }
 }
 

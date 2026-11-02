@@ -70,6 +70,7 @@ class VideoPlayers extends ChangeNotifier {
     final Player player = Player(
       configuration: const PlayerConfiguration(bufferSize: _mediaBufferBytes),
     );
+    _waitForStreams(player);
     final bool knownSize = width != null && height != null;
     final VideoController controller = VideoController(
       player,
@@ -83,6 +84,19 @@ class VideoPlayers extends ChangeNotifier {
     final VideoLease lease = VideoLease._(this, player, controller, onEvicted);
     _leases.add(lease);
     return lease;
+  }
+
+  /// Lets [player] wait for a stream from VideoServer as long as mpv
+  /// usually would. media_kit gives up after 5 s, but the server stalls a
+  /// stream whenever its download waits (held for a video being watched,
+  /// or a slow connection); mpv then reconnected over and over, and after a
+  /// few minutes gave up mid-video. The server closes the stream itself if
+  /// the download fails.
+  static void _waitForStreams(Player player) {
+    final PlatformPlayer platform = player.platform!;
+    if (platform is NativePlayer) {
+      platform.setProperty('network-timeout', '60').catchError((_) {});
+    }
   }
 
   void _touch(VideoLease lease) {

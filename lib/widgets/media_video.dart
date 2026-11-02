@@ -71,6 +71,8 @@ class MediaVideo extends ChangeNotifier {
   bool _loop = true;
 
   VideoLease? _lease;
+  // Told to VideoServer, whose download for a watched video goes first.
+  bool _watched = false;
   int _token = 0;
   bool _starting = false;
   bool _opened = false;
@@ -119,14 +121,15 @@ class MediaVideo extends ChangeNotifier {
   bool get muted => _muted;
   bool get isRemote => source.startsWith('http');
 
+  // 4chan videos, which stream through VideoServer.
+  bool get _served => isRemote && _resolveSource == null;
+
   /// The video reached its end (only without looping).
   Stream<void> get completed => _completed.stream;
 
   /// How much of the video has downloaded; only for 4chan videos.
   ValueListenable<double?>? get downloadProgress =>
-      isRemote && _resolveSource == null
-      ? VideoServer.instance.progressOf(source)
-      : null;
+      _served ? VideoServer.instance.progressOf(source) : null;
 
   set muted(bool value) {
     _muted = value;
@@ -155,7 +158,7 @@ class MediaVideo extends ChangeNotifier {
 
   /// Downloads the video ahead of time, without a player.
   void prefetch() {
-    if (isRemote && _resolveSource == null) {
+    if (_served) {
       unawaited(VideoServer.instance.prefetch(source));
     }
   }
@@ -211,6 +214,7 @@ class MediaVideo extends ChangeNotifier {
     VideoPlayers.instance.removeListener(_sync);
     _token++;
     _pauseTimer?.cancel();
+    _setWatched(false);
     _detach();
     _lease?.release();
     _lease = null;
@@ -307,9 +311,13 @@ class MediaVideo extends ChangeNotifier {
     final bool wanted = _demands.isNotEmpty;
 
     if (!wanted) {
-      if (lease != null && lease.wanted && !_pauseTimerActive) {
+      if ((_watched || (lease?.wanted ?? false)) && !_pauseTimerActive) {
         _pauseTimer = Timer(_pauseGrace, () {
-          if (_demands.isEmpty && _lease == lease) {
+          if (_demands.isNotEmpty) {
+            return;
+          }
+          _setWatched(false);
+          if (lease != null && _lease == lease) {
             lease.wanted = false;
             lease.player.pause().catchError((_) {});
           }
@@ -319,6 +327,7 @@ class MediaVideo extends ChangeNotifier {
     }
 
     _pauseTimer?.cancel();
+    _setWatched(true);
     if (lease == null) {
       unawaited(_start());
       return;
@@ -333,6 +342,18 @@ class MediaVideo extends ChangeNotifier {
   }
 
   bool get _pauseTimerActive => _pauseTimer?.isActive ?? false;
+
+  void _setWatched(bool watched) {
+    if (!_served || watched == _watched) {
+      return;
+    }
+    _watched = watched;
+    if (watched) {
+      VideoServer.instance.watch(source);
+    } else {
+      VideoServer.instance.unwatch(source);
+    }
+  }
 
   Future<String> _mediaSource() async {
     final MediaSourceResolver? resolve = _resolveSource;
@@ -551,7 +572,7 @@ class MediaVideo extends ChangeNotifier {
 
   /// Tries again, downloading the video again (the copy may be broken).
   Future<void> retry() async {
-    if (isRemote && _resolveSource == null) {
+    if (_served) {
       await VideoServer.instance.evict(source);
     }
     _failed = false;

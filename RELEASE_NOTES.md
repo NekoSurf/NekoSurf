@@ -7,6 +7,9 @@
 ### ⚡ Faster start
 - Your settings, favorites, bookmarks and history are there the moment the app opens, instead of a moment later
 
+### 🎬 Videos on slow connections
+- The video you're watching downloads first: preloads and videos you've scrolled past or opened over wait until it's in, so it starts much sooner on a slow connection
+
 ### 💾 Saving and sharing
 - On iPhone, webms saved to Photos or shared are less than half the size they were, at about the same quality
 - Videos you've already watched are saved and shared without downloading them again
