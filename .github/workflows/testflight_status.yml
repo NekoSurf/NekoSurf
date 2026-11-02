@@ -39,12 +39,12 @@ jobs:
           fi
 
       - if: steps.release.outputs.check
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           sparse-checkout: .github/scripts
 
       - if: steps.release.outputs.check
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
