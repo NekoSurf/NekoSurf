@@ -9,6 +9,7 @@
 
 ### 🎬 Videos on slow connections
 - The video you're watching downloads first: preloads and videos you've scrolled past or opened over wait until it's in, so it starts much sooner on a slow connection
+- A video's progress bar shows how much of it has loaded, in the thread and fullscreen
 
 ### 💾 Saving and sharing
 - On iPhone, webms saved to Photos or shared are less than half the size they were, at about the same quality

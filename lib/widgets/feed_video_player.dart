@@ -217,31 +217,57 @@ class _InlineOverlay extends StatelessWidget {
                 left: 0,
                 right: 0,
                 bottom: 0,
-                child: ValueListenableBuilder<Duration?>(
-                  valueListenable: video.scrubPosition,
-                  builder: (context, scrub, _) =>
-                      ValueListenableBuilder<Duration>(
-                        valueListenable: video.position,
-                        builder: (context, position, _) =>
-                            LinearProgressIndicator(
-                              value:
-                                  ((scrub ?? position).inMilliseconds /
-                                          durationMs)
-                                      .clamp(0.0, 1.0),
-                              backgroundColor: Colors.white.withValues(
-                                alpha: 0.2,
-                              ),
-                              valueColor: const AlwaysStoppedAnimation<Color>(
-                                Colors.white,
-                              ),
-                              minHeight: 3,
-                            ),
+                child: ListenableBuilder(
+                  listenable: Listenable.merge([
+                    video.scrubPosition,
+                    video.position,
+                    video.buffered,
+                  ]),
+                  builder: (context, _) {
+                    double fraction(Duration value) =>
+                        (value.inMilliseconds / durationMs).clamp(0.0, 1.0);
+                    final Duration shown =
+                        video.scrubPosition.value ?? video.position.value;
+                    return SizedBox(
+                      height: 3,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          ColoredBox(
+                            color: Colors.white.withValues(alpha: 0.2),
+                          ),
+                          // What has arrived, behind the position.
+                          _Bar(
+                            fraction: fraction(video.buffered.value),
+                            color: Colors.white.withValues(alpha: 0.4),
+                          ),
+                          _Bar(fraction: fraction(shown), color: Colors.white),
+                        ],
                       ),
+                    );
+                  },
                 ),
               ),
           ],
         );
       },
+    );
+  }
+}
+
+/// The first [fraction] of a progress bar.
+class _Bar extends StatelessWidget {
+  const _Bar({required this.fraction, required this.color});
+
+  final double fraction;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return FractionallySizedBox(
+      alignment: Alignment.centerLeft,
+      widthFactor: fraction,
+      child: ColoredBox(color: color),
     );
   }
 }

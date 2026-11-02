@@ -89,6 +89,12 @@ class MediaVideo extends ChangeNotifier {
     Duration.zero,
   );
 
+  /// How far into the video the player has data; behind the position on
+  /// progress bars, like the buffer of a streaming video.
+  final ValueNotifier<Duration> buffered = ValueNotifier<Duration>(
+    Duration.zero,
+  );
+
   /// Where the user is scrubbing to; null when not scrubbing.
   final ValueNotifier<Duration?> scrubPosition = ValueNotifier<Duration?>(null);
 
@@ -220,6 +226,7 @@ class MediaVideo extends ChangeNotifier {
     _lease = null;
     unawaited(_completed.close());
     position.dispose();
+    buffered.dispose();
     scrubPosition.dispose();
     dispose();
   }
@@ -460,6 +467,13 @@ class MediaVideo extends ChangeNotifier {
         }),
       )
       ..add(
+        player.stream.buffer.listen((Duration value) {
+          if (current()) {
+            buffered.value = value;
+          }
+        }),
+      )
+      ..add(
         player.stream.duration.listen((Duration duration) {
           if (current() && duration != _duration) {
             _duration = duration;
@@ -520,6 +534,7 @@ class MediaVideo extends ChangeNotifier {
 
   void _detach() {
     _opened = false;
+    buffered.value = Duration.zero;
     _firstFrameTimer?.cancel();
     for (final StreamSubscription<Object?> sub in _subs) {
       unawaited(sub.cancel());

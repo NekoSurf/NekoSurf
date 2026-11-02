@@ -998,81 +998,84 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
             const SizedBox(width: 12),
             Expanded(
               // Only the slider and times follow the position.
-              child: ValueListenableBuilder<Duration?>(
-                valueListenable: _video.scrubPosition,
-                builder: (context, scrub, _) =>
-                    ValueListenableBuilder<Duration>(
-                      valueListenable: _video.position,
-                      builder: (context, position, _) {
-                        final Duration shown = scrub ?? position;
-                        return Column(
-                          mainAxisSize: MainAxisSize.min,
+              child: ListenableBuilder(
+                listenable: Listenable.merge([
+                  _video.scrubPosition,
+                  _video.position,
+                  _video.buffered,
+                ]),
+                builder: (context, _) {
+                  final Duration shown =
+                      _video.scrubPosition.value ?? _video.position.value;
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SliderTheme(
+                        data: SliderTheme.of(context).copyWith(
+                          trackHeight: 4,
+                          activeTrackColor: DashColors.accent,
+                          inactiveTrackColor: Colors.white.withValues(
+                            alpha: 0.22,
+                          ),
+                          // What has arrived, like a stream's buffer.
+                          secondaryActiveTrackColor: Colors.white.withValues(
+                            alpha: 0.45,
+                          ),
+                          thumbColor: Colors.white,
+                          thumbShape: const RoundSliderThumbShape(
+                            enabledThumbRadius: 6,
+                          ),
+                          overlayShape: SliderComponentShape.noOverlay,
+                        ),
+                        child: Slider(
+                          value: shown.inMilliseconds.toDouble().clamp(0, max),
+                          secondaryTrackValue: _video
+                              .buffered
+                              .value
+                              .inMilliseconds
+                              .toDouble()
+                              .clamp(0, max),
+                          min: 0,
+                          max: max,
+                          // Live: the picture follows the thumb.
+                          onChangeStart: duration > Duration.zero
+                              ? (_) => _video.scrubStart()
+                              : null,
+                          onChanged: duration > Duration.zero
+                              ? (value) => _video.scrubTo(
+                                  Duration(milliseconds: value.round()),
+                                )
+                              : null,
+                          onChangeEnd: (_) => _video.scrubEnd(),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            SliderTheme(
-                              data: SliderTheme.of(context).copyWith(
-                                trackHeight: 4,
-                                activeTrackColor: DashColors.accent,
-                                inactiveTrackColor: Colors.white.withValues(
-                                  alpha: 0.22,
-                                ),
-                                thumbColor: Colors.white,
-                                thumbShape: const RoundSliderThumbShape(
-                                  enabledThumbRadius: 6,
-                                ),
-                                overlayShape: SliderComponentShape.noOverlay,
-                              ),
-                              child: Slider(
-                                value: shown.inMilliseconds.toDouble().clamp(
-                                  0,
-                                  max,
-                                ),
-                                min: 0,
-                                max: max,
-                                // Live: the picture follows the thumb.
-                                onChangeStart: duration > Duration.zero
-                                    ? (_) => _video.scrubStart()
-                                    : null,
-                                onChanged: duration > Duration.zero
-                                    ? (value) => _video.scrubTo(
-                                        Duration(milliseconds: value.round()),
-                                      )
-                                    : null,
-                                onChangeEnd: (_) => _video.scrubEnd(),
+                            Text(
+                              _formatDuration(shown),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                              ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    _formatDuration(shown),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  Text(
-                                    _formatDuration(duration),
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.65,
-                                      ),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
+                            Text(
+                              _formatDuration(duration),
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.65),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],
-                        );
-                      },
-                    ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
             const SizedBox(width: 8),
