@@ -14,12 +14,14 @@ const int _mediaBufferBytes = 8 * 1024 * 1024;
 /// decoder, threads and video surface; with a dozen alive (visible,
 /// preloaded and pooled), scrolling through videos lagged.
 ///
-/// A holder marks its lease [VideoLease.wanted] while it plays or is about
-/// to. When a new player is needed and none is free, the least recently
-/// used lease that isn't wanted is evicted: its holder is told and falls
-/// back to the thumbnail. If every lease is wanted, [acquire] returns null;
-/// the caller waits for this to notify that a player was freed or is no
-/// longer wanted.
+/// A holder gives its lease a [VideoLease.priority] while it plays or is
+/// about to: how much of the video is on screen, or more for fullscreen.
+/// When a new player is needed and none is free, the least recently used
+/// lease that isn't wanted is evicted: its holder is told and falls back to
+/// the thumbnail. If every lease is wanted, the one shown least is evicted
+/// for a video shown clearly more, so the videos most on screen play.
+/// Otherwise [acquire] returns null; the caller waits for this to notify
+/// that a player was freed or is wanted less.
 ///
 /// While the app is in the background there are no players at all: iOS can
 /// break their decoders there, and players still alive when iOS tears the
@@ -39,32 +41,46 @@ class VideoPlayers extends ChangeNotifier {
 
   static const int maxPlayers = 3;
 
+  // How much more a video must be wanted to take a wanted player, so two
+  // videos about as visible don't take it from each other while scrolling.
+  static const double _takeOverMargin = 0.25;
+
   // Least recently wanted first.
   final List<VideoLease> _leases = <VideoLease>[];
   bool _inBackground = false;
   bool _notifyScheduled = false;
+  // Someone was refused a player and waits for a notification.
+  bool _waiting = false;
   // Lives as long as the app.
   // ignore: unused_field
   late final AppLifecycleListener _lifecycleListener;
 
-  /// A player for a video of [width] x [height] (when known), or null if
-  /// all [maxPlayers] are wanted (or the app is in the background).
+  /// Whether [acquire] would hand out a player for a video wanted with
+  /// [priority].
+  bool canAcquire(double priority) {
+    if (!_inBackground &&
+        (_leases.length < maxPlayers || _victimFor(priority) != null)) {
+      return true;
+    }
+    _waiting = true;
+    return false;
+  }
+
+  /// A player for a video of [width] x [height] (when known) wanted with
+  /// [priority] (see [VideoLease.priority]), or null if all [maxPlayers]
+  /// are wanted about as much or more (or the app is in the background).
   /// [onEvicted] runs when the player is taken away; it's disposed after.
   VideoLease? acquire({
     required VoidCallback onEvicted,
+    required double priority,
     int? width,
     int? height,
   }) {
-    if (_inBackground) {
+    if (!canAcquire(priority)) {
       return null;
     }
-
     if (_leases.length >= maxPlayers) {
-      final int victim = _leases.indexWhere((lease) => !lease._wanted);
-      if (victim < 0) {
-        return null;
-      }
-      _leases[victim]._evict();
+      _victimFor(priority)!._evict();
     }
 
     final Player player = Player(
@@ -92,6 +108,23 @@ class VideoPlayers extends ChangeNotifier {
     );
     _leases.add(lease);
     return lease;
+  }
+
+  /// The least recently used lease nobody wants, else the wanted one with
+  /// the lowest priority if [priority] is clearly higher; null if none.
+  VideoLease? _victimFor(double priority) {
+    VideoLease? victim;
+    for (final VideoLease lease in _leases) {
+      if (victim == null || lease._priority < victim._priority) {
+        victim = lease;
+      }
+    }
+    if (victim != null &&
+        victim.wanted &&
+        victim._priority > priority - _takeOverMargin) {
+      return null;
+    }
+    return victim;
   }
 
   /// When [player] shows its first frame. media_kit's iOS output reports
@@ -133,6 +166,12 @@ class VideoPlayers extends ChangeNotifier {
     }
   }
 
+  void _wantedLess() {
+    if (_waiting) {
+      _notifySoon();
+    }
+  }
+
   void _forget(VideoLease lease) {
     if (_leases.remove(lease)) {
       _notifySoon();
@@ -155,6 +194,8 @@ class VideoPlayers extends ChangeNotifier {
     _notifyScheduled = true;
     scheduleMicrotask(() {
       _notifyScheduled = false;
+      // Whoever is still refused says so again.
+      _waiting = false;
       notifyListeners();
     });
   }
@@ -177,25 +218,35 @@ class VideoLease {
 
   /// Completes once the video's first frame shows.
   final Future<void> firstFrame;
-  bool _wanted = false;
+  double _priority = 0;
   bool _released = false;
 
   bool get isReleased => _released;
 
-  /// Whether the holder is playing it or about to; wanted leases are never
-  /// evicted for someone else.
-  bool get wanted => _wanted;
+  /// How much the holder wants it: 0 when it doesn't play it and isn't
+  /// about to, otherwise how much of the video is on screen (0 to 1, more
+  /// for fullscreen). A wanted lease is only taken for a video wanted
+  /// clearly more.
+  double get priority => _priority;
 
-  set wanted(bool value) {
-    final bool was = _wanted;
-    _wanted = value;
-    if (value) {
+  set priority(double value) {
+    final double was = _priority;
+    _priority = value;
+    if (value > 0) {
       _manager._touch(this);
-    } else if (was && !_released) {
+    }
+    if (_released || value >= was) {
+      return;
+    }
+    if (value == 0) {
       // It can be taken now; tell anyone waiting for a player.
       _manager._notifySoon();
+    } else {
+      _manager._wantedLess();
     }
   }
+
+  bool get wanted => _priority > 0;
 
   void release() {
     if (_released) {

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
@@ -63,6 +64,8 @@ class MediaVideo extends ChangeNotifier {
 
   // Who wants it playing, and whether they want sound.
   final Map<Object, bool> _demands = <Object, bool>{};
+  // How much of it each of them shows.
+  final Map<Object, double> _shown = <Object, double>{};
   bool _userPaused = false;
   // Without sound unless someone wants it audible (fullscreen) or the user
   // unmutes the inline video.
@@ -144,22 +147,37 @@ class MediaVideo extends ChangeNotifier {
   }
 
   /// [owner] shows the video and wants it playing, with sound if [audible].
-  void want(Object owner, {bool audible = false}) {
-    final bool isNew = !_demands.containsKey(owner);
+  /// [shown] is how much of it is on screen, from 0 to 1: with more videos
+  /// on screen than players, the ones shown most play.
+  void want(Object owner, {bool audible = false, double shown = 1}) {
+    final bool? wasAudible = _demands[owner];
     _demands[owner] = audible;
-    if (isNew) {
+    _shown[owner] = shown;
+    if (wasAudible == null) {
       _userPaused = false;
     }
-    _applyVolume();
+    if (wasAudible != audible) {
+      _applyVolume();
+    }
     _sync();
   }
 
   void unwant(Object owner) {
+    _shown.remove(owner);
     if (_demands.remove(owner) == null) {
       return;
     }
     _applyVolume();
     _sync();
+  }
+
+  /// For [VideoPlayers]: fullscreen first, then the more of it is shown.
+  double get _priority {
+    double priority = 0;
+    for (final MapEntry<Object, bool> demand in _demands.entries) {
+      priority = max(priority, demand.value ? 2 : _shown[demand.key] ?? 1);
+    }
+    return priority;
   }
 
   /// Downloads the video ahead of time, without a player.
@@ -325,7 +343,7 @@ class MediaVideo extends ChangeNotifier {
           }
           _setWatched(false);
           if (lease != null && _lease == lease) {
-            lease.wanted = false;
+            lease.priority = 0;
             lease.player.pause().catchError((_) {});
           }
         });
@@ -339,7 +357,7 @@ class MediaVideo extends ChangeNotifier {
       unawaited(_start());
       return;
     }
-    lease.wanted = true;
+    lease.priority = _priority;
     if (!_hasFirstFrame && !(_firstFrameTimer?.isActive ?? false)) {
       _armFirstFrameTimer(lease);
     }
@@ -377,6 +395,11 @@ class MediaVideo extends ChangeNotifier {
     if (_starting || _failed || _lease != null || _demands.isEmpty) {
       return;
     }
+    // Every player plays a video shown about as much or more; _sync runs
+    // again when that changes.
+    if (!VideoPlayers.instance.canAcquire(_priority)) {
+      return;
+    }
     _starting = true;
     final int token = ++_token;
 
@@ -390,16 +413,17 @@ class MediaVideo extends ChangeNotifier {
 
       final VideoLease? lease = VideoPlayers.instance.acquire(
         onEvicted: _onEvicted,
+        priority: _priority,
         width: _width,
         height: _height,
       );
-      // Every player is busy; _sync runs again when one is freed.
+      // Taken meanwhile; _sync runs again when one is freed.
       if (lease == null) {
         _starting = false;
         notifyListeners();
         return;
       }
-      lease.wanted = true;
+      lease.priority = _priority;
       _lease = lease;
       _attach(lease, token);
       notifyListeners();

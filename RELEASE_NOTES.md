@@ -10,6 +10,7 @@
 ### 🎬 Videos on slow connections
 - The video you're watching downloads first: preloads and videos you've scrolled past or opened over wait until it's in, so it starts much sooner on a slow connection
 - A video's progress bar shows how much of it has loaded, in the thread and fullscreen
+- With more videos on screen than can play at once, the ones you see most play
 
 ### 💾 Saving and sharing
 - On iPhone, webms saved to Photos or shared are less than half the size they were, at about the same quality
@@ -26,3 +27,4 @@
 - On Android, coming back to the Saved tab after allowing storage access in Settings no longer empties it, and shows your saved files right away
 - Cache sizes under 1 MB show in KB instead of "0 MB"
 - On iPhone, a video that's still loading shows its thumbnail and how far it has downloaded, instead of a black box
+- A video scrolled behind the top bar no longer counts as on screen, so it doesn't keep a video below it from playing

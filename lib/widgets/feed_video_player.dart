@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/services/image_cache.dart';
 import 'package:flutter_chan/widgets/image_viewer.dart';
@@ -6,6 +8,10 @@ import 'package:flutter_chan/widgets/video_scrub_gesture.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 /// An inline video that plays while it's on screen.
+///
+/// What counts is the part below the top padding, which in a thread
+/// includes the floating header the list runs behind. With more videos on
+/// screen than players, the ones shown most play (see [MediaVideo.want]).
 ///
 /// It shows the same [MediaVideo] as the fullscreen viewer, so tapping it
 /// continues the very same playback fullscreen, zooming from [boxKey].
@@ -45,6 +51,8 @@ class FeedVideoPlayer extends StatefulWidget {
 class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   static const double _playVisibilityThreshold = 0.02;
   static const double _pauseVisibilityThreshold = 0.01;
+  // Smaller changes while scrolling don't change which videos play.
+  static const double _shownStep = 0.05;
 
   // Per-instance: two posts can share a video URL.
   final Key _visibilityKey = UniqueKey();
@@ -52,6 +60,15 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   late MediaVideo _video;
   bool _visible = false;
   bool _tickerEnabled = true;
+
+  // How much is inside the list's viewport, from VisibilityDetector, and
+  // how much of that isn't under the header.
+  double _inViewport = 0;
+  double _shown = 0;
+  double _screenTop = 0;
+  double _screenBottom = 0;
+  ScrollPosition? _scrollPosition;
+  bool _measureScheduled = false;
 
   @override
   void initState() {
@@ -75,6 +92,14 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+
+    _screenTop = MediaQuery.paddingOf(context).top;
+    _screenBottom = MediaQuery.sizeOf(context).height;
+    final ScrollPosition? position = Scrollable.maybeOf(context)?.position;
+    if (position != _scrollPosition) {
+      _scrollPosition?.removeListener(_measureSoon);
+      _scrollPosition = position?..addListener(_measureSoon);
+    }
 
     // Routes covered by an opaque route (like the fullscreen viewer) stop
     // painting, so VisibilityDetector never reports them as hidden; the
@@ -110,19 +135,53 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     }
   }
 
-  void _handleVisibility(double fraction) {
-    if (fraction >= _playVisibilityThreshold && !_visible) {
-      _visible = true;
-      _updateDemand();
-    } else if (fraction <= _pauseVisibilityThreshold && _visible) {
-      _visible = false;
-      _updateDemand();
+  void _handleVisibility(VisibilityInfo info) {
+    _inViewport = info.visibleFraction;
+    _measure();
+  }
+
+  // Scrolling moves the video under the header without VisibilityDetector
+  // noticing: inside the viewport, nothing about it changes. Measured once
+  // the frame is laid out.
+  void _measureSoon() {
+    if (_inViewport == 0 || _measureScheduled) {
+      return;
     }
+    _measureScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _measureScheduled = false;
+      if (mounted) {
+        _measure();
+      }
+    });
+  }
+
+  void _measure() {
+    double shown = _inViewport;
+    final RenderObject? box = context.findRenderObject();
+    if (shown > 0 && box is RenderBox && box.attached && box.hasSize) {
+      final Rect rect = box.localToGlobal(Offset.zero) & box.size;
+      if (rect.height > 0) {
+        final double below =
+            min(rect.bottom, _screenBottom) - max(rect.top, _screenTop);
+        shown = min(shown, (below / rect.height).clamp(0.0, 1.0));
+      }
+    }
+
+    final bool visible = _visible
+        ? shown > _pauseVisibilityThreshold
+        : shown >= _playVisibilityThreshold;
+    if (visible == _visible && (shown - _shown).abs() < _shownStep) {
+      return;
+    }
+    _visible = visible;
+    _shown = shown;
+    _updateDemand();
   }
 
   void _updateDemand() {
     if (_visible && _tickerEnabled) {
-      _video.want(this);
+      _video.want(this, shown: _shown);
     } else {
       _video.unwant(this);
     }
@@ -130,6 +189,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
   @override
   void dispose() {
+    _scrollPosition?.removeListener(_measureSoon);
     _video.unwant(this);
     _video.release();
     super.dispose();
@@ -151,7 +211,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       onTap: widget.onTap,
       child: VisibilityDetector(
         key: _visibilityKey,
-        onVisibilityChanged: (info) => _handleVisibility(info.visibleFraction),
+        onVisibilityChanged: _handleVisibility,
         child: VideoScrubGesture(
           video: _video,
           child: AspectRatio(
