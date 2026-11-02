@@ -541,6 +541,10 @@ class _Download {
   bool _held = false;
   bool _running = false;
   int? _size;
+  // Where the media ends, if the video's index follows it (see
+  // _trailingIndex); checked once the start of the file is here.
+  int? _mediaEnd;
+  bool _headChecked = false;
   // What has arrived, as sorted, separate [start, end) byte ranges.
   final List<(int, int)> _spans = <(int, int)>[];
   // The next byte the fetch writes.
@@ -806,14 +810,152 @@ class _Download {
     _spans.insert(i, (start, end));
 
     final int size = _size!;
+    if (!_headChecked &&
+        _spans.first.$1 == 0 &&
+        _spans.first.$2 >= min(size, _headBytes)) {
+      _headChecked = true;
+      try {
+        final RandomAccessFile head = part.openSync();
+        try {
+          _mediaEnd = _trailingIndex(head.readSync(_headBytes), size);
+        } finally {
+          head.closeSync();
+        }
+      } catch (_) {}
+    }
     if (size > 0) {
       final int have = _spans.fold(0, (sum, span) => sum + span.$2 - span.$1);
       progress.value = have / size;
+      // The index at the end isn't video: the bar showed it as a sliver of
+      // the last seconds.
+      final int media = _mediaEnd ?? size;
       loaded.value = <(double, double)>[
-        for (final (int from, int to) in _spans) (from / size, to / size),
+        for (final (int from, int to) in _spans)
+          if (from < media) (from / media, min(to, media) / media),
       ];
     }
     _notify();
+  }
+
+  static const int _headBytes = 4096;
+
+  /// Where the index of a video starts when it comes after the media, as
+  /// mpv reads it first: an mp4's moov after its mdat, or a webm's cues
+  /// after its clusters. Null if it comes first or [head] doesn't tell.
+  static int? _trailingIndex(Uint8List head, int size) {
+    final ByteData data = ByteData.sublistView(head);
+    if (head.length >= 8 && String.fromCharCodes(head, 4, 8) == 'ftyp') {
+      int at = 0;
+      while (at + 8 <= head.length) {
+        int box = data.getUint32(at);
+        final String type = String.fromCharCodes(head, at + 4, at + 8);
+        if (box == 1 && at + 16 <= head.length) {
+          box = data.getUint64(at + 8);
+        }
+        if (type == 'moov' || box < 8) {
+          return null;
+        }
+        if (type == 'mdat') {
+          return at + box < size ? at + box : null;
+        }
+        at += box;
+      }
+      return null;
+    }
+
+    // EBML: an element is an ID and a size, both variable-length.
+    (int, int)? vint(int at, {bool keepMarker = false}) {
+      if (at >= head.length) {
+        return null;
+      }
+      final int first = head[at];
+      int length = 1;
+      while (length <= 8 && first & (0x80 >> (length - 1)) == 0) {
+        length++;
+      }
+      if (length > 8 || at + length > head.length) {
+        return null;
+      }
+      int value = keepMarker ? first : first & ((0x80 >> (length - 1)) - 1);
+      for (int i = 1; i < length; i++) {
+        value = (value << 8) | head[at + i];
+      }
+      return (value, length);
+    }
+
+    const int segmentId = 0x18538067;
+    const int seekHeadId = 0x114D9B74;
+    const int clusterId = 0x1F43B675;
+    const int cuesId = 0x1C53BB6B;
+    int at = 0;
+    int? segment;
+    int? cues;
+    while (at < head.length) {
+      final (int, int)? id = vint(at, keepMarker: true);
+      final (int, int)? length = id == null ? null : vint(at + id.$2);
+      if (id == null || length == null) {
+        break;
+      }
+      final int body = at + id.$2 + length.$2;
+      if (id.$1 == segmentId) {
+        // Its children follow; positions in the seek head count from here.
+        segment = body;
+        at = body;
+        continue;
+      }
+      if (id.$1 == clusterId) {
+        // Media first: the cues come after it if they're further on.
+        return segment != null && cues != null && cues > at ? cues : null;
+      }
+      if (id.$1 == seekHeadId && segment != null) {
+        // Seek entries: an ID and the position of a top-level element.
+        int entry = body;
+        while (entry < body + length.$1 && entry < head.length) {
+          final (int, int)? seekId = vint(entry, keepMarker: true);
+          final (int, int)? seekLength = seekId == null
+              ? null
+              : vint(entry + seekId.$2);
+          if (seekId == null || seekLength == null) {
+            break;
+          }
+          final int seekBody = entry + seekId.$2 + seekLength.$2;
+          int? target;
+          int? position;
+          int field = seekBody;
+          while (field < seekBody + seekLength.$1 && field < head.length) {
+            final (int, int)? fieldId = vint(field, keepMarker: true);
+            final (int, int)? fieldLength = fieldId == null
+                ? null
+                : vint(field + fieldId.$2);
+            if (fieldId == null || fieldLength == null) {
+              break;
+            }
+            final int value = field + fieldId.$2 + fieldLength.$2;
+            int number = 0;
+            for (
+              int i = 0;
+              i < fieldLength.$1 && value + i < head.length;
+              i++
+            ) {
+              number = (number << 8) | head[value + i];
+            }
+            if (fieldId.$1 == 0x53AB) {
+              target = number;
+            } else if (fieldId.$1 == 0x53AC) {
+              position = number;
+            }
+            field = value + fieldLength.$1;
+          }
+          if (target == cuesId && position != null) {
+            cues = segment + position;
+          }
+          entry = seekBody + seekLength.$1;
+        }
+      }
+      at = body + length.$1;
+    }
+    // No cluster within the head: cues past the middle come after it.
+    return cues != null && cues > size ~/ 2 && cues < size ? cues : null;
   }
 }
 
