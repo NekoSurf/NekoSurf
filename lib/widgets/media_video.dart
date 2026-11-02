@@ -616,7 +616,7 @@ class MediaVideo extends ChangeNotifier {
 }
 
 /// Shows a [MediaVideo]: its thumbnail until the first frame, then the
-/// video, with download progress or a retry button over it.
+/// video, with a spinner while it loads or buffers, or a retry button.
 class MediaVideoView extends StatelessWidget {
   const MediaVideoView({
     super.key,
@@ -698,9 +698,7 @@ class MediaVideoView extends StatelessWidget {
               )
             else if (video.isLoading ||
                 (video.hasFirstFrame && video.isBuffering))
-              Center(
-                child: _LoadingIndicator(video: video, size: indicatorSize),
-              ),
+              Center(child: _LoadingIndicator(size: indicatorSize)),
           ],
         );
       },
@@ -708,36 +706,44 @@ class MediaVideoView extends StatelessWidget {
   }
 }
 
-/// Download progress while the video arrives, then a spinner.
-class _LoadingIndicator extends StatelessWidget {
-  const _LoadingIndicator({required this.video, required this.size});
+/// A spinner, once loading or buffering takes a moment: a video that
+/// starts right away (from the cache, or on a fast connection) goes
+/// straight from its thumbnail to playing. Download progress showed here
+/// too, but the video starts long before the download is done, so it only
+/// flashed by; once it plays, the progress bar shows what has loaded.
+class _LoadingIndicator extends StatefulWidget {
+  const _LoadingIndicator({required this.size});
 
-  final MediaVideo video;
   final double size;
 
   @override
+  State<_LoadingIndicator> createState() => _LoadingIndicatorState();
+}
+
+class _LoadingIndicatorState extends State<_LoadingIndicator> {
+  static const Duration _delay = Duration(milliseconds: 300);
+
+  bool _shown = false;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer(_delay, () => setState(() => _shown = true));
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final ValueListenable<double?>? progress = video.downloadProgress;
-    if (progress == null) {
-      return CupertinoActivityIndicator(radius: size / 2.4);
-    }
-    return ValueListenableBuilder<double?>(
-      valueListenable: progress,
-      builder: (context, value, _) {
-        if (value == null || value >= 1 || video.hasFirstFrame) {
-          return CupertinoActivityIndicator(radius: size / 2.4);
-        }
-        return SizedBox(
-          width: size,
-          height: size,
-          child: CircularProgressIndicator(
-            value: value,
-            strokeWidth: 3,
-            color: Colors.white,
-            backgroundColor: Colors.white24,
-          ),
-        );
-      },
+    return AnimatedOpacity(
+      opacity: _shown ? 1 : 0,
+      duration: const Duration(milliseconds: 150),
+      child: CupertinoActivityIndicator(radius: widget.size / 2.4),
     );
   }
 }
