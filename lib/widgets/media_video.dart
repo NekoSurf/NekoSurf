@@ -92,12 +92,6 @@ class MediaVideo extends ChangeNotifier {
     Duration.zero,
   );
 
-  /// How far into the video the player has data; behind the position on
-  /// progress bars, like the buffer of a streaming video.
-  final ValueNotifier<Duration> buffered = ValueNotifier<Duration>(
-    Duration.zero,
-  );
-
   /// Where the user is scrubbing to; null when not scrubbing.
   final ValueNotifier<Duration?> scrubPosition = ValueNotifier<Duration?>(null);
 
@@ -139,6 +133,15 @@ class MediaVideo extends ChangeNotifier {
   /// How much of the video has downloaded; only for 4chan videos.
   ValueListenable<double?>? get downloadProgress =>
       _served ? VideoServer.instance.progressOf(source) : null;
+
+  /// Which parts of the video are here, as (start, end) fractions of it:
+  /// behind the position on progress bars, like a stream's buffer. More
+  /// than one after scrubbing ahead of the download.
+  ValueListenable<List<(double, double)>> get loaded =>
+      _served ? VideoServer.instance.loadedOf(source) : _allLoaded;
+
+  static final ValueNotifier<List<(double, double)>> _allLoaded =
+      ValueNotifier<List<(double, double)>>(const [(0, 1)]);
 
   set muted(bool value) {
     _muted = value;
@@ -244,7 +247,6 @@ class MediaVideo extends ChangeNotifier {
     _lease = null;
     unawaited(_completed.close());
     position.dispose();
-    buffered.dispose();
     scrubPosition.dispose();
     dispose();
   }
@@ -491,13 +493,6 @@ class MediaVideo extends ChangeNotifier {
         }),
       )
       ..add(
-        player.stream.buffer.listen((Duration value) {
-          if (current()) {
-            buffered.value = value;
-          }
-        }),
-      )
-      ..add(
         player.stream.duration.listen((Duration duration) {
           if (current() && duration != _duration) {
             _duration = duration;
@@ -558,7 +553,6 @@ class MediaVideo extends ChangeNotifier {
 
   void _detach() {
     _opened = false;
-    buffered.value = Duration.zero;
     _firstFrameTimer?.cancel();
     for (final StreamSubscription<Object?> sub in _subs) {
       unawaited(sub.cancel());

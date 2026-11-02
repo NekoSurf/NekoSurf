@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
@@ -147,9 +148,12 @@ void main() {
     await upstream.server.close(force: true);
   });
 
-  test('answers ranges, and fetches ones far ahead from upstream', () async {
+  test('answers ranges, and moves the download to one far ahead', () async {
     final Uint8List bytes = _video(4 * 1024 * 1024);
-    final _Upstream upstream = _Upstream(bytes);
+    final _Upstream upstream = _Upstream(
+      bytes,
+      chunkDelay: const Duration(milliseconds: 20),
+    );
     await upstream.start();
 
     final String local = await videos.source(upstream.url);
@@ -166,8 +170,9 @@ void main() {
     );
     expect(nearBody, bytes.sublist(1000, 2000));
 
-    // The end (where webm keeps its seek index): straight from upstream.
-    final int from = bytes.length - 4096;
+    // Far ahead (scrubbing forward, or webm's seek index at the end): the
+    // download goes there instead of on from the start.
+    final int from = bytes.length - 1024 * 1024;
     final (HttpClientResponse far, Uint8List farBody) = await _get(
       local,
       range: 'bytes=$from-',
@@ -175,6 +180,56 @@ void main() {
     expect(far.statusCode, HttpStatus.partialContent);
     expect(farBody, bytes.sublist(from));
     expect(upstream.ranges, contains('bytes=$from-${bytes.length - 1}'));
+    final List<(double, double)> loaded = videos.loadedOf(upstream.url).value;
+    expect(loaded, hasLength(2));
+    expect(loaded.first.$1, 0);
+    expect(loaded.last, (from / bytes.length, 1.0));
+
+    // Then it fills in what it skipped.
+    while (await videos.cachedFile(upstream.url) == null) {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+    expect((await videos.cachedFile(upstream.url))!.readAsBytesSync(), bytes);
+    expect(videos.loadedOf(upstream.url).value, [(0.0, 1.0)]);
+    await upstream.server.close(force: true);
+  });
+
+  test('goes where scrubbing settles, not everywhere on the way', () async {
+    final Uint8List bytes = _video(4 * 1024 * 1024);
+    final _Upstream upstream = _Upstream(
+      bytes,
+      chunkDelay: const Duration(milliseconds: 20),
+    );
+    await upstream.start();
+    final String local = await videos.source(upstream.url);
+    await _get(local, range: 'bytes=0-999');
+
+    // One seek after another, as while dragging the slider.
+    final HttpClient client = HttpClient();
+    Future<HttpClientResponse> seek(int at) async {
+      final HttpClientRequest request = await client.getUrl(Uri.parse(local));
+      request.headers.set(HttpHeaders.rangeHeader, 'bytes=$at-');
+      return request.close();
+    }
+
+    const int mb = 1024 * 1024;
+    final HttpClientResponse first = await seek(mb);
+    await first.first;
+    // Never answered: the download doesn't stop there.
+    unawaited(seek(2 * mb).then((_) {}, onError: (_) {}));
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    final HttpClientResponse last = await seek(3 * mb);
+    expect((await last.first).first, bytes[3 * mb]);
+
+    expect(upstream.ranges, contains('bytes=$mb-${bytes.length - 1}'));
+    expect(upstream.ranges, contains('bytes=${3 * mb}-${bytes.length - 1}'));
+    expect(
+      upstream.ranges.where(
+        (range) => range?.startsWith('bytes=${2 * mb}-') ?? false,
+      ),
+      isEmpty,
+    );
+    client.close(force: true);
     await upstream.server.close(force: true);
   });
 

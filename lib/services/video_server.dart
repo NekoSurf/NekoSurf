@@ -17,6 +17,9 @@ import 'package:path_provider/path_provider.dart';
 /// instantly and never downloads twice. Preloading starts the download
 /// without a player.
 ///
+/// The download goes where the player reads: scrubbing past what has
+/// arrived moves it there, and what it skipped is filled in after.
+///
 /// Videos someone is watching ([watch]) download first. Every other
 /// download (preloads, and videos scrolled away from or covered by the
 /// fullscreen viewer) is held while a watched one is still arriving, then
@@ -58,14 +61,12 @@ class VideoServer {
   // Scrolling on queues new prefetches; the oldest are dropped.
   static const int _maxQueued = 6;
 
-  // Seeking far ahead of the download (webm keeps its seek index at the
-  // end) is fetched from 4chan directly instead of waiting for it.
-  static const int _aheadThreshold = 512 * 1024;
-
   final Map<String, _Download> _downloads = <String, _Download>{};
   final Map<String, String> _ids = <String, String>{};
   final Map<String, ValueNotifier<double?>> _progress =
       <String, ValueNotifier<double?>>{};
+  final Map<String, ValueNotifier<List<(double, double)>>> _loaded =
+      <String, ValueNotifier<List<(double, double)>>>{};
   final Set<String> _watched = <String>{};
   // Background downloads waiting their turn, next first.
   final List<_Download> _queued = <_Download>[];
@@ -85,6 +86,7 @@ class VideoServer {
     final File file = await _fileFor(url);
     if (file.existsSync() && !_downloads.containsKey(url)) {
       _progressOf(url).value = 1;
+      _loadedOf(url).value = _all;
       _touch(file);
       return file.path;
     }
@@ -137,6 +139,11 @@ class VideoServer {
   /// How much of [url] has arrived, from 0 to 1; null while unknown.
   ValueListenable<double?> progressOf(String url) => _progressOf(url);
 
+  /// Which parts of [url] have arrived, in order, as (start, end) fractions
+  /// of its size: more than one after scrubbing ahead of the download.
+  ValueListenable<List<(double, double)>> loadedOf(String url) =>
+      _loadedOf(url);
+
   /// The finished copy of [url] on disk, if it's been watched to the end
   /// of its download; null otherwise (also while it's still arriving).
   Future<File?> cachedFile(String url) async {
@@ -159,6 +166,7 @@ class VideoServer {
       _schedule();
     }
     _progressOf(url).value = null;
+    _loadedOf(url).value = const <(double, double)>[];
     try {
       final File file = await _fileFor(url);
       if (file.existsSync()) {
@@ -198,6 +206,7 @@ class VideoServer {
         in _progress.entries) {
       if (!_downloads.containsKey(entry.key)) {
         entry.value.value = null;
+        _loadedOf(entry.key).value = const <(double, double)>[];
       }
     }
   }
@@ -210,6 +219,7 @@ class VideoServer {
         url: url,
         file: file,
         progress: _progressOf(url),
+        loaded: _loadedOf(url),
         onDone: (_Download download) {
           if (_downloads[url] == download) {
             _downloads.remove(url);
@@ -257,6 +267,11 @@ class VideoServer {
 
   ValueNotifier<double?> _progressOf(String url) =>
       _progress.putIfAbsent(url, () => ValueNotifier<double?>(null));
+
+  static const List<(double, double)> _all = <(double, double)>[(0, 1)];
+
+  ValueNotifier<List<(double, double)>> _loadedOf(String url) => _loaded
+      .putIfAbsent(url, () => ValueNotifier<List<(double, double)>>(const []));
 
   void _touch(File file) {
     try {
@@ -441,11 +456,6 @@ class VideoServer {
     final int start = range?.$1 ?? 0;
     final int end = min(range?.$2 ?? total - 1, total - 1);
 
-    if (start > download.received + _aheadThreshold) {
-      await _proxy(request, download.url, start, end, total);
-      return;
-    }
-
     response.headers.set(HttpHeaders.acceptRangesHeader, 'bytes');
     response.headers.contentType = _contentType(download.url);
     if (range != null) {
@@ -461,12 +471,14 @@ class VideoServer {
       return;
     }
 
-    // Send what's on disk, then follow the download until [end].
+    // Send what's on disk, then follow the download until [end]; it comes
+    // here if it's elsewhere.
+    download.seek(start);
     final RandomAccessFile reader = await download.part.open();
     int sent = start;
     try {
       while (sent <= end) {
-        final int available = min(download.received, end + 1);
+        final int available = min(download.arrivedFrom(sent), end + 1);
         if (available > sent) {
           await reader.setPosition(sent);
           final Uint8List chunk = await reader.read(available - sent);
@@ -487,53 +499,40 @@ class VideoServer {
     }
     await response.close();
   }
-
-  /// Fetches a range ahead of the download straight from 4chan.
-  Future<void> _proxy(
-    HttpRequest request,
-    String url,
-    int start,
-    int end,
-    int total,
-  ) async {
-    final HttpResponse response = request.response;
-    final http.Request upstream = http.Request('GET', Uri.parse(url))
-      ..headers[HttpHeaders.rangeHeader] = 'bytes=$start-$end';
-    final http.StreamedResponse reply = await httpClient.send(upstream);
-
-    response.statusCode = HttpStatus.partialContent;
-    response.headers.set(HttpHeaders.acceptRangesHeader, 'bytes');
-    response.headers.contentType = _contentType(url);
-    response.headers.set(
-      HttpHeaders.contentRangeHeader,
-      'bytes $start-$end/$total',
-    );
-    response.contentLength = end - start + 1;
-    if (request.method != 'HEAD') {
-      await response.addStream(reply.stream);
-    }
-    await response.close();
-  }
 }
 
 /// One video being downloaded to `<file>.part`, renamed to [file] when done.
+///
+/// The fetch follows the player: a reader starting where nothing has
+/// arrived, and not just ahead of the fetch, moves it there ([seek]). From
+/// the end it comes back for what it skipped, so the file fills in spans.
 class _Download {
   _Download({
     required this.id,
     required this.url,
     required this.file,
     required this.progress,
+    required this.loaded,
     required this.onDone,
   }) : part = File('${file.path}.part');
 
   static const int _attempts = 5;
   static const Duration _stallTimeout = Duration(seconds: 20);
+  // A reader starting this little ahead of the fetch waits for it.
+  static const int _seekAhead = 256 * 1024;
+  // Scrubbing seeks over and over; moves that close together wait a
+  // moment, so the fetch goes where it settles, not everywhere on the way.
+  static const Duration _seekBurst = Duration(seconds: 1);
+  static const Duration _seekSettle = Duration(milliseconds: 250);
+
+  static final RegExp _contentRange = RegExp(r'^bytes (\d+)-(\d+)/(\d+)$');
 
   final String id;
   final String url;
   final File file;
   final File part;
   final ValueNotifier<double?> progress;
+  final ValueNotifier<List<(double, double)>> loaded;
   final void Function(_Download) onDone;
 
   bool started = false;
@@ -541,7 +540,14 @@ class _Download {
   bool _cancelled = false;
   bool _held = false;
   bool _running = false;
-  int received = 0;
+  int? _size;
+  // What has arrived, as sorted, separate [start, end) byte ranges.
+  final List<(int, int)> _spans = <(int, int)>[];
+  // The next byte the fetch writes.
+  int _at = 0;
+  // Where a reader wants the fetch.
+  int? _seekTo;
+  DateTime? _lastMove;
   final Completer<int> _total = Completer<int>();
   Completer<void> _changed = Completer<void>();
 
@@ -559,6 +565,27 @@ class _Download {
 
   /// Downloading, or about to: started and not held.
   bool get active => _running && !_held;
+
+  /// Where the bytes from [position] on stop being there; [position] if
+  /// it hasn't arrived.
+  int arrivedFrom(int position) {
+    for (final (int start, int end) in _spans) {
+      if (start <= position && position < end) {
+        return end;
+      }
+    }
+    return position;
+  }
+
+  /// A reader starts at [position]: the fetch goes there, unless it's
+  /// there already or about to be.
+  void seek(int position) {
+    if (arrivedFrom(position) > position ||
+        (_at <= position && position < _at + _seekAhead)) {
+      return;
+    }
+    _seekTo = position;
+  }
 
   /// Starts the download, or continues a held one where it stopped.
   void start() {
@@ -590,6 +617,7 @@ class _Download {
     if (!started) {
       started = true;
       progress.value = null;
+      loaded.value = const <(double, double)>[];
       try {
         // Created empty before anyone learns the size, so readers can open
         // it.
@@ -600,19 +628,25 @@ class _Download {
     int attempt = 0;
     while (!_cancelled && !_held) {
       try {
-        final bool complete = await _fetch();
-        if (_cancelled) {
-          break;
+        final DateTime? lastMove = _lastMove;
+        if (_seekTo != null &&
+            lastMove != null &&
+            DateTime.now().difference(lastMove) < _seekBurst) {
+          await Future<void>.delayed(_seekSettle);
+          if (_cancelled || _held) {
+            break;
+          }
         }
-        if (!complete) {
-          // Held meanwhile (and maybe started again since).
-          continue;
+        final int? from = _next();
+        if (from == null) {
+          await part.rename(file.path);
+          _running = false;
+          progress.value = 1;
+          loaded.value = VideoServer._all;
+          _finish();
+          return;
         }
-        await part.rename(file.path);
-        _running = false;
-        progress.value = 1;
-        _finish();
-        return;
+        await _fetch(from);
       } catch (error) {
         if (_cancelled || ++attempt >= _attempts) {
           break;
@@ -630,10 +664,36 @@ class _Download {
 
     _running = false;
     if (_held && !_cancelled) {
-      // Continues from [received] on the next start().
+      // Continues where it stopped on the next start().
       return;
     }
     _fail();
+  }
+
+  /// Where to fetch next: where a reader wants it, else the first gap from
+  /// where it is, else the first gap; null once all of it is here.
+  int? _next() {
+    final int? size = _size;
+    if (size == null) {
+      return 0;
+    }
+    final int? seek = _seekTo;
+    _seekTo = null;
+    if (seek != null && arrivedFrom(seek) == seek && seek < size) {
+      _lastMove = DateTime.now();
+      return seek;
+    }
+    return _gapFrom(_at, size) ?? _gapFrom(0, size);
+  }
+
+  int? _gapFrom(int position, int size) {
+    for (final (int start, int end) in _spans) {
+      if (position < start) {
+        break;
+      }
+      position = max(position, end);
+    }
+    return position < size ? position : null;
   }
 
   void _fail() {
@@ -651,37 +711,50 @@ class _Download {
     _notify();
   }
 
-  /// Fetches the rest of the file, continuing after [received]; false if it
-  /// was held before the end.
-  Future<bool> _fetch() async {
+  /// Fetches from [from] up to what has arrived after it, or the end;
+  /// returns early if held, cancelled or a reader wants it elsewhere.
+  Future<void> _fetch(int from) async {
+    _at = from;
     final http.Request request = http.Request('GET', Uri.parse(url));
-    if (received > 0) {
-      request.headers[HttpHeaders.rangeHeader] = 'bytes=$received-';
+    final int? size = _size;
+    if (size != null) {
+      int to = size;
+      for (final (int start, _) in _spans) {
+        if (start > from) {
+          to = start;
+          break;
+        }
+      }
+      request.headers[HttpHeaders.rangeHeader] = 'bytes=$from-${to - 1}';
     }
     final http.StreamedResponse response = await httpClient
         .send(request)
         .timeout(_stallTimeout);
 
-    if (response.statusCode == HttpStatus.ok && received > 0) {
-      // The server ignored the range: start over.
-      received = 0;
-      part.writeAsBytesSync(const <int>[]);
-    } else if (response.statusCode != HttpStatus.ok &&
-        response.statusCode != HttpStatus.partialContent) {
+    final int position;
+    final int end;
+    if (response.statusCode == HttpStatus.ok) {
+      // All of it, also when the server ignored the range.
+      _setSize(response.contentLength);
+      position = 0;
+      end = _size!;
+    } else if (response.statusCode == HttpStatus.partialContent) {
+      final Match? range = _contentRange.firstMatch(
+        response.headers[HttpHeaders.contentRangeHeader] ?? '',
+      );
+      if (range == null) {
+        throw const _HttpStatus(0);
+      }
+      _setSize(int.parse(range.group(3)!));
+      position = int.parse(range.group(1)!);
+      end = int.parse(range.group(2)!) + 1;
+    } else {
       throw _HttpStatus(response.statusCode);
     }
 
-    final int? length = response.contentLength;
-    if (!_total.isCompleted) {
-      if (length == null) {
-        throw const _HttpStatus(0);
-      }
-      _total.complete(received + length);
-    }
-    final int total = await _total.future;
-
-    bool held = false;
-    final IOSink sink = part.openWrite(mode: FileMode.append);
+    _at = position;
+    bool stopped = false;
+    final RandomAccessFile writer = await part.open(mode: FileMode.append);
     try {
       await for (final List<int> chunk in response.stream.timeout(
         _stallTimeout,
@@ -689,29 +762,58 @@ class _Download {
         if (_cancelled) {
           break;
         }
-        sink.add(chunk);
-        // Readers open the file separately; make the bytes visible first.
-        await sink.flush();
-        received += chunk.length;
-        progress.value = total > 0 ? received / total : null;
-        _notify();
-        if (_held) {
+        // Readers open the file separately and see the bytes once written.
+        await writer.setPosition(_at);
+        await writer.writeFrom(chunk);
+        _arrived(_at, _at + chunk.length);
+        _at += chunk.length;
+        if (_held || _seekTo != null) {
           // Ends the request; the next one asks for the rest.
-          held = true;
+          stopped = true;
           break;
         }
       }
     } finally {
-      await sink.close();
+      await writer.close();
     }
 
-    if (received >= total) {
-      return true;
+    if (_at < end && !_cancelled && !stopped) {
+      throw StateError('Download ended early: $url');
     }
-    if (_cancelled || held) {
-      return false;
+  }
+
+  void _setSize(int? size) {
+    if (_size != null) {
+      return;
     }
-    throw StateError('Download ended early: $url');
+    if (size == null) {
+      throw const _HttpStatus(0);
+    }
+    _size = size;
+    _total.complete(size);
+  }
+
+  void _arrived(int start, int end) {
+    int i = 0;
+    while (i < _spans.length && _spans[i].$2 < start) {
+      i++;
+    }
+    while (i < _spans.length && _spans[i].$1 <= end) {
+      start = min(start, _spans[i].$1);
+      end = max(end, _spans[i].$2);
+      _spans.removeAt(i);
+    }
+    _spans.insert(i, (start, end));
+
+    final int size = _size!;
+    if (size > 0) {
+      final int have = _spans.fold(0, (sum, span) => sum + span.$2 - span.$1);
+      progress.value = have / size;
+      loaded.value = <(double, double)>[
+        for (final (int from, int to) in _spans) (from / size, to / size),
+      ];
+    }
+    _notify();
   }
 }
 

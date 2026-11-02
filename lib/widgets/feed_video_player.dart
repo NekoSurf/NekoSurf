@@ -281,28 +281,19 @@ class _InlineOverlay extends StatelessWidget {
                   listenable: Listenable.merge([
                     video.scrubPosition,
                     video.position,
-                    video.buffered,
+                    video.loaded,
                   ]),
                   builder: (context, _) {
-                    double fraction(Duration value) =>
-                        (value.inMilliseconds / durationMs).clamp(0.0, 1.0);
                     final Duration shown =
                         video.scrubPosition.value ?? video.position.value;
-                    return SizedBox(
-                      height: 3,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          ColoredBox(
-                            color: Colors.white.withValues(alpha: 0.2),
-                          ),
-                          // What has arrived, behind the position.
-                          _Bar(
-                            fraction: fraction(video.buffered.value),
-                            color: Colors.white.withValues(alpha: 0.4),
-                          ),
-                          _Bar(fraction: fraction(shown), color: Colors.white),
-                        ],
+                    return CustomPaint(
+                      size: const Size.fromHeight(3),
+                      painter: _ProgressPainter(
+                        position: (shown.inMilliseconds / durationMs).clamp(
+                          0.0,
+                          1.0,
+                        ),
+                        loaded: video.loaded.value,
                       ),
                     );
                   },
@@ -315,19 +306,33 @@ class _InlineOverlay extends StatelessWidget {
   }
 }
 
-/// The first [fraction] of a progress bar.
-class _Bar extends StatelessWidget {
-  const _Bar({required this.fraction, required this.color});
+/// A thin progress bar: the parts that have loaded, and the position over
+/// them.
+class _ProgressPainter extends CustomPainter {
+  const _ProgressPainter({required this.position, required this.loaded});
 
-  final double fraction;
-  final Color color;
+  final double position;
+  final List<(double, double)> loaded;
 
   @override
-  Widget build(BuildContext context) {
-    return FractionallySizedBox(
-      alignment: Alignment.centerLeft,
-      widthFactor: fraction,
-      child: ColoredBox(color: color),
+  void paint(Canvas canvas, Size size) {
+    final Paint paint = Paint()..color = Colors.white.withValues(alpha: 0.2);
+    canvas.drawRect(Offset.zero & size, paint);
+    paint.color = Colors.white.withValues(alpha: 0.4);
+    for (final (double start, double end) in loaded) {
+      canvas.drawRect(
+        Rect.fromLTRB(start * size.width, 0, end * size.width, size.height),
+        paint,
+      );
+    }
+    paint.color = Colors.white;
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, position * size.width, size.height),
+      paint,
     );
   }
+
+  @override
+  bool shouldRepaint(_ProgressPainter old) =>
+      old.position != position || old.loaded != loaded;
 }

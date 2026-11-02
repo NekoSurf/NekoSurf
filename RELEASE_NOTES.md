@@ -10,6 +10,7 @@
 ### 🎬 Videos on slow connections
 - The video you're watching downloads first: preloads and videos you've scrolled past or opened over wait until it's in, so it starts much sooner on a slow connection
 - A video's progress bar shows how much of it has loaded, in the thread and fullscreen
+- Scrubbing past what has loaded downloads from there first, instead of finishing the part you skipped, and the bar shows each part that's in
 - With more videos on screen than can play at once, the ones you see most play
 
 ### 💾 Saving and sharing

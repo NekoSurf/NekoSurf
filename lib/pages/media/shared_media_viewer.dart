@@ -1002,7 +1002,7 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
                 listenable: Listenable.merge([
                   _video.scrubPosition,
                   _video.position,
-                  _video.buffered,
+                  _video.loaded,
                 ]),
                 builder: (context, _) {
                   final Duration shown =
@@ -1017,10 +1017,11 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
                           inactiveTrackColor: Colors.white.withValues(
                             alpha: 0.22,
                           ),
-                          // What has arrived, like a stream's buffer.
+                          // What has loaded, like a stream's buffer.
                           secondaryActiveTrackColor: Colors.white.withValues(
-                            alpha: 0.45,
+                            alpha: 0.3,
                           ),
+                          trackShape: _LoadedTrackShape(_video.loaded.value),
                           thumbColor: Colors.white,
                           thumbShape: const RoundSliderThumbShape(
                             enabledThumbRadius: 6,
@@ -1029,12 +1030,6 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
                         ),
                         child: Slider(
                           value: shown.inMilliseconds.toDouble().clamp(0, max),
-                          secondaryTrackValue: _video
-                              .buffered
-                              .value
-                              .inMilliseconds
-                              .toDouble()
-                              .clamp(0, max),
                           min: 0,
                           max: max,
                           // Live: the picture follows the thumb.
@@ -1120,6 +1115,80 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
         ),
       ),
     );
+  }
+}
+
+/// The slider's track, with the parts of the video that have loaded drawn
+/// ahead of the position: more than one after scrubbing ahead of the
+/// download.
+class _LoadedTrackShape extends RoundedRectSliderTrackShape {
+  const _LoadedTrackShape(this.loaded);
+
+  final List<(double, double)> loaded;
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset offset, {
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required Animation<double> enableAnimation,
+    required TextDirection textDirection,
+    required Offset thumbCenter,
+    Offset? secondaryOffset,
+    bool isDiscrete = false,
+    bool isEnabled = false,
+    double additionalActiveTrackHeight = 2,
+  }) {
+    super.paint(
+      context,
+      offset,
+      parentBox: parentBox,
+      sliderTheme: sliderTheme,
+      enableAnimation: enableAnimation,
+      textDirection: textDirection,
+      thumbCenter: thumbCenter,
+      isDiscrete: isDiscrete,
+      isEnabled: isEnabled,
+      additionalActiveTrackHeight: additionalActiveTrackHeight,
+    );
+    final Rect track = getPreferredRect(
+      parentBox: parentBox,
+      offset: offset,
+      sliderTheme: sliderTheme,
+      isEnabled: isEnabled,
+      isDiscrete: isDiscrete,
+    );
+    if (thumbCenter.dx >= track.right) {
+      return;
+    }
+    final Canvas canvas = context.canvas;
+    final Paint paint = Paint()
+      ..color = sliderTheme.secondaryActiveTrackColor ?? Colors.white24;
+    canvas
+      ..save()
+      ..clipRRect(
+        RRect.fromLTRBAndCorners(
+          thumbCenter.dx,
+          track.top,
+          track.right,
+          track.bottom,
+          topRight: Radius.circular(track.height / 2),
+          bottomRight: Radius.circular(track.height / 2),
+        ),
+      );
+    for (final (double start, double end) in loaded) {
+      canvas.drawRect(
+        Rect.fromLTRB(
+          track.left + start * track.width,
+          track.top,
+          track.left + end * track.width,
+          track.bottom,
+        ),
+        paint,
+      );
+    }
+    canvas.restore();
   }
 }
 
