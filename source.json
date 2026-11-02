@@ -24,6 +24,15 @@
       ],
       "versions": [
         {
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.12.1%2B295/Runner.ipa",
+          "size": 33367765,
+          "version": "0.12.1",
+          "buildVersion": "295",
+          "date": "2026-11-02T13:58:02+00:00",
+          "localizedDescription": "Videos start much sooner on slow connections and show how much has loaded, scrubbing downloads from where you scrub to, images stay on your phone, the app starts faster, and saving and sharing take less space and fewer permissions.",
+          "minOSVersion": "17.0"
+        },
+        {
           "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.12.1%2B294/Runner.ipa",
           "size": 33177920,
           "version": "0.12.1",
