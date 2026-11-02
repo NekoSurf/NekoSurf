@@ -81,9 +81,37 @@ class VideoPlayers extends ChangeNotifier {
         height: Platform.isIOS && knownSize ? height : null,
       ),
     );
-    final VideoLease lease = VideoLease._(this, player, controller, onEvicted);
+    final VideoLease lease = VideoLease._(
+      this,
+      player,
+      controller,
+      onEvicted,
+      Platform.isIOS && knownSize
+          ? _firstFrameOnIOS(player)
+          : controller.waitUntilFirstFrameRendered,
+    );
     _leases.add(lease);
     return lease;
+  }
+
+  /// When [player] shows its first frame. media_kit's iOS output reports
+  /// that as soon as it has a size, and it has one from the start (above):
+  /// before mpv has even opened the video, which then showed as a black
+  /// box instead of its thumbnail while loading. mpv configures its video
+  /// output for the first decoded frame, right before drawing it.
+  static Future<void> _firstFrameOnIOS(Player player) {
+    final Completer<void> shown = Completer<void>();
+    final PlatformPlayer platform = player.platform!;
+    if (platform is NativePlayer) {
+      platform
+          .observeProperty('vo-configured', (String value) async {
+            if (value == 'yes' && !shown.isCompleted) {
+              shown.complete();
+            }
+          })
+          .catchError((_) {});
+    }
+    return shown.future;
   }
 
   /// Lets [player] wait for a stream from VideoServer as long as mpv
@@ -134,12 +162,21 @@ class VideoPlayers extends ChangeNotifier {
 
 /// A player handed out by [VideoPlayers]; give it back with [release].
 class VideoLease {
-  VideoLease._(this._manager, this.player, this.controller, this._onEvicted);
+  VideoLease._(
+    this._manager,
+    this.player,
+    this.controller,
+    this._onEvicted,
+    this.firstFrame,
+  );
 
   final VideoPlayers _manager;
   final Player player;
   final VideoController controller;
   final VoidCallback _onEvicted;
+
+  /// Completes once the video's first frame shows.
+  final Future<void> firstFrame;
   bool _wanted = false;
   bool _released = false;
 

@@ -438,7 +438,7 @@ class MediaVideo extends ChangeNotifier {
     final Player player = lease.player;
     bool current() => token == _token && _lease == lease;
 
-    lease.controller.waitUntilFirstFrameRendered.then((_) {
+    lease.firstFrame.then((_) {
       if (current()) {
         _firstFrameTimer?.cancel();
         _retried = false;

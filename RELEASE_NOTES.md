@@ -25,3 +25,4 @@
 - The save button only shows a checkmark when the save actually worked
 - On Android, coming back to the Saved tab after allowing storage access in Settings no longer empties it, and shows your saved files right away
 - Cache sizes under 1 MB show in KB instead of "0 MB"
+- On iPhone, a video that's still loading shows its thumbnail and how far it has downloaded, instead of a black box
