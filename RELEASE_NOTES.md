@@ -2,7 +2,7 @@
 
 ### 💾 Save several at once
 - Saving to the Saved tab, saving to Photos, sharing and removing work per post: start saving one, swipe on and save the next while the first is still going
-- Each post keeps its own spinner and checkmark, and a save in progress still shows if you close and reopen the viewer
+- Each post keeps its own spinner and checkmark, and a save to the Saved tab still shows if you close and reopen the viewer
 - Shares get ready side by side, and their share sheets open one after another
 
 ### ⏳ See how far along it is
@@ -10,10 +10,10 @@
 
 ## What's fixed
 
-- The keyboard no longer opens on its own when you come back from a thread you opened while searching
+- Going back from a thread you opened while typing in a search field no longer brings the keyboard up
 - Saving or sharing a video that's still loading uses that download instead of starting a second one, so it's much faster, and it no longer hangs on a stalled connection
-- Saves that run into 4chan limiting requests try again instead of failing
-- The spinner on the save and share buttons is easy to see on bright images and videos
+- Saving and sharing try again when 4chan limits requests, instead of failing
+- The spinners on the save, save to Photos and share buttons are easy to see on bright images and videos
 - When saving to the Saved tab or sharing fails, the app says so instead of the spinner just stopping
 - A failed save to the Saved tab no longer leaves its file behind in Files (or Download/4Chan on Android)
 - Two files with the same name saved at once no longer overwrite each other
