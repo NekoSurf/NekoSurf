@@ -14,8 +14,7 @@
 </p>
 
 <p align="center">
-  <img src="screenshots/ios_screenshot_1.jpg" width="32%" alt="A board's threads in a grid">
-  <img src="screenshots/ios_screenshot_2.jpg" width="32%" alt="A thread with images">
+  <img src="screenshots/banner.png" alt="Your boards, a board's threads in a grid, and a thread with images">
 </p>
 
 ## Download
@@ -61,7 +60,7 @@
 The [privacy policy](privacy_policy.md) has the details.
 
 <p align="center">
-  <img src="screenshots/galery.gif" width="32%" alt="Swiping through a thread's images and videos">
+  <img src="screenshots/demo.gif" width="420" alt="Opening a board, then a thread, and swiping through its images in the gallery">
 </p>
 
 ## Build it yourself

@@ -10,8 +10,13 @@ It writes to screenshots/:
 - banner.png: three phones side by side, for the top of the README
 - phone-<shot>.png: each screenshot in a phone, on a transparent
   background, for the website
-- demo.mp4: the recording in a phone on the background, for the website
-- demo.gif: the same, small enough for the README
+- demo.gif: the recording in a phone on the background, small enough for
+  the README
+
+and to docs/, the website, which GitHub Pages serves (GitHub's raw files
+come as a download type Safari won't play):
+
+- demo.mp4: the same recording, full quality
 
 The phone is drawn here (a generic modern iPhone: rounded body, thin rim,
 Dynamic Island), so no device artwork needs licensing.
@@ -246,6 +251,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--raw", type=Path, default=PROMO / "raw")
     parser.add_argument("--out", type=Path, default=PROMO.parent / "screenshots")
+    parser.add_argument("--site", type=Path, default=PROMO.parent / "docs")
     args = parser.parse_args()
 
     missing = [f"{s}.png" for s in SHOTS if not (args.raw / f"{s}.png").exists()]
@@ -264,11 +270,11 @@ def main() -> int:
     banner([shots[s] for s in BANNER_SHOTS], args.out / "banner.png")
     for name, shot in shots.items():
         single(shot, args.out / f"phone-{name}.png")
-    demo(recording, args.out / "demo.mp4", args.out / "demo.gif")
+    demo(recording, args.site / "demo.mp4", args.out / "demo.gif")
 
-    for f in sorted(args.out.glob("*")):
-        if f.name.startswith(("banner", "phone-", "demo")):
-            print(f"{f}  {f.stat().st_size / 1e6:.1f} MB")
+    made = [f for f in sorted(args.out.glob("*")) if f.name.startswith(("banner", "phone-", "demo"))]
+    for f in [*made, args.site / "demo.mp4"]:
+        print(f"{f}  {f.stat().st_size / 1e6:.1f} MB")
     return 0
 
 

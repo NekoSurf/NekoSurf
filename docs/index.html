@@ -6,7 +6,10 @@
   <meta name="description" content="NekoSurf — a fast, privacy-friendly 4chan viewer built with Flutter for iOS and Android. Modern card layouts, liquid glass UI, media-first navigation." />
   <meta property="og:title" content="NekoSurf — Fast, Privacy-Friendly 4chan Viewer" />
   <meta property="og:description" content="Browse 4chan with style. Modern card-based layouts, liquid glass UI, media-first navigation, and privacy controls." />
-  <meta property="og:image" content="https://i.imgur.com/QvADqxl.png" />
+  <meta property="og:image" content="https://raw.githubusercontent.com/NekoSurf/NekoSurf/main/screenshots/banner.png" />
+  <meta property="og:image:width" content="2400" />
+  <meta property="og:image:height" content="1260" />
+  <meta name="twitter:card" content="summary_large_image" />
   <meta property="og:type" content="website" />
   <title>NekoSurf — Fast, Privacy-Friendly 4chan Viewer</title>
   <link rel="icon" href="https://i.imgur.com/QvADqxl.png" type="image/png" />
@@ -389,43 +392,20 @@
     .screenshots-header { text-align: center; margin-bottom: 60px; }
     .screenshots-wrapper {
       display: flex; gap: 24px; justify-content: center;
-      flex-wrap: wrap; align-items: flex-start;
+      align-items: flex-start; padding-bottom: 32px;
     }
-    .screenshot-frame {
-      position: relative; flex-shrink: 0;
-      transition: all var(--transition);
+    .screenshot-frame { position: relative; flex: 0 1 188px; min-width: 0; }
+    /* On the image, as .reveal owns the frame's transform. */
+    .screenshot-frame img {
+      width: 100%; height: auto; display: block;
+      filter: drop-shadow(0 24px 40px rgba(0,0,0,0.55));
+      transition: transform var(--transition);
     }
-    .screenshot-frame:hover { transform: translateY(-8px) scale(1.02); z-index: 2; }
-    .screenshot-phone {
-      width: 230px;
-      background: linear-gradient(145deg, #1a1c2e, #0e0f1a);
-      border-radius: 40px;
-      padding: 16px 12px;
-      box-shadow:
-        0 0 0 1px rgba(255,255,255,0.06),
-        0 30px 80px rgba(0,0,0,0.6),
-        inset 0 1px 0 rgba(255,255,255,0.08);
-    }
-    .screenshot-notch {
-      width: 80px; height: 20px;
-      background: #08090d; border-radius: 0 0 14px 14px;
-      margin: 0 auto 10px;
-      position: relative;
-    }
-    .screenshot-notch::after {
-      content: '';
-      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
-      width: 8px; height: 8px; border-radius: 50%;
-      background: #0d0e16; border: 1px solid rgba(255,255,255,0.06);
-    }
-    .screenshot-screen {
-      border-radius: 26px; overflow: hidden;
-      background: #0a0b12;
-      line-height: 0;
-    }
-    .screenshot-screen img {
-      width: 100%; display: block;
-      border-radius: 26px;
+    .screenshot-frame:hover img { transform: translateY(-8px) scale(1.02); }
+    /* Two to a row on phones, the last one centered. */
+    @media (max-width: 640px) {
+      .screenshots-wrapper { flex-wrap: wrap; row-gap: 56px; }
+      .screenshot-frame { flex: 0 0 calc(50% - 12px); max-width: 170px; }
     }
     /* Floating label */
     .screenshot-label {
@@ -447,9 +427,9 @@
       backdrop-filter: blur(12px);
       box-shadow: 0 40px 100px rgba(0,0,0,0.5), var(--shadow-glow);
     }
-    .gif-frame img {
-      width: 260px; border-radius: var(--radius);
-      display: block;
+    .gif-frame video {
+      width: 400px; max-width: 100%; height: auto;
+      border-radius: var(--radius); display: block;
     }
     .gif-label {
       position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
@@ -481,8 +461,10 @@
     .highlight-phone-wrap {
       position: relative; animation: float 5s ease-in-out infinite;
     }
-    .highlight-phone-wrap .screenshot-phone { width: 200px; }
-    .highlight-phone-wrap .screenshot-screen img { border-radius: 20px; }
+    .highlight-phone {
+      width: 220px; height: auto; display: block;
+      filter: drop-shadow(0 30px 50px rgba(0,0,0,0.6));
+    }
     /* Glow under phone */
     .highlight-phone-wrap::after {
       content: '';
@@ -911,10 +893,35 @@
       <p class="section-sub">Clean, focused, and built for the content. NekoSurf gets out of your way so you can focus on what matters.</p>
     </div>
 
+    <div class="screenshots-wrapper">
+      <figure class="screenshot-frame reveal reveal-delay-1">
+        <img src="https://raw.githubusercontent.com/NekoSurf/NekoSurf/main/screenshots/phone-home.png" alt="Your favorite boards and all the others" width="763" height="1600" loading="lazy" />
+        <figcaption class="screenshot-label">Your boards</figcaption>
+      </figure>
+      <figure class="screenshot-frame reveal reveal-delay-2">
+        <img src="https://raw.githubusercontent.com/NekoSurf/NekoSurf/main/screenshots/phone-board.png" alt="A board's threads in a grid" width="763" height="1600" loading="lazy" />
+        <figcaption class="screenshot-label">A board</figcaption>
+      </figure>
+      <figure class="screenshot-frame reveal reveal-delay-3">
+        <img src="https://raw.githubusercontent.com/NekoSurf/NekoSurf/main/screenshots/phone-thread.png" alt="A thread with images" width="763" height="1600" loading="lazy" />
+        <figcaption class="screenshot-label">A thread</figcaption>
+      </figure>
+      <figure class="screenshot-frame reveal reveal-delay-4">
+        <img src="https://raw.githubusercontent.com/NekoSurf/NekoSurf/main/screenshots/phone-gallery.png" alt="A thread's images and videos in the fullscreen gallery" width="763" height="1600" loading="lazy" />
+        <figcaption class="screenshot-label">The gallery</figcaption>
+      </figure>
+      <figure class="screenshot-frame reveal reveal-delay-4">
+        <img src="https://raw.githubusercontent.com/NekoSurf/NekoSurf/main/screenshots/phone-search.png" alt="Searching all of 4chan" width="763" height="1600" loading="lazy" />
+        <figcaption class="screenshot-label">Search</figcaption>
+      </figure>
+    </div>
+
     <div class="gif-showcase reveal">
       <div class="gif-frame">
-        <div class="gif-label">Gallery in Motion</div>
-        <img src="https://raw.githubusercontent.com/NekoSurf/NekoSurf/main/screenshots/galery.gif" alt="NekoSurf gallery animation" loading="lazy" />
+        <div class="gif-label">In Motion</div>
+        <!-- Served from docs/: GitHub's raw files come as a download type Safari won't play. -->
+        <video src="demo.mp4" width="1080" height="1350" autoplay muted loop playsinline
+               aria-label="Opening a board, then a thread, and swiping through its images in the gallery"></video>
       </div>
     </div>
   </div>
@@ -939,12 +946,7 @@
       </div>
       <div class="highlight-mockup reveal reveal-delay-2">
         <div class="highlight-phone-wrap">
-          <div class="screenshot-phone" style="width:210px;">
-            <div class="screenshot-notch"></div>
-            <div class="screenshot-screen">
-              <img src="https://raw.githubusercontent.com/NekoSurf/NekoSurf/main/screenshots/ios_screenshot_2.jpg" alt="Liquid glass UI" loading="lazy" style="border-radius:20px;" />
-            </div>
-          </div>
+          <img class="highlight-phone" src="https://raw.githubusercontent.com/NekoSurf/NekoSurf/main/screenshots/phone-thread.png" alt="A thread with images" width="763" height="1600" loading="lazy" />
           <div class="chip chip-1">
             <span class="chip-icon">🌊</span> Liquid Glass
           </div>

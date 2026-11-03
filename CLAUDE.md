@@ -23,9 +23,10 @@ the release notes.
   `FLUTTER_VERSION` in `.github/workflows/checks.yml` and `_build.yml`).
 - `docs/index.html`, the website: the same as the README, plus any
   version or release it names.
-- The promo images and video in `screenshots/`: when a change makes the
-  app look noticeably different, say they need new captures, taken with
-  `promo/capture.sh` on a Mac (see `promo/README.md`), and rebuild them.
+- The promo images in `screenshots/` and the video in `docs/demo.mp4`:
+  when a change makes the app look noticeably different, say they need
+  new captures, taken with `promo/capture.sh` on a Mac (see
+  `promo/README.md`), and rebuild them.
 - `privacy_policy.md`, a legal text: what the app keeps on the phone,
   every service it connects to, the permissions it asks for, and anything
   that sends data off the phone (analytics, crash reporting, a new SDK or
