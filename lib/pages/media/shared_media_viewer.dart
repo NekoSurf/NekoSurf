@@ -63,8 +63,7 @@ class SharedMediaViewerShareAction {
   /// How far along it is; see [SharedMediaViewerAction.progress].
   final ValueListenable<double?>? progress;
 
-  /// Null while it can't be used (another share is being prepared).
-  final VoidCallback? onShare;
+  final VoidCallback onShare;
 }
 
 class SharedMediaViewerSearchAction {

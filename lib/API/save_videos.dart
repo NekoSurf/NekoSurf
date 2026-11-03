@@ -484,7 +484,7 @@ Future<void> shareSavedAttachments(
   if (files.isEmpty) {
     return;
   }
-  await SharePlus.instance.share(ShareParams(files: files));
+  await shareInTurn(ShareParams(files: files));
 }
 
 Future<void> shareMedia(
@@ -509,7 +509,7 @@ Future<void> shareMedia(
       if (!await File(savedPath).exists()) {
         throw FileSystemException('Saved file is gone', savedPath);
       }
-      await SharePlus.instance.share(ShareParams(files: [XFile(savedPath)]));
+      await shareInTurn(ShareParams(files: [XFile(savedPath)]));
     } catch (e) {
       debugPrint('shareMedia error: $e');
       if (context.mounted) {
@@ -519,8 +519,10 @@ Future<void> shareMedia(
     return;
   }
 
+  Directory? shareFolder;
+  bool shared = false;
   try {
-    final Directory shareFolder = await _newShareFolder();
+    shareFolder = await _newShareFolder();
     final String localName = localFileName(fileName);
     final SaveSteps steps = SaveSteps(
       onProgress,
@@ -548,20 +550,53 @@ Future<void> shareMedia(
       if (returnCode != 0) {
         throw Exception('webm conversion failed');
       }
-      await SharePlus.instance.share(
+      await shareInTurn(
         ShareParams(files: [XFile(_withMp4Extension(fileDownloadPath.path))]),
       );
+      shared = true;
       return;
     }
 
-    await SharePlus.instance.share(
-      ShareParams(files: [XFile(downloadedFile.path)]),
-    );
+    await shareInTurn(ShareParams(files: [XFile(downloadedFile.path)]));
+    shared = true;
   } catch (e) {
     debugPrint('shareMedia error: $e');
     if (context.mounted) {
       _showFailed(context);
     }
+  } finally {
+    if (shareFolder != null) {
+      // What was shared stays until the next share; a failed one goes now.
+      finishShareFolder(shareFolder);
+      if (!shared) {
+        await _deleteQuietly(shareFolder);
+      }
+    }
+  }
+}
+
+/// How the share sheet is shown; replaced in tests.
+@visibleForTesting
+Future<void> Function(ShareParams params) showShareSheet =
+    (ShareParams params) async {
+      await SharePlus.instance.share(params);
+    };
+
+// Done when the share sheet is free: it shows one share at a time.
+Future<void> _shareSheetFree = Future<void>.value();
+
+/// Opens the share sheet for [params] once the shares before it have
+/// closed theirs, so shares readied at once open one after another.
+@visibleForTesting
+Future<void> shareInTurn(ShareParams params) async {
+  final Future<void> before = _shareSheetFree;
+  final Completer<void> mine = Completer<void>();
+  _shareSheetFree = mine.future;
+  try {
+    await before;
+    await showShareSheet(params);
+  } finally {
+    mine.complete();
   }
 }
 
@@ -771,14 +806,40 @@ Future<Directory> _newWorkFolder() async {
   return working.createTemp();
 }
 
-/// A folder for a share's files, in place of the last share's. The app a
-/// file is shared to may still read it after the share sheet closes, so
-/// it's kept until the next share, or the next launch.
-Future<Directory> _newShareFolder() async {
-  final Directory temp = await getTemporaryDirectory();
-  final Directory shared = Directory('${temp.path}/$_sharedFolderName');
-  await _deleteQuietly(shared);
-  return shared.create(recursive: true);
+// Share folders in use: getting ready, or with their share sheet open.
+final Set<String> _shareFoldersInUse = <String>{};
+int _shareFolderCount = 0;
+
+/// A folder for one share's files, kept until [finishShareFolder]. The
+/// folders of earlier shares, finished by now, go: the app a file was
+/// shared to may still read it after the share sheet closes, so each is
+/// kept until the next share starts, or the next launch.
+Future<Directory> _newShareFolder() async =>
+    newShareFolderIn(await getTemporaryDirectory());
+
+@visibleForTesting
+Future<Directory> newShareFolderIn(Directory temp) async {
+  final Directory shared = await Directory(
+    '${temp.path}/$_sharedFolderName',
+  ).create(recursive: true);
+  // In use from before it exists, so a share starting meanwhile keeps it.
+  final Directory folder = Directory(
+    '${shared.path}/${DateTime.now().microsecondsSinceEpoch}-'
+    '${_shareFolderCount++}',
+  );
+  _shareFoldersInUse.add(folder.path);
+  await for (final FileSystemEntity entity in shared.list()) {
+    if (!_shareFoldersInUse.contains(entity.path)) {
+      await _deleteQuietly(entity);
+    }
+  }
+  return folder.create();
+}
+
+/// [folder]'s share is done: the next share may delete it.
+@visibleForTesting
+void finishShareFolder(Directory folder) {
+  _shareFoldersInUse.remove(folder.path);
 }
 
 Future<void> _deleteQuietly(FileSystemEntity entity) async {

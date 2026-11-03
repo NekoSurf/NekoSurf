@@ -1,9 +1,9 @@
 ## What's new
 
 ### 💾 Save several at once
-- Saving to the Saved tab, saving to Photos and removing work per post: start saving one, swipe on and save the next while the first is still going
+- Saving to the Saved tab, saving to Photos, sharing and removing work per post: start saving one, swipe on and save the next while the first is still going
 - Each post keeps its own spinner and checkmark, and a save in progress still shows if you close and reopen the viewer
-- Sharing still goes one at a time; while one is being prepared, the share button is dimmed on the others
+- Shares get ready side by side, and their share sheets open one after another
 
 ### ⏳ See how far along it is
 - Saving and sharing show a ring that fills up as the file downloads and, for webms on iPhone, as it's converted to mp4

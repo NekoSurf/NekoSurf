@@ -401,20 +401,19 @@ class ThreadMediaViewerPage extends StatefulWidget {
 class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
   late int _currentIndex;
 
-  // Each post saves, downloads and is removed on its own (by _key), so
-  // several can at once; saving shows from SavedAttachmentsProvider.
+  // Each post saves, downloads, shares and is removed on its own (by _key),
+  // so several can at once; saving shows from SavedAttachmentsProvider.
   final Set<String> _removing = <String>{};
   final Set<String> _downloading = <String>{};
+  final Set<String> _sharing = <String>{};
   // How far along each is (see SaveProgress).
   final Map<String, ValueNotifier<double?>> _downloadProgress =
+      <String, ValueNotifier<double?>>{};
+  final Map<String, ValueNotifier<double?>> _shareProgress =
       <String, ValueNotifier<double?>>{};
   // A post's check mark after a save or download shows while its timer runs.
   final Map<String, Timer> _savedChecks = <String, Timer>{};
   final Map<String, Timer> _downloadedChecks = <String, Timer>{};
-  // One share at a time: the share sheet shows one at a time, and a share
-  // replaces the last one's files.
-  String? _sharing;
-  ValueNotifier<double?>? _shareProgress;
 
   @override
   void initState() {
@@ -557,15 +556,17 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
     }
   }
 
+  /// Gets the post ready to share, and opens the share sheet for it once
+  /// it's free (shareInTurn), even if the viewer has moved on by then.
   Future<void> _shareCurrentMedia() async {
-    if (_sharing != null) {
+    final Post post = _currentPost;
+    final String key = _key(post);
+    if (!_sharing.add(key)) {
       return;
     }
-    final Post post = _currentPost;
     final ValueNotifier<double?> progress = ValueNotifier<double?>(null);
     setState(() {
-      _sharing = _key(post);
-      _shareProgress = progress;
+      _shareProgress[key] = progress;
     });
     await shareMedia(
       _mediaUrl(post),
@@ -578,8 +579,8 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
       return;
     }
     setState(() {
-      _sharing = null;
-      _shareProgress = null;
+      _sharing.remove(key);
+      _shareProgress.remove(key);
     });
   }
 
@@ -592,7 +593,6 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
     final savedAttachments = context.watch<SavedAttachmentsProvider>();
     final isSaved = _isPostSaved(savedAttachments, _currentPost);
     final String key = _key(_currentPost);
-    final String? sharing = _sharing;
 
     return SharedMediaViewer(
       items: _items,
@@ -625,12 +625,9 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
           onDownload: _downloadToGallery,
         ),
         share: SharedMediaViewerShareAction(
-          isSharing: sharing == key,
-          progress: sharing == key ? _shareProgress : null,
-          // Dimmed on other posts while one is being shared.
-          onShare: sharing == null || sharing == key
-              ? _shareCurrentMedia
-              : null,
+          isSharing: _sharing.contains(key),
+          progress: _shareProgress[key],
+          onShare: _shareCurrentMedia,
         ),
         search: SharedMediaViewerSearchAction(
           // Search engines only take images, so videos use their thumbnail.
