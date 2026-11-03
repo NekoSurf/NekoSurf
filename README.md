@@ -20,22 +20,13 @@
 
 ## Download
 
-**iPhone:** join the [TestFlight beta](https://testflight.apple.com/join/ky5bRwMY), or add NekoSurf to AltStore or SideStore:
+**iPhone:** join the [TestFlight beta](https://testflight.apple.com/join/ky5bRwMY), or sideload it with AltStore, SideStore, Feather or LiveContainer:
 
-<a href="https://altdirect.app/?url=https://raw.githubusercontent.com/NekoSurf/NekoSurf/refs/heads/main/source.json&r=altstore">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/icons/altstore_dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="assets/icons/altstore_light.png">
-    <img alt="Add to AltStore" src="assets/icons/altstore_light.png" height="55">
-  </picture>
-</a>
-<a href="https://altdirect.app/?url=https://raw.githubusercontent.com/NekoSurf/NekoSurf/refs/heads/main/source.json&r=sidestore">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/icons/sidestore_dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="assets/icons/sidestore_light.png">
-    <img alt="Add to SideStore" src="assets/icons/sidestore_light.png" height="55">
-  </picture>
-</a>
+<h3>
+<a href="https://altdirect.app/?url=https://raw.githubusercontent.com/NekoSurf/NekoSurf/refs/heads/main/source.json"><img src="https://altdirect.app/assets/png/AltSource_Blue.png" alt="Add AltSource" width="200"></a>
+&nbsp;
+<a href="https://github.com/NekoSurf/NekoSurf/releases/latest/download/Runner.ipa"><img src="https://altdirect.app/assets/png/Download_Blue.png" alt="Download .ipa" width="200"></a>
+</h3>
 
 **Android:** [download the APK](https://github.com/NekoSurf/NekoSurf/releases/latest/download/app-arm64-v8a-release.apk) for most phones, or pick the one for yours from the [latest release](https://github.com/NekoSurf/NekoSurf/releases/latest).
 
@@ -70,6 +61,19 @@
 <p align="center">
   <img src="screenshots/galery.gif" width="32%" alt="Swiping through a thread's images and videos">
 </p>
+
+## Build it yourself
+
+With [Flutter](https://docs.flutter.dev/get-started/install) 3.47.9 (building for iPhone needs a Mac with Xcode):
+
+```sh
+git clone https://github.com/NekoSurf/NekoSurf.git
+cd NekoSurf
+flutter pub get
+flutter run
+```
+
+Found a bug or have an idea? [Open an issue](https://github.com/NekoSurf/NekoSurf/issues).
 
 ## License
 
