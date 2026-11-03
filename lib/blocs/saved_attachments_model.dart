@@ -29,7 +29,7 @@ class SavedAttachmentsProvider with ChangeNotifier {
   // Uploads being saved now, by id. Here rather than in a viewer, so one
   // reopened meanwhile still shows them saving, and can't save them twice.
   final Set<String> _saving = <String>{};
-  // How much of each has downloaded (see SaveProgress); a notifier of its
+  // How far along each is (see SaveProgress); a notifier of its
   // own, so the ring fills without rebuilding everything that watches this.
   final Map<String, ValueNotifier<double?>> _saveProgress =
       <String, ValueNotifier<double?>>{};
@@ -37,7 +37,7 @@ class SavedAttachmentsProvider with ChangeNotifier {
   /// Whether the upload [id] (its `tim`) is being saved right now.
   bool isSaving(String id) => _saving.contains(id);
 
-  /// How much of the upload [id] has downloaded while it's being saved.
+  /// How far along saving the upload [id] is, while it is.
   ValueListenable<double?>? saveProgressOf(String id) => _saveProgress[id];
 
   bool playing = true;

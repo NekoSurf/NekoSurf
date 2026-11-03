@@ -405,7 +405,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
   // several can at once; saving shows from SavedAttachmentsProvider.
   final Set<String> _removing = <String>{};
   final Set<String> _downloading = <String>{};
-  // How much of each has downloaded (see SaveProgress).
+  // How far along each is (see SaveProgress).
   final Map<String, ValueNotifier<double?>> _downloadProgress =
       <String, ValueNotifier<double?>>{};
   // A post's check mark after a save or download shows while its timer runs.

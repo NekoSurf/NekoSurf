@@ -3,7 +3,7 @@
 ### 💾 Save several at once
 - Saving, saving to Photos and removing now work per post: start saving one, swipe on and save the next while the first is still going
 - Each post keeps its own spinner and checkmark, and a save in progress still shows if you close and reopen the viewer
-- While a save, download or share is downloading the file, its button shows a ring filling up with how much has arrived
+- While saving, downloading or sharing, the button shows a ring filling up as the file downloads and, for webms on iPhone, as it's converted to mp4
 - Sharing still goes one at a time; while one is being prepared, the share button is dimmed on the others
 
 ## What's fixed

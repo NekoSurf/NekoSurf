@@ -19,10 +19,52 @@ import 'package:share_plus/share_plus.dart';
 
 import '../services/show_snackbar.dart';
 
-/// How much of the file a save or share needs has downloaded, from 0 to 1;
-/// null while that's unknown, and once it's in (converting, or handing it
-/// to Photos or the share sheet, which don't say how far along they are).
+/// How far along a save or share is, from 0 to 1; null while that's
+/// unknown. It covers downloading the file and, for a webm on iPhone,
+/// converting it ([SaveSteps]); handing it to Photos or the share sheet
+/// says nothing, so it stays full meanwhile.
 typedef SaveProgress = void Function(double? progress);
+
+/// [progress] in whole percent: a ring can't show finer, and it's fewer
+/// rebuilds.
+double? _wholePercent(double? progress) =>
+    progress == null ? null : (progress.clamp(0, 1) * 100).floor() / 100;
+
+/// Whether saving or sharing [fileName] converts it: webms on iPhone.
+bool _converts(String fileName) =>
+    Platform.isIOS && fileName.toLowerCase().endsWith('.webm');
+
+/// One ring over a save's steps: downloading, then, if it [converts],
+/// converting, half each. With nothing to download (a video already
+/// watched), converting fills all of it.
+@visibleForTesting
+class SaveSteps {
+  SaveSteps(this._onProgress, {required bool converts}) : _converts = converts;
+
+  final SaveProgress? _onProgress;
+  final bool _converts;
+  bool _downloaded = false;
+
+  /// The download's progress; null (size unknown) keeps what's showing.
+  void download(double? progress) {
+    if (progress == null) {
+      return;
+    }
+    _downloaded = true;
+    _report(_converts ? progress / 2 : progress);
+  }
+
+  /// The conversion's progress; null if it can't tell (a spinner).
+  void convert(double? progress) {
+    if (progress == null) {
+      _onProgress?.call(null);
+      return;
+    }
+    _report(_downloaded ? 0.5 + progress / 2 : progress);
+  }
+
+  void _report(double progress) => _onProgress?.call(_wholePercent(progress));
+}
 
 Future<bool> _requestPermission(Permission permission) async {
   if (await permission.isGranted) {
@@ -160,31 +202,54 @@ String _withMp4Extension(String name) => name.toLowerCase().endsWith('.webm')
 ///
 /// H.264 stores 4:2:0 video in whole pairs of pixels, and webms are often an
 /// odd size (853x480), so a stray last column or row is cropped off.
-Future<int> convertWebMToMP4(File webmFile, File mp4File) async {
+///
+/// [onProgress] hears how much of the video is converted, from 0 to 1, as
+/// ffmpeg reports the time it's up to; null if the webm doesn't say how
+/// long it is.
+Future<int> convertWebMToMP4(
+  File webmFile,
+  File mp4File, {
+  void Function(double? progress)? onProgress,
+}) async {
   mp4File = File(_withMp4Extension(mp4File.path));
 
-  final int? sourceBitrate = await _bitrate(webmFile);
+  final (int? sourceBitrate, int? durationMs) = await _probe(webmFile);
   final int bitrate = sourceBitrate == null ? 4000000 : 2 * sourceBitrate;
 
+  onProgress?.call(durationMs == null ? null : 0);
   // yuv420p + aac keep the mp4 compatible with the Photos library.
   final FFmpegSession session = await FFmpegKit.executeAsync(
     '-y -i "${webmFile.path}" -vf "crop=trunc(iw/2)*2:trunc(ih/2)*2:0:0" -c:v h264_videotoolbox -allow_sw 1 -b:v $bitrate -pix_fmt yuv420p -c:a aac "${mp4File.path}"',
+    onStatistics: onProgress == null || durationMs == null
+        ? null
+        : (Statistics statistics) =>
+              onProgress((statistics.time / durationMs).clamp(0, 1)),
   );
 
-  return session.getReturnCode();
+  final int returnCode = session.getReturnCode();
+  if (returnCode == 0) {
+    // ffmpeg's last report stops a frame or so short of the length.
+    onProgress?.call(1);
+  }
+  return returnCode;
 }
 
-/// [file]'s overall bitrate in bits per second, or null if ffprobe can't
-/// tell.
-Future<int?> _bitrate(File file) async {
+/// [file]'s overall bitrate in bits per second and its length in
+/// milliseconds, each null if ffprobe can't tell.
+Future<(int?, int?)> _probe(File file) async {
   try {
     final FFprobeSession session = await FFprobeKit.getMediaInformationAsync(
       file.path,
     );
-    return int.tryParse(session.getMediaInformation()?.bitrate ?? '');
+    final MediaInformation? info = session.getMediaInformation();
+    final double? seconds = double.tryParse(info?.duration ?? '');
+    return (
+      int.tryParse(info?.bitrate ?? ''),
+      seconds == null || seconds <= 0 ? null : (seconds * 1000).round(),
+    );
   } catch (e) {
-    debugPrint('bitrate probe failed for ${file.path}: $e');
-    return null;
+    debugPrint('probe failed for ${file.path}: $e');
+    return (null, null);
   }
 }
 
@@ -262,19 +327,26 @@ Future<bool> saveVideo(
     }
 
     work = await _newWorkFolder();
+    final SaveSteps steps = SaveSteps(
+      onProgress,
+      converts: _converts(fileName),
+    );
     final File downloadedFile = await _downloadInto(
       work,
       url,
       fileName,
-      onProgress: onProgress,
+      onProgress: steps.download,
     );
-    final String ext = '.${fileName.split('.').last}'.toLowerCase();
 
-    if (Platform.isIOS && ext == '.webm') {
+    if (_converts(fileName)) {
       final String outputName = _withMp4Extension(fileName);
       final File outputFile = File('${downloadedFile.parent.path}/$outputName');
 
-      final returnCode = await convertWebMToMP4(downloadedFile, outputFile);
+      final returnCode = await convertWebMToMP4(
+        downloadedFile,
+        outputFile,
+        onProgress: steps.convert,
+      );
 
       if (returnCode != 0) {
         throw Exception('webm conversion failed');
@@ -409,21 +481,25 @@ Future<void> shareMedia(
 
   try {
     final Directory shareFolder = await _newShareFolder();
+    final SaveSteps steps = SaveSteps(
+      onProgress,
+      converts: _converts(fileName),
+    );
     final File downloadedFile = await _downloadInto(
       shareFolder,
       url,
       fileName,
-      onProgress: onProgress,
+      onProgress: steps.download,
     );
-    final String ext = '.${fileName.split('.').last}'.toLowerCase();
 
-    if (Platform.isIOS && ext == '.webm') {
+    if (_converts(fileName)) {
       final File fileDownloadPath = File(
         '${downloadedFile.parent.path}/$fileName',
       );
       final int returnCode = await convertWebMToMP4(
         downloadedFile,
         fileDownloadPath,
+        onProgress: steps.convert,
       );
       // Only the mp4 is shared.
       await _deleteQuietly(downloadedFile);
@@ -491,11 +567,15 @@ Future<SavedAttachment?> saveAttachment(
     final String thumbsDir = await _ensureThumbnailsDir();
 
     work = await _newWorkFolder();
+    final SaveSteps steps = SaveSteps(
+      onProgress,
+      converts: _converts(fileName),
+    );
     final File downloadedFile = await _downloadInto(
       work,
       url,
       fileName,
-      onProgress: onProgress,
+      onProgress: steps.download,
     );
     final String ext = '.${fileName.split('.').last}'.toLowerCase();
 
@@ -511,8 +591,13 @@ Future<SavedAttachment?> saveAttachment(
         '${getNameWithoutExtension(fileName)}$targetExt';
 
     output = File('${savedDir.path}/$savedName');
-    if (Platform.isIOS && ext == '.webm') {
-      if (await convertWebMToMP4(downloadedFile, output) != 0) {
+    if (_converts(fileName)) {
+      if (await convertWebMToMP4(
+            downloadedFile,
+            output,
+            onProgress: steps.convert,
+          ) !=
+          0) {
         throw Exception('webm conversion failed');
       }
     } else {
@@ -692,35 +777,28 @@ Future<void> deleteSaveLeftoversIn(Directory temp) async {
 /// Puts [url] into [folder] as [fileName]: copied from the video cache when
 /// it was watched already, or once the player's download of it is done,
 /// otherwise downloaded. [onProgress] hears how far along either download
-/// is, in whole percent, and null once the file is in.
+/// is, in whole percent.
 Future<File> _downloadInto(
   Directory folder,
   String url,
   String fileName, {
   SaveProgress? onProgress,
 }) async {
-  // Whole percent: a ring can't show finer, and it's fewer rebuilds.
-  void report(double? progress) => onProgress?.call(
-    progress == null ? null : (progress.clamp(0, 1) * 100).floor() / 100,
+  void report(double? progress) => onProgress?.call(_wholePercent(progress));
+  final File file = File('${folder.path}/$fileName');
+  final File? cached = await VideoServer.instance.downloadedFile(
+    url,
+    onProgress: report,
   );
-  try {
-    final File file = File('${folder.path}/$fileName');
-    final File? cached = await VideoServer.instance.downloadedFile(
-      url,
-      onProgress: report,
-    );
-    if (cached != null) {
-      try {
-        return await cached.copy(file.path);
-      } catch (_) {
-        // Pruned meanwhile: download it after all.
-      }
+  if (cached != null) {
+    try {
+      return await cached.copy(file.path);
+    } catch (_) {
+      // Pruned meanwhile: download it after all.
     }
-    await _download(url, file, onProgress: report);
-    return file;
-  } finally {
-    report(null);
   }
+  await _download(url, file, onProgress: report);
+  return file;
 }
 
 @visibleForTesting

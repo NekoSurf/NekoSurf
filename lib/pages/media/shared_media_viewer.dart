@@ -27,7 +27,7 @@ class SharedMediaViewerSaveToggleAction {
   final bool isSaved;
   final bool isSaving;
 
-  /// How much of it has downloaded while saving; see [SharedMediaViewerAction.progress].
+  /// How far along saving is; see [SharedMediaViewerAction.progress].
   final ValueListenable<double?>? saveProgress;
   final bool isRemoving;
   final bool didSave;
@@ -45,7 +45,7 @@ class SharedMediaViewerDownloadAction {
 
   final bool isDownloading;
 
-  /// How much of it has downloaded; see [SharedMediaViewerAction.progress].
+  /// How far along it is; see [SharedMediaViewerAction.progress].
   final ValueListenable<double?>? progress;
   final bool didDownload;
   final VoidCallback onDownload;
@@ -60,7 +60,7 @@ class SharedMediaViewerShareAction {
 
   final bool isSharing;
 
-  /// How much of it has downloaded; see [SharedMediaViewerAction.progress].
+  /// How far along it is; see [SharedMediaViewerAction.progress].
   final ValueListenable<double?>? progress;
 
   /// Null while it can't be used (another share is being prepared).
@@ -103,8 +103,8 @@ class SharedMediaViewerAction {
 
   final IconData icon;
 
-  /// While busy, how much of what it waits for has downloaded, from 0 to 1:
-  /// a ring fills up while it's known, a spinner shows while it's null.
+  /// While busy, how far along it is, from 0 to 1 (see SaveProgress): a
+  /// ring fills up while it's known, a spinner shows while it's null.
   final ValueListenable<double?>? progress;
   final IconData? completedIcon;
   final VoidCallback? onPressed;
@@ -757,8 +757,8 @@ class _OverlayButton extends StatelessWidget {
   }
 }
 
-/// A busy button: a ring filling up while what it waits for downloads, a
-/// spinner while that's unknown or it's on to the next step.
+/// A busy button: a ring filling up as it gets along, a spinner while it
+/// can't tell how far.
 class _BusyIndicator extends StatelessWidget {
   const _BusyIndicator({this.progress});
 
@@ -803,7 +803,7 @@ class _ProgressRing extends StatelessWidget {
           strokeCap: StrokeCap.round,
           color: Colors.white,
           backgroundColor: Colors.white.withValues(alpha: 0.25),
-          semanticsLabel: 'Downloading',
+          semanticsLabel: 'Progress',
           semanticsValue: '${(value * 100).round()}%',
         ),
       ),

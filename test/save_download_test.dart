@@ -100,8 +100,6 @@ void main() {
     for (final double value in known) {
       expect(value * 100, closeTo((value * 100).round(), 1e-9));
     }
-    // Once it's in, what's left (converting, Photos) has no progress.
-    expect(heard.last, isNull);
     await server.close(force: true);
   });
 
