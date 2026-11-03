@@ -24,6 +24,15 @@
       ],
       "versions": [
         {
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.12.1%2B296/Runner.ipa",
+          "size": 33388656,
+          "version": "0.12.1",
+          "buildVersion": "296",
+          "date": "2026-11-03T15:56:43+00:00",
+          "localizedDescription": "Save and share several posts at once, with a ring showing how far along each is; saving is faster and more reliable, and going back from a thread no longer brings up the keyboard.",
+          "minOSVersion": "17.0"
+        },
+        {
           "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.12.1%2B295/Runner.ipa",
           "size": 33367765,
           "version": "0.12.1",
