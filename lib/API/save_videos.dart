@@ -628,14 +628,15 @@ Future<void> deleteSaveLeftoversIn(Directory temp) async {
 }
 
 /// Puts [url] into [folder] as [fileName]: copied from the video cache when
-/// it was watched already, otherwise downloaded.
+/// it was watched already, or once the player's download of it is done,
+/// otherwise downloaded.
 Future<File> _downloadInto(
   Directory folder,
   String url,
   String fileName,
 ) async {
   final File file = File('${folder.path}/$fileName');
-  final File? cached = await VideoServer.instance.cachedFile(url);
+  final File? cached = await VideoServer.instance.downloadedFile(url);
   if (cached != null) {
     try {
       return await cached.copy(file.path);
@@ -647,13 +648,17 @@ Future<File> _downloadInto(
   return file;
 }
 
+// A connection that sends nothing for this long is given up on, instead of
+// leaving the save spinning forever.
+const Duration _stallTimeout = Duration(seconds: 20);
+
 /// Downloads [url] into [file], leaving no partial file behind on failure.
 Future<void> _download(String url, File file) async {
   final Uri uri = Uri.parse(url);
   try {
-    final http.StreamedResponse response = await httpClient.send(
-      http.Request('GET', uri),
-    );
+    final http.StreamedResponse response = await httpClient
+        .send(http.Request('GET', uri))
+        .timeout(_stallTimeout);
     if (response.statusCode != HttpStatus.ok) {
       // Read to the end, or the connection isn't reused.
       await response.stream.drain<void>();
@@ -661,7 +666,7 @@ Future<void> _download(String url, File file) async {
     }
     final IOSink sink = file.openWrite();
     try {
-      await sink.addStream(response.stream);
+      await sink.addStream(response.stream.timeout(_stallTimeout));
     } finally {
       await sink.close();
     }

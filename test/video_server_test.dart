@@ -297,6 +297,43 @@ void main() {
     await upstream.server.close(force: true);
   });
 
+  test(
+    'saving waits for the download that is arriving, not a second one',
+    () async {
+      final Uint8List bytes = _video(1024 * 1024);
+      final _Upstream upstream = _Upstream(
+        bytes,
+        chunkDelay: const Duration(milliseconds: 20),
+      );
+      await upstream.start();
+
+      // Watched, then scrolled away from: held behind another watched video.
+      final String saved = upstream.url.replaceFirst('.webm', 's.webm');
+      unawaited(_get(await videos.source(saved)));
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      videos.unwatch(saved);
+      final Future<(HttpClientResponse, Uint8List)> other = _get(
+        await videos.source(upstream.url),
+      );
+      expect(await videos.cachedFile(saved), isNull);
+
+      // Saving it puts it first again, and hands over its finished file.
+      final File? file = await videos.downloadedFile(saved);
+      expect(file?.readAsBytesSync(), bytes);
+      expect(
+        upstream.ranges.where((String? range) => range == null).length,
+        2,
+        reason: 'one request each, none for the save',
+      );
+      await other;
+      await upstream.server.close(force: true);
+    },
+  );
+
+  test('saving a video nobody downloads finds nothing to wait for', () async {
+    expect(await videos.downloadedFile('http://127.0.0.1:1/b/1.webm'), isNull);
+  });
+
   test('reports, trims and clears the cache', () async {
     final Uint8List bytes = _video(512 * 1024);
     final _Upstream upstream = _Upstream(bytes);

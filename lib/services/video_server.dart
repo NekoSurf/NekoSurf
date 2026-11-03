@@ -68,6 +68,9 @@ class VideoServer {
   final Map<String, ValueNotifier<List<(double, double)>>> _loaded =
       <String, ValueNotifier<List<(double, double)>>>{};
   final Set<String> _watched = <String>{};
+  // Videos being saved or shared, waiting for their download; they go first
+  // like watched ones. Counted, as one may be saved and shared at once.
+  final Map<String, int> _awaited = <String, int>{};
   // Background downloads waiting their turn, next first.
   final List<_Download> _queued = <_Download>[];
 
@@ -156,6 +159,35 @@ class VideoServer {
     return null;
   }
 
+  /// The finished copy of [url] on disk, waiting for its download to end
+  /// if it's arriving now, so saving a video being watched doesn't fetch it
+  /// a second time alongside the player. That download goes first while
+  /// this waits. Null if it isn't cached or downloading, or its download
+  /// failed.
+  Future<File?> downloadedFile(String url) async {
+    final _Download? download = _downloads[url];
+    if (download == null) {
+      return cachedFile(url);
+    }
+    _awaited.update(url, (int n) => n + 1, ifAbsent: () => 1);
+    _schedule();
+    try {
+      await download.done;
+    } finally {
+      final int left = _awaited[url]! - 1;
+      if (left == 0) {
+        _awaited.remove(url);
+      } else {
+        _awaited[url] = left;
+      }
+      _schedule();
+    }
+    if (download.failed) {
+      return null;
+    }
+    return cachedFile(url);
+  }
+
   /// Forgets [url]'s cached copy (e.g. one that wouldn't play), so it's
   /// downloaded again next time.
   Future<void> evict(String url) async {
@@ -234,13 +266,16 @@ class VideoServer {
     });
   }
 
+  bool _isWatched(String url) =>
+      _watched.contains(url) || _awaited.containsKey(url);
+
   /// Runs the watched downloads; holds the others while one of those is
   /// still arriving, and otherwise runs [_maxBackground] of them.
   void _schedule() {
-    final bool watching = _downloads.keys.any(_watched.contains);
+    final bool watching = _downloads.keys.any(_isWatched);
     int background = 0;
     for (final _Download download in _downloads.values) {
-      if (_watched.contains(download.url)) {
+      if (_isWatched(download.url)) {
         _queued.remove(download);
         download.start();
       } else if (download.active) {
@@ -554,6 +589,10 @@ class _Download {
   DateTime? _lastMove;
   final Completer<int> _total = Completer<int>();
   Completer<void> _changed = Completer<void>();
+  final Completer<void> _done = Completer<void>();
+
+  /// Completes once the download has finished or failed.
+  Future<void> get done => _done.future;
 
   /// The full size, once 4chan has answered.
   Future<int> get totalLength => _total.future;
@@ -713,6 +752,9 @@ class _Download {
   void _finish() {
     onDone(this);
     _notify();
+    if (!_done.isCompleted) {
+      _done.complete();
+    }
   }
 
   /// Fetches from [from] up to what has arrived after it, or the end;
