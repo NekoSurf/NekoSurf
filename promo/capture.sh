@@ -67,12 +67,23 @@ fi
 
 echo "Booting the simulator..."
 xcrun simctl boot "$UDID" 2>/dev/null || true
-# Simulator.app is inside Xcode. By its path, as macOS doesn't always know
-# it by name ("Unable to find application named 'Simulator'").
-simulator_app="$(xcode-select -p)/Applications/Simulator.app"
-if [ -d "$simulator_app" ]; then
-  open "$simulator_app" --args -CurrentDeviceUDID "$UDID"
-elif ! open -a Simulator --args -CurrentDeviceUDID "$UDID" 2>/dev/null; then
+# Simulator.app is inside Xcode, and macOS doesn't always know it by name
+# ("Unable to find application named 'Simulator'"), e.g. when Xcode is
+# called Xcode-27.0.0.app. Look next to the simctl that xcrun uses, then
+# ask Spotlight, then try its bundle ID.
+open_simulator() {
+  local developer app
+  developer=$(dirname "$(dirname "$(dirname "$(xcrun --find simctl)")")")
+  app="$developer/Applications/Simulator.app"
+  if [ ! -d "$app" ]; then
+    app=$(mdfind "kMDItemCFBundleIdentifier == 'com.apple.iphonesimulator'" 2>/dev/null | head -n 1)
+  fi
+  if [ -n "$app" ] && [ -d "$app" ] && open "$app" --args -CurrentDeviceUDID "$UDID"; then
+    return 0
+  fi
+  open -b com.apple.iphonesimulator --args -CurrentDeviceUDID "$UDID" 2>/dev/null
+}
+if ! open_simulator; then
   echo "Couldn't open the Simulator app. Open it yourself (in Xcode: Xcode > Open Developer Tool > Simulator), then press Enter." >&2
   read -r
 fi
@@ -84,13 +95,17 @@ xcrun simctl status_bar "$UDID" override \
   --batteryState charged --batteryLevel 100
 trap 'xcrun simctl status_bar "$UDID" clear 2>/dev/null || true' EXIT
 
-if [ $build -eq 1 ]; then
-  echo "Building the app..."
-  flutter build ios --simulator --debug
-  xcrun simctl install "$UDID" build/ios/iphonesimulator/Runner.app
-fi
 xcrun simctl terminate "$UDID" "$BUNDLE_ID" 2>/dev/null || true
-xcrun simctl launch "$UDID" "$BUNDLE_ID" >/dev/null
+if [ $build -eq 1 ]; then
+  # Builds for this simulator only, so just this Mac's architecture:
+  # `flutter build ios --simulator` builds Intel too, which ffmpeg_kit's
+  # build hook has no library for ("lipo: same architectures (arm64)").
+  # --no-resident: install and launch, then let the app run on its own.
+  echo "Building and launching the app..."
+  flutter run -d "$UDID" --no-resident
+else
+  xcrun simctl launch "$UDID" "$BUNDLE_ID" >/dev/null
+fi
 
 mkdir -p "$OUT"
 cat <<'EOF'
