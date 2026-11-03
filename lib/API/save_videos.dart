@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
@@ -461,10 +462,11 @@ Future<SavedAttachment?> saveAttachment(
     return null;
   }
 
+  final Directory savedDir = Directory(savedMediaDirPath(baseDirectory.path));
+  String? savedName;
   Directory? work;
   File? output;
   try {
-    final Directory savedDir = Directory(savedMediaDirPath(baseDirectory.path));
     if (!await savedDir.exists()) {
       await savedDir.create(recursive: true);
     }
@@ -476,8 +478,13 @@ Future<SavedAttachment?> saveAttachment(
 
     final bool isVideoLike = ext == '.mp4' || ext == '.webm' || ext == '.gif';
     final String targetExt = Platform.isIOS && ext == '.webm' ? '.mp4' : ext;
-    final String savedName =
-        await uniqueSavedFileName(savedDir.path, displayName, targetExt) ??
+    savedName =
+        await uniqueSavedFileName(
+          savedDir.path,
+          displayName,
+          targetExt,
+          reserve: true,
+        ) ??
         '${getNameWithoutExtension(fileName)}$targetExt';
 
     output = File('${savedDir.path}/$savedName');
@@ -515,18 +522,29 @@ Future<SavedAttachment?> saveAttachment(
     }
     return null;
   } finally {
+    if (savedName != null) {
+      // Written (and found by name from now on), or deleted.
+      releaseSavedFileName(savedDir.path, savedName);
+    }
     if (work != null) {
       await _deleteQuietly(work);
     }
   }
 }
 
-/// Uploader-facing on-disk name (e.g. "cat.mp4"), unique within [dir]; null if unusable.
+// Names saves have picked but not written yet: two uploads called the same
+// thing, saved at once, mustn't both pick "cat.mp4".
+final Set<String> _reservedSavedPaths = <String>{};
+
+/// Uploader-facing on-disk name (e.g. "cat.mp4"), unique within [dir] and
+/// among names reserved by saves in progress; null if unusable. With
+/// [reserve], it's held for this save until [releaseSavedFileName].
 Future<String?> uniqueSavedFileName(
   String dir,
   String originalName,
-  String ext,
-) async {
+  String ext, {
+  bool reserve = false,
+}) async {
   final String base = getNameWithoutExtension(
     originalName,
   ).replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1f]'), '_').trim();
@@ -536,10 +554,22 @@ Future<String?> uniqueSavedFileName(
   final String clipped = base.length > 100 ? base.substring(0, 100) : base;
 
   String candidate = '$clipped$ext';
-  for (int n = 2; await File('$dir/$candidate').exists(); n++) {
+  for (int n = 2; ; n++) {
+    final String path = '$dir/$candidate';
+    // Checked after the await, with nothing in between to take it.
+    if (!await File(path).exists() && !_reservedSavedPaths.contains(path)) {
+      if (reserve) {
+        _reservedSavedPaths.add(path);
+      }
+      return candidate;
+    }
     candidate = '$clipped ($n)$ext';
   }
-  return candidate;
+}
+
+/// Lets go of a name [uniqueSavedFileName] reserved.
+void releaseSavedFileName(String dir, String name) {
+  _reservedSavedPaths.remove('$dir/$name');
 }
 
 /// Grabs a frame from the video itself; falls back to 4chan's tiny 125px thumb.
@@ -661,8 +691,44 @@ Future<File> _downloadInto(
 // leaving the save spinning forever.
 const Duration _stallTimeout = Duration(seconds: 20);
 
-/// Downloads [url] into [file], leaving no partial file behind on failure.
+// Tries per download. Several saves at once can make 4chan answer 429 (too
+// many requests); like the player's downloads, they wait and try again.
+const int _downloadAttempts = 3;
+
+/// The wait before a download's second try; it doubles after that, and
+/// again when 4chan said 429.
+@visibleForTesting
+Duration downloadRetryDelay = const Duration(seconds: 2);
+
+/// Downloads [url] into [file], trying again after a 429, a server error
+/// or a dropped connection; leaves no partial file behind on failure.
 Future<void> _download(String url, File file) async {
+  for (int attempt = 1; ; attempt++) {
+    try {
+      await _downloadOnce(url, file);
+      return;
+    } catch (e) {
+      final int? status = e is _DownloadStatus ? e.status : null;
+      final bool retryable = status == null
+          ? e is! FileSystemException
+          : status == 429 || status >= 500;
+      if (!retryable || attempt >= _downloadAttempts) {
+        rethrow;
+      }
+      await Future<void>.delayed(
+        downloadRetryDelay * ((1 << (attempt - 1)) * (status == 429 ? 2 : 1)),
+      );
+    }
+  }
+}
+
+class _DownloadStatus extends HttpException {
+  _DownloadStatus(this.status, Uri uri) : super('HTTP $status', uri: uri);
+
+  final int status;
+}
+
+Future<void> _downloadOnce(String url, File file) async {
   final Uri uri = Uri.parse(url);
   try {
     final http.StreamedResponse response = await httpClient
@@ -671,7 +737,7 @@ Future<void> _download(String url, File file) async {
     if (response.statusCode != HttpStatus.ok) {
       // Read to the end, or the connection isn't reused.
       await response.stream.drain<void>();
-      throw HttpException('HTTP ${response.statusCode}', uri: uri);
+      throw _DownloadStatus(response.statusCode, uri);
     }
     final IOSink sink = file.openWrite();
     try {

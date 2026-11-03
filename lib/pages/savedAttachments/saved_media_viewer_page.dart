@@ -33,9 +33,10 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
 
   bool _isRemoving = false;
 
-  bool _isDownloading = false;
-  bool _didDownload = false;
-  Timer? _downloadSuccessTimer;
+  // Each file goes to Photos on its own (by file name), so several can at
+  // once; its check mark shows while its timer runs.
+  final Set<String> _downloading = <String>{};
+  final Map<String, Timer> _downloadedChecks = <String, Timer>{};
 
   bool _isSharing = false;
 
@@ -48,7 +49,9 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
 
   @override
   void dispose() {
-    _downloadSuccessTimer?.cancel();
+    for (final Timer timer in _downloadedChecks.values) {
+      timer.cancel();
+    }
     super.dispose();
   }
 
@@ -89,14 +92,14 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
   }
 
   Future<void> _downloadCurrentToGallery() async {
-    if (_isDownloading || _attachments.isEmpty) {
+    if (_attachments.isEmpty) {
       return;
     }
-    final attachment = _attachments[_currentIndex];
-    final fileName = _fileName(attachment);
-    setState(() {
-      _isDownloading = true;
-    });
+    final String fileName = _fileName(_attachments[_currentIndex]);
+    if (!_downloading.add(fileName)) {
+      return;
+    }
+    setState(() {});
     final bool saved = await saveVideo(
       fileName,
       fileName,
@@ -107,19 +110,20 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
       return;
     }
     setState(() {
-      _isDownloading = false;
-      _didDownload = saved;
-    });
-    if (!saved) {
-      return;
-    }
-    _downloadSuccessTimer = Timer(const Duration(milliseconds: 1200), () {
-      if (!mounted) {
-        return;
+      _downloading.remove(fileName);
+      if (saved) {
+        _downloadedChecks[fileName]?.cancel();
+        _downloadedChecks[fileName] = Timer(
+          const Duration(milliseconds: 1200),
+          () {
+            if (mounted) {
+              setState(() {
+                _downloadedChecks.remove(fileName);
+              });
+            }
+          },
+        );
       }
-      setState(() {
-        _didDownload = false;
-      });
     });
   }
 
@@ -204,15 +208,16 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
 
   @override
   Widget build(BuildContext context) {
+    final String currentFileName = _attachments.isEmpty
+        ? ''
+        : _fileName(_attachments[_currentIndex]);
     return SharedMediaViewer(
       items: _items,
       initialIndex: _currentIndex,
       mediaNameBuilder: (int index) => _displayName(_attachments[index]),
       onClose: () => Navigator.of(context).maybePop(),
       onIndexChanged: (int index) {
-        _downloadSuccessTimer?.cancel();
         setState(() {
-          _didDownload = false;
           _currentIndex = index;
         });
       },
@@ -227,8 +232,8 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
           onSave: () {},
         ),
         download: SharedMediaViewerDownloadAction(
-          isDownloading: _isDownloading,
-          didDownload: _didDownload,
+          isDownloading: _downloading.contains(currentFileName),
+          didDownload: _downloadedChecks.containsKey(currentFileName),
           onDownload: _downloadCurrentToGallery,
         ),
         share: SharedMediaViewerShareAction(

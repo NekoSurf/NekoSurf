@@ -401,16 +401,16 @@ class ThreadMediaViewerPage extends StatefulWidget {
 class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
   late int _currentIndex;
 
-  bool _isSaving = false;
-  bool _isRemoving = false;
-  bool _didSaveAttachment = false;
-  Timer? _saveSuccessTimer;
-
-  bool _isDownloading = false;
-  bool _didDownload = false;
-  Timer? _downloadSuccessTimer;
-
-  bool _isSharing = false;
+  // Each post saves, downloads and is removed on its own (by _key), so
+  // several can at once; saving shows from SavedAttachmentsProvider.
+  final Set<String> _removing = <String>{};
+  final Set<String> _downloading = <String>{};
+  // A post's check mark after a save or download shows while its timer runs.
+  final Map<String, Timer> _savedChecks = <String, Timer>{};
+  final Map<String, Timer> _downloadedChecks = <String, Timer>{};
+  // One share at a time: the share sheet shows one at a time, and a share
+  // replaces the last one's files.
+  String? _sharing;
 
   @override
   void initState() {
@@ -421,8 +421,12 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
 
   @override
   void dispose() {
-    _saveSuccessTimer?.cancel();
-    _downloadSuccessTimer?.cancel();
+    for (final Timer timer in [
+      ..._savedChecks.values,
+      ..._downloadedChecks.values,
+    ]) {
+      timer.cancel();
+    }
     super.dispose();
   }
 
@@ -436,8 +440,11 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
   // `tim` is unique per upload; user-provided `filename` is not.
   String _downloadName(Post post) => '${post.tim}${post.ext}';
 
+  /// Which upload [post] is: its `tim`, as saved attachments know it.
+  String _key(Post post) => post.tim.toString();
+
   bool _isPostSaved(SavedAttachmentsProvider provider, Post post) {
-    final String baseName = post.tim.toString();
+    final String baseName = _key(post);
     return provider.getSavedAttachments().any(
       (a) => provider.attachmentId(a) == baseName,
     );
@@ -462,79 +469,68 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
   }
 
   Future<void> _saveToAttachments() async {
-    if (_isSaving) {
-      return;
-    }
     final savedAttachments = context.read<SavedAttachmentsProvider>();
     // The one being saved, even if the viewer moves on meanwhile.
     final Post post = _currentPost;
-    if (_isPostSaved(savedAttachments, post)) {
-      _showSaveConfirmation();
+    final String key = _key(post);
+    if (savedAttachments.isSaving(key)) {
       return;
     }
-    setState(() {
-      _isSaving = true;
-    });
+    if (_isPostSaved(savedAttachments, post)) {
+      _showCheck(_savedChecks, key);
+      return;
+    }
     await savedAttachments.addSavedAttachments(
       context,
       widget.board,
       _fileName(post),
       _downloadName(post),
     );
-    if (!mounted) {
-      return;
-    }
-    final saveSucceeded = _isPostSaved(savedAttachments, post);
-    setState(() {
-      _isSaving = false;
-    });
-    if (saveSucceeded && identical(post, _currentPost)) {
-      _showSaveConfirmation();
+    if (mounted && _isPostSaved(savedAttachments, post)) {
+      _showCheck(_savedChecks, key);
     }
   }
 
   Future<void> _removeFromAttachments() async {
-    if (_isRemoving) {
+    final Post post = _currentPost;
+    final String key = _key(post);
+    if (!_removing.add(key)) {
       return;
     }
-    setState(() {
-      _isRemoving = true;
-    });
+    setState(() {});
     await context.read<SavedAttachmentsProvider>().removeSavedAttachments(
-      _downloadName(_currentPost),
+      _downloadName(post),
       context,
     );
     if (!mounted) {
       return;
     }
     setState(() {
-      _isRemoving = false;
+      _removing.remove(key);
     });
   }
 
-  void _showSaveConfirmation() {
-    _saveSuccessTimer?.cancel();
+  /// Shows [key]'s check mark in [checks] for a moment.
+  void _showCheck(Map<String, Timer> checks, String key) {
+    checks[key]?.cancel();
     setState(() {
-      _didSaveAttachment = true;
-    });
-    _saveSuccessTimer = Timer(const Duration(milliseconds: 1200), () {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _didSaveAttachment = false;
+      checks[key] = Timer(const Duration(milliseconds: 1200), () {
+        if (mounted) {
+          setState(() {
+            checks.remove(key);
+          });
+        }
       });
     });
   }
 
   Future<void> _downloadToGallery() async {
-    if (_isDownloading) {
+    final Post post = _currentPost;
+    final String key = _key(post);
+    if (!_downloading.add(key)) {
       return;
     }
-    final post = _currentPost;
-    setState(() {
-      _isDownloading = true;
-    });
+    setState(() {});
     final bool saved = await saveVideo(
       _mediaUrl(post),
       _fileName(post),
@@ -544,39 +540,28 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
     if (!mounted) {
       return;
     }
-    // Its check mark only belongs on the post it was for.
-    final bool showDone = saved && identical(post, _currentPost);
     setState(() {
-      _isDownloading = false;
-      _didDownload = showDone;
+      _downloading.remove(key);
     });
-    if (!showDone) {
-      return;
+    if (saved) {
+      _showCheck(_downloadedChecks, key);
     }
-    _downloadSuccessTimer = Timer(const Duration(milliseconds: 1200), () {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _didDownload = false;
-      });
-    });
   }
 
   Future<void> _shareCurrentMedia() async {
-    if (_isSharing) {
+    if (_sharing != null) {
       return;
     }
-    final post = _currentPost;
+    final Post post = _currentPost;
     setState(() {
-      _isSharing = true;
+      _sharing = _key(post);
     });
     await shareMedia(_mediaUrl(post), _fileName(post), context, isSaved: false);
     if (!mounted) {
       return;
     }
     setState(() {
-      _isSharing = false;
+      _sharing = null;
     });
   }
 
@@ -588,6 +573,8 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
   Widget build(BuildContext context) {
     final savedAttachments = context.watch<SavedAttachmentsProvider>();
     final isSaved = _isPostSaved(savedAttachments, _currentPost);
+    final String key = _key(_currentPost);
+    final String? sharing = _sharing;
 
     return SharedMediaViewer(
       items: _items,
@@ -598,11 +585,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
         if (index == _currentIndex) {
           return;
         }
-        _saveSuccessTimer?.cancel();
-        _downloadSuccessTimer?.cancel();
         setState(() {
-          _didSaveAttachment = false;
-          _didDownload = false;
           _currentIndex = index;
         });
         widget.currentPostIdNotifier.value = _currentPostId;
@@ -610,20 +593,23 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
       actions: SharedMediaViewerTopBarActions(
         saveToggle: SharedMediaViewerSaveToggleAction(
           isSaved: isSaved,
-          isSaving: _isSaving,
-          isRemoving: _isRemoving,
-          didSave: _didSaveAttachment,
+          isSaving: savedAttachments.isSaving(key),
+          isRemoving: _removing.contains(key),
+          didSave: _savedChecks.containsKey(key),
           onSave: _saveToAttachments,
           onRemove: _removeFromAttachments,
         ),
         download: SharedMediaViewerDownloadAction(
-          isDownloading: _isDownloading,
-          didDownload: _didDownload,
+          isDownloading: _downloading.contains(key),
+          didDownload: _downloadedChecks.containsKey(key),
           onDownload: _downloadToGallery,
         ),
         share: SharedMediaViewerShareAction(
-          isSharing: _isSharing,
-          onShare: _shareCurrentMedia,
+          isSharing: sharing == key,
+          // Dimmed on other posts while one is being shared.
+          onShare: sharing == null || sharing == key
+              ? _shareCurrentMedia
+              : null,
         ),
         search: SharedMediaViewerSearchAction(
           // Search engines only take images, so videos use their thumbnail.

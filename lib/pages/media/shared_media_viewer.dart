@@ -49,7 +49,9 @@ class SharedMediaViewerShareAction {
   });
 
   final bool isSharing;
-  final VoidCallback onShare;
+
+  /// Null while it can't be used (another share is being prepared).
+  final VoidCallback? onShare;
 }
 
 class SharedMediaViewerSearchAction {

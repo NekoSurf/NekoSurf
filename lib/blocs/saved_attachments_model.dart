@@ -25,6 +25,13 @@ class SavedAttachmentsProvider with ChangeNotifier {
 
   List<String> list = [];
 
+  // Uploads being saved now, by id. Here rather than in a viewer, so one
+  // reopened meanwhile still shows them saving, and can't save them twice.
+  final Set<String> _saving = <String>{};
+
+  /// Whether the upload [id] (its `tim`) is being saved right now.
+  bool isSaving(String id) => _saving.contains(id);
+
   bool playing = true;
 
   bool selecting = false;
@@ -130,8 +137,18 @@ class SavedAttachmentsProvider with ChangeNotifier {
       downloadName.lastIndexOf('.'),
     );
 
-    if (!_containsId(nameWithoutExtension)) {
-      final SavedAttachment? savedAttachment = await saveAttachment(
+    if (_containsId(nameWithoutExtension)) {
+      debugPrint('Already saved');
+      return;
+    }
+    if (!_saving.add(nameWithoutExtension)) {
+      return;
+    }
+    notifyListeners();
+
+    final SavedAttachment? savedAttachment;
+    try {
+      savedAttachment = await saveAttachment(
         urls.boardFile(board, downloadName),
         urls.boardFile(board, '${nameWithoutExtension}s.jpg'),
         downloadName,
@@ -139,15 +156,17 @@ class SavedAttachmentsProvider with ChangeNotifier {
         context,
         this,
       );
+    } finally {
+      _saving.remove(nameWithoutExtension);
+    }
 
-      if (savedAttachment != null) {
-        savedAttachment.originalName = fileName;
-        list.add(json.encode(savedAttachment));
-        notifyListeners();
-        await _prefs.setStringList(_key, list);
-      }
-    } else {
-      debugPrint('Already saved');
+    if (savedAttachment != null) {
+      savedAttachment.originalName = fileName;
+      list.add(json.encode(savedAttachment));
+    }
+    notifyListeners();
+    if (savedAttachment != null) {
+      await _prefs.setStringList(_key, list);
     }
   }
 
