@@ -9,6 +9,32 @@
   which would make Claude the author.
 - End the message with the `Co-Authored-By: Claude ...` line.
 
+## Keeping the docs up to date
+
+Before finishing any change, check whether it makes something in these
+files untrue or incomplete, and update them in the same piece of work (or
+say why they don't need it). Check each claim against the code, as with
+the release notes.
+
+- `README.md`, the front page: what the app does (in the user's words,
+  short), how to get it (the TestFlight, AltSource and download links, and
+  the release file names they point to, like `app-arm64-v8a-release.apk`
+  and `Runner.ipa`), and how to build it (the Flutter version is
+  `FLUTTER_VERSION` in `.github/workflows/checks.yml` and `_build.yml`).
+- `docs/index.html`, the website: the same as the README, plus any
+  version or release it names.
+- `privacy_policy.md`, a legal text: what the app keeps on the phone,
+  every service it connects to, the permissions it asks for, and anything
+  that sends data off the phone (analytics, crash reporting, a new SDK or
+  package). Look for:
+  - new hosts: `grep -rhoE "https?://[a-zA-Z0-9.-]+" lib | sort -u`
+  - permission requests in `lib` (`Permission.`), and the declarations in
+    `ios/Runner/Info.plist` and `android/app/src/main/AndroidManifest.xml`
+  - new dependencies in `pubspec.yaml`
+
+  When it changes, update its "Last updated" date, and say what changed
+  when you report back.
+
 ## Release notes
 
 A release is made by running the Prepare Release workflow
