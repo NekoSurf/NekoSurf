@@ -466,8 +466,9 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
       return;
     }
     final savedAttachments = context.read<SavedAttachmentsProvider>();
-    final downloadName = _downloadName(_currentPost);
-    if (_isPostSaved(savedAttachments, _currentPost)) {
+    // The one being saved, even if the viewer moves on meanwhile.
+    final Post post = _currentPost;
+    if (_isPostSaved(savedAttachments, post)) {
       _showSaveConfirmation();
       return;
     }
@@ -477,17 +478,17 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
     await savedAttachments.addSavedAttachments(
       context,
       widget.board,
-      _fileName(_currentPost),
-      downloadName,
+      _fileName(post),
+      _downloadName(post),
     );
     if (!mounted) {
       return;
     }
-    final saveSucceeded = _isPostSaved(savedAttachments, _currentPost);
+    final saveSucceeded = _isPostSaved(savedAttachments, post);
     setState(() {
       _isSaving = false;
     });
-    if (saveSucceeded) {
+    if (saveSucceeded && identical(post, _currentPost)) {
       _showSaveConfirmation();
     }
   }
@@ -543,11 +544,13 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
     if (!mounted) {
       return;
     }
+    // Its check mark only belongs on the post it was for.
+    final bool showDone = saved && identical(post, _currentPost);
     setState(() {
       _isDownloading = false;
-      _didDownload = saved;
+      _didDownload = showDone;
     });
-    if (!saved) {
+    if (!showDone) {
       return;
     }
     _downloadSuccessTimer = Timer(const Duration(milliseconds: 1200), () {

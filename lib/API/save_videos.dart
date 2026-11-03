@@ -139,19 +139,30 @@ Future<bool> checkAndRequestPermissions({required bool skipIfExists}) async {
   return false; // Unsupported platforms
 }
 
+/// What a saved [name] is called on disk: on iOS, webms are kept as mp4s.
+String savedNameOnDisk(String name) =>
+    Platform.isIOS ? _withMp4Extension(name) : name;
+
+String _withMp4Extension(String name) => name.toLowerCase().endsWith('.webm')
+    ? '${name.substring(0, name.length - 5)}.mp4'
+    : name;
+
 /// Converts a webm to an H.264 mp4 with the hardware encoder (iOS only).
 /// It needs more bits than VP9 for the same picture: at twice the webm's
 /// bitrate it's about as close to the webm as MPEG-4 at -qscale 0 was, at
 /// a fraction of that size.
+///
+/// H.264 stores 4:2:0 video in whole pairs of pixels, and webms are often an
+/// odd size (853x480), so a stray last column or row is cropped off.
 Future<int> convertWebMToMP4(File webmFile, File mp4File) async {
-  mp4File = File(mp4File.path.replaceAll('.webm', '.mp4'));
+  mp4File = File(_withMp4Extension(mp4File.path));
 
   final int? sourceBitrate = await _bitrate(webmFile);
   final int bitrate = sourceBitrate == null ? 4000000 : 2 * sourceBitrate;
 
   // yuv420p + aac keep the mp4 compatible with the Photos library.
   final FFmpegSession session = await FFmpegKit.executeAsync(
-    '-y -i "${webmFile.path}" -c:v h264_videotoolbox -allow_sw 1 -b:v $bitrate -pix_fmt yuv420p -c:a aac "${mp4File.path}"',
+    '-y -i "${webmFile.path}" -vf "crop=trunc(iw/2)*2:trunc(ih/2)*2:0:0" -c:v h264_videotoolbox -allow_sw 1 -b:v $bitrate -pix_fmt yuv420p -c:a aac "${mp4File.path}"',
   );
 
   return session.getReturnCode();
@@ -213,12 +224,6 @@ Future<bool> saveVideo(
     return false;
   }
 
-  String toMp4Name(String name) {
-    return name.toLowerCase().endsWith('.webm')
-        ? '${name.substring(0, name.length - 5)}.mp4'
-        : name;
-  }
-
   Directory? work;
   try {
     if (isSaved) {
@@ -227,7 +232,7 @@ Future<bool> saveVideo(
       final Directory directory = await requestDirectory();
       // On iOS, saved attachments are converted from .webm to .mp4
       // On Android, they remain as .webm
-      final String savedName = Platform.isIOS ? toMp4Name(fileName) : fileName;
+      final String savedName = savedNameOnDisk(fileName);
       final String savedPath = savedMediaPath(directory.path, savedName);
       final File savedFile = File(savedPath);
 
@@ -254,7 +259,7 @@ Future<bool> saveVideo(
     final String ext = '.${fileName.split('.').last}'.toLowerCase();
 
     if (Platform.isIOS && ext == '.webm') {
-      final String outputName = toMp4Name(fileName);
+      final String outputName = _withMp4Extension(fileName);
       final File outputFile = File('${downloadedFile.parent.path}/$outputName');
 
       final returnCode = await convertWebMToMP4(downloadedFile, outputFile);
@@ -276,12 +281,7 @@ Future<bool> saveVideo(
   } catch (e) {
     debugPrint('saveVideo error: $e');
     if (context.mounted) {
-      showCupertinoSnackbar(
-        const Duration(milliseconds: 1800),
-        true,
-        context,
-        'Download failed :(',
-      );
+      _showFailed(context);
     }
     return false;
   } finally {
@@ -317,9 +317,7 @@ Future<int> saveSavedAttachmentsToGallery(
 
   int failed = 0;
   for (final fileName in fileNames) {
-    final String savedName = Platform.isIOS
-        ? fileName.replaceAll('.webm', '.mp4')
-        : fileName;
+    final String savedName = savedNameOnDisk(fileName);
     final String savedPath = savedMediaPath(directory.path, savedName);
     try {
       if (!await File(savedPath).exists()) {
@@ -351,10 +349,10 @@ Future<void> shareSavedAttachments(
 
   final files = <XFile>[];
   for (final fileName in fileNames) {
-    final String savedName = Platform.isIOS
-        ? fileName.replaceAll('.webm', '.mp4')
-        : fileName;
-    final String savedPath = savedMediaPath(directory.path, savedName);
+    final String savedPath = savedMediaPath(
+      directory.path,
+      savedNameOnDisk(fileName),
+    );
     if (await File(savedPath).exists()) {
       files.add(XFile(savedPath));
     }
@@ -378,13 +376,21 @@ Future<void> shareMedia(
     } catch (_) {
       return;
     }
-    // On iOS, saved attachments are converted from .webm to .mp4
-    // On Android, they remain as .webm
-    final String savedName = Platform.isIOS
-        ? fileName.replaceAll('.webm', '.mp4')
-        : fileName;
-    final String savedPath = savedMediaPath(directory.path, savedName);
-    await SharePlus.instance.share(ShareParams(files: [XFile(savedPath)]));
+    final String savedPath = savedMediaPath(
+      directory.path,
+      savedNameOnDisk(fileName),
+    );
+    try {
+      if (!await File(savedPath).exists()) {
+        throw FileSystemException('Saved file is gone', savedPath);
+      }
+      await SharePlus.instance.share(ShareParams(files: [XFile(savedPath)]));
+    } catch (e) {
+      debugPrint('shareMedia error: $e');
+      if (context.mounted) {
+        _showFailed(context, "Couldn't share it");
+      }
+    }
     return;
   }
 
@@ -404,20 +410,12 @@ Future<void> shareMedia(
       // Only the mp4 is shared.
       await _deleteQuietly(downloadedFile);
 
-      if (returnCode == 0) {
-        await SharePlus.instance.share(
-          ShareParams(
-            files: [XFile(fileDownloadPath.path.replaceAll('.webm', '.mp4'))],
-          ),
-        );
-      } else if (context.mounted) {
-        showCupertinoSnackbar(
-          const Duration(milliseconds: 1800),
-          true,
-          context,
-          'Download failed :(',
-        );
+      if (returnCode != 0) {
+        throw Exception('webm conversion failed');
       }
+      await SharePlus.instance.share(
+        ShareParams(files: [XFile(_withMp4Extension(fileDownloadPath.path))]),
+      );
       return;
     }
 
@@ -426,9 +424,27 @@ Future<void> shareMedia(
     );
   } catch (e) {
     debugPrint('shareMedia error: $e');
+    if (context.mounted) {
+      _showFailed(context);
+    }
   }
 }
 
+void _showFailed(
+  BuildContext context, [
+  String message = 'Download failed :(',
+]) {
+  showCupertinoSnackbar(
+    const Duration(milliseconds: 1800),
+    true,
+    context,
+    message,
+  );
+}
+
+/// Saves an attachment to the Saved tab; null if it couldn't, which is
+/// shown in a snackbar over [context] (or, without storage access, a sheet).
+/// A failed save leaves no file behind.
 Future<SavedAttachment?> saveAttachment(
   String url,
   String thumbnailUrl,
@@ -437,13 +453,17 @@ Future<SavedAttachment?> saveAttachment(
   BuildContext context,
   SavedAttachmentsProvider savedAttachmentsProvider,
 ) async {
-  Directory? work;
+  final Directory baseDirectory;
   try {
-    final Directory baseDirectory = await requestDirectory(context: context);
-    if (!await baseDirectory.exists()) {
-      return null;
-    }
+    baseDirectory = await requestDirectory(context: context);
+  } catch (_) {
+    // The permission sheet said why.
+    return null;
+  }
 
+  Directory? work;
+  File? output;
+  try {
     final Directory savedDir = Directory(savedMediaDirPath(baseDirectory.path));
     if (!await savedDir.exists()) {
       await savedDir.create(recursive: true);
@@ -454,56 +474,45 @@ Future<SavedAttachment?> saveAttachment(
     final File downloadedFile = await _downloadInto(work, url, fileName);
     final String ext = '.${fileName.split('.').last}'.toLowerCase();
 
-    String finalFileName = fileName;
-    String thumbnailPath = fileName;
-
     final bool isVideoLike = ext == '.mp4' || ext == '.webm' || ext == '.gif';
     final String targetExt = Platform.isIOS && ext == '.webm' ? '.mp4' : ext;
     final String savedName =
         await uniqueSavedFileName(savedDir.path, displayName, targetExt) ??
-        fileName.replaceAll('.webm', targetExt);
+        '${getNameWithoutExtension(fileName)}$targetExt';
 
+    output = File('${savedDir.path}/$savedName');
     if (Platform.isIOS && ext == '.webm') {
-      final File outputFile = File('${savedDir.path}/$savedName');
-      final int returnCode = await convertWebMToMP4(downloadedFile, outputFile);
-
-      if (returnCode != 0) {
-        return null;
+      if (await convertWebMToMP4(downloadedFile, output) != 0) {
+        throw Exception('webm conversion failed');
       }
-
-      finalFileName = savedName;
-      thumbnailPath = await _videoThumbnail(
-        '${savedDir.path}/$finalFileName',
-        fileName,
-        thumbnailUrl,
-        thumbsDir,
-      );
     } else {
-      final File outputFile = File('${savedDir.path}/$savedName');
-      await downloadedFile.copy(outputFile.path);
-      finalFileName = savedName;
-      thumbnailPath = savedName;
-
-      if (isVideoLike) {
-        thumbnailPath = await _videoThumbnail(
-          outputFile.path,
-          fileName,
-          thumbnailUrl,
-          thumbsDir,
-        );
-      }
+      await downloadedFile.copy(output.path);
     }
 
-    return SavedAttachment(
+    final String thumbnailPath = isVideoLike
+        ? await _videoThumbnail(output.path, fileName, thumbnailUrl, thumbsDir)
+        : savedName;
+
+    final SavedAttachment attachment = SavedAttachment(
       savedAttachmentType: isVideoLike
           ? SavedAttachmentType.video
           : SavedAttachmentType.image,
-      fileName: finalFileName,
+      fileName: savedName,
       thumbnail: thumbnailPath,
       id: getNameWithoutExtension(fileName),
     );
+    output = null;
+    return attachment;
   } catch (e, st) {
     debugPrint('saveAttachment error: $e\n$st');
+    final File? partial = output;
+    if (partial != null) {
+      // A half-converted or unlisted file would linger in Files.
+      await _deleteQuietly(partial);
+    }
+    if (context.mounted) {
+      _showFailed(context, "Couldn't save it");
+    }
     return null;
   } finally {
     if (work != null) {
