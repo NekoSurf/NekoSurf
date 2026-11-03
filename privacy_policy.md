@@ -1,74 +1,60 @@
-**Privacy Policy**
+# Privacy Policy
 
-This privacy policy applies to the NekoSurf app (hereby referred to as "Application") for mobile devices that was created by (hereby referred to as "Service Provider") as an Open Source service. This service is intended for use "AS IS".
+_Last updated: 3 November 2026_
 
-**Information Collection and Use**
+NekoSurf is a free, open-source app for reading 4chan, made by wrngwrld. This policy explains what the app does with your data. In short:
 
-The Application collects information when you download and use it. This information may include information such as
+- There's no account, no ads, no analytics and no tracking.
+- The app sends nothing to the developer.
+- What you favorite, bookmark, read and save stays on your phone.
 
-- Your device's Internet Protocol address (e.g. IP address)
-- The pages of the Application that you visit, the time and date of your visit, the time spent on those pages
-- The time spent on the Application
-- The operating system you use on your mobile device
+## What stays on your phone
 
-The Application does not gather precise information about the location of your mobile device.
+NekoSurf keeps these on your phone only:
 
-The Application collects your device's location, which helps the Service Provider determine your approximate geographical location and make use of in below ways:
+- Your settings, favorite boards, bookmarks and the filters you set to hide threads
+- The threads you've visited (you can turn this off in Settings → Privacy → Track history) and the posts you've already seen (watched posts)
+- What you save to the Saved tab: on iPhone in the app's folder (which you can see in the Files app), on Android in Download/4Chan
+- Images and videos you've viewed, cached so they load faster the next time
 
-- Geolocation Services: The Service Provider utilizes location data to provide features such as personalized content, relevant recommendations, and location-based services.
-- Analytics and Improvements: Aggregated and anonymized location data helps the Service Provider to analyze user behavior, identify trends, and improve the overall performance and functionality of the Application.
-- Third-Party Services: Periodically, the Service Provider may transmit anonymized location data to external services. These services assist them in enhancing the Application and optimizing their offerings.
+## What leaves your phone
 
-The Service Provider may use the information you provided to contact you from time to time to provide you with important information, required notices and marketing promotions.
+To work, the app connects to these services. Like any website you visit, they receive your IP address and basic technical details about the request:
 
-For a better experience, while using the Application, the Service Provider may require you to provide us with certain personally identifiable information. The information that the Service Provider request will be retained by them and used as described in this privacy policy.
+- **4chan**, to load boards, threads, images and videos. NekoSurf only reads from 4chan; it doesn't post. 4chan's own policies apply to what it receives.
+- **find.4chan.org**, only when you search all of 4chan. It's protected by Cloudflare, so the search runs in a browser view inside the app, which completes Cloudflare's check and keeps its cookie for later searches.
+- **GitHub**, to check whether a newer version of the app is out. This request carries nothing about you or how you use the app. [GitHub's privacy statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement) applies.
 
-**Third Party Access**
+Only when you choose them:
 
-Only aggregated, anonymized data is periodically transmitted to external services to aid the Service Provider in improving the Application and their service. The Service Provider may share your information with third parties in the ways that are described in this privacy statement.
+- **Reverse image search** opens Google Lens, Bing, Yandex or SauceNAO in your browser with the address of the image you picked. That service's privacy policy applies.
+- **Links** you open go to your browser.
 
-Please note that the Application utilizes third-party services that have their own Privacy Policy about handling data. Below are the links to the Privacy Policy of the third-party service providers used by the Application:
+## Permissions
 
-- [Google Play Services](https://www.google.com/policies/privacy/)
+- **On iPhone**, the app asks to add to your photo library when you first save something to Photos. It can only add; it can't see your photos.
+- **On Android**, the app asks for storage access to keep the Saved tab's files in Download/4Chan, and on Android 9 and older also to save to your gallery.
+- The app doesn't use your camera, microphone, contacts or location.
 
-The Service Provider may disclose User Provided and Automatically Collected Information:
+## How you got the app
 
-- as required by law, such as to comply with a subpoena, or similar legal process;
-- when they believe in good faith that disclosure is necessary to protect their rights, protect your safety or the safety of others, investigate fraud, or respond to a government request;
-- with their trusted services providers who work on their behalf, do not have an independent use of the information we disclose to them, and have agreed to adhere to the rules set forth in this privacy statement.
+- **TestFlight:** Apple runs TestFlight and may share crash reports, usage numbers such as installs and sessions, and any feedback you send through TestFlight with the developer. [Apple's privacy policy](https://www.apple.com/legal/privacy/) applies.
+- **GitHub, AltStore, SideStore and similar:** the app and its source listing are downloaded from GitHub. [GitHub's privacy statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement) applies.
 
-**Opt-Out Rights**
+## Deleting your data
 
-You can stop all collection of information by the Application easily by uninstalling it. You may use the standard uninstall processes as may be available as part of your mobile device or via the mobile application marketplace or network.
+- In **Settings → Data**, clear the image and video caches, your watched posts and the threads you've visited.
+- In the **Saved tab**, delete what you've saved.
+- **Uninstalling** the app deletes everything it stored, except what you saved to Photos or your gallery and, on Android, the Download/4Chan folder.
 
-**Data Retention Policy**
+## Children
 
-The Service Provider will retain User Provided data for as long as you use the Application and for a reasonable time thereafter. If you'd like them to delete User Provided Data that you have provided via the Application, please contact them at Marvin.Jaeckisch1@web.de and they will respond in a reasonable time.
+NekoSurf shows 4chan, which is for adults. The app isn't meant for anyone under 18.
 
-**Children**
+## Changes
 
-The Service Provider does not use the Application to knowingly solicit data from or market to children under the age of 13.
+When this policy changes, the new version is published here with a new date at the top. Earlier versions are in the [repository's history](https://github.com/NekoSurf/NekoSurf/commits/main/privacy_policy.md).
 
-The Application does not address anyone under the age of 13\. The Service Provider does not knowingly collect personally identifiable information from children under 13 years of age. In the case the Service Provider discover that a child under 13 has provided personal information, the Service Provider will immediately delete this from their servers. If you are a parent or guardian and you are aware that your child has provided us with personal information, please contact the Service Provider (Marvin.Jaeckisch1@web.de) so that they will be able to take the necessary actions.
+## Contact
 
-**Security**
-
-The Service Provider is concerned about safeguarding the confidentiality of your information. The Service Provider provides physical, electronic, and procedural safeguards to protect information the Service Provider processes and maintains.
-
-**Changes**
-
-This Privacy Policy may be updated from time to time for any reason. The Service Provider will notify you of any changes to the Privacy Policy by updating this page with the new Privacy Policy. You are advised to consult this Privacy Policy regularly for any changes, as continued use is deemed approval of all changes.
-
-This privacy policy is effective as of 2024-06-30
-
-**Your Consent**
-
-By using the Application, you are consenting to the processing of your information as set forth in this Privacy Policy now and as amended by us.
-
-**Contact Us**
-
-If you have any questions regarding privacy while using the Application, or have questions about the practices, please contact the Service Provider via email at Marvin.Jaeckisch1@web.de.
-
----
-
-This privacy policy page was generated by [App Privacy Policy Generator](https://app-privacy-policy-generator.nisrulz.com/)
+Questions about this policy: [Marvin.Jaeckisch1@web.de](mailto:Marvin.Jaeckisch1@web.de), or [open an issue](https://github.com/NekoSurf/NekoSurf/issues).
