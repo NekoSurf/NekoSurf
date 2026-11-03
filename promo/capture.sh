@@ -67,7 +67,15 @@ fi
 
 echo "Booting the simulator..."
 xcrun simctl boot "$UDID" 2>/dev/null || true
-open -a Simulator --args -CurrentDeviceUDID "$UDID"
+# Simulator.app is inside Xcode. By its path, as macOS doesn't always know
+# it by name ("Unable to find application named 'Simulator'").
+simulator_app="$(xcode-select -p)/Applications/Simulator.app"
+if [ -d "$simulator_app" ]; then
+  open "$simulator_app" --args -CurrentDeviceUDID "$UDID"
+elif ! open -a Simulator --args -CurrentDeviceUDID "$UDID" 2>/dev/null; then
+  echo "Couldn't open the Simulator app. Open it yourself (in Xcode: Xcode > Open Developer Tool > Simulator), then press Enter." >&2
+  read -r
+fi
 xcrun simctl bootstatus "$UDID" -b >/dev/null
 xcrun simctl ui "$UDID" appearance dark
 xcrun simctl status_bar "$UDID" override \
