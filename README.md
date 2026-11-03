@@ -1,16 +1,26 @@
-# NekoSurf
+<p align="center">
+  <img src="assets/icons/icon-round.png" width="112" alt="">
+</p>
 
-[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg?style=flat-square)](https://github.com/NekoSurf/NekoSurf/graphs/commit-activity)
-[![Issues](https://img.shields.io/github/issues/NekoSurf/NekoSurf.svg?style=flat-square)](https://github.com/NekoSurf/NekoSurf/issues)
-[![GPL3 License](https://img.shields.io/github/license/NekoSurf/NekoSurf.svg?style=flat-square)](https://github.com/NekoSurf/NekoSurf/blob/develop/LICENSE)
-[![GitHub release](https://img.shields.io/github/release/NekoSurf/NekoSurf.svg?style=flat-square)](https://github.com/NekoSurf/NekoSurf/releases/latest)
-[![style: lint](https://img.shields.io/badge/style-lint-4BC0F5.svg?style=flat-square)](https://pub.dev/packages/lint)
+<h1 align="center">NekoSurf</h1>
 
-NekoSurf is a fast, privacy-friendly 4chan viewer built with Flutter for iOS and Android.
+<p align="center">
+  A fast, private 4chan app for iPhone and Android.
+</p>
 
-It is designed for smooth browsing with modern card-based layouts, media-first navigation, and practical quality-of-life tools for everyday use.
+<p align="center">
+  <a href="https://github.com/NekoSurf/NekoSurf/releases/latest"><img src="https://img.shields.io/github/release/NekoSurf/NekoSurf.svg?style=flat-square" alt="Latest release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/NekoSurf/NekoSurf.svg?style=flat-square" alt="License: GPL-3.0"></a>
+</p>
 
-## Sources
+<p align="center">
+  <img src="screenshots/ios_screenshot_1.jpg" width="32%" alt="A board's threads in a grid">
+  <img src="screenshots/ios_screenshot_2.jpg" width="32%" alt="A thread with images">
+</p>
+
+## Download
+
+**iPhone:** join the [TestFlight beta](https://testflight.apple.com/join/ky5bRwMY), or add NekoSurf to AltStore or SideStore:
 
 <a href="https://altdirect.app/?url=https://raw.githubusercontent.com/NekoSurf/NekoSurf/refs/heads/main/source.json&r=altstore">
   <picture>
@@ -27,63 +37,40 @@ It is designed for smooth browsing with modern card-based layouts, media-first n
   </picture>
 </a>
 
+**Android:** [download the APK](https://github.com/NekoSurf/NekoSurf/releases/latest/download/app-arm64-v8a-release.apk) for most phones, or pick the one for yours from the [latest release](https://github.com/NekoSurf/NekoSurf/releases/latest).
+
 ## Features
 
-### Browsing
+### 🧭 Browse
 
-- Browse all boards with fast search
-- Open threads directly from pasted 4chan links
-- Switch board threads between grid and list view
-- Sort threads by bump order, newest, oldest, reply count, or image count
-- Choose default board view, sort mode, and sort direction in settings
+- All boards in one place, your favorites first, and a Feed of threads from all of them
+- Threads in a grid or a list, sorted by bump order, newest, oldest, replies or images
+- Search your favorite boards, or all of 4chan
+- Hide threads by keyword or regex, and paste a 4chan link to open its thread
 
-### Bookmarks and Favorites
+### 📖 Read
 
-- Favorite boards for quick access on the home screen
-- Bookmark threads for later with status tracking
-- See archived/deleted state on bookmarked threads
+- Replies nested under the post they answer
+- Bookmarks that show when a thread is archived or deleted
+- Threads can open where you left off, and a history keeps the ones you visited
 
-### Media Experience
+### 🎬 Watch and save
 
-- Optimized image and video browsing
-- WebM/MP4 playback support
-- Save attachments locally and revisit them in a dedicated saved media viewer
-- Share saved media directly from inside the app
-- Download media to gallery/photos
+- Videos (WebM and MP4) start quickly, even on a slow connection, and play as you scroll
+- A fullscreen gallery to swipe through a thread's images and videos, zoom, scrub and change the speed
+- Save to the Saved tab or to Photos, or share, several at once, with a ring showing how far along each is
+- Reverse image search with Google Lens, Bing, Yandex or SauceNAO
 
-### Privacy and Personalization
+### 🔒 Private
 
-- Dark mode support
-- NSFW board visibility toggle
-- Auto-scroll to last seen post
-- Watched posts retention controls
-- Cache size display and one-tap cache cleanup
+- No account, no ads, no analytics: NekoSurf talks to 4chan, and to GitHub to check for updates
+- Your favorites, bookmarks, history and saved files stay on your phone
+- NSFW boards stay hidden until you turn them on
 
-## Screenshots
-
-<p>
-  <img src="./screenshots/ios_screenshot_1.jpg" width="40%">
-  <img src="./screenshots/ios_screenshot_2.jpg" width="40%">
+<p align="center">
+  <img src="screenshots/galery.gif" width="32%" alt="Swiping through a thread's images and videos">
 </p>
-
-### Gallery
-
-<img src="./screenshots/galery.gif" width="40%">
-
-## Star History
-
-<a href="https://www.star-history.com/?repos=NekoSurf%2FNekoSurf&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=NekoSurf/NekoSurf&type=date&theme=dark&legend=top-left&sealed_token=U3_L-FBqdp6yqsv4JUQzq641fBwkyIRoLZlzMW0TlyopYzNk8m14tDjymo04PJYZ1ZHtTHTOeoZEPl6d82IGYKc2eHNdkw_s-yOC0aAdKcLE2e5vJixvmg" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=NekoSurf/NekoSurf&type=date&legend=top-left&sealed_token=U3_L-FBqdp6yqsv4JUQzq641fBwkyIRoLZlzMW0TlyopYzNk8m14tDjymo04PJYZ1ZHtTHTOeoZEPl6d82IGYKc2eHNdkw_s-yOC0aAdKcLE2e5vJixvmg" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=NekoSurf/NekoSurf&type=date&legend=top-left&sealed_token=U3_L-FBqdp6yqsv4JUQzq641fBwkyIRoLZlzMW0TlyopYzNk8m14tDjymo04PJYZ1ZHtTHTOeoZEPl6d82IGYKc2eHNdkw_s-yOC0aAdKcLE2e5vJixvmg" />
- </picture>
-</a>
-
-## TestFlight
-
-Try NekoSurf on iOS via TestFlight: [https://testflight.apple.com/join/ky5bRwMY](https://testflight.apple.com/join/ky5bRwMY)
 
 ## License
 
-Distributed under the GPL-3.0 license. See [LICENSE](https://github.com/NekoSurf/NekoSurf/blob/develop/LICENSE) for details.
+NekoSurf is free software under the [GPL-3.0](LICENSE).
