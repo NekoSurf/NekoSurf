@@ -15,11 +15,16 @@ app's own screens in two steps.
    commit them. Run it with shot names (`promo/capture.sh board demo`) to
    retake only those.
 
-2. **Build**, anywhere with Python's Pillow and ffmpeg:
+2. **Build**, anywhere with [uv](https://docs.astral.sh/uv/) and ffmpeg
+   (`brew install uv ffmpeg`):
 
    ```sh
-   python3 promo/build.py
+   uv run --project promo promo/build.py
    ```
+
+   uv fetches the Python and Pillow versions pinned in `promo/` into
+   `promo/.venv`, so nothing is installed system-wide. From inside `promo/`,
+   `uv run build.py` does the same.
 
    It puts each screen in an iPhone frame on the app's cyan-to-violet
    background, and writes to `screenshots/`:

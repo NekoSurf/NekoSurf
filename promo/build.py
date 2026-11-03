@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Turns the simulator captures in promo/raw/ into the promo images and video.
 
-Run from the repository root (needs Python 3 with Pillow, and ffmpeg):
+Run with uv, which installs Pillow into promo/.venv (ffmpeg is needed too):
 
-    python3 promo/build.py
+    uv run --project promo promo/build.py
 
 It writes to screenshots/:
 
@@ -33,6 +33,9 @@ CYAN = (0x6D, 0xD4, 0xEC)
 VIOLET = (0xA7, 0x8B, 0xFA)
 BODY = (12, 12, 16)
 RIM = (58, 61, 74)
+
+# promo/, so the defaults work from any directory.
+PROMO = Path(__file__).resolve().parent
 
 # Which screenshots go where; promo/capture.sh takes them under these names.
 BANNER_SHOTS = ("home", "board", "thread")
@@ -241,8 +244,8 @@ def demo(recording: Path, out_mp4: Path, out_gif: Path) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--raw", type=Path, default=Path("promo/raw"))
-    parser.add_argument("--out", type=Path, default=Path("screenshots"))
+    parser.add_argument("--raw", type=Path, default=PROMO / "raw")
+    parser.add_argument("--out", type=Path, default=PROMO.parent / "screenshots")
     args = parser.parse_args()
 
     missing = [f"{s}.png" for s in SHOTS if not (args.raw / f"{s}.png").exists()]

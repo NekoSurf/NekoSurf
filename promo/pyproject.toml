@@ -1,0 +1,12 @@
+[project]
+name = "nekosurf-promo"
+version = "0.1.0"
+description = "Builds the promo images and video from the simulator captures in raw/"
+requires-python = ">=3.10"
+dependencies = [
+    "pillow>=12.3.0",
+]
+
+[tool.uv]
+# Only build.py is run; there is nothing to install as a package.
+package = false
