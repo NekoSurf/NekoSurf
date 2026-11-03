@@ -663,8 +663,10 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
     return _OverlayButton(
       bare: true,
       onPressed: onPressed,
+      // A busy button can't be pressed, but its spinner must stay visible.
+      dimmed: onPressed == null && !action.isBusy,
       child: action.isBusy
-          ? const CupertinoActivityIndicator(radius: 9)
+          ? const CupertinoActivityIndicator(radius: 9, color: Colors.white)
           : Icon(
               action.isCompleted && action.completedIcon != null
                   ? action.completedIcon!
@@ -676,16 +678,24 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
   }
 }
 
+/// Behind the top bar's buttons: dark, so their white icons and spinners
+/// stand out on bright pictures as well as dark ones.
+final Color _buttonBacking = Colors.black.withValues(alpha: 0.35);
+
 class _OverlayButton extends StatelessWidget {
   const _OverlayButton({
     required this.onPressed,
     required this.child,
     this.bare = false,
+    this.dimmed,
   });
 
   final VoidCallback? onPressed;
   final Widget child;
   final bool bare;
+
+  /// Drawn faded; by default when it can't be pressed.
+  final bool? dimmed;
 
   @override
   Widget build(BuildContext context) {
@@ -699,11 +709,14 @@ class _OverlayButton extends StatelessWidget {
         decoration: bare
             ? null
             : BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.14),
+                color: _buttonBacking,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
               ),
-        child: Opacity(opacity: onPressed == null ? 0.5 : 1, child: child),
+        child: Opacity(
+          opacity: (dimmed ?? onPressed == null) ? 0.5 : 1,
+          child: child,
+        ),
       ),
     );
 
@@ -735,7 +748,7 @@ class _ActionPill extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 2),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.14),
+            color: _buttonBacking,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
           ),
@@ -1309,7 +1322,10 @@ class _SharedMediaImagePageState extends State<_SharedMediaImagePage>
                 }
 
                 return const Center(
-                  child: CupertinoActivityIndicator(radius: 14),
+                  child: CupertinoActivityIndicator(
+                    radius: 14,
+                    color: Colors.white,
+                  ),
                 );
               },
               errorBuilder: (context, error, stackTrace) {
