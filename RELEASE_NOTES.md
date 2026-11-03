@@ -11,6 +11,7 @@
 - Saving or sharing a video that's still loading waits for that download instead of starting a second one, so it's much faster, and it no longer hangs on a stalled connection
 - Saves that run into 4chan limiting requests try again instead of failing
 - Two files with the same name saved at once no longer overwrite each other
+- Files with very long names, like long Japanese ones, can be saved and shared; their names are shortened to what the phone allows
 - When saving to the Saved tab or sharing fails, the app says so instead of the spinner just stopping
 - A failed save no longer leaves its file behind in Files (or Download/4Chan on Android)
 - The spinner on the save, download and share buttons is easy to see on bright images and videos

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
@@ -187,6 +188,44 @@ Future<bool> checkAndRequestPermissions({required bool skipIfExists}) async {
   return false; // Unsupported platforms
 }
 
+// Phones' file systems (APFS, ext4) take names of up to 255 bytes; this
+// leaves room for " (99)" and the extension.
+const int _maxNameBytes = 200;
+
+/// [name] fit to be (the start of) a file name: no path separators or
+/// control characters, at most 100 characters and [_maxNameBytes] bytes,
+/// without cutting a character in two. 4chan passes on uploaders' names
+/// as they were, which can be long, and Japanese takes 3 bytes a character.
+String _safeBaseName(String name) {
+  final String cleaned = name
+      .replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1f]'), '_')
+      .trim();
+  final StringBuffer out = StringBuffer();
+  int bytes = 0;
+  int chars = 0;
+  for (final int rune in cleaned.runes) {
+    final int size = utf8.encode(String.fromCharCode(rune)).length;
+    if (chars >= 100 || bytes + size > _maxNameBytes) {
+      break;
+    }
+    out.writeCharCode(rune);
+    bytes += size;
+    chars += rune > 0xFFFF ? 2 : 1;
+  }
+  return out.toString().trim();
+}
+
+/// What saving or sharing calls the file it downloads [fileName] into (and
+/// so Photos or the share sheet shows): the uploader's name made safe
+/// ([_safeBaseName]), or "file" if nothing of it is left.
+@visibleForTesting
+String localFileName(String fileName) {
+  final int dot = fileName.lastIndexOf('.');
+  final String ext = dot < 0 ? '' : fileName.substring(dot);
+  final String base = _safeBaseName(getNameWithoutExtension(fileName));
+  return '${base.isEmpty || base.startsWith('.') ? 'file' : base}$ext';
+}
+
 /// What a saved [name] is called on disk: on iOS, webms are kept as mp4s.
 String savedNameOnDisk(String name) =>
     Platform.isIOS ? _withMp4Extension(name) : name;
@@ -327,6 +366,7 @@ Future<bool> saveVideo(
     }
 
     work = await _newWorkFolder();
+    final String localName = localFileName(fileName);
     final SaveSteps steps = SaveSteps(
       onProgress,
       converts: _converts(fileName),
@@ -334,12 +374,12 @@ Future<bool> saveVideo(
     final File downloadedFile = await _downloadInto(
       work,
       url,
-      fileName,
+      localName,
       onProgress: steps.download,
     );
 
     if (_converts(fileName)) {
-      final String outputName = _withMp4Extension(fileName);
+      final String outputName = _withMp4Extension(localName);
       final File outputFile = File('${downloadedFile.parent.path}/$outputName');
 
       final returnCode = await convertWebMToMP4(
@@ -358,7 +398,7 @@ Future<bool> saveVideo(
       return true;
     }
 
-    if (!await _saveToGallery(downloadedFile.path, fileName)) {
+    if (!await _saveToGallery(downloadedFile.path, localName)) {
       throw Exception('gallery save failed');
     }
     return true;
@@ -481,6 +521,7 @@ Future<void> shareMedia(
 
   try {
     final Directory shareFolder = await _newShareFolder();
+    final String localName = localFileName(fileName);
     final SaveSteps steps = SaveSteps(
       onProgress,
       converts: _converts(fileName),
@@ -488,13 +529,13 @@ Future<void> shareMedia(
     final File downloadedFile = await _downloadInto(
       shareFolder,
       url,
-      fileName,
+      localName,
       onProgress: steps.download,
     );
 
     if (_converts(fileName)) {
       final File fileDownloadPath = File(
-        '${downloadedFile.parent.path}/$fileName',
+        '${downloadedFile.parent.path}/$localName',
       );
       final int returnCode = await convertWebMToMP4(
         downloadedFile,
@@ -653,13 +694,10 @@ Future<String?> uniqueSavedFileName(
   String ext, {
   bool reserve = false,
 }) async {
-  final String base = getNameWithoutExtension(
-    originalName,
-  ).replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1f]'), '_').trim();
-  if (base.isEmpty || base.startsWith('.')) {
+  final String clipped = _safeBaseName(getNameWithoutExtension(originalName));
+  if (clipped.isEmpty || clipped.startsWith('.')) {
     return null;
   }
-  final String clipped = base.length > 100 ? base.substring(0, 100) : base;
 
   String candidate = '$clipped$ext';
   for (int n = 2; ; n++) {

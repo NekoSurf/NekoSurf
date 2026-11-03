@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_chan/API/save_videos.dart';
@@ -44,6 +45,42 @@ void main() {
 
     releaseSavedFileName(dir.path, first!);
     expect(await uniqueSavedFileName(dir.path, 'cat.webm', '.mp4'), 'cat.mp4');
+  });
+
+  test('a long Japanese name fits the file system, uncut', () async {
+    final String long = '${'猫' * 120}.webm';
+
+    final String? name = await uniqueSavedFileName(dir.path, long, '.mp4');
+    File('${dir.path}/$name').writeAsStringSync('');
+    final String? second = await uniqueSavedFileName(dir.path, long, '.mp4');
+
+    expect(utf8.encode(second!).length, lessThanOrEqualTo(255));
+    expect(name, startsWith('猫'));
+    File('${dir.path}/$second').writeAsStringSync('');
+  });
+
+  test('names are clipped between characters, not inside one', () async {
+    final String? name = await uniqueSavedFileName(
+      dir.path,
+      '${'😺' * 80}.webm',
+      '.mp4',
+    );
+
+    expect(name, matches(RegExp(r'^(😺)+\.mp4$')));
+    expect(utf8.encode(name!).length, lessThanOrEqualTo(255));
+  });
+
+  test('a downloaded file is named like the upload, made safe', () {
+    expect(localFileName('cat.webm'), 'cat.webm');
+    expect(localFileName('cat/dog.webm'), 'cat_dog.webm');
+    // Not hidden, and nowhere but its folder.
+    expect(localFileName('../dog.webm'), 'file.webm');
+    expect(localFileName('.webm'), 'file.webm');
+    expect(localFileName('   .webm'), 'file.webm');
+    final String long = localFileName('${'猫' * 120}.webm');
+    expect(long, endsWith('.webm'));
+    expect(utf8.encode(long).length, lessThanOrEqualTo(255));
+    File('${dir.path}/$long').writeAsStringSync('');
   });
 
   test('only a reserving save holds on to the name', () async {
