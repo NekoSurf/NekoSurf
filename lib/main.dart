@@ -14,6 +14,7 @@ import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/pages/boards/board_list.dart';
 import 'package:flutter_chan/services/fast_page_transitions.dart';
 import 'package:flutter_chan/services/image_cache.dart';
+import 'package:flutter_chan/services/unfocus_on_push.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -89,6 +90,9 @@ class AppWithTheme extends StatefulWidget {
 
 class _AppWithThemeState extends State<AppWithTheme>
     with WidgetsBindingObserver {
+  // Stays with the app's one navigator; an observer can't watch two.
+  final UnfocusOnPushObserver _unfocusOnPush = UnfocusOnPushObserver();
+
   @override
   void initState() {
     super.initState();
@@ -122,6 +126,7 @@ class _AppWithThemeState extends State<AppWithTheme>
     return CupertinoApp(
       debugShowCheckedModeBanner: false,
       home: const BoardList(),
+      navigatorObservers: [_unfocusOnPush],
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
           pageTransitionsTheme: PageTransitionsTheme(

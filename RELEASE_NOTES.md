@@ -10,6 +10,7 @@
 
 ## What's fixed
 
+- The keyboard no longer opens on its own when you come back from a thread you opened while searching
 - Saving or sharing a video that's still loading uses that download instead of starting a second one, so it's much faster, and it no longer hangs on a stalled connection
 - Saves that run into 4chan limiting requests try again instead of failing
 - The spinner on the save and share buttons is easy to see on bright images and videos
