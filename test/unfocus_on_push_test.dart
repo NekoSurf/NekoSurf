@@ -45,8 +45,15 @@ Future<void> _typeThenOpen(WidgetTester tester, String what) async {
   await tester.pumpAndSettle();
 }
 
+/// Back as the header's back icon goes: a plain pop.
 Future<void> _back(WidgetTester tester) async {
-  tester.state<NavigatorState>(find.byType(Navigator)).pop();
+  await tester.state<NavigatorState>(find.byType(Navigator)).maybePop();
+  await tester.pumpAndSettle();
+}
+
+/// Back with the swipe from the left edge.
+Future<void> _swipeBack(WidgetTester tester) async {
+  await tester.dragFrom(const Offset(2, 300), const Offset(700, 0));
   await tester.pumpAndSettle();
 }
 
@@ -54,7 +61,7 @@ bool _fieldFocused(WidgetTester tester) =>
     tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus;
 
 void main() {
-  testWidgets('without it, coming back from a thread brings the keyboard up', (
+  testWidgets('without it, the back icon brings the keyboard up', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(_app(observed: false));
@@ -64,6 +71,20 @@ void main() {
     expect(_fieldFocused(tester), isTrue);
     expect(tester.testTextInput.isVisible, isTrue);
   });
+
+  testWidgets(
+    "without it, a back swipe doesn't: the page doesn't take focus mid-swipe",
+    (WidgetTester tester) async {
+      await tester.pumpWidget(_app(observed: false));
+      await _typeThenOpen(tester, 'thread');
+      await _swipeBack(tester);
+
+      expect(find.text('posts'), findsNothing);
+      expect(_fieldFocused(tester), isFalse);
+      expect(tester.testTextInput.isVisible, isFalse);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
 
   testWidgets('coming back from a thread leaves the keyboard down', (
     WidgetTester tester,
@@ -75,6 +96,18 @@ void main() {
     expect(_fieldFocused(tester), isFalse);
     expect(tester.testTextInput.isVisible, isFalse);
   });
+
+  testWidgets('coming back by swiping leaves the keyboard down too', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(_app(observed: true));
+    await _typeThenOpen(tester, 'thread');
+    await _swipeBack(tester);
+
+    expect(find.text('posts'), findsNothing);
+    expect(_fieldFocused(tester), isFalse);
+    expect(tester.testTextInput.isVisible, isFalse);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
   testWidgets('a dialog gives the keyboard back when it closes', (
     WidgetTester tester,
