@@ -7,30 +7,23 @@ name: Prepare Release
 # Pushes to the protected main branch with the RELEASE_DEPLOY_KEY deploy key,
 # which is on the main ruleset's bypass list.
 #
-# For a longer GitHub release description, commit it to RELEASE_NOTES.md on
-# main before running. It's used as the release body and then removed.
+# The release is titled with its tag. What it says comes from files
+# committed to main before running, which the release commit removes, so
+# none is used twice:
 #
-# TestFlight's "What to Test" comes from ios/TestFlight/WhatToTest.en-US.txt
-# in the tagged commit, which Xcode Cloud reads; the release commit writes
-# the what_to_test input there, replacing the last release's.
+# - RELEASE_SUMMARY.txt (required): one line, AltStore's description of the
+#   version in source.json, and the fallback for the other two.
+# - RELEASE_NOTES.md: the GitHub release description.
+# - WHAT_TO_TEST.txt: TestFlight's "What to Test", plain text (TestFlight
+#   shows Markdown as typed), up to 4000 characters. The release commit
+#   writes it to ios/TestFlight/WhatToTest.en-US.txt, which Xcode Cloud
+#   reads from the tagged commit, replacing the last release's.
 on:
   workflow_dispatch:
     inputs:
       version:
         description: "Version name, e.g. 0.11.6"
         required: true
-        type: string
-      title:
-        description: "Release title (empty = tag)"
-        required: false
-        type: string
-      notes:
-        description: "One-line notes for AltStore (and GitHub, if there's no RELEASE_NOTES.md)"
-        required: true
-        type: string
-      what_to_test:
-        description: "What to Test on TestFlight (empty = the one-line notes)"
-        required: false
         type: string
 
 concurrency: release
@@ -55,6 +48,7 @@ jobs:
       contents: write
     outputs:
       tag: ${{ steps.version.outputs.tag }}
+      summary: ${{ steps.texts.outputs.summary }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -77,22 +71,58 @@ jobs:
 
       - run: pip install "pyjwt[crypto]"
 
+      # Before anything is tagged: a missing or too long text stops here.
+      - name: Read what the release says
+        id: texts
+        run: |
+          # Without blank lines, and without spaces around each line.
+          read_text() {
+            [ -f "$1" ] || return 0
+            sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' "$1" | sed '/^$/d'
+          }
+
+          SUMMARY=$(read_text RELEASE_SUMMARY.txt)
+          if [ -z "$SUMMARY" ]; then
+            echo "::error::Commit the release's one-line summary to RELEASE_SUMMARY.txt on main (AltStore shows it), then start the release again"
+            exit 1
+          fi
+          if [[ "$SUMMARY" == *$'\n'* ]]; then
+            echo "::error::RELEASE_SUMMARY.txt should be one line (AltStore's description); longer notes go in RELEASE_NOTES.md"
+            exit 1
+          fi
+
+          # Its paragraphs and lists keep their blank lines.
+          WHAT_TO_TEST=""
+          if [ -f WHAT_TO_TEST.txt ]; then
+            WHAT_TO_TEST=$(cat WHAT_TO_TEST.txt)
+          fi
+          if [ -z "${WHAT_TO_TEST//[[:space:]]/}" ]; then
+            WHAT_TO_TEST=$SUMMARY
+          fi
+          if (( ${#WHAT_TO_TEST} > 4000 )); then
+            echo "::error::TestFlight takes up to 4000 characters of What to Test, WHAT_TO_TEST.txt has ${#WHAT_TO_TEST}"
+            exit 1
+          fi
+
+          printf '%s\n' "$WHAT_TO_TEST" > "$RUNNER_TEMP/what_to_test.txt"
+          if [ -f RELEASE_NOTES.md ]; then
+            cp RELEASE_NOTES.md "$RUNNER_TEMP/notes.md"
+          else
+            printf '%s\n' "$SUMMARY" > "$RUNNER_TEMP/notes.md"
+          fi
+          # One line, so it can't add outputs of its own.
+          echo "summary=$SUMMARY" >> "$GITHUB_OUTPUT"
+
       - name: Work out the version
         id: version
         env:
           VERSION: ${{ inputs.version }}
-          WHAT_TO_TEST: ${{ inputs.what_to_test || inputs.notes }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
         run: |
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error::Version must look like 1.2.3, got '$VERSION'"
-            exit 1
-          fi
-
-          if (( ${#WHAT_TO_TEST} > 4000 )); then
-            echo "::error::TestFlight takes up to 4000 characters of What to Test, got ${#WHAT_TO_TEST}"
             exit 1
           fi
 
@@ -113,21 +143,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ inputs.version }}
-          TITLE: ${{ inputs.title }}
-          NOTES: ${{ inputs.notes }}
-          WHAT_TO_TEST: ${{ inputs.what_to_test || inputs.notes }}
           BUILD: ${{ steps.version.outputs.build }}
           TAG: ${{ steps.version.outputs.tag }}
         run: |
-          if [ -f RELEASE_NOTES.md ]; then
-            cp RELEASE_NOTES.md "$RUNNER_TEMP/notes.md"
-            git rm -q RELEASE_NOTES.md
-          else
-            printf '%s\n' "$NOTES" > "$RUNNER_TEMP/notes.md"
-          fi
+          git rm -q --ignore-unmatch RELEASE_SUMMARY.txt RELEASE_NOTES.md WHAT_TO_TEST.txt
 
           mkdir -p ios/TestFlight
-          printf '%s\n' "$WHAT_TO_TEST" > ios/TestFlight/WhatToTest.en-US.txt
+          cp "$RUNNER_TEMP/what_to_test.txt" ios/TestFlight/WhatToTest.en-US.txt
           git add ios/TestFlight/WhatToTest.en-US.txt
 
           sed -i -E "s/^version: .*/version: $VERSION+$BUILD/" pubspec.yaml
@@ -137,7 +159,7 @@ jobs:
           git tag "$TAG"
           git push origin main
           git push origin "$TAG"
-          gh release create "$TAG" --title "${TITLE:-$TAG}" --notes-file "$RUNNER_TEMP/notes.md" --verify-tag
+          gh release create "$TAG" --title "$TAG" --notes-file "$RUNNER_TEMP/notes.md" --verify-tag
 
   # A release made with GITHUB_TOKEN doesn't trigger release_build.yml, so
   # build here instead.
@@ -158,7 +180,7 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       TAG: ${{ needs.prepare.outputs.tag }}
-      NOTES: ${{ inputs.notes }}
+      NOTES: ${{ needs.prepare.outputs.summary }}
     steps:
       - uses: actions/checkout@v7
         with:
