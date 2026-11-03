@@ -1,1 +1,11 @@
-Videos on a slow connection: they should start within a second or two, the progress bar should show what has loaded, and scrubbing ahead should jump there. While loading, a video shows its thumbnail (no black box) and only a spinner. Also check that scrolling back through a thread shows images right away, that saving and sharing work, and that Settings → Data shows the cache sizes.
+Saving and sharing several posts at once, in a thread's fullscreen viewer:
+• Save a post (to Saved and to Photos), then swipe on and save or share the next before the first is done
+• Each button should show its own ring, filling as the file downloads and, for webms, as it converts
+• Share sheets should open one after another
+• Saving a video that's still loading should be quick and not get stuck
+• Try two uploads with the same name, and one with a long Japanese name
+• In airplane mode, saving and sharing should say they failed
+• Does a webm still save if you switch apps while it converts?
+
+Keyboard:
+• Type in a search field, open a thread, tap the back icon: the keyboard should stay down
