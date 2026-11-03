@@ -58,6 +58,8 @@
 - Your favorites, bookmarks, history and saved files stay on your phone
 - NSFW boards stay hidden until you turn them on
 
+The [privacy policy](privacy_policy.md) has the details.
+
 <p align="center">
   <img src="screenshots/galery.gif" width="32%" alt="Swiping through a thread's images and videos">
 </p>
