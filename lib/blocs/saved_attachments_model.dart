@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/save_videos.dart';
 import 'package:flutter_chan/API/urls.dart' as urls;
@@ -28,9 +29,16 @@ class SavedAttachmentsProvider with ChangeNotifier {
   // Uploads being saved now, by id. Here rather than in a viewer, so one
   // reopened meanwhile still shows them saving, and can't save them twice.
   final Set<String> _saving = <String>{};
+  // How much of each has downloaded (see SaveProgress); a notifier of its
+  // own, so the ring fills without rebuilding everything that watches this.
+  final Map<String, ValueNotifier<double?>> _saveProgress =
+      <String, ValueNotifier<double?>>{};
 
   /// Whether the upload [id] (its `tim`) is being saved right now.
   bool isSaving(String id) => _saving.contains(id);
+
+  /// How much of the upload [id] has downloaded while it's being saved.
+  ValueListenable<double?>? saveProgressOf(String id) => _saveProgress[id];
 
   bool playing = true;
 
@@ -144,6 +152,8 @@ class SavedAttachmentsProvider with ChangeNotifier {
     if (!_saving.add(nameWithoutExtension)) {
       return;
     }
+    final ValueNotifier<double?> progress = ValueNotifier<double?>(null);
+    _saveProgress[nameWithoutExtension] = progress;
     notifyListeners();
 
     final SavedAttachment? savedAttachment;
@@ -155,9 +165,12 @@ class SavedAttachmentsProvider with ChangeNotifier {
         fileName,
         context,
         this,
+        onProgress: (double? value) => progress.value = value,
       );
     } finally {
       _saving.remove(nameWithoutExtension);
+      // Not disposed: a ring may still be listening until it rebuilds.
+      _saveProgress.remove(nameWithoutExtension);
     }
 
     if (savedAttachment != null) {

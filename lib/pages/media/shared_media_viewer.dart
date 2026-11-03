@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
@@ -20,10 +21,14 @@ class SharedMediaViewerSaveToggleAction {
     required this.didSave,
     required this.onSave,
     required this.onRemove,
+    this.saveProgress,
   });
 
   final bool isSaved;
   final bool isSaving;
+
+  /// How much of it has downloaded while saving; see [SharedMediaViewerAction.progress].
+  final ValueListenable<double?>? saveProgress;
   final bool isRemoving;
   final bool didSave;
   final VoidCallback onSave;
@@ -35,9 +40,13 @@ class SharedMediaViewerDownloadAction {
     required this.isDownloading,
     required this.didDownload,
     required this.onDownload,
+    this.progress,
   });
 
   final bool isDownloading;
+
+  /// How much of it has downloaded; see [SharedMediaViewerAction.progress].
+  final ValueListenable<double?>? progress;
   final bool didDownload;
   final VoidCallback onDownload;
 }
@@ -46,9 +55,13 @@ class SharedMediaViewerShareAction {
   const SharedMediaViewerShareAction({
     required this.isSharing,
     required this.onShare,
+    this.progress,
   });
 
   final bool isSharing;
+
+  /// How much of it has downloaded; see [SharedMediaViewerAction.progress].
+  final ValueListenable<double?>? progress;
 
   /// Null while it can't be used (another share is being prepared).
   final VoidCallback? onShare;
@@ -85,9 +98,14 @@ class SharedMediaViewerAction {
     this.isCompleted = false,
     this.disableWhenBusy = true,
     this.disableWhenCompleted = false,
+    this.progress,
   });
 
   final IconData icon;
+
+  /// While busy, how much of what it waits for has downloaded, from 0 to 1:
+  /// a ring fills up while it's known, a spinner shows while it's null.
+  final ValueListenable<double?>? progress;
   final IconData? completedIcon;
   final VoidCallback? onPressed;
 
@@ -585,6 +603,7 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
             completedIcon: CupertinoIcons.check_mark_circled_solid,
             onPressed: saveToggle.onSave,
             isBusy: saveToggle.isSaving,
+            progress: saveToggle.saveProgress,
             isCompleted: saveToggle.didSave,
             disableWhenCompleted: true,
           ),
@@ -600,6 +619,7 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
           completedIcon: CupertinoIcons.check_mark_circled_solid,
           onPressed: download.onDownload,
           isBusy: download.isDownloading,
+          progress: download.progress,
           isCompleted: download.didDownload,
           disableWhenCompleted: true,
         ),
@@ -613,6 +633,7 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
           icon: CupertinoIcons.share,
           onPressed: share.onShare,
           isBusy: share.isSharing,
+          progress: share.progress,
         ),
       );
     }
@@ -668,7 +689,7 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
       // A busy button can't be pressed, but its spinner must stay visible.
       dimmed: onPressed == null && !action.isBusy,
       child: action.isBusy
-          ? const CupertinoActivityIndicator(radius: 9, color: Colors.white)
+          ? _BusyIndicator(progress: action.progress)
           : Icon(
               action.isCompleted && action.completedIcon != null
                   ? action.completedIcon!
@@ -731,6 +752,60 @@ class _OverlayButton extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: button,
+      ),
+    );
+  }
+}
+
+/// A busy button: a ring filling up while what it waits for downloads, a
+/// spinner while that's unknown or it's on to the next step.
+class _BusyIndicator extends StatelessWidget {
+  const _BusyIndicator({this.progress});
+
+  final ValueListenable<double?>? progress;
+
+  static const Widget _spinner = CupertinoActivityIndicator(
+    radius: 9,
+    color: Colors.white,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final ValueListenable<double?>? progress = this.progress;
+    if (progress == null) {
+      return _spinner;
+    }
+    return ValueListenableBuilder<double?>(
+      valueListenable: progress,
+      builder: (BuildContext context, double? value, _) =>
+          value == null ? _spinner : _ProgressRing(value: value),
+    );
+  }
+}
+
+class _ProgressRing extends StatelessWidget {
+  const _ProgressRing({required this.value});
+
+  final double value;
+
+  @override
+  Widget build(BuildContext context) {
+    // Eases between updates, which come in jumps of whole percent or more.
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(end: value),
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      builder: (BuildContext context, double value, _) => SizedBox.square(
+        dimension: 18,
+        child: CircularProgressIndicator(
+          value: value,
+          strokeWidth: 2.2,
+          strokeCap: StrokeCap.round,
+          color: Colors.white,
+          backgroundColor: Colors.white.withValues(alpha: 0.25),
+          semanticsLabel: 'Downloading',
+          semanticsValue: '${(value * 100).round()}%',
+        ),
       ),
     );
   }

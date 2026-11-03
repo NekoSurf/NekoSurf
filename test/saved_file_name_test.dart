@@ -22,7 +22,11 @@ void main() {
         uniqueSavedFileName(dir.path, 'cat.webm', '.mp4', reserve: true),
     ]);
 
-    expect(names, ['cat (2).mp4', 'cat (3).mp4', 'cat (4).mp4']);
+    // In any order: which save's file check comes back first varies.
+    expect(
+      names,
+      unorderedEquals(['cat (2).mp4', 'cat (3).mp4', 'cat (4).mp4']),
+    );
   });
 
   test('a reserved name is free again once released', () async {

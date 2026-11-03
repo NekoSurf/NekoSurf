@@ -330,6 +330,29 @@ void main() {
     },
   );
 
+  test('saving hears how much of the download has arrived', () async {
+    final Uint8List bytes = _video(1024 * 1024);
+    final _Upstream upstream = _Upstream(
+      bytes,
+      chunkDelay: const Duration(milliseconds: 10),
+    );
+    await upstream.start();
+    unawaited(_get(await videos.source(upstream.url)));
+
+    final List<double?> heard = <double?>[];
+    final File? file = await videos.downloadedFile(
+      upstream.url,
+      onProgress: heard.add,
+    );
+
+    expect(file?.readAsBytesSync(), bytes);
+    final List<double> known = heard.whereType<double>().toList();
+    expect(known.length, greaterThan(3));
+    expect(known, orderedEquals([...known]..sort()));
+    expect(known.last, 1);
+    await upstream.server.close(force: true);
+  });
+
   test('saving a video nobody downloads finds nothing to wait for', () async {
     expect(await videos.downloadedFile('http://127.0.0.1:1/b/1.webm'), isNull);
   });

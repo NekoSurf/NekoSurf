@@ -19,6 +19,11 @@ import 'package:share_plus/share_plus.dart';
 
 import '../services/show_snackbar.dart';
 
+/// How much of the file a save or share needs has downloaded, from 0 to 1;
+/// null while that's unknown, and once it's in (converting, or handing it
+/// to Photos or the share sheet, which don't say how far along they are).
+typedef SaveProgress = void Function(double? progress);
+
 Future<bool> _requestPermission(Permission permission) async {
   if (await permission.isGranted) {
     return true;
@@ -208,6 +213,7 @@ Future<bool> saveVideo(
   String fileName,
   BuildContext context, {
   bool isSaved = true,
+  SaveProgress? onProgress,
 }) async {
   final bool hasPermission = await checkAndRequestPermissions(
     skipIfExists: false,
@@ -256,7 +262,12 @@ Future<bool> saveVideo(
     }
 
     work = await _newWorkFolder();
-    final File downloadedFile = await _downloadInto(work, url, fileName);
+    final File downloadedFile = await _downloadInto(
+      work,
+      url,
+      fileName,
+      onProgress: onProgress,
+    );
     final String ext = '.${fileName.split('.').last}'.toLowerCase();
 
     if (Platform.isIOS && ext == '.webm') {
@@ -369,6 +380,7 @@ Future<void> shareMedia(
   String fileName,
   BuildContext context, {
   bool isSaved = false,
+  SaveProgress? onProgress,
 }) async {
   if (isSaved) {
     final Directory directory;
@@ -397,7 +409,12 @@ Future<void> shareMedia(
 
   try {
     final Directory shareFolder = await _newShareFolder();
-    final File downloadedFile = await _downloadInto(shareFolder, url, fileName);
+    final File downloadedFile = await _downloadInto(
+      shareFolder,
+      url,
+      fileName,
+      onProgress: onProgress,
+    );
     final String ext = '.${fileName.split('.').last}'.toLowerCase();
 
     if (Platform.isIOS && ext == '.webm') {
@@ -452,8 +469,9 @@ Future<SavedAttachment?> saveAttachment(
   String fileName,
   String displayName,
   BuildContext context,
-  SavedAttachmentsProvider savedAttachmentsProvider,
-) async {
+  SavedAttachmentsProvider savedAttachmentsProvider, {
+  SaveProgress? onProgress,
+}) async {
   final Directory baseDirectory;
   try {
     baseDirectory = await requestDirectory(context: context);
@@ -473,7 +491,12 @@ Future<SavedAttachment?> saveAttachment(
     final String thumbsDir = await _ensureThumbnailsDir();
 
     work = await _newWorkFolder();
-    final File downloadedFile = await _downloadInto(work, url, fileName);
+    final File downloadedFile = await _downloadInto(
+      work,
+      url,
+      fileName,
+      onProgress: onProgress,
+    );
     final String ext = '.${fileName.split('.').last}'.toLowerCase();
 
     final bool isVideoLike = ext == '.mp4' || ext == '.webm' || ext == '.gif';
@@ -668,24 +691,45 @@ Future<void> deleteSaveLeftoversIn(Directory temp) async {
 
 /// Puts [url] into [folder] as [fileName]: copied from the video cache when
 /// it was watched already, or once the player's download of it is done,
-/// otherwise downloaded.
+/// otherwise downloaded. [onProgress] hears how far along either download
+/// is, in whole percent, and null once the file is in.
 Future<File> _downloadInto(
   Directory folder,
   String url,
-  String fileName,
-) async {
-  final File file = File('${folder.path}/$fileName');
-  final File? cached = await VideoServer.instance.downloadedFile(url);
-  if (cached != null) {
-    try {
-      return await cached.copy(file.path);
-    } catch (_) {
-      // Pruned meanwhile: download it after all.
+  String fileName, {
+  SaveProgress? onProgress,
+}) async {
+  // Whole percent: a ring can't show finer, and it's fewer rebuilds.
+  void report(double? progress) => onProgress?.call(
+    progress == null ? null : (progress.clamp(0, 1) * 100).floor() / 100,
+  );
+  try {
+    final File file = File('${folder.path}/$fileName');
+    final File? cached = await VideoServer.instance.downloadedFile(
+      url,
+      onProgress: report,
+    );
+    if (cached != null) {
+      try {
+        return await cached.copy(file.path);
+      } catch (_) {
+        // Pruned meanwhile: download it after all.
+      }
     }
+    await _download(url, file, onProgress: report);
+    return file;
+  } finally {
+    report(null);
   }
-  await _download(url, file);
-  return file;
 }
+
+@visibleForTesting
+Future<File> downloadIntoForTesting(
+  Directory folder,
+  String url,
+  String fileName, {
+  SaveProgress? onProgress,
+}) => _downloadInto(folder, url, fileName, onProgress: onProgress);
 
 // A connection that sends nothing for this long is given up on, instead of
 // leaving the save spinning forever.
@@ -702,10 +746,14 @@ Duration downloadRetryDelay = const Duration(seconds: 2);
 
 /// Downloads [url] into [file], trying again after a 429, a server error
 /// or a dropped connection; leaves no partial file behind on failure.
-Future<void> _download(String url, File file) async {
+Future<void> _download(
+  String url,
+  File file, {
+  SaveProgress? onProgress,
+}) async {
   for (int attempt = 1; ; attempt++) {
     try {
-      await _downloadOnce(url, file);
+      await _downloadOnce(url, file, onProgress);
       return;
     } catch (e) {
       final int? status = e is _DownloadStatus ? e.status : null;
@@ -728,7 +776,11 @@ class _DownloadStatus extends HttpException {
   final int status;
 }
 
-Future<void> _downloadOnce(String url, File file) async {
+Future<void> _downloadOnce(
+  String url,
+  File file,
+  SaveProgress? onProgress,
+) async {
   final Uri uri = Uri.parse(url);
   try {
     final http.StreamedResponse response = await httpClient
@@ -739,9 +791,20 @@ Future<void> _downloadOnce(String url, File file) async {
       await response.stream.drain<void>();
       throw _DownloadStatus(response.statusCode, uri);
     }
+    final int? total = response.contentLength;
+    int received = 0;
+    onProgress?.call(total == null || total == 0 ? null : 0);
     final IOSink sink = file.openWrite();
     try {
-      await sink.addStream(response.stream.timeout(_stallTimeout));
+      await sink.addStream(
+        response.stream.timeout(_stallTimeout).map((List<int> chunk) {
+          received += chunk.length;
+          if (total != null && total > 0) {
+            onProgress?.call(received / total);
+          }
+          return chunk;
+        }),
+      );
     } finally {
       await sink.close();
     }

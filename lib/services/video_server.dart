@@ -162,18 +162,27 @@ class VideoServer {
   /// The finished copy of [url] on disk, waiting for its download to end
   /// if it's arriving now, so saving a video being watched doesn't fetch it
   /// a second time alongside the player. That download goes first while
-  /// this waits. Null if it isn't cached or downloading, or its download
-  /// failed.
-  Future<File?> downloadedFile(String url) async {
+  /// this waits, and [onProgress] hears how much of it has arrived (0 to 1,
+  /// or null while unknown). Null if it isn't cached or downloading, or its
+  /// download failed.
+  Future<File?> downloadedFile(
+    String url, {
+    void Function(double? progress)? onProgress,
+  }) async {
     final _Download? download = _downloads[url];
     if (download == null) {
       return cachedFile(url);
     }
     _awaited.update(url, (int n) => n + 1, ifAbsent: () => 1);
     _schedule();
+    final ValueNotifier<double?> progress = _progressOf(url);
+    void report() => onProgress?.call(progress.value);
+    progress.addListener(report);
+    report();
     try {
       await download.done;
     } finally {
+      progress.removeListener(report);
       final int left = _awaited[url]! - 1;
       if (left == 0) {
         _awaited.remove(url);
