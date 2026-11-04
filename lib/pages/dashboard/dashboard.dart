@@ -8,6 +8,7 @@ import 'package:flutter_chan/pages/board/board_page.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_widgets.dart';
 import 'package:flutter_chan/pages/feed/feed_page.dart';
+import 'package:flutter_chan/services/back_swipe_route.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/reload.dart';
 import 'package:provider/provider.dart';
@@ -50,12 +51,12 @@ class DashboardState extends State<Dashboard> {
   void _openFeed() {
     Navigator.of(
       context,
-    ).push(MaterialPageRoute(builder: (_) => const FeedPage()));
+    ).push(BackSwipePageRoute(builder: (_) => const FeedPage()));
   }
 
   void _openBoard(String code, String title) {
     Navigator.of(context).push(
-      MaterialPageRoute(
+      BackSwipePageRoute(
         builder: (_) => BoardPage(board: code, boardName: title),
       ),
     );

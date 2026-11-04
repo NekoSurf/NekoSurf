@@ -8,6 +8,7 @@ import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/pages/replies_row.dart';
 import 'package:flutter_chan/pages/thread/thread_page.dart';
+import 'package:flutter_chan/services/back_swipe_route.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/services/thread_filters.dart';
 import 'package:flutter_chan/widgets/image_viewer.dart';
@@ -63,7 +64,7 @@ class _GridPostState extends State<GridPost> {
     return GestureDetector(
       onTap: () => {
         Navigator.of(context).push(
-          MaterialPageRoute(
+          BackSwipePageRoute(
             builder: (context) => ThreadPage(
               threadName: widget.post.sub ?? widget.post.com ?? '',
               thread: widget.post.no ?? 0,

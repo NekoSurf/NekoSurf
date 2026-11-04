@@ -13,6 +13,7 @@ import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_widgets.dart';
 import 'package:flutter_chan/pages/replies_row.dart';
 import 'package:flutter_chan/pages/thread/thread_page.dart';
+import 'package:flutter_chan/services/back_swipe_route.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/image_viewer.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
@@ -127,7 +128,7 @@ class _BookmarksPostState extends State<BookmarksPost> {
             onTap: () {
               if (!isDeleted) {
                 Navigator.of(context).push(
-                  MaterialPageRoute(
+                  BackSwipePageRoute(
                     builder: (context) => ThreadPage(
                       post: Post(
                         no: widget.favorite.no,

@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/API/save_videos.dart';
 import 'package:flutter_chan/Models/post.dart';
@@ -16,6 +15,7 @@ import 'package:flutter_chan/pages/savedAttachments/saved_attachments.dart';
 import 'package:flutter_chan/pages/search/search_page.dart';
 import 'package:flutter_chan/pages/settings/settings.dart';
 import 'package:flutter_chan/pages/thread/thread_page.dart';
+import 'package:flutter_chan/services/back_swipe_route.dart';
 import 'package:flutter_chan/services/show_snackbar.dart';
 import 'package:flutter_chan/services/update_checker.dart';
 import 'package:flutter_chan/widgets/cupertino_menu.dart';
@@ -136,7 +136,7 @@ class BoardListState extends State<BoardList> {
         Navigator.of(context).pop();
 
         Navigator.of(context).push(
-          MaterialPageRoute(
+          BackSwipePageRoute(
             builder: (context) => ThreadPage(
               post: response[0],
               threadName: response[0].sub ?? response[0].com ?? 'No Title',
@@ -311,13 +311,13 @@ class BoardListState extends State<BoardList> {
               icon: const Icon(CupertinoIcons.clock),
               onPressed: () => Navigator.of(
                 context,
-              ).push(MaterialPageRoute(builder: (_) => const HistoryPage())),
+              ).push(BackSwipePageRoute(builder: (_) => const HistoryPage())),
             ),
             DashIconButton(
               icon: const Icon(CupertinoIcons.search),
               onPressed: () => Navigator.of(
                 context,
-              ).push(MaterialPageRoute(builder: (_) => const SearchPage())),
+              ).push(BackSwipePageRoute(builder: (_) => const SearchPage())),
             ),
             DashIconButton(
               icon: const Icon(CupertinoIcons.link),

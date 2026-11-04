@@ -9,6 +9,7 @@ import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/pages/replies_row.dart';
 import 'package:flutter_chan/pages/thread/thread_page.dart';
+import 'package:flutter_chan/services/back_swipe_route.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/services/thread_filters.dart';
 import 'package:flutter_chan/widgets/image_viewer.dart';
@@ -102,283 +103,289 @@ class _ListPostState extends State<ListPost> {
                 ),
               ],
             ),
-      child: GestureDetector(
-        onTap: () => {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => ThreadPage(
-                threadName: widget.post.sub ?? widget.post.com ?? '',
-                thread: widget.post.no ?? 0,
-                post: widget.post,
-                board: widget.board,
+      child: SlidableBackSwipe(
+        child: GestureDetector(
+          onTap: () => {
+            Navigator.of(context).push(
+              BackSwipePageRoute(
+                builder: (context) => ThreadPage(
+                  threadName: widget.post.sub ?? widget.post.com ?? '',
+                  thread: widget.post.no ?? 0,
+                  post: widget.post,
+                  board: widget.board,
+                ),
               ),
             ),
-          ),
-        },
-        onLongPress: () => showThreadFilterMenu(context, widget.post),
-        child: Container(
-          margin: const EdgeInsets.fromLTRB(10, 6, 10, 6),
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-          decoration: BoxDecoration(
-            color: cardColor,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: DashColors.border(isDark)),
-            boxShadow: isDark
-                ? []
-                : const [
-                    BoxShadow(
-                      color: Color(0x12000000),
-                      blurRadius: 12,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
-          ),
-          child: Column(
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 14,
-                              backgroundColor: boardTint.withValues(alpha: 0.2),
-                              child: Text(
-                                posterName.characters.first.toUpperCase(),
-                                style: TextStyle(
-                                  color: boardTint,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
+          },
+          onLongPress: () => showThreadFilterMenu(context, widget.post),
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(10, 6, 10, 6),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: DashColors.border(isDark)),
+              boxShadow: isDark
+                  ? []
+                  : const [
+                      BoxShadow(
+                        color: Color(0x12000000),
+                        blurRadius: 12,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+            ),
+            child: Column(
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 14,
+                                backgroundColor: boardTint.withValues(
+                                  alpha: 0.2,
+                                ),
+                                child: Text(
+                                  posterName.characters.first.toUpperCase(),
+                                  style: TextStyle(
+                                    color: boardTint,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                               ),
-                            ),
 
-                            const SizedBox(width: 8),
+                              const SizedBox(width: 8),
 
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Text(
-                                        posterName,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w700,
-                                          color: primaryText,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-
-                                      const SizedBox(width: 6),
-
-                                      if (widget.showBoard)
-                                        Padding(
-                                          padding: const EdgeInsets.only(
-                                            right: 6,
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text(
+                                          posterName,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: primaryText,
                                           ),
-                                          child: Container(
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+
+                                        const SizedBox(width: 6),
+
+                                        if (widget.showBoard)
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                              right: 6,
+                                            ),
+                                            child: Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 2,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: boardTint.withValues(
+                                                  alpha: 0.16,
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(999),
+                                              ),
+                                              child: Text(
+                                                '/${widget.board}/',
+                                                style: TextStyle(
+                                                  color: boardTint,
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+
+                                        if (widget.post.sticky == 1)
+                                          Container(
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 8,
                                               vertical: 2,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: boardTint.withValues(
-                                                alpha: 0.16,
-                                              ),
+                                              color: CupertinoColors
+                                                  .systemOrange
+                                                  .withValues(alpha: 0.16),
                                               borderRadius:
                                                   BorderRadius.circular(999),
                                             ),
-                                            child: Text(
-                                              '/${widget.board}/',
+                                            child: const Text(
+                                              'Sticky',
                                               style: TextStyle(
-                                                color: boardTint,
+                                                color: CupertinoColors
+                                                    .systemOrange,
                                                 fontSize: 11,
                                                 fontWeight: FontWeight.w700,
                                               ),
                                             ),
                                           ),
-                                        ),
 
-                                      if (widget.post.sticky == 1)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 2,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: CupertinoColors.systemOrange
-                                                .withValues(alpha: 0.16),
-                                            borderRadius: BorderRadius.circular(
-                                              999,
+                                        const Spacer(),
+
+                                        if (widget.post.country != null)
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                              left: 6,
+                                            ),
+                                            child: SizedBox(
+                                              width: 16,
+                                              height: 11,
+                                              child:
+                                                  CountryFlag.fromCountryCode(
+                                                    widget.post.country!,
+                                                  ),
                                             ),
                                           ),
-                                          child: const Text(
-                                            'Sticky',
-                                            style: TextStyle(
-                                              color:
-                                                  CupertinoColors.systemOrange,
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
+                                      ],
+                                    ),
+
+                                    Text(
+                                      DateFormat('kk:mm - dd.MM.y').format(
+                                        DateTime.fromMillisecondsSinceEpoch(
+                                          widget.post.time! * 1000,
                                         ),
-
-                                      const Spacer(),
-
-                                      if (widget.post.country != null)
-                                        Padding(
-                                          padding: const EdgeInsets.only(
-                                            left: 6,
-                                          ),
-                                          child: SizedBox(
-                                            width: 16,
-                                            height: 11,
-                                            child: CountryFlag.fromCountryCode(
-                                              widget.post.country!,
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-
-                                  Text(
-                                    DateFormat('kk:mm - dd.MM.y').format(
-                                      DateTime.fromMillisecondsSinceEpoch(
-                                        widget.post.time! * 1000,
                                       ),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: secondaryText,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: secondaryText,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        if (headline.isNotEmpty) ...[
-                          const SizedBox(height: 6),
-
-                          Text(
-                            headline,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: primaryText,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-
-                        if (excerpt.isNotEmpty) ...[
-                          const SizedBox(height: 6),
-
-                          Text(
-                            excerpt,
-                            style: TextStyle(
-                              fontSize: 13,
-                              height: 1.35,
-                              color: secondaryText,
-                            ),
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-
-                  if (widget.post.tim != null) ...[
-                    const SizedBox(width: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: SizedBox(
-                        width: 100,
-                        height: 100,
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            ImageViewer(
-                              url: urls.thumbnail(
-                                widget.board,
-                                widget.post.tim,
-                              ),
-                              fit: BoxFit.cover,
-                            ),
-                            if (widget.post.isVideo)
-                              const Center(
-                                child: Icon(
-                                  CupertinoIcons.play_circle_fill,
-                                  color: Colors.white,
-                                  size: 24,
+                                  ],
                                 ),
                               ),
+                            ],
+                          ),
+
+                          if (headline.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+
+                            Text(
+                              headline,
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: primaryText,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ],
+
+                          if (excerpt.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+
+                            Text(
+                              excerpt,
+                              style: TextStyle(
+                                fontSize: 13,
+                                height: 1.35,
+                                color: secondaryText,
+                              ),
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+
+                    if (widget.post.tim != null) ...[
+                      const SizedBox(width: 10),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: SizedBox(
+                          width: 100,
+                          height: 100,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              ImageViewer(
+                                url: urls.thumbnail(
+                                  widget.board,
+                                  widget.post.tim,
+                                ),
+                                fit: BoxFit.cover,
+                              ),
+                              if (widget.post.isVideo)
+                                const Center(
+                                  child: Icon(
+                                    CupertinoIcons.play_circle_fill,
+                                    color: Colors.white,
+                                    size: 24,
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
+                      ),
+                    ],
+                  ],
+                ),
+
+                const SizedBox(height: 10),
+
+                Row(
+                  children: [
+                    RepliesRow(
+                      replies: widget.post.replies,
+                      imageReplies: widget.post.images,
+                    ),
+
+                    const SizedBox(width: 6),
+
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: DashColors.muted(isDark).withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        'No.${widget.post.no}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: DashColors.muted(isDark),
+                        ),
+                      ),
+                    ),
+
+                    const Spacer(),
+
+                    GestureDetector(
+                      onTap: () => isFavorite
+                          ? bookmarks.removeBookmark(favorite)
+                          : bookmarks.addBookmark(favorite),
+                      child: Icon(
+                        isFavorite
+                            ? CupertinoIcons.bookmark_fill
+                            : CupertinoIcons.bookmark,
+                        size: 20,
                       ),
                     ),
                   ],
-                ],
-              ),
-
-              const SizedBox(height: 10),
-
-              Row(
-                children: [
-                  RepliesRow(
-                    replies: widget.post.replies,
-                    imageReplies: widget.post.images,
-                  ),
-
-                  const SizedBox(width: 6),
-
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: DashColors.muted(isDark).withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      'No.${widget.post.no}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: DashColors.muted(isDark),
-                      ),
-                    ),
-                  ),
-
-                  const Spacer(),
-
-                  GestureDetector(
-                    onTap: () => isFavorite
-                        ? bookmarks.removeBookmark(favorite)
-                        : bookmarks.addBookmark(favorite),
-                    child: Icon(
-                      isFavorite
-                          ? CupertinoIcons.bookmark_fill
-                          : CupertinoIcons.bookmark,
-                      size: 20,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

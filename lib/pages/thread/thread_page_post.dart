@@ -12,6 +12,7 @@ import 'package:flutter_chan/pages/replies_row.dart';
 import 'package:flutter_chan/pages/thread/thread_media_viewer_page.dart';
 import 'package:flutter_chan/pages/thread/thread_post_comment.dart';
 import 'package:flutter_chan/pages/thread/thread_replies.dart';
+import 'package:flutter_chan/services/back_swipe_route.dart';
 import 'package:flutter_chan/services/image_cache.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/feed_video_player.dart';
@@ -77,7 +78,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
 
   Future<void> _openReplies() async {
     final focusedPostId = await Navigator.of(context).push<int>(
-      MaterialPageRoute(
+      BackSwipePageRoute(
         builder: (context) => ThreadReplies(
           post: widget.post,
           thread: widget.thread,

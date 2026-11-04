@@ -10,6 +10,7 @@ import 'package:flutter_chan/pages/board/list_view.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_widgets.dart';
 import 'package:flutter_chan/pages/thread/thread_page.dart';
+import 'package:flutter_chan/services/back_swipe_route.dart';
 import 'package:flutter_chan/services/find_4chan_browser.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/dash_header.dart';
@@ -459,7 +460,7 @@ class _SearchResultTile extends StatelessWidget {
     final int thread = _isReply ? post.resto! : post.no ?? 0;
 
     Navigator.of(context).push(
-      MaterialPageRoute(
+      BackSwipePageRoute(
         builder: (_) => ThreadPage(
           board: board,
           thread: thread,

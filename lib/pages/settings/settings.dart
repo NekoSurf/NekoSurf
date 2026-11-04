@@ -8,6 +8,7 @@ import 'package:flutter_chan/pages/settings/setting_pages/data_settings.dart';
 import 'package:flutter_chan/pages/settings/setting_pages/privacy_settings.dart';
 import 'package:flutter_chan/pages/settings/setting_pages/threads_settings.dart';
 import 'package:flutter_chan/pages/settings/settings_widgets.dart';
+import 'package:flutter_chan/services/back_swipe_route.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
@@ -22,7 +23,7 @@ class _SettingsState extends State<Settings> {
   late final Future<PackageInfo> _version = PackageInfo.fromPlatform();
 
   void _push(Widget page) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+    Navigator.of(context).push(BackSwipePageRoute(builder: (_) => page));
   }
 
   @override

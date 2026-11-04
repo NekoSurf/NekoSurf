@@ -4,6 +4,7 @@ import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/pages/thread/thread_replied_to.dart';
+import 'package:flutter_chan/services/back_swipe_route.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/spoiler_text.dart';
 import 'package:provider/provider.dart';
@@ -80,7 +81,7 @@ class _ThreadPostCommentState extends State<ThreadPostComment> {
           GestureDetector(
             onTap: () {
               Navigator.of(context).push(
-                MaterialPageRoute(
+                BackSwipePageRoute(
                   builder: (context) => ThreadRepliesTo(
                     post: int.parse(urlNo),
                     thread: widget.thread,

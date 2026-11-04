@@ -1,1 +1,1 @@
-Replies that start with a number now count as replies to the post they quote.
+Swipe right anywhere on a page to go back; replies that start with a number now count as replies to the post they quote.

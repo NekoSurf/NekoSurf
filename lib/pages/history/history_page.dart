@@ -8,6 +8,7 @@ import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_widgets.dart';
 import 'package:flutter_chan/pages/thread/thread_page.dart';
+import 'package:flutter_chan/services/back_swipe_route.dart';
 import 'package:flutter_chan/services/image_cache.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/dash_dialogs.dart';
@@ -64,7 +65,7 @@ class _HistoryPageState extends State<HistoryPage> {
         : null;
 
     Navigator.of(context).push(
-      MaterialPageRoute(
+      BackSwipePageRoute(
         builder: (_) => ThreadPage(
           post: Post(
             no: t.no,
@@ -220,108 +221,111 @@ class _HistoryRow extends StatelessWidget {
             ),
           ],
         ),
-        child: GestureDetector(
-          onLongPress: () => showDashMenu(
-            context,
-            title: headline,
-            entries: [
-              DashMenuEntry(
-                title: 'Remove from history',
-                icon: CupertinoIcons.trash,
-                isDestructive: true,
-                onPressed: onRemove,
-              ),
-            ],
-          ),
-          child: DashCard(
-            isDark: isDark,
-            radius: 18,
-            onTap: onTap,
-            padding: const EdgeInsets.all(10),
-            child: Row(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    width: 64,
-                    height: 64,
-                    color: tint.withValues(alpha: 0.16),
-                    alignment: Alignment.center,
-                    child: thread.imageUrl == null
-                        ? Text(
-                            '/${thread.board}/',
-                            style: TextStyle(
-                              color: tint,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          )
-                        : Image(
-                            image: thumbnailImage(
-                              urls.boardFile(thread.board, thread.imageUrl!),
-                            ),
-                            width: 64,
-                            height: 64,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                          ),
-                  ),
+        child: SlidableBackSwipe(
+          child: GestureDetector(
+            onLongPress: () => showDashMenu(
+              context,
+              title: headline,
+              entries: [
+                DashMenuEntry(
+                  title: 'Remove from history',
+                  icon: CupertinoIcons.trash,
+                  isDestructive: true,
+                  onPressed: onRemove,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            '/${thread.board}/',
-                            style: TextStyle(
-                              color: tint,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
+              ],
+            ),
+            child: DashCard(
+              isDark: isDark,
+              radius: 18,
+              onTap: onTap,
+              padding: const EdgeInsets.all(10),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      width: 64,
+                      height: 64,
+                      color: tint.withValues(alpha: 0.16),
+                      alignment: Alignment.center,
+                      child: thread.imageUrl == null
+                          ? Text(
+                              '/${thread.board}/',
+                              style: TextStyle(
+                                color: tint,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            )
+                          : Image(
+                              image: thumbnailImage(
+                                urls.boardFile(thread.board, thread.imageUrl!),
+                              ),
+                              width: 64,
+                              height: 64,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) =>
+                                  const SizedBox.shrink(),
                             ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            DateFormat('kk:mm').format(thread.visitedAt),
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: DashColors.muted(isDark),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              '/${thread.board}/',
+                              style: TextStyle(
+                                color: tint,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
-                          ),
-                          if (isArchived) ...[
                             const SizedBox(width: 6),
                             Text(
-                              'Archived',
+                              DateFormat('kk:mm').format(thread.visitedAt),
                               style: TextStyle(
                                 fontSize: 12,
-                                fontWeight: FontWeight.w700,
                                 color: DashColors.muted(isDark),
                               ),
                             ),
+                            if (isArchived) ...[
+                              const SizedBox(width: 6),
+                              Text(
+                                'Archived',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: DashColors.muted(isDark),
+                                ),
+                              ),
+                            ],
+                            const Spacer(),
+                            if (newReplies > 0)
+                              NewRepliesBadge(count: newReplies),
                           ],
-                          const Spacer(),
-                          if (newReplies > 0)
-                            NewRepliesBadge(count: newReplies),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        headline,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w700,
-                          height: 1.25,
-                          color: DashColors.text(isDark),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 4),
+                        Text(
+                          headline,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w700,
+                            height: 1.25,
+                            color: DashColors.text(isDark),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

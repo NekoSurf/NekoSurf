@@ -1,5 +1,4 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/favorite_model.dart';
@@ -11,6 +10,7 @@ import 'package:flutter_chan/pages/board/grid_view.dart';
 import 'package:flutter_chan/pages/board/list_view.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_widgets.dart';
+import 'package:flutter_chan/services/back_swipe_route.dart';
 import 'package:flutter_chan/widgets/cupertino_menu.dart';
 import 'package:flutter_chan/widgets/dash_dialogs.dart';
 import 'package:flutter_chan/widgets/dash_header.dart';
@@ -193,7 +193,7 @@ class BoardPageState extends State<BoardPage> {
           DashIconButton(
             icon: const Icon(CupertinoIcons.archivebox),
             onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(
+              BackSwipePageRoute(
                 builder: (_) => ArchivePage(
                   board: widget.board,
                   boardName: widget.boardName,

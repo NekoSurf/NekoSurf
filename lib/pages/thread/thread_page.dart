@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/API/urls.dart' as urls;
 import 'package:flutter_chan/Models/bookmark.dart';
@@ -14,6 +13,7 @@ import 'package:flutter_chan/pages/bookmark_button.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/pages/thread/thread_gallery_page.dart';
 import 'package:flutter_chan/pages/thread/thread_page_post.dart';
+import 'package:flutter_chan/services/back_swipe_route.dart';
 import 'package:flutter_chan/services/image_cache.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/cupertino_menu.dart';
@@ -636,7 +636,7 @@ class ThreadPageState extends State<ThreadPage> {
 
   void _openGallery() {
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
+      BackSwipePageRoute<void>(
         builder: (_) => ThreadGalleryPage(
           board: widget.board,
           thread: widget.thread,
