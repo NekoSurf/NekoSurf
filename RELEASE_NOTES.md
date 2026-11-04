@@ -2,7 +2,7 @@
 
 ### 💬 Threads that read like comments
 - Each reply sits below the post it answers, however deep the conversation goes, in the thread and on the replies pages
-- A new, cleaner look: no more cards, just a short header, a thin line for each level, and clear room between discussions; quotes are small tags like #38; images and videos still show right in the thread
+- A new, cleaner look: no more cards, just a short header, a thin line for each level, and clear room between discussions; quotes are small tags like #38; images and videos still show right in the thread, and images now zoom out of their post into the viewer, like videos
 - Tap any reply to fold it and its replies down to one line, and again to bring them back, or tap the line beside a reply to fold the post it answers
 - Replies posted while you're reading appear at the bottom, so the list doesn't move; they join their post the next time you open the thread
 

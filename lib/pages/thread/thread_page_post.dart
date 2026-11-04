@@ -16,6 +16,7 @@ import 'package:flutter_chan/services/image_cache.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/feed_video_player.dart';
 import 'package:flutter_chan/widgets/image_viewer.dart';
+import 'package:flutter_chan/widgets/media_video.dart';
 import 'package:provider/provider.dart';
 
 /// A post as a row: a one-line header, then its text, then its image or
@@ -73,9 +74,9 @@ class ThreadPagePost extends StatefulWidget {
 }
 
 class _ThreadPagePostState extends State<ThreadPagePost> {
-  final GlobalKey _videoBoxKey = GlobalKey();
+  final GlobalKey _mediaBoxKey = GlobalKey();
 
-  /// Where the viewer zooms the video from: its inline box, below the
+  /// Where the viewer zooms the media from: its box in the post, below the
   /// thread's title bar (the body's top padding).
   MediaZoomOrigin? _zoomOrigin() {
     final int? width = widget.post.w;
@@ -84,10 +85,13 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
       return null;
     }
     return MediaZoomOrigin(
-      boxKey: _videoBoxKey,
+      boxKey: _mediaBoxKey,
       postId: widget.post.no,
       clipTop: MediaQuery.paddingOf(context).top,
       aspectRatio: width / height,
+      imageSize: widget.post.isVideo
+          ? null
+          : Size(width.toDouble(), height.toDouble()),
     );
   }
 
@@ -175,7 +179,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
         startMuted: Provider.of<SettingsProvider>(
           context,
         ).getFeedVideosStartMuted(),
-        boxKey: _videoBoxKey,
+        boxKey: _mediaBoxKey,
         onTap: () => _openMediaViewer(
           widget.replies ?? widget.allPosts,
           widget.post,
@@ -207,15 +211,19 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
   /// over it. Opens the viewer when tapped.
   Widget _buildImage() {
     return GestureDetector(
-      onTap: () =>
-          _openMediaViewer(widget.replies ?? widget.allPosts, widget.post),
+      onTap: () => _openMediaViewer(
+        widget.replies ?? widget.allPosts,
+        widget.post,
+        origin: _zoomOrigin(),
+      ),
       child: AspectRatio(
+        key: _mediaBoxKey,
         aspectRatio: _mediaAspectRatio(),
         child: Stack(
           fit: StackFit.expand,
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(mediaInlineRadius),
               child: Image(
                 image: thumbnailImage(_thumbnailUrl()),
                 fit: BoxFit.cover,
@@ -233,7 +241,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
               ),
             ),
             ClipRRect(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(mediaInlineRadius),
               child: Image(
                 // Decode at display size: a 4000px original fills ~48 MB once
                 // decoded, for a row about 400pt wide.

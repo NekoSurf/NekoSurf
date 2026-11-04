@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
@@ -1297,8 +1298,36 @@ class _SharedMediaImagePage extends StatefulWidget {
   State<_SharedMediaImagePage> createState() => _SharedMediaImagePageState();
 }
 
+/// The size an image of [imageSize] shows at on [screen]: as large as fits,
+/// but no larger than its own size.
+Size fittedImageSize(Size imageSize, Size screen) {
+  final double scale = min(
+    1,
+    min(screen.width / imageSize.width, screen.height / imageSize.height),
+  );
+  return imageSize * scale;
+}
+
 class _SharedMediaImagePageState extends State<_SharedMediaImagePage>
     with SingleTickerProviderStateMixin {
+  /// Where the thumbnail shows until the image is ready, if it has one.
+  Size? _thumbnailSize(BuildContext context) {
+    final SharedMediaViewerItem item = widget.item;
+    final int? width = item.width;
+    final int? height = item.height;
+    if (item.thumbnail == null ||
+        width == null ||
+        height == null ||
+        width <= 0 ||
+        height <= 0) {
+      return null;
+    }
+    return fittedImageSize(
+      Size(width.toDouble(), height.toDouble()),
+      MediaQuery.sizeOf(context),
+    );
+  }
+
   final TransformationController _transformationController =
       TransformationController();
   // Created eagerly: a lazy `late` first read in dispose() would create the
@@ -1392,16 +1421,37 @@ class _SharedMediaImagePageState extends State<_SharedMediaImagePage>
             child: Image(
               image: widget.item.imageProvider,
               fit: BoxFit.contain,
+              // Its thumbnail until it's ready, so that there's something to
+              // zoom out of the post while it decodes.
+              frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                final Size? size = _thumbnailSize(context);
+                if (frame != null || wasSynchronouslyLoaded || size == null) {
+                  return child;
+                }
+                return SizedBox.fromSize(
+                  size: size,
+                  child: Image(
+                    image: widget.item.thumbnail!,
+                    fit: BoxFit.contain,
+                    gaplessPlayback: true,
+                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                  ),
+                );
+              },
               loadingBuilder: (context, child, loadingProgress) {
                 if (loadingProgress == null) {
                   return child;
                 }
 
-                return const Center(
-                  child: CupertinoActivityIndicator(
-                    radius: 14,
-                    color: Colors.white,
-                  ),
+                return Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    child,
+                    const CupertinoActivityIndicator(
+                      radius: 14,
+                      color: Colors.white,
+                    ),
+                  ],
                 );
               },
               errorBuilder: (context, error, stackTrace) {

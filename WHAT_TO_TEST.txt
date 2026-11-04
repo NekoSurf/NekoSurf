@@ -2,7 +2,7 @@ THREADS THAT READ LIKE COMMENTS
 Open a busy thread.
 
 • Posts sit on the background with no cards: a one-line header, the text, then the image or playing video. Replies are indented with a thin cyan or violet line. A stronger line and more room start each new discussion.
-• Tap an image or a video: the viewer opens.
+• Tap an image or a video: it should zoom out of the post, and back into it when closed.
 • Tap anywhere on a reply, including its text: it shrinks to its header, the arrow turns sideways, and what's above stays put. If its header had scrolled away, it lands below the title bar and flashes. Tap again: it all comes back.
 • Long-press its text: that should select the text, not fold. Tap a quote like #38 or OP, in a sentence too, an image or a video: those should do their own thing, not fold.
 • Scroll down a long branch and tap the line beside a reply: the post it answers folds and flashes. If that post was off screen, the list goes back to it.

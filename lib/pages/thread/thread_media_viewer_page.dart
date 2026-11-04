@@ -12,7 +12,7 @@ import 'package:flutter_chan/services/reverse_image_search.dart';
 import 'package:flutter_chan/widgets/media_video.dart';
 import 'package:provider/provider.dart';
 
-/// The inline video the viewer was opened from: it zooms out of this box
+/// The media in a post the viewer was opened from: it zooms out of this box
 /// and, if the same post is still shown when it closes, back into it.
 class MediaZoomOrigin {
   const MediaZoomOrigin({
@@ -20,9 +20,10 @@ class MediaZoomOrigin {
     required this.postId,
     required this.clipTop,
     required this.aspectRatio,
+    this.imageSize,
   });
 
-  /// On the inline video's box; measured every frame, as it may move.
+  /// On the media's box in the post; measured every frame, as it may move.
   final GlobalKey boxKey;
   final int? postId;
 
@@ -30,8 +31,11 @@ class MediaZoomOrigin {
   /// bar stays on top.
   final double clipTop;
 
-  /// The video's own shape, as it's laid out fullscreen.
+  /// The media's own shape, as it's laid out fullscreen.
   final double aspectRatio;
+
+  /// For an image: its size, as the viewer doesn't enlarge small ones.
+  final Size? imageSize;
 
   Rect? get rect {
     final RenderObject? box = boxKey.currentContext?.findRenderObject();
@@ -88,11 +92,11 @@ class ThreadMediaViewerRoute extends MaterialPageRoute<int>
   @override
   int? get currentResult => _currentPostId.value;
 
-  // Like a photo viewer: opened from an inline video, the video zooms out
-  // of that video's box, and back into it when closed, while the viewer's
-  // background fades in place. It's part of this route (not a Hero, which
-  // flies above every route), so the viewer's bars stay above the video
-  // and, clipped below it, the thread's title bar too. Otherwise it fades.
+  // Like a photo viewer: opened from a post, the media zooms out of its box
+  // there, and back into it when closed, while the viewer's background fades
+  // in place. It's part of this route (not a Hero, which flies above every
+  // route), so the viewer's bars stay above the media and, clipped below it,
+  // the thread's title bar too. Otherwise it fades.
   @override
   Duration get transitionDuration => const Duration(milliseconds: 250);
 
@@ -105,19 +109,19 @@ class ThreadMediaViewerRoute extends MaterialPageRoute<int>
 
   // The edge swipe drives the route's animation the way Flutter's
   // Cupertino back gesture does, so the thread shows underneath. Opened
-  // from an inline video, only the video follows the finger (the
-  // background fades) and, let go, it flies back into its post, like
-  // Photos. Otherwise the whole viewer slides, like iOS's back swipe.
+  // from a post, only the media follows the finger (the background fades)
+  // and, let go, it flies back into its post, like Photos. Otherwise the
+  // whole viewer slides, like iOS's back swipe.
 
   /// The navigator told of the swipe; told again when it's settled. Kept,
   /// as the route forgets its navigator once it's gone.
   NavigatorState? _gesture;
 
-  /// Whether this swipe moves just the video (decided when it starts).
+  /// Whether this swipe moves just the media (decided when it starts).
   bool _swipeZooms = false;
 
   /// The animation's value when the swipe let go to close, zooming the
-  /// video back from where the finger left it.
+  /// media back from where the finger left it.
   double? _flyFrom;
 
   bool get _swiping => _gesture != null;
@@ -206,7 +210,7 @@ class ThreadMediaViewerRoute extends MaterialPageRoute<int>
   static Duration _swipeSettleDuration(double distance) =>
       Duration(milliseconds: (300 * distance).round().clamp(80, 300));
 
-  /// Opened from an inline video that's still the one shown and on screen.
+  /// Opened from a post whose media is still the one shown and on screen.
   bool get _zoomable {
     final MediaZoomOrigin? origin = this.origin;
     return origin != null &&
@@ -214,7 +218,7 @@ class ThreadMediaViewerRoute extends MaterialPageRoute<int>
         origin.rect != null;
   }
 
-  /// Zooming or moving just the video (not fading or sliding the viewer).
+  /// Zooming or moving just the media (not fading or sliding the viewer).
   bool get _zooms => _swiping ? _swipeZooms : _zoomable;
 
   @override
@@ -290,7 +294,7 @@ class ThreadMediaViewerRoute extends MaterialPageRoute<int>
           return place(Matrix4.identity(), null);
         }
 
-        // Swiping: the video follows the finger, then flies home from there.
+        // Swiping: the media follows the finger, then flies home from there.
         double t = Curves.easeOutCubic.transform(value);
         double shift = 0;
         if (_swiping) {
@@ -307,8 +311,8 @@ class ThreadMediaViewerRoute extends MaterialPageRoute<int>
           return place(Matrix4.identity(), null);
         }
 
-        final Rect video = _containRect(origin.aspectRatio, screen);
-        // Scaled so the video covers the inline box, as the post crops it.
+        final Rect video = _fullscreenRect(origin, screen);
+        // Scaled so the media covers its box in the post, which crops it.
         final double startScale = max(
           from.width / video.width,
           from.height / video.height,
@@ -341,9 +345,19 @@ class ThreadMediaViewerRoute extends MaterialPageRoute<int>
     );
   }
 
-  /// Where a video of [aspectRatio] sits fullscreen: centred, as large as
-  /// fits ([SharedMediaViewer] lays it out like that).
-  static Rect _containRect(double aspectRatio, Size screen) {
+  /// Where the media sits fullscreen: centred, as large as fits, or an image
+  /// at most its own size ([SharedMediaViewer] lays them out like that).
+  static Rect _fullscreenRect(MediaZoomOrigin origin, Size screen) {
+    final Size? imageSize = origin.imageSize;
+    if (imageSize != null) {
+      final Size fitted = fittedImageSize(imageSize, screen);
+      return Rect.fromCenter(
+        center: screen.center(Offset.zero),
+        width: fitted.width,
+        height: fitted.height,
+      );
+    }
+    final double aspectRatio = origin.aspectRatio;
     double width = screen.width;
     double height = width / aspectRatio;
     if (height > screen.height) {
