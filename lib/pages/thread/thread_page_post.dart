@@ -35,6 +35,7 @@ class ThreadPagePost extends StatefulWidget {
     this.preloadVideo = false,
     this.onToggleFold,
     this.folded = false,
+    this.isPreview = false,
     this.repliedTo,
     this.number,
   });
@@ -53,6 +54,10 @@ class ThreadPagePost extends StatefulWidget {
   /// It can fold: without this, its count opens its replies on their own page.
   final VoidCallback? onToggleFold;
   final bool folded;
+
+  /// Shown in full elsewhere: this is a short, dimmed preview, and
+  /// [onToggleFold] moves it here.
+  final bool isPreview;
 
   /// See [ThreadPostComment.repliedTo].
   final int? repliedTo;
@@ -207,6 +212,54 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     );
   }
 
+  /// A post shown in full elsewhere: as much as fits a few lines, beside a small
+  /// thumbnail, which the whole row reacts to as one.
+  Widget _buildPreview() {
+    final String? com = widget.post.com;
+    return Opacity(
+      opacity: 0.6,
+      child: IgnorePointer(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 60),
+          child: ClipRect(
+            child: SingleChildScrollView(
+              physics: const NeverScrollableScrollPhysics(),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (widget.post.hasFile)
+                    Padding(
+                      padding: EdgeInsets.only(right: com == null ? 0 : 10),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: Image(
+                          image: thumbnailImage(_thumbnailUrl()),
+                          width: 60,
+                          height: 60,
+                          fit: BoxFit.cover,
+                          errorBuilder: imageErrorPlaceholder,
+                        ),
+                      ),
+                    ),
+                  if (com != null)
+                    Expanded(
+                      child: ThreadPostComment(
+                        com: com,
+                        board: widget.board,
+                        thread: widget.thread,
+                        allPosts: widget.allPosts,
+                        repliedTo: widget.repliedTo,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   /// The image as a preview: its thumbnail, with the full image fading in
   /// over it. Opens the viewer when tapped.
   Widget _buildImage() {
@@ -295,6 +348,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     // What's interactive inside, like media or links, takes its own taps.
     final VoidCallback? fold = widget.onToggleFold;
     final bool folded = fold != null && widget.folded;
+    final bool isPreview = fold != null && widget.isPreview;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -347,7 +401,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                       child: CountryFlag.fromCountryCode(country),
                     ),
                   ),
-                if (widget.replyCount > 0 || folded)
+                if (widget.replyCount > 0 || folded || isPreview)
                   GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: fold ?? _openReplies,
@@ -372,7 +426,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                             const SizedBox(width: 3),
                           ],
                           Icon(
-                            folded
+                            folded || isPreview
                                 ? CupertinoIcons.chevron_right
                                 : fold != null
                                 ? CupertinoIcons.chevron_down
@@ -386,7 +440,8 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                   ),
               ],
             ),
-            if (!folded && post.sub != null) ...[
+            if (isPreview) ...[const SizedBox(height: 5), _buildPreview()],
+            if (!folded && !isPreview && post.sub != null) ...[
               const SizedBox(height: 6),
               Text(
                 unescape(cleanTags(post.sub ?? '')),
@@ -399,7 +454,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                 overflow: TextOverflow.ellipsis,
               ),
             ],
-            if (!folded && post.com != null) ...[
+            if (!folded && !isPreview && post.com != null) ...[
               const SizedBox(height: 5),
               ThreadPostComment(
                 com: post.com ?? '',
@@ -410,7 +465,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                 repliedTo: widget.repliedTo,
               ),
             ],
-            if (!folded && post.hasFile) ...[
+            if (!folded && !isPreview && post.hasFile) ...[
               const SizedBox(height: 8),
               if (post.isVideo) _buildVideo() else _buildImage(),
             ],

@@ -229,17 +229,19 @@ class ThreadPageState extends State<ThreadPage>
       for (final Post post in allPosts)
         if (post.no != null) post.no!,
     };
-    _replyChildren = buildReplyChildrenIndex(<Post>[
+    final List<Post> inTree = <Post>[
       for (final Post post in allPosts)
         if (treePosts.contains(post.no)) post,
-    ]);
+    ];
+    _replyChildren = buildReplyChildrenIndex(inTree);
   }
 
   @override
   List<ThreadRow> buildRows() => buildNestedRows(
     allPosts,
     children: _replyChildren,
-    collapsed: collapsedPosts,
+    collapsed: collapsedRows,
+    primaryParents: primaryParents,
     treePosts: _treePosts,
     opReplyCount: allPosts.isEmpty
         ? 0
@@ -254,7 +256,8 @@ class ThreadPageState extends State<ThreadPage>
     _newPostCount = 0;
     _firstNewPost = null;
     _treePosts = null;
-    collapsedPosts.clear();
+    collapsedRows.clear();
+    primaryParents.clear();
     _hasScrolledToLastWatched = false;
     _didStartPreloading = false;
     _preloadDebounce?.cancel();
@@ -621,7 +624,7 @@ class ThreadPageState extends State<ThreadPage>
       }
       if (itemScrollController.isAttached) {
         itemScrollController.jumpTo(index: index, alignment: belowHeader);
-        flashPost(rows[index].post.no);
+        flashRow(rows[index].path);
       } else if (attempts > 1) {
         _jumpWhenAttached(index, attempts: attempts - 1);
       }

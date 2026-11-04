@@ -25,6 +25,7 @@ void main() {
     required VoidCallback? onToggle,
     int replyCount = 3,
     bool folded = false,
+    bool isPreview = false,
   }) async {
     final Post post = Post(no: 2, time: 1700000000, com: _comment);
     await tester.pumpWidget(
@@ -46,6 +47,7 @@ void main() {
                   replyCount: replyCount,
                   onToggleFold: onToggle,
                   folded: folded,
+                  isPreview: isPreview,
                 ),
               ),
             ),
@@ -95,6 +97,42 @@ void main() {
       await pumpRow(tester, onToggle: null, folded: true);
 
       expect(find.byType(ThreadPostComment), findsOneWidget);
+    });
+  });
+
+  group('a preview', () {
+    testWidgets('moves here from anywhere on the row', (tester) async {
+      int taps = 0;
+      await pumpRow(tester, onToggle: () => taps++, isPreview: true);
+
+      await tester.tap(find.textContaining('Anonymous', findRichText: true));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.tap(find.text('3'));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.tap(find.text('Some words of a reply'), warnIfMissed: false);
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(taps, 3);
+    });
+
+    testWidgets('shows some of the post, dimmed, and no quote opens', (
+      tester,
+    ) async {
+      await pumpRow(tester, onToggle: () {}, isPreview: true);
+
+      expect(find.text('Some words of a reply'), findsOneWidget);
+      expect(find.byType(Opacity), findsOneWidget);
+
+      await tester.tap(find.text('OP'), warnIfMissed: false);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ThreadRepliesTo), findsNothing);
+    });
+
+    testWidgets('has an arrow, even without replies', (tester) async {
+      await pumpRow(tester, onToggle: () {}, replyCount: 0, isPreview: true);
+
+      expect(find.byIcon(CupertinoIcons.chevron_right), findsOneWidget);
     });
   });
 

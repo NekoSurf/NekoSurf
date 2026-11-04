@@ -78,13 +78,67 @@ void main() {
       Post(no: 8),
     ];
 
-    test('hangs each reply off the last earlier post it quotes', () {
+    test('hangs each reply off the earlier posts it quotes', () {
       final Map<int, List<Post>> children = buildReplyChildrenIndex(posts);
       expect(_numbers(children[1]!), [2, 4]);
       expect(_numbers(children[2]!), [3]);
       expect(_numbers(children[3]!), [5]);
       expect(children.containsKey(99), isFalse);
       expect(children.containsKey(8), isFalse);
+    });
+
+    test('hangs a reply off a post it quotes twice once', () {
+      final Map<int, List<Post>> children = buildReplyChildrenIndex([
+        Post(no: 1),
+        Post(no: 2, com: _quoting([1, 1])),
+      ]);
+      expect(_numbers(children[1]!), [2]);
+    });
+
+    test('hangs a reply off every post it quotes from different branches', () {
+      final Map<int, List<Post>> children = buildReplyChildrenIndex([
+        Post(no: 1),
+        Post(no: 2, com: _quoting([1])),
+        Post(no: 3, com: _quoting([1])),
+        Post(no: 4, com: _quoting([2, 3])),
+      ]);
+      expect(_numbers(children[2]!), [4]);
+      expect(_numbers(children[3]!), [4]);
+    });
+
+    test('leaves out a post the reply is already below', () {
+      final Map<int, List<Post>> children = buildReplyChildrenIndex([
+        Post(no: 1),
+        Post(no: 2, com: _quoting([1])),
+        Post(no: 3, com: _quoting([2])),
+        Post(no: 4, com: _quoting([3])),
+        Post(no: 5, com: _quoting([2, 4, 1])),
+      ]);
+      expect(_numbers(children[1]!), [2]);
+      expect(_numbers(children[2]!), [3]);
+      expect(_numbers(children[4]!), [5]);
+    });
+
+    test('still counts a reply below every post it quotes', () {
+      final Map<int, int> counts = buildReplyDescendantCountIndex([
+        Post(no: 1),
+        Post(no: 2, com: _quoting([1])),
+        Post(no: 3, com: _quoting([2])),
+        Post(no: 4, com: _quoting([2, 3])),
+      ]);
+      expect(counts[2], 2);
+      expect(counts[3], 1);
+    });
+
+    test('counts a reply reached by several routes once', () {
+      final Map<int, int> counts = buildReplyDescendantCountIndex([
+        Post(no: 1),
+        Post(no: 2, com: _quoting([1])),
+        Post(no: 3, com: _quoting([1])),
+        Post(no: 4, com: _quoting([2, 3])),
+      ]);
+      expect(counts[1], 3);
+      expect(counts[2], 1);
     });
 
     test('finds the parent of a reply whose text starts with a digit', () {

@@ -193,6 +193,11 @@ Future<List<Post>> fetchAllRepliesToPost(
   return collectReplySubtree(rootPostId: post, allPosts: allPosts);
 }
 
+/// Which posts answer each post, oldest first.
+///
+/// A reply hangs off the earlier posts it quotes, except one it's already below
+/// through another of them: it'd show twice in the same branch otherwise. That
+/// still leaves it below that post, so no reply is lost.
 Map<int, List<Post>> buildReplyChildrenIndex(List<Post> allPosts) {
   final Map<int, Post> postsById = <int, Post>{
     for (final Post post in allPosts)
@@ -203,6 +208,7 @@ Map<int, List<Post>> buildReplyChildrenIndex(List<Post> allPosts) {
       if (allPosts[index].no != null) allPosts[index].no!: index,
   };
   final Map<int, List<Post>> repliesByParent = <int, List<Post>>{};
+  final Map<int, Set<int>> postsAbove = <int, Set<int>>{};
 
   for (final Post post in allPosts) {
     final int? postId = post.no;
@@ -223,8 +229,20 @@ Map<int, List<Post>> buildReplyChildrenIndex(List<Post> allPosts) {
       continue;
     }
 
-    final int parentId = quotedPostIds.last;
-    repliesByParent.putIfAbsent(parentId, () => <Post>[]).add(post);
+    // A post quoted twice is still only one post.
+    final Set<int> quoted = quotedPostIds.toSet();
+    final Set<int> above = postsAbove[postId] = <int>{};
+    for (final int parentId in quoted) {
+      above
+        ..add(parentId)
+        ..addAll(postsAbove[parentId] ?? const <int>{});
+      final bool isBelowAnother = quoted.any(
+        (int other) => postsAbove[other]?.contains(parentId) ?? false,
+      );
+      if (!isBelowAnother) {
+        repliesByParent.putIfAbsent(parentId, () => <Post>[]).add(post);
+      }
+    }
   }
 
   for (final List<Post> replies in repliesByParent.values) {
@@ -237,44 +255,25 @@ Map<int, List<Post>> buildReplyChildrenIndex(List<Post> allPosts) {
   return repliesByParent;
 }
 
+/// How many posts are below each post, counting a post that's there by several
+/// routes once.
 Map<int, int> buildReplyDescendantCountIndex(List<Post> allPosts) {
   final Map<int, List<Post>> repliesByParent = buildReplyChildrenIndex(
     allPosts,
   );
-  final Map<int, int> descendantsByPostId = <int, int>{};
+  final Map<int, Set<int>> below = <int, Set<int>>{};
 
-  int countDescendants(int postId) {
-    final int? cached = descendantsByPostId[postId];
-    if (cached != null) {
-      return cached;
-    }
-
-    final List<Post> children = repliesByParent[postId] ?? const <Post>[];
-    int descendants = 0;
-
-    for (final Post child in children) {
-      final int? childId = child.no;
-      if (childId == null) {
-        continue;
-      }
-
-      descendants += 1 + countDescendants(childId);
-    }
-
-    descendantsByPostId[postId] = descendants;
-    return descendants;
+  Set<int> postsBelow(int postId) {
+    return below[postId] ??= <int>{
+      for (final Post child in repliesByParent[postId] ?? const <Post>[])
+        if (child.no != null) ...<int>[child.no!, ...postsBelow(child.no!)],
+    };
   }
 
-  for (final Post post in allPosts) {
-    final int? postId = post.no;
-    if (postId == null) {
-      continue;
-    }
-
-    countDescendants(postId);
-  }
-
-  return descendantsByPostId;
+  return <int, int>{
+    for (final Post post in allPosts)
+      if (post.no != null) post.no!: postsBelow(post.no!).length,
+  };
 }
 
 List<Post> collectReplySubtree({

@@ -19,28 +19,54 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
   final ItemPositionsListener itemPositionsListener =
       ItemPositionsListener.create();
 
-  final Set<int> collapsedPosts = <int>{};
-  List<ThreadRow> rows = const <ThreadRow>[];
-  Map<int, int> rowByPost = const <int, int>{};
+  /// The folded rows, by [ThreadRow.path].
+  final Set<String> collapsedRows = <String>{};
 
-  // The order to swipe through media in, which leaves out what's folded away.
+  /// Which parent each post was moved to show in full under, by tapping its
+  /// preview there.
+  final Map<int, int> primaryParents = <int, int>{};
+  List<ThreadRow> rows = const <ThreadRow>[];
+
+  /// Where each post is first listed, as it can be listed several times.
+  Map<int, int> rowByPost = const <int, int>{};
+  Map<String, int> _rowByPath = const <String, int>{};
+
+  // The order to swipe through media in: as listed, leaving out what's folded
+  // away and previews, as those are shown in full elsewhere.
   List<Post> _listedPosts = const <Post>[];
   Timer? _highlightTimer;
-  int? _highlightedPost;
+  String? _highlightedRow;
 
-  /// The rows to show, given [collapsedPosts].
+  /// The rows to show, given [collapsedRows] and [primaryParents].
   List<ThreadRow> buildRows();
 
   void rebuildRows() {
     rows = buildRows();
-    rowByPost = <int, int>{
-      for (int index = 0; index < rows.length; index++)
-        if (rows[index].post.no != null) rows[index].post.no!: index,
-    };
-    _listedPosts = <Post>[
-      for (final ThreadRow row in rows)
-        if (!row.collapsed) row.post,
-    ];
+    final Map<int, int> byPost = <int, int>{};
+    final Map<String, int> byPath = <String, int>{};
+    final Map<int?, Post> listed = <int?, Post>{};
+    for (int index = 0; index < rows.length; index++) {
+      final ThreadRow row = rows[index];
+      byPath[row.path] = index;
+      if (row.isPreview) {
+        continue;
+      }
+      if (row.post.no != null) {
+        byPost.putIfAbsent(row.post.no!, () => index);
+      }
+      if (!row.collapsed) {
+        listed.putIfAbsent(row.post.no, () => row.post);
+      }
+    }
+    // A post only previewed here is at least there to go to.
+    for (int index = 0; index < rows.length; index++) {
+      if (rows[index].post.no != null) {
+        byPost.putIfAbsent(rows[index].post.no!, () => index);
+      }
+    }
+    rowByPost = byPost;
+    _rowByPath = byPath;
+    _listedPosts = listed.values.toList();
   }
 
   List<ItemPosition> visiblePositions() {
@@ -62,11 +88,11 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
     );
   }
 
-  /// Where the top of the row of [post] is on screen; null if it's above the
+  /// Where the top of the row at [path] is on screen; null if it's above the
   /// screen or under the floating header, where its one-line row wouldn't be
   /// seen once folded.
-  double? _headerEdge(int post) {
-    final int? row = rowByPost[post];
+  double? _headerEdge(String path) {
+    final int? row = _rowByPath[path];
     for (final ItemPosition position in visiblePositions()) {
       if (position.index == row && position.itemLeadingEdge >= belowHeader) {
         return position.itemLeadingEdge;
@@ -75,34 +101,34 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
     return null;
   }
 
-  /// Puts the list back after [post] folded or unfolded.
+  /// Puts the list back after the row at [path] folded or unfolded.
   ///
   /// The list holds its place by position, so rows coming or going below could
   /// move what's on screen: this pins the row's header to where it was at
   /// [edge], or just below the floating header if it was out of sight.
-  void _holdPlace(int post, double? edge) {
-    final int? row = rowByPost[post];
+  void _holdPlace(String path, double? edge) {
+    final int? row = _rowByPath[path];
     if (row == null || !itemScrollController.isAttached) {
       return;
     }
     final double alignment = edge ?? belowHeader;
     itemScrollController.jumpTo(index: row, alignment: alignment);
-    _checkHeldPlace(post, alignment);
+    _checkHeldPlace(path, alignment);
   }
 
   /// Puts the row back if it didn't stay put, which was seen once and couldn't
   /// be explained: losing the post just folded is worse than a small correction.
   /// Positions are only up to date two frames after the list was told to move.
-  void _checkHeldPlace(int post, double alignment, {int frames = 2}) {
+  void _checkHeldPlace(String path, double alignment, {int frames = 2}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
         return;
       }
       if (frames > 1) {
-        _checkHeldPlace(post, alignment, frames: frames - 1);
+        _checkHeldPlace(path, alignment, frames: frames - 1);
         return;
       }
-      final int? row = rowByPost[post];
+      final int? row = _rowByPath[path];
       if (row == null || !itemScrollController.isAttached) {
         return;
       }
@@ -118,42 +144,33 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
     WidgetsBinding.instance.scheduleFrame();
   }
 
-  /// Folds or unfolds [post] and its replies, from the post itself.
-  void _toggleRow(int post) {
-    final double? edge = _headerEdge(post);
+  /// Folds or unfolds a row and its replies, from the row itself.
+  void _toggleRow(String path) {
+    final double? edge = _headerEdge(path);
     setState(() {
-      if (!collapsedPosts.remove(post)) {
-        collapsedPosts.add(post);
+      if (!collapsedRows.remove(path)) {
+        collapsedRows.add(path);
       }
       rebuildRows();
     });
-    _holdPlace(post, edge);
+    _holdPlace(path, edge);
     if (edge == null) {
-      flashPost(post);
+      flashRow(path);
     }
   }
 
-  /// Folds the replies under [post], from a bar further down its branch.
-  /// The post may be far above by then, so go back to it if it's off screen.
-  void _collapseBranch(int post) {
-    final ItemPosition? top = _topPosition();
-    setState(() {
-      collapsedPosts.add(post);
-      rebuildRows();
-    });
-    final int? row = rowByPost[post];
-    if (row == null || !itemScrollController.isAttached) {
+  /// Moves a post and its replies to the place of its preview, tapped here.
+  void _showInFullHere(ThreadRow row) {
+    final int? post = row.post.no;
+    if (post == null) {
       return;
     }
-    if (top != null && top.index < row) {
-      itemScrollController.jumpTo(
-        index: top.index,
-        alignment: top.itemLeadingEdge,
-      );
-    } else {
-      itemScrollController.jumpTo(index: row, alignment: belowHeader);
-    }
-    flashPost(post);
+    final double? edge = _headerEdge(row.path);
+    setState(() {
+      primaryParents[post] = row.parent;
+      rebuildRows();
+    });
+    _holdPlace(row.path, edge);
   }
 
   /// Alignment that puts a post just below the floating header rather than
@@ -166,15 +183,39 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
     return (MediaQuery.paddingOf(context).top + kDashHeaderHeight + 8) / height;
   }
 
-  /// Briefly tints [post] so it's clear where a jump landed.
-  void flashPost(int? post) {
+  /// Briefly tints a row so it's clear where a jump landed.
+  void flashRow(String path) {
     _highlightTimer?.cancel();
-    setState(() => _highlightedPost = post);
+    setState(() => _highlightedRow = path);
     _highlightTimer = Timer(const Duration(milliseconds: 1600), () {
       if (mounted) {
-        setState(() => _highlightedPost = null);
+        setState(() => _highlightedRow = null);
       }
     });
+  }
+
+  /// The row of [post] nearest to what's on screen, as it may be listed several
+  /// times, and shown in full rather than a preview if it can be; -1 if it isn't
+  /// listed.
+  int _nearestRow(int post) {
+    final int here = _topPosition()?.index ?? 0;
+    int target = -1;
+    for (int index = 0; index < rows.length; index++) {
+      final ThreadRow row = rows[index];
+      if (row.post.no != post && row.post.tim != post) {
+        continue;
+      }
+      final bool isCloser =
+          target < 0 || (index - here).abs() < (target - here).abs();
+      final bool isBetter =
+          target >= 0 && rows[target].isPreview && !row.isPreview;
+      final bool isWorse =
+          target >= 0 && !rows[target].isPreview && row.isPreview;
+      if (isBetter || (isCloser && !isWorse)) {
+        target = index;
+      }
+    }
+    return target;
   }
 
   /// Scrolls to the post the media viewer ended on.
@@ -182,9 +223,7 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
     if (post == null || !itemScrollController.isAttached) {
       return;
     }
-    final int target = rows.indexWhere(
-      (row) => row.post.no == post || row.post.tim == post,
-    );
+    final int target = _nearestRow(post);
     if (target < 0) {
       return;
     }
@@ -222,14 +261,14 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
         return Padding(
           // Folding moves posts to other positions; don't let one take over
           // another's state.
-          key: ValueKey<int?>(postId),
+          key: ValueKey<String>(row.path),
           padding: EdgeInsets.only(
             top: index == 0 ? MediaQuery.paddingOf(context).top + 8 : 0,
           ),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 400),
             curve: Curves.easeOut,
-            color: _highlightedPost != null && postId == _highlightedPost
+            color: row.path == _highlightedRow
                 ? DashColors.accent.withValues(alpha: 0.16)
                 : DashColors.accent.withValues(alpha: 0),
             child: ThreadBranch(
@@ -238,7 +277,6 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
                   ? null
                   : rows[index - 1].ancestors.length,
               isDark: isDark,
-              onTapBar: _collapseBranch,
               child: ThreadPagePost(
                 board: board,
                 thread: thread,
@@ -249,10 +287,13 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
                 replyCount: row.replyCount,
                 // The opening post's replies are the rest of the thread, not
                 // a branch to fold: its count still opens them on their own.
-                onToggleFold: row.postIndex != 0 && postId != null
-                    ? () => _toggleRow(postId)
-                    : null,
+                onToggleFold: row.postIndex == 0 || postId == null
+                    ? null
+                    : row.isPreview
+                    ? () => _showInFullHere(row)
+                    : () => _toggleRow(row.path),
                 folded: row.collapsed,
+                isPreview: row.isPreview,
                 // The top level answers the post the list is about.
                 repliedTo: row.ancestors.isNotEmpty
                     ? row.ancestors.last

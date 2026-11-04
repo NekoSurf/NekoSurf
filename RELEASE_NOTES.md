@@ -3,7 +3,8 @@
 ### 💬 Threads that read like comments
 - Each reply sits below the post it answers, however deep the conversation goes, in the thread and on the replies pages
 - A new, cleaner look: no more cards, just a short header, a thin line for each level, and clear room between discussions; quotes are small tags like #38; images and videos still show right in the thread, and images now zoom out of their post into the viewer, like videos
-- Tap any reply to fold it and its replies down to one line, and again to bring them back, or tap the line beside a reply to fold the post it answers
+- Tap any reply to fold it and its replies down to one line, and again to bring them back
+- A reply that quotes several posts shows under each of them, unless one is already above it in that branch, with the quote of the post it's under standing out; a longer one is a short preview in all but one place, and tapping it moves it and its replies there
 - Replies posted while you're reading appear at the bottom, so the list doesn't move; they join their post the next time you open the thread
 
 ### 👈 Swipe back from anywhere

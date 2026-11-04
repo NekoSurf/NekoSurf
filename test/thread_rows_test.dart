@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/pages/thread/thread_rows.dart';
@@ -14,7 +13,8 @@ List<int?> _numbers(List<ThreadRow> rows) => [for (final r in rows) r.post.no];
 
 List<ThreadRow> _nested(
   List<Post> posts, {
-  Set<int> collapsed = const <int>{},
+  Set<String> collapsed = const <String>{},
+  Map<int, int> primaryParents = const <int, int>{},
   Set<int>? treePosts,
 }) {
   return buildNestedRows(
@@ -24,6 +24,7 @@ List<ThreadRow> _nested(
         if (treePosts == null || treePosts.contains(post.no)) post,
     ]),
     collapsed: collapsed,
+    primaryParents: primaryParents,
     treePosts: treePosts,
   );
 }
@@ -75,7 +76,7 @@ void main() {
     });
 
     test('folding hides the whole branch, but not the post itself', () {
-      final List<ThreadRow> rows = _nested(posts, collapsed: {2});
+      final List<ThreadRow> rows = _nested(posts, collapsed: {'2'});
       expect(_numbers(rows), [1, 2, 5, 6]);
       expect(_row(rows, 2).collapsed, isTrue);
       expect(_row(rows, 2).replyCount, 3);
@@ -83,18 +84,26 @@ void main() {
     });
 
     test('folding inside a branch leaves the rest of it', () {
-      expect(_numbers(_nested(posts, collapsed: {3})), [1, 2, 3, 4, 5, 6]);
+      expect(_numbers(_nested(posts, collapsed: {'2/3'})), [1, 2, 3, 4, 5, 6]);
     });
 
     test('folds a reply without replies, but never the opening post', () {
-      final List<ThreadRow> rows = _nested(posts, collapsed: {1, 4});
+      final List<ThreadRow> rows = _nested(posts, collapsed: {'1', '2/4'});
       expect(_numbers(rows), [1, 2, 3, 7, 4, 5, 6]);
       expect(_row(rows, 1).collapsed, isFalse);
       expect(_row(rows, 4).collapsed, isTrue);
     });
 
+    test('names each row by the way down to it', () {
+      final List<ThreadRow> rows = _nested(posts);
+      expect(_row(rows, 2).path, '2');
+      expect(_row(rows, 7).path, '2/3/7');
+      expect(_row(rows, 7).parent, 3);
+      expect(_row(rows, 2).parent, ThreadRow.topLevel);
+    });
+
     test('counts folded replies as read once past them', () {
-      final List<ThreadRow> rows = _nested(posts, collapsed: {2});
+      final List<ThreadRow> rows = _nested(posts, collapsed: {'2'});
       expect(_row(rows, 1).seen, 0);
       expect(_row(rows, 2).seen, 1);
       expect(_row(rows, 5).seen, 5);
@@ -166,6 +175,225 @@ void main() {
       expect(_row(rows, 200).ancestors, hasLength(198));
     });
 
+    group('a reply quoting several posts', () {
+      // 1 is the opening post. 4 quotes 2 and 3, 5 quotes 2 twice, and 6 quotes
+      // both 2 and 5, which is itself below 2.
+      final List<Post> quoting = [
+        Post(no: 1),
+        Post(no: 2, com: _quoting([1])),
+        Post(no: 3, com: _quoting([1])),
+        Post(no: 4, com: _quoting([2, 3])),
+        Post(no: 5, com: _quoting([2, 2])),
+        Post(no: 6, com: _quoting([2, 5])),
+      ];
+
+      List<ThreadRow> rowsOf({Set<String> collapsed = const <String>{}}) =>
+          _nested(quoting, collapsed: collapsed);
+
+      ThreadRow at(List<ThreadRow> rows, String path) =>
+          rows.firstWhere((r) => r.path == path);
+
+      test('shows under every one of them', () {
+        final List<ThreadRow> rows = rowsOf();
+
+        expect(_numbers(rows), [1, 2, 4, 5, 6, 3, 4]);
+        expect(at(rows, '2/4').ancestors, [2]);
+        expect(at(rows, '3/4').ancestors, [3]);
+      });
+
+      test('shows once under a post it quotes twice', () {
+        expect(rowsOf().where((r) => r.post.no == 5), hasLength(1));
+      });
+
+      test("doesn't repeat under a post it's already below another way", () {
+        final List<ThreadRow> rows = rowsOf();
+
+        expect(at(rows, '2/5/6').ancestors, [2, 5]);
+        expect(rows.where((r) => r.path == '2/6'), isEmpty);
+      });
+
+      test('is simply repeated if short', () {
+        expect(rowsOf().where((r) => r.isPreview), isEmpty);
+      });
+
+      test('counts as one reply, however many times it shows', () {
+        final List<Post> posts = [
+          Post(no: 1),
+          Post(no: 2, com: _quoting([1])),
+          Post(no: 3, com: _quoting([2])),
+          Post(no: 4, com: _quoting([2])),
+          Post(no: 5, com: _quoting([3, 4])),
+        ];
+        final List<ThreadRow> rows = _nested(posts);
+
+        expect(_numbers(rows), [1, 2, 3, 5, 4, 5]);
+        expect(_row(rows, 2).replyCount, 3);
+      });
+
+      test('shows at the top level too if it quotes the opening post', () {
+        final List<Post> posts = [
+          Post(no: 1),
+          Post(no: 2, com: 'no quote'),
+          Post(no: 3, com: _quoting([2, 1])),
+        ];
+        final List<ThreadRow> rows = _nested(posts);
+
+        expect(_numbers(rows), [1, 2, 3, 3]);
+        expect(at(rows, '2/3').ancestors, [2]);
+        expect(at(rows, '3').ancestors, isEmpty);
+      });
+
+      test('stays below a reply to the opening post it also quotes', () {
+        final List<ThreadRow> rows = _nested([
+          Post(no: 1),
+          Post(no: 2, com: _quoting([1])),
+          Post(no: 3, com: _quoting([2, 1])),
+        ]);
+
+        expect(_numbers(rows), [1, 2, 3]);
+        expect(at(rows, '2/3').ancestors, [2]);
+      });
+
+      test('folds in one place, leaving the other', () {
+        final List<ThreadRow> rows = rowsOf(collapsed: {'2/4'});
+
+        expect(at(rows, '2/4').collapsed, isTrue);
+        expect(at(rows, '3/4').collapsed, isFalse);
+      });
+
+      test('counts as read once, and the last row means all were read', () {
+        final List<ThreadRow> rows = rowsOf();
+
+        expect(at(rows, '3/4').seen, quoting.length - 1);
+        expect(rows.every((r) => r.seen < quoting.length), isTrue);
+      });
+
+      test('folded replies count as read once past them', () {
+        final List<ThreadRow> rows = rowsOf(collapsed: {'2'});
+
+        expect(_numbers(rows), [1, 2, 3, 4]);
+        expect(_row(rows, 3).seen, 5);
+      });
+
+      test('a part of a thread keeps a reply that also quotes outside it', () {
+        final List<Post> posts = [
+          Post(no: 1),
+          Post(no: 2, com: _quoting([1])),
+          Post(no: 3, com: _quoting([1])),
+          Post(no: 4, com: _quoting([2, 3])),
+        ];
+        final List<ThreadRow> rows = buildNestedRows([
+          posts[1],
+          posts[3],
+        ], children: buildReplyChildrenIndex(posts));
+
+        expect(_numbers(rows), [2, 4]);
+      });
+
+      group('with replies below it', () {
+        // 4 quotes 2 and 3, and 5 and 6 answer it.
+        final List<Post> branching = [
+          Post(no: 1),
+          Post(no: 2, com: _quoting([1])),
+          Post(no: 3, com: _quoting([1])),
+          Post(no: 4, com: _quoting([2, 3])),
+          Post(no: 5, com: _quoting([4])),
+          Post(no: 6, com: _quoting([4])),
+        ];
+
+        test('is shown in full under the first, a preview under the rest', () {
+          final List<ThreadRow> rows = _nested(branching);
+
+          expect(_numbers(rows), [1, 2, 4, 5, 6, 3, 4]);
+          expect(at(rows, '2/4').isPreview, isFalse);
+          expect(at(rows, '3/4').isPreview, isTrue);
+        });
+
+        test('its preview still counts its replies', () {
+          expect(at(_nested(branching), '3/4').replyCount, 2);
+        });
+
+        test('moves to where it was chosen', () {
+          final List<ThreadRow> rows = _nested(
+            branching,
+            primaryParents: {4: 3},
+          );
+
+          expect(_numbers(rows), [1, 2, 4, 3, 4, 5, 6]);
+          expect(at(rows, '2/4').isPreview, isTrue);
+          expect(at(rows, '3/4').isPreview, isFalse);
+        });
+
+        test('stays where it is while folded there', () {
+          final List<ThreadRow> rows = _nested(branching, collapsed: {'2/4'});
+
+          expect(_numbers(rows), [1, 2, 4, 3, 4]);
+          expect(at(rows, '2/4').collapsed, isTrue);
+          expect(at(rows, '3/4').isPreview, isTrue);
+        });
+
+        test("a preview doesn't fold", () {
+          final List<ThreadRow> rows = _nested(branching, collapsed: {'3/4'});
+
+          expect(at(rows, '3/4').collapsed, isFalse);
+          expect(at(rows, '3/4').isPreview, isTrue);
+        });
+
+        test('its replies count as read once', () {
+          final List<ThreadRow> rows = _nested(branching);
+
+          expect(rows.last.seen, branching.length - 1);
+        });
+      });
+
+      test('with an image is a preview under the rest', () {
+        final List<Post> posts = [
+          Post(no: 1),
+          Post(no: 2, com: _quoting([1])),
+          Post(no: 3, com: _quoting([1])),
+          Post(no: 4, com: _quoting([2, 3]), tim: 1, ext: '.jpg'),
+        ];
+        final List<ThreadRow> rows = _nested(posts);
+
+        expect(at(rows, '2/4').isPreview, isFalse);
+        expect(at(rows, '3/4').isPreview, isTrue);
+      });
+
+      test('with a lot of text is a preview under the rest', () {
+        final List<Post> posts = [
+          Post(no: 1),
+          Post(no: 2, com: _quoting([1])),
+          Post(no: 3, com: _quoting([1])),
+          Post(no: 4, com: '${_quoting([2, 3])}${'A long line. ' * 80}'),
+        ];
+        final List<ThreadRow> rows = _nested(posts);
+
+        expect(at(rows, '3/4').isPreview, isTrue);
+      });
+
+      test("can't multiply out of hand, and reaches every post", () {
+        // Pairs of posts that each quote both of the pair before: repeating
+        // what's below them would double the rows with every pair.
+        final List<Post> layers = [
+          Post(no: 1),
+          Post(no: 2, com: _quoting([1])),
+          Post(no: 3, com: _quoting([1])),
+          for (int pair = 2; pair < 150; pair++) ...[
+            Post(no: pair * 2, com: _quoting([pair * 2 - 2, pair * 2 - 1])),
+            Post(no: pair * 2 + 1, com: _quoting([pair * 2 - 2, pair * 2 - 1])),
+          ],
+        ];
+
+        final List<ThreadRow> rows = _nested(layers);
+
+        expect(rows.length, lessThan(layers.length * 3));
+        expect(
+          rows.map((r) => r.post.no).toSet(),
+          layers.map((p) => p.no).toSet(),
+        );
+      });
+    });
+
     test('has nothing to show for an empty thread', () {
       expect(_nested(const <Post>[]), isEmpty);
     });
@@ -195,59 +423,6 @@ void main() {
           isNot(ThreadBranch.colorFor(depth + 1)),
         );
       }
-    });
-
-    Widget branch(List<int> ancestors, ValueChanged<int> onTapBar) {
-      return MaterialApp(
-        home: Scaffold(
-          body: Align(
-            alignment: Alignment.topLeft,
-            child: ThreadBranch(
-              ancestors: ancestors,
-              previousDepth: 0,
-              isDark: true,
-              onTapBar: onTapBar,
-              child: const SizedBox(
-                width: double.infinity,
-                height: 100,
-                child: Text('post'),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    testWidgets('tapping beside a reply folds the post it answers', (
-      tester,
-    ) async {
-      final List<int> tapped = <int>[];
-      await tester.pumpWidget(branch(const [1, 2], tapped.add));
-
-      await tester.tapAt(Offset(ThreadBranch.indentFor(2) + 1, 50));
-
-      expect(tapped, [2]);
-    });
-
-    testWidgets('leaves tapping on the post itself to the post', (
-      tester,
-    ) async {
-      final List<int> tapped = <int>[];
-      await tester.pumpWidget(branch(const [1, 2], tapped.add));
-
-      await tester.tapAt(const Offset(300, 50));
-
-      expect(tapped, isEmpty);
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('has no bar at the top level', (tester) async {
-      final List<int> tapped = <int>[];
-      await tester.pumpWidget(branch(const [], tapped.add));
-
-      await tester.tapAt(const Offset(2, 50));
-
-      expect(tapped, isEmpty);
     });
   });
 }

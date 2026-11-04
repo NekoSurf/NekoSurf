@@ -59,7 +59,8 @@ class _ThreadRepliesState extends State<ThreadReplies>
   List<ThreadRow> buildRows() => buildNestedRows(
     _branch,
     children: _children,
-    collapsed: collapsedPosts,
+    collapsed: collapsedRows,
+    primaryParents: primaryParents,
     positions: _positions,
   ).skip(1).toList();
 
