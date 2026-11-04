@@ -36,6 +36,7 @@ class ThreadPagePost extends StatefulWidget {
     this.onToggleFold,
     this.folded = false,
     this.isPreview = false,
+    this.onTapQuote,
     this.repliedTo,
     this.number,
   });
@@ -58,6 +59,9 @@ class ThreadPagePost extends StatefulWidget {
   /// Shown in full elsewhere: this is a short, dimmed preview, and
   /// [onToggleFold] moves it here.
   final bool isPreview;
+
+  /// See [ThreadPostComment.onTapQuote].
+  final bool Function(int post)? onTapQuote;
 
   /// See [ThreadPostComment.repliedTo].
   final int? repliedTo;
@@ -462,6 +466,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                 thread: widget.thread,
                 allPosts: widget.allPosts,
                 onTap: fold,
+                onTapQuote: widget.onTapQuote,
                 repliedTo: widget.repliedTo,
               ),
             ],

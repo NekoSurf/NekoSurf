@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/theme.dart';
@@ -218,6 +219,64 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
     return target;
   }
 
+  /// Goes to [target], unfolding what's in the way.
+  void _goToRow(ThreadRow target, double alignment) {
+    final int? index = _rowByPath[target.path];
+    if (index != null && !rows[index].collapsed) {
+      if (itemScrollController.isAttached) {
+        itemScrollController.scrollTo(
+          index: index,
+          alignment: alignment,
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeInOutCubic,
+        );
+      }
+      flashRow(target.path);
+      return;
+    }
+
+    setState(() {
+      collapsedRows.remove(target.path);
+      for (int depth = 1; depth <= target.ancestors.length; depth++) {
+        collapsedRows.remove(target.ancestors.take(depth).join('/'));
+      }
+      rebuildRows();
+    });
+    // The list only knows of the rows that came back once it's built them.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final int? index = _rowByPath[target.path];
+      if (mounted && index != null && itemScrollController.isAttached) {
+        itemScrollController.jumpTo(index: index, alignment: alignment);
+        flashRow(target.path);
+      }
+    });
+  }
+
+  /// Goes to the post a quote names. Returns false if it isn't in this list at
+  /// all.
+  bool _showQuotedPost(int post) {
+    final int row = _nearestRow(post);
+    ThreadRow? target = row >= 0 ? rows[row] : null;
+    if (target == null || target.isPreview) {
+      // It's folded away: see where it'd be if open.
+      final Set<String> folded = Set<String>.of(collapsedRows);
+      collapsedRows.clear();
+      final List<ThreadRow> open = buildRows();
+      collapsedRows.addAll(folded);
+      target =
+          open
+              .where((ThreadRow r) => r.post.no == post && !r.isPreview)
+              .firstOrNull ??
+          target;
+    }
+    if (target == null) {
+      return false;
+    }
+
+    _goToRow(target, belowHeader);
+    return true;
+  }
+
   /// Scrolls to the post the media viewer ended on.
   void _showPost(int? post) {
     if (post == null || !itemScrollController.isAttached) {
@@ -294,6 +353,7 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
                     : () => _toggleRow(row.path),
                 folded: row.collapsed,
                 isPreview: row.isPreview,
+                onTapQuote: _showQuotedPost,
                 // The top level answers the post the list is about.
                 repliedTo: row.ancestors.isNotEmpty
                     ? row.ancestors.last

@@ -320,6 +320,103 @@ void main() {
     });
   });
 
+  group('in a list of replies, a quote', () {
+    // The replies page of 2: 3 answers it, and 4 quotes both.
+    final Post root = Post(no: 2, time: 1700000000);
+    final List<Post> posts = [
+      Post(no: 1, time: 1700000000),
+      root,
+      Post(no: 3, time: 1700000000, com: _quoteOf(2)),
+      Post(no: 4, time: 1700000000, com: '${_quoteOf(3)}<br>Words of 4'),
+    ];
+
+    Future<void> pumpReplies(WidgetTester tester) async {
+      await tester.pumpWidget(
+        ChangeNotifierProvider<ThemeChanger>(
+          create: (_) => ThemeChanger(ThemeData.dark()),
+          child: MaterialApp(
+            home: ThreadReplies(
+              post: root,
+              thread: 1,
+              board: 'g',
+              allPosts: posts,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+    }
+
+    testWidgets('jumps to a post in the list, without a new page', (
+      tester,
+    ) async {
+      await pumpReplies(tester);
+
+      await tester.tap(find.text('#2'));
+      await tester.pumpAndSettle(const Duration(seconds: 2));
+
+      expect(find.byType(ThreadRepliesTo), findsNothing);
+      expect(find.text('Words of 4'), findsOneWidget);
+    });
+
+    testWidgets('unfolds the post it names', (tester) async {
+      // 3 and 4 answer 2, and 5 quotes both, so it's listed under each.
+      final Post top = Post(no: 2, time: 1700000000);
+      await tester.pumpWidget(
+        ChangeNotifierProvider<ThemeChanger>(
+          create: (_) => ThemeChanger(ThemeData.dark()),
+          child: MaterialApp(
+            home: ThreadReplies(
+              post: top,
+              thread: 1,
+              board: 'g',
+              allPosts: [
+                Post(no: 1, time: 1700000000),
+                top,
+                Post(no: 3, time: 1700000000, com: _quoteOf(2)),
+                Post(
+                  no: 4,
+                  time: 1700000000,
+                  com: '${_quoteOf(2)}<br>Words of 4',
+                ),
+                Post(
+                  no: 5,
+                  time: 1700000000,
+                  com: '${_quoteOf(3)}<br>${_quoteOf(4)}',
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(find.text('Words of 4'), findsOneWidget);
+
+      // Fold 4, whose place in the thread is #3, from its header.
+      await tester.tap(find.textContaining('#3   4', findRichText: true));
+      await tester.pumpAndSettle(const Duration(seconds: 2));
+      expect(find.text('Words of 4'), findsNothing);
+
+      // 5 is still listed under 3: its quote of 4 brings 4 back.
+      await tester.tap(find.text('#3').first);
+      await tester.pumpAndSettle(const Duration(seconds: 2));
+
+      expect(find.text('Words of 4'), findsOneWidget);
+      expect(find.byType(ThreadRepliesTo), findsNothing);
+    });
+
+    testWidgets('opens a post that is not in the list on its own page', (
+      tester,
+    ) async {
+      await pumpReplies(tester);
+
+      await tester.tap(find.text('#1'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ThreadRepliesTo), findsOneWidget);
+    });
+  });
+
   group('folding in a long list', () {
     // Replies to 2, tall enough that only a few fit on the screen.
     final Post root = Post(no: 2, time: 1700000000);
@@ -374,6 +471,35 @@ void main() {
         await tester.pumpAndSettle();
       }
     }
+
+    testWidgets('a quote goes to its post, far down', (tester) async {
+      final Post first = Post(
+        no: 3,
+        time: 1700000000,
+        com: '${_quoteOf(2)}<br>${_quoteOf(28)}<br>$tall',
+      );
+      await tester.pumpWidget(
+        ChangeNotifierProvider<ThemeChanger>(
+          create: (_) => ThemeChanger(ThemeData.dark()),
+          child: MaterialApp(
+            home: ThreadReplies(
+              post: root,
+              thread: 1,
+              board: 'g',
+              allPosts: [posts[0], root, first, ...posts.skip(3)],
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(header(2), findsOneWidget);
+
+      await tester.tap(find.text('#27'));
+      await tester.pumpAndSettle(const Duration(seconds: 2));
+
+      expect(header(27), findsOneWidget);
+      expect(header(2), findsNothing);
+    });
 
     testWidgets('keeps its header where it was', (tester) async {
       await pumpList(tester);
