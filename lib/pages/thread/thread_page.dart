@@ -10,9 +10,9 @@ import 'package:flutter_chan/blocs/history_model.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/pages/bookmark_button.dart';
-import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/pages/thread/thread_gallery_page.dart';
-import 'package:flutter_chan/pages/thread/thread_page_post.dart';
+import 'package:flutter_chan/pages/thread/thread_rows.dart';
+import 'package:flutter_chan/pages/thread/thread_rows_list.dart';
 import 'package:flutter_chan/services/back_swipe_route.dart';
 import 'package:flutter_chan/services/image_cache.dart';
 import 'package:flutter_chan/services/string.dart';
@@ -23,7 +23,6 @@ import 'package:flutter_chan/widgets/new_posts_pill.dart';
 import 'package:flutter_chan/widgets/reload.dart';
 import 'package:flutter_chan/widgets/resume_toast.dart';
 import 'package:provider/provider.dart';
-import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:share_plus/share_plus.dart';
 
 class ThreadPage extends StatefulWidget {
@@ -51,26 +50,26 @@ class ThreadPage extends StatefulWidget {
   ThreadPageState createState() => ThreadPageState();
 }
 
-class ThreadPageState extends State<ThreadPage> {
+class ThreadPageState extends State<ThreadPage>
+    with ThreadRowsList<ThreadPage> {
   static const int _preloadVideosEachSide = 3;
   static const int _maxPreloadedVideos = 6;
   static const int _maxThumbnailPreloadsPerPass = _maxPreloadedVideos;
 
   final ScrollController scrollController = ScrollController();
-  final ItemScrollController itemScrollController = ItemScrollController();
-  final ItemPositionsListener itemPositionsListener =
-      ItemPositionsListener.create();
-
   late Future<List<Post>> _fetchAllPostsFromThread;
   List<Post> allPosts = [];
   Map<int, int> _replyDescendantCountByPost = const <int, int>{};
+
+  // Posts in the tree, which is built once; see [_indexReplyTree].
+  Map<int, List<Post>> _replyChildren = const <int, List<Post>>{};
+  Set<int>? _treePosts;
+
   Set<int> _preloadVideoPostIds = const <int>{};
   bool _hasScrolledToLastWatched = false;
   bool _recordedHistory = false;
   bool _showResumeToast = false;
   Timer? _resumeToastTimer;
-  Timer? _highlightTimer;
-  int? _highlightedPost;
   bool _didStartPreloading = false;
   Timer? _preloadDebounce;
   final Set<int> _preloadedThumbnailIds = <int>{};
@@ -85,11 +84,11 @@ class ThreadPageState extends State<ThreadPage> {
   bool _liveStopped = false;
   bool _isVisible = true;
   int _newPostCount = 0;
-  int _firstNewIndex = -1;
+  int? _firstNewPost;
 
   late Bookmark favorite;
   void _markVisiblePostsAsWatched() {
-    if (allPosts.isEmpty) {
+    if (rows.isEmpty) {
       return;
     }
 
@@ -107,7 +106,7 @@ class ThreadPageState extends State<ThreadPage> {
       }
 
       final int index = position.index;
-      if (index < 0 || index >= allPosts.length) {
+      if (index < 0 || index >= rows.length) {
         continue;
       }
 
@@ -117,8 +116,14 @@ class ThreadPageState extends State<ThreadPage> {
     }
 
     if (furthest != null) {
-      watchedPosts.markAsWatched(postIndex: furthest, thread: widget.thread);
-      if (_newPostCount > 0 && furthest >= _firstNewIndex) {
+      final ThreadRow row = rows[furthest];
+      watchedPosts.markAsWatched(
+        postIndex: row.postIndex,
+        seen: row.seen,
+        thread: widget.thread,
+      );
+      final int? firstNew = rowByPost[_firstNewPost];
+      if (_newPostCount > 0 && (firstNew == null || furthest >= firstNew)) {
         // Positions can update mid-layout; setState must wait for the frame.
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
@@ -195,7 +200,6 @@ class ThreadPageState extends State<ThreadPage> {
     _preloadDebounce?.cancel();
     _preloadDebounce = null;
     _resumeToastTimer?.cancel();
-    _highlightTimer?.cancel();
     _liveTimer?.cancel();
     scrollController.dispose();
     super.dispose();
@@ -208,13 +212,49 @@ class ThreadPageState extends State<ThreadPage> {
     _isVisible = TickerMode.valuesOf(context).enabled;
   }
 
+  void _setPosts(List<Post> posts) {
+    allPosts = posts;
+    _replyDescendantCountByPost = buildReplyDescendantCountIndex(posts);
+    _indexReplyTree();
+    rebuildRows();
+  }
+
+  /// The tree is made of the posts there are the first time it's built;
+  /// later ones stay out of it until the thread is opened again.
+  void _indexReplyTree() {
+    if (allPosts.isEmpty) {
+      return;
+    }
+    final Set<int> treePosts = _treePosts ??= <int>{
+      for (final Post post in allPosts)
+        if (post.no != null) post.no!,
+    };
+    _replyChildren = buildReplyChildrenIndex(<Post>[
+      for (final Post post in allPosts)
+        if (treePosts.contains(post.no)) post,
+    ]);
+  }
+
+  @override
+  List<ThreadRow> buildRows() => buildNestedRows(
+    allPosts,
+    children: _replyChildren,
+    collapsed: collapsedPosts,
+    treePosts: _treePosts,
+    opReplyCount: allPosts.isEmpty
+        ? 0
+        : _replyDescendantCountByPost[allPosts.first.no] ?? 0,
+  );
+
   void loadThread() {
     _liveTimer?.cancel();
     _liveStopped = false;
     _liveInterval = _liveMinInterval;
     _lastModified = null;
     _newPostCount = 0;
-    _firstNewIndex = -1;
+    _firstNewPost = null;
+    _treePosts = null;
+    collapsedPosts.clear();
     _hasScrolledToLastWatched = false;
     _didStartPreloading = false;
     _preloadDebounce?.cancel();
@@ -224,11 +264,10 @@ class ThreadPageState extends State<ThreadPage> {
     setState(() {
       _fetchAllPostsFromThread =
           fetchAllPostsFromThread(widget.board, widget.thread).then((posts) {
-            allPosts = posts;
+            _setPosts(posts);
             if (posts.isNotEmpty) {
               _recordHistory(posts.first);
             }
-            _replyDescendantCountByPost = buildReplyDescendantCountIndex(posts);
             if (_isLive(posts)) {
               _scheduleLiveUpdate();
             }
@@ -318,12 +357,9 @@ class ThreadPageState extends State<ThreadPage> {
     }
 
     setState(() {
-      allPosts = posts;
-      _replyDescendantCountByPost = buildReplyDescendantCountIndex(posts);
+      _setPosts(posts);
       if (added > 0) {
-        if (_firstNewIndex < 0) {
-          _firstNewIndex = firstNew;
-        }
+        _firstNewPost ??= posts[firstNew].no;
         _newPostCount += added;
         _showResumeToast = false;
       }
@@ -337,34 +373,25 @@ class ThreadPageState extends State<ThreadPage> {
     }
     setState(() {
       _newPostCount = 0;
-      _firstNewIndex = -1;
+      _firstNewPost = null;
     });
   }
 
   void _jumpToNewPosts() {
-    final int target = _firstNewIndex;
+    final int? target = rowByPost[_firstNewPost];
     _clearNewPosts();
-    if (target >= 0 && itemScrollController.isAttached) {
+    if (target != null && itemScrollController.isAttached) {
       itemScrollController.scrollTo(
         index: target,
-        alignment: _belowHeader,
+        alignment: belowHeader,
         duration: const Duration(milliseconds: 450),
         curve: Curves.easeInOutCubic,
       );
     }
   }
 
-  List<ItemPosition> _visiblePositions() {
-    return itemPositionsListener.itemPositions.value
-        .where(
-          (position) =>
-              position.itemTrailingEdge > 0 && position.itemLeadingEdge < 1,
-        )
-        .toList();
-  }
-
   int _resolveAnchorIndex(int postCount) {
-    final positions = _visiblePositions();
+    final positions = visiblePositions();
 
     if (positions.isEmpty) {
       return 0;
@@ -390,16 +417,16 @@ class ThreadPageState extends State<ThreadPage> {
   }
 
   ({Set<int> ids, List<Post> posts}) _collectPreloadWindow() {
-    if (allPosts.isEmpty) {
+    if (rows.isEmpty) {
       return (ids: <int>{}, posts: const <Post>[]);
     }
 
-    final positions = _visiblePositions();
+    final positions = visiblePositions();
 
     int minVisibleIndex;
     int maxVisibleIndex;
     if (positions.isEmpty) {
-      final int anchor = _resolveAnchorIndex(allPosts.length);
+      final int anchor = _resolveAnchorIndex(rows.length);
       minVisibleIndex = anchor;
       maxVisibleIndex = anchor;
     } else {
@@ -416,8 +443,8 @@ class ThreadPageState extends State<ThreadPage> {
       }
     }
 
-    minVisibleIndex = minVisibleIndex.clamp(0, allPosts.length - 1);
-    maxVisibleIndex = maxVisibleIndex.clamp(0, allPosts.length - 1);
+    minVisibleIndex = minVisibleIndex.clamp(0, rows.length - 1);
+    maxVisibleIndex = maxVisibleIndex.clamp(0, rows.length - 1);
 
     final Set<int> ids = <int>{};
     final List<Post> posts = <Post>[];
@@ -432,8 +459,8 @@ class ThreadPageState extends State<ThreadPage> {
         break;
       }
 
-      final Post post = allPosts[index];
-      if (!post.isVideo) {
+      final Post post = rows[index].post;
+      if (!post.isVideo || rows[index].collapsed) {
         continue;
       }
 
@@ -449,15 +476,15 @@ class ThreadPageState extends State<ThreadPage> {
     int nextCollected = 0;
     for (
       int index = maxVisibleIndex + 1;
-      index < allPosts.length && nextCollected < _preloadVideosEachSide;
+      index < rows.length && nextCollected < _preloadVideosEachSide;
       index++
     ) {
       if (ids.length >= _maxPreloadedVideos) {
         break;
       }
 
-      final Post post = allPosts[index];
-      if (!post.isVideo) {
+      final Post post = rows[index].post;
+      if (!post.isVideo || rows[index].collapsed) {
         continue;
       }
 
@@ -544,11 +571,9 @@ class ThreadPageState extends State<ThreadPage> {
     // Opened at a specific post (e.g. from search): never resume instead,
     // even if that post has since been deleted.
     if (widget.initialPost != null) {
-      final int index = allPosts.indexWhere(
-        (post) => post.no == widget.initialPost,
-      );
-      if (index > 0) {
-        _jumpWhenAttached(index);
+      final int? row = rowByPost[widget.initialPost];
+      if (row != null && row > 0) {
+        _jumpWhenAttached(row);
       }
       return;
     }
@@ -567,13 +592,17 @@ class ThreadPageState extends State<ThreadPage> {
       widget.thread,
     );
 
-    if (latestWatchedPosts != null) {
+    if (latestWatchedPosts != null && allPosts.isNotEmpty) {
       if (latestWatchedPosts.postIndex != -1) {
+        // The position is saved as a place in the thread, whatever the order
+        // the list was in at the time.
+        final Post lastPost =
+            allPosts[min(latestWatchedPosts.postIndex, allPosts.length - 1)];
         Future.delayed(const Duration(milliseconds: 50), () {
           if (mounted && itemScrollController.isAttached) {
             itemScrollController.jumpTo(
-              index: latestWatchedPosts.postIndex,
-              alignment: _belowHeader,
+              index: rowByPost[lastPost.no] ?? 0,
+              alignment: belowHeader,
             );
             if (latestWatchedPosts.postIndex > 0) {
               _flashResumeToast();
@@ -584,27 +613,6 @@ class ThreadPageState extends State<ThreadPage> {
     }
   }
 
-  /// Alignment that puts a post just below the floating header rather than
-  /// under it (the list runs behind the header).
-  double get _belowHeader {
-    final double height = MediaQuery.sizeOf(context).height;
-    if (height <= 0) {
-      return 0;
-    }
-    return (MediaQuery.paddingOf(context).top + kDashHeaderHeight + 8) / height;
-  }
-
-  /// Briefly tints [post] so it's clear where a jump landed.
-  void _flashPost(int? post) {
-    _highlightTimer?.cancel();
-    setState(() => _highlightedPost = post);
-    _highlightTimer = Timer(const Duration(milliseconds: 1600), () {
-      if (mounted) {
-        setState(() => _highlightedPost = null);
-      }
-    });
-  }
-
   /// The list may not be laid out yet on the first frame; try a few more.
   void _jumpWhenAttached(int index, {int attempts = 10}) {
     Future.delayed(const Duration(milliseconds: 50), () {
@@ -612,8 +620,8 @@ class ThreadPageState extends State<ThreadPage> {
         return;
       }
       if (itemScrollController.isAttached) {
-        itemScrollController.jumpTo(index: index, alignment: _belowHeader);
-        _flashPost(allPosts[index].no);
+        itemScrollController.jumpTo(index: index, alignment: belowHeader);
+        flashPost(rows[index].post.no);
       } else if (attempts > 1) {
         _jumpWhenAttached(index, attempts: attempts - 1);
       }
@@ -701,7 +709,7 @@ class ThreadPageState extends State<ThreadPage> {
               onPressed: () {
                 if (itemScrollController.isAttached) {
                   itemScrollController.scrollTo(
-                    index: allPosts.length - 1,
+                    index: rows.length - 1,
                     alignment: 0,
                     duration: const Duration(milliseconds: 500),
                     curve: Curves.easeInOutCubic,
@@ -747,7 +755,13 @@ class ThreadPageState extends State<ThreadPage> {
 
                 return Stack(
                   children: [
-                    _buildPostList(context),
+                    buildRowList(
+                      context,
+                      board: widget.board,
+                      thread: widget.thread,
+                      allPosts: allPosts,
+                      preloadVideos: _preloadVideoPostIds,
+                    ),
                     Positioned(
                       left: 16,
                       right: 16,
@@ -785,58 +799,6 @@ class ThreadPageState extends State<ThreadPage> {
               }
           }
         },
-      ),
-    );
-  }
-
-  Widget _buildPostList(BuildContext context) {
-    return ScrollablePositionedList.builder(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.paddingOf(context).bottom + 8,
-      ),
-      shrinkWrap: false,
-      itemCount: allPosts.length,
-      itemScrollController: itemScrollController,
-      itemPositionsListener: itemPositionsListener,
-      itemBuilder: (context, index) => Padding(
-        padding: EdgeInsets.only(
-          top: index == 0 ? MediaQuery.paddingOf(context).top + 8 : 0,
-        ),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 400),
-          curve: Curves.easeOut,
-          color:
-              _highlightedPost != null && allPosts[index].no == _highlightedPost
-              ? DashColors.accent.withValues(alpha: 0.16)
-              : DashColors.accent.withValues(alpha: 0),
-          child: ThreadPagePost(
-            board: widget.board,
-            thread: widget.thread,
-            post: allPosts[index],
-            allPosts: allPosts,
-            replyCount: _replyDescendantCountByPost[allPosts[index].no] ?? 0,
-            preloadVideo: _preloadVideoPostIds.contains(
-              allPosts[index].no ?? allPosts[index].tim,
-            ),
-            onDismiss: (postId) {
-              if (postId == null || !itemScrollController.isAttached) {
-                return;
-              }
-              final targetIndex = allPosts.indexWhere(
-                (post) => post.no == postId || post.tim == postId,
-              );
-              if (targetIndex < 0) {
-                return;
-              }
-              itemScrollController.scrollTo(
-                index: targetIndex,
-                alignment: _belowHeader,
-                duration: const Duration(milliseconds: 350),
-                curve: Curves.easeInOutCubic,
-              );
-            },
-          ),
-        ),
       ),
     );
   }

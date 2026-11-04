@@ -101,10 +101,14 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
     clearOldWatchedPosts();
   }
 
+  /// Remembers [postIndex] as where to resume [thread]. [seen] is how many
+  /// replies reaching it means were read, when the list isn't in thread order.
   Future<void> markAsWatched({
     required int postIndex,
     required int thread,
+    int? seen,
   }) async {
+    final int reached = seen ?? postIndex;
     final existing = _watchedPostsByThread[thread];
     if (existing != null &&
         existing.postIndex == postIndex &&
@@ -117,7 +121,7 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
       postIndex: postIndex,
       thread: thread,
       watchedAt: DateTime.now(),
-      furthestIndex: max(existing?.furthestIndex ?? postIndex, postIndex),
+      furthestIndex: max(existing?.furthestIndex ?? reached, reached),
     );
 
     _watchedPostsByThread[thread] = latestForThread;

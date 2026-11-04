@@ -1,3 +1,22 @@
+THREADS THAT READ LIKE COMMENTS
+Open a busy thread.
+
+• Posts sit on the background with no cards: a one-line header, the text, then the image or playing video. Replies are indented with a thin cyan or violet line. A stronger line and more room start each new discussion.
+• Tap an image or a video: the viewer opens.
+• Tap anywhere on a reply, including its text: it shrinks to its header, the arrow turns sideways, and what's above stays put. If its header had scrolled away, it lands below the title bar and flashes. Tap again: it all comes back.
+• Long-press its text: that should select the text, not fold. Tap a quote like #38 or OP, in a sentence too, an image or a video: those should do their own thing, not fold.
+• Scroll down a long branch and tap the line beside a reply: the post it answers folds and flashes. If that post was off screen, the list goes back to it.
+• Leave a thread partway, then open it again: it should resume on the same post, and the "new" count in History should look right.
+
+Please also try what couldn't be checked on a simulator:
+• Live thread: stay in a fast thread until the new posts pill appears. New replies should appear at the bottom without the list moving, and the pill should take you to them. Reopen the thread: they should now be under their posts.
+• Open an image in a nested reply and swipe to another one: it should go through them in the order they're listed, skipping folded posts. Go back: the list should land on the last one you saw.
+• Videos in nested replies: they should play as you scroll, and open and close zooming from the right place. After closing the viewer, the list should stay where it was (a jump to the top was seen once).
+• A very long back-and-forth: each level should move right less than the last, and stay readable however deep.
+• Light mode: the lines should be easy to see, but not distracting.
+
+Tap the reply count on the opening post, and a quote in any post: those pages should look like the thread, and fold the same.
+
 SWIPE BACK FROM ANYWHERE
 On a board, a thread, History, search or Settings, swipe right starting from the middle of the screen.
 
@@ -7,7 +26,7 @@ On a board, a thread, History, search or Settings, swipe right starting from the
 • Start the swipe on comment text, an image and a board or History row: all should go back, without opening or selecting anything.
 • Rows with actions: swipe left to reveal them, then right to close them. That shouldn't go back. Swipe right on a closed row: that should.
 • Drag across a video in a thread: it should scrub, not go back. The left edge of the screen should still go back.
-• Scroll up and down at a slight angle, as thumbs do: lists should scroll, and it shouldn't go back by accident.
+• Scroll up and down at a slight angle: lists should scroll, and it shouldn't go back by accident.
 
 Please also try what couldn't be checked on a simulator:
 • How it feels on a real phone: does it ever go back when you only meant to scroll or select text?
@@ -17,4 +36,4 @@ Please also try what couldn't be checked on a simulator:
 • On Android, compare it with the system's own back gesture from the edge.
 
 REPLY COUNTS
-Find a reply whose text starts with a number, right after the quote (like ">>123" followed by "4 weeks long"). The post it quotes should now count it, and show it on its replies page.
+Find a reply whose text starts with a number (like ">>123" followed by "4 weeks long"). The post it quotes should count it.

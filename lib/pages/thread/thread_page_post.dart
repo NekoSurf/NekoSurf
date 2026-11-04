@@ -8,7 +8,6 @@ import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
-import 'package:flutter_chan/pages/replies_row.dart';
 import 'package:flutter_chan/pages/thread/thread_media_viewer_page.dart';
 import 'package:flutter_chan/pages/thread/thread_post_comment.dart';
 import 'package:flutter_chan/pages/thread/thread_replies.dart';
@@ -17,9 +16,11 @@ import 'package:flutter_chan/services/image_cache.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/feed_video_player.dart';
 import 'package:flutter_chan/widgets/image_viewer.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+/// A post as a row: a one-line header, then its text, then its image or
+/// video. Tapping it folds it down to its header, along with any replies
+/// listed below it.
 class ThreadPagePost extends StatefulWidget {
   const ThreadPagePost({
     super.key,
@@ -31,6 +32,10 @@ class ThreadPagePost extends StatefulWidget {
     this.replies,
     this.replyCount = 0,
     this.preloadVideo = false,
+    this.onToggleFold,
+    this.folded = false,
+    this.repliedTo,
+    this.number,
   });
 
   final String board;
@@ -43,6 +48,16 @@ class ThreadPagePost extends StatefulWidget {
 
   /// Download the video ahead of time, as it's about to scroll into view.
   final bool preloadVideo;
+
+  /// It can fold: without this, its count opens its replies on their own page.
+  final VoidCallback? onToggleFold;
+  final bool folded;
+
+  /// See [ThreadPostComment.repliedTo].
+  final int? repliedTo;
+
+  /// Where the post is in the thread, as the order listed may differ.
+  final int? number;
 
   static String formatBytes(int bytes, int decimals) {
     if (bytes <= 0) {
@@ -97,9 +112,6 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
 
   String _thumbnailUrl() => urls.thumbnail(widget.board, widget.post.tim);
 
-  String _fullMediaUrl() =>
-      urls.file(widget.board, widget.post.tim, widget.post.ext);
-
   Future<void> _openMediaViewer(
     List<Post> allPosts,
     Post thisPost, {
@@ -129,15 +141,6 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     widget.onDismiss(focusedPostId);
   }
 
-  /// The inline card's width in physical pixels, capped at the original's.
-  int? _inlineDecodeWidth(BuildContext context) {
-    final double target =
-        MediaQuery.sizeOf(context).width *
-        MediaQuery.devicePixelRatioOf(context);
-    final int? original = widget.post.w;
-    return original == null ? target.round() : min(original, target.round());
-  }
-
   double _mediaAspectRatio() {
     final int width = widget.post.w ?? widget.post.tnW ?? 1;
     final int height = widget.post.h ?? widget.post.tnH ?? 1;
@@ -145,92 +148,13 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     return ratio.clamp(0.65, 1.8);
   }
 
-  Widget _buildLoadingOverlay() {
-    return Container(
-      color: Colors.black.withValues(alpha: 0.22),
-      child: const Center(child: CupertinoActivityIndicator(radius: 12)),
-    );
-  }
-
-  Widget _buildInlineImageMedia() {
-    final imageMedia = AspectRatio(
-      aspectRatio: _mediaAspectRatio(),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Image(
-              image: thumbnailImage(_thumbnailUrl()),
-              fit: BoxFit.cover,
-              errorBuilder: imageErrorPlaceholder,
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) {
-                  return child;
-                }
-
-                return Stack(
-                  fit: StackFit.expand,
-                  children: [child, _buildLoadingOverlay()],
-                );
-              },
-            ),
-          ),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Image(
-              // Decode at display size: a 4000px original fills ~48 MB once
-              // decoded, for a card about 400pt wide.
-              image: ResizeImage.resizeIfNeeded(
-                _inlineDecodeWidth(context),
-                null,
-                fullImage(_fullMediaUrl()),
-              ),
-              fit: BoxFit.cover,
-              // The thumbnail underneath stays visible if this fails.
-              errorBuilder: (_, _, _) => const SizedBox.shrink(),
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) {
-                  return child;
-                }
-
-                return Stack(
-                  fit: StackFit.expand,
-                  children: [child, _buildLoadingOverlay()],
-                );
-              },
-              frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-                if (wasSynchronouslyLoaded) {
-                  return child;
-                }
-
-                return AnimatedOpacity(
-                  opacity: frame == null ? 0 : 1,
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeOut,
-                  child: child,
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-
-    return GestureDetector(
-      onTap: () =>
-          _openMediaViewer(widget.replies ?? widget.allPosts, widget.post),
-      child: imageMedia,
-    );
-  }
-
-  Widget _buildInlineVideoMedia() {
+  Widget _buildVideo() {
     if (!widget.post.hasFile) {
       return const SizedBox.shrink();
     }
     final mediaId = widget.post.tim;
     if (mediaId == null) {
-      return _buildInlineImageMedia();
+      return _buildImage();
     }
     final mediaUrl = urls.file(
       widget.board,
@@ -259,170 +183,231 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
         ),
       );
     } catch (_) {
-      return _buildInlineImageMedia();
+      return _buildImage();
     }
+  }
+
+  /// The row's width in physical pixels, capped at the original's.
+  int? _imageDecodeWidth(BuildContext context) {
+    final double target =
+        MediaQuery.sizeOf(context).width *
+        MediaQuery.devicePixelRatioOf(context);
+    final int? original = widget.post.w;
+    return original == null ? target.round() : min(original, target.round());
+  }
+
+  Widget _buildLoadingOverlay() {
+    return Container(
+      color: Colors.black.withValues(alpha: 0.22),
+      child: const Center(child: CupertinoActivityIndicator(radius: 12)),
+    );
+  }
+
+  /// The image as a preview: its thumbnail, with the full image fading in
+  /// over it. Opens the viewer when tapped.
+  Widget _buildImage() {
+    return GestureDetector(
+      onTap: () =>
+          _openMediaViewer(widget.replies ?? widget.allPosts, widget.post),
+      child: AspectRatio(
+        aspectRatio: _mediaAspectRatio(),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image(
+                image: thumbnailImage(_thumbnailUrl()),
+                fit: BoxFit.cover,
+                errorBuilder: imageErrorPlaceholder,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) {
+                    return child;
+                  }
+
+                  return Stack(
+                    fit: StackFit.expand,
+                    children: [child, _buildLoadingOverlay()],
+                  );
+                },
+              ),
+            ),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image(
+                // Decode at display size: a 4000px original fills ~48 MB once
+                // decoded, for a row about 400pt wide.
+                image: ResizeImage.resizeIfNeeded(
+                  _imageDecodeWidth(context),
+                  null,
+                  fullImage(
+                    urls.file(widget.board, widget.post.tim, widget.post.ext),
+                  ),
+                ),
+                fit: BoxFit.cover,
+                // The thumbnail underneath stays visible if this fails.
+                errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) {
+                    return child;
+                  }
+
+                  return Stack(
+                    fit: StackFit.expand,
+                    children: [child, _buildLoadingOverlay()],
+                  );
+                },
+                frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                  if (wasSynchronouslyLoaded) {
+                    return child;
+                  }
+
+                  return AnimatedOpacity(
+                    opacity: frame == null ? 0 : 1,
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeOut,
+                    child: child,
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Provider.of<ThemeChanger>(context);
-    final bool isDark = theme.isDark;
-    final bool hasMedia = widget.post.hasFile;
+    final bool isDark = Provider.of<ThemeChanger>(context).isDark;
+    final Post post = widget.post;
+    final Color muted = DashColors.muted(isDark);
+    final int? time = post.time;
+    final String? country = post.country;
+    // What's interactive inside, like media or links, takes its own taps.
+    final VoidCallback? fold = widget.onToggleFold;
+    final bool folded = fold != null && widget.folded;
 
-    final Color primaryText = DashColors.text(isDark);
-    final Color secondaryText = DashColors.muted(isDark);
-    final Color cardColor = DashColors.card(isDark);
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
-      child: Stack(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: cardColor,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: DashColors.border(isDark)),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      CircleAvatar(
-                        radius: 14,
-                        backgroundColor: DashColors.accent.withValues(
-                          alpha: 0.2,
-                        ),
-                        child: Text(
-                          (widget.post.name ?? 'Anonymous')
-                              .trim()
-                              .characters
-                              .first
-                              .toUpperCase(),
-                          style: const TextStyle(
-                            color: DashColors.accent,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    widget.post.name ?? 'Anonymous',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700,
-                                      color: primaryText,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: CupertinoColors.systemFill
-                                        .resolveFrom(context),
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  child: Text(
-                                    'No.${widget.post.no}',
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                if (widget.post.country != null)
-                                  Padding(
-                                    padding: const EdgeInsets.only(left: 6),
-                                    child: SizedBox(
-                                      width: 16,
-                                      height: 11,
-                                      child: CountryFlag.fromCountryCode(
-                                        widget.post.country!,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            Text(
-                              DateFormat('kk:mm - dd.MM.y').format(
-                                DateTime.fromMillisecondsSinceEpoch(
-                                  widget.post.time! * 1000,
-                                ),
-                              ),
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: secondaryText,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (widget.post.sub != null) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      unescape(cleanTags(widget.post.sub ?? '')),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: fold,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(14, 11, 14, folded ? 11 : 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(
                       style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: primaryText,
+                        fontSize: 12,
+                        letterSpacing: -0.05,
+                        color: muted,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                  if (hasMedia) ...[
-                    const SizedBox(height: 10),
-                    if (widget.post.isVideo)
-                      _buildInlineVideoMedia()
-                    else
-                      _buildInlineImageMedia(),
-                  ],
-                  if (widget.post.com != null) ...[
-                    const SizedBox(height: 10),
-                    ThreadPostComment(
-                      com: widget.post.com ?? '',
-                      board: widget.board,
-                      thread: widget.thread,
-                      allPosts: widget.allPosts,
-                    ),
-                  ],
-                  if (widget.replyCount > 0)
-                    Column(
                       children: [
-                        const SizedBox(height: 10),
-                        GestureDetector(
-                          onTap: _openReplies,
-                          child: RepliesRow(
-                            replies: widget.replyCount,
-                            showImageReplies: false,
+                        TextSpan(
+                          text: post.name ?? 'Anonymous',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.1,
+                            color: DashColors.text(isDark),
                           ),
                         ),
+                        if (time != null)
+                          TextSpan(
+                            text:
+                                '   ${timeAgo(DateTime.fromMillisecondsSinceEpoch(time * 1000))}',
+                          ),
+                        if (widget.number != null)
+                          TextSpan(text: '   #${widget.number}'),
+                        if (post.no != null) TextSpan(text: '   ${post.no}'),
                       ],
                     ),
-                ],
-              ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (country != null)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 6),
+                    child: SizedBox(
+                      width: 16,
+                      height: 11,
+                      child: CountryFlag.fromCountryCode(country),
+                    ),
+                  ),
+                if (widget.replyCount > 0 || folded)
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: fold ?? _openReplies,
+                    child: Padding(
+                      padding: const EdgeInsets.only(
+                        left: 14,
+                        top: 2,
+                        bottom: 2,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (widget.replyCount > 0) ...[
+                            Text(
+                              '${widget.replyCount}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: muted,
+                              ),
+                            ),
+                            const SizedBox(width: 3),
+                          ],
+                          Icon(
+                            folded
+                                ? CupertinoIcons.chevron_right
+                                : fold != null
+                                ? CupertinoIcons.chevron_down
+                                : CupertinoIcons.reply,
+                            size: 12,
+                            color: muted,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
             ),
-          ),
-        ],
+            if (!folded && post.sub != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                unescape(cleanTags(post.sub ?? '')),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: DashColors.text(isDark),
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            if (!folded && post.com != null) ...[
+              const SizedBox(height: 5),
+              ThreadPostComment(
+                com: post.com ?? '',
+                board: widget.board,
+                thread: widget.thread,
+                allPosts: widget.allPosts,
+                onTap: fold,
+                repliedTo: widget.repliedTo,
+              ),
+            ],
+            if (!folded && post.hasFile) ...[
+              const SizedBox(height: 8),
+              if (post.isVideo) _buildVideo() else _buildImage(),
+            ],
+          ],
+        ),
       ),
     );
   }

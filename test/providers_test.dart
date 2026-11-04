@@ -4,6 +4,7 @@ import 'package:flutter_chan/Models/bookmark.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/bookmarks_model.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
+import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/enums/enums.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -95,6 +96,35 @@ void main() {
       expect(settings.isThreadHidden(Post(sub: 'Linux general')), isTrue);
       expect(settings.isThreadHidden(Post(com: 'an (unclosed one')), isTrue);
       expect(settings.isThreadHidden(Post(sub: 'Windows')), isFalse);
+    });
+  });
+
+  group('WatchedPostsProvider', () {
+    test('counts replies read apart from where to resume', () async {
+      SharedPreferences.setMockInitialValues({});
+      final WatchedPostsProvider watched = WatchedPostsProvider(
+        await SharedPreferences.getInstance(),
+      );
+      addTearDown(watched.dispose);
+
+      // With replies nested, the last reply listed can be an early post.
+      await watched.markAsWatched(postIndex: 3, seen: 10, thread: 1);
+
+      expect(watched.getLatestWatchedPosts(1)?.postIndex, 3);
+      expect(watched.newReplies(1, 10), 0);
+      expect(watched.newReplies(1, 12), 2);
+    });
+
+    test('takes the place in the thread as the count otherwise', () async {
+      SharedPreferences.setMockInitialValues({});
+      final WatchedPostsProvider watched = WatchedPostsProvider(
+        await SharedPreferences.getInstance(),
+      );
+      addTearDown(watched.dispose);
+
+      await watched.markAsWatched(postIndex: 4, thread: 1);
+
+      expect(watched.newReplies(1, 10), 6);
     });
   });
 }

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/pages/thread/thread_page_post.dart';
+import 'package:flutter_chan/pages/thread/thread_rows.dart';
 import 'package:flutter_chan/widgets/dash_scaffold.dart';
 import 'package:flutter_chan/widgets/reload.dart';
 
@@ -57,7 +58,7 @@ class _ThreadRepliesToState extends State<ThreadRepliesTo> {
   @override
   Widget build(BuildContext context) {
     return DashBarScaffold(
-      title: 'Replies to #${widget.post}',
+      title: 'Replies to ${postLabel(widget.post, widget.allPosts)}',
       body: FutureBuilder(
         future: _fetchPost,
         builder: (BuildContext context, snapshot) {
@@ -73,15 +74,23 @@ class _ThreadRepliesToState extends State<ThreadRepliesTo> {
                   },
                 );
               } else {
-                return Column(
+                final Post post = snapshot.data ?? Post();
+                final int number = widget.allPosts.indexWhere(
+                  (candidate) => candidate.no == post.no,
+                );
+                // Scrolls for a long post, or a tall video under its text.
+                return ListView(
+                  padding: EdgeInsets.only(
+                    top: MediaQuery.paddingOf(context).top + 8,
+                    bottom: MediaQuery.paddingOf(context).bottom + 8,
+                  ),
                   children: [
-                    SizedBox(height: MediaQuery.paddingOf(context).top + 8),
-
                     ThreadPagePost(
                       board: widget.board,
                       thread: widget.thread,
-                      post: snapshot.data ?? Post(),
+                      post: post,
                       allPosts: widget.allPosts,
+                      number: number < 0 ? null : number,
                       onDismiss: (i) => {},
                     ),
                   ],
