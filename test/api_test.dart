@@ -87,6 +87,14 @@ void main() {
       expect(children.containsKey(8), isFalse);
     });
 
+    test('finds the parent of a reply whose text starts with a digit', () {
+      final Map<int, List<Post>> children = buildReplyChildrenIndex([
+        Post(no: 1),
+        Post(no: 2, com: '${_quoting([1])}4 weeks long, not on weekends.'),
+      ]);
+      expect(_numbers(children[1]!), [2]);
+    });
+
     test('counts and collects every reply below a post', () {
       final Map<int, int> counts = buildReplyDescendantCountIndex(posts);
       expect(counts[1], 4);

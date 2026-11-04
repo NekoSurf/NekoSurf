@@ -1,0 +1,1 @@
+Replies that start with a number now count as replies to the post they quote.

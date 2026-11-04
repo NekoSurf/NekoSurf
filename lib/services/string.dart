@@ -25,7 +25,9 @@ List<int> extractQuotedPostIds(String? body) {
     return const [];
   }
 
-  final String text = unescape(cleanTags(body));
+  // A space for each tag, or a line starting with a digit would run into the
+  // number quoted on the line before: ">>123<br>4 weeks" isn't a quote of 1234.
+  final String text = unescape(body.replaceAll(_htmlTag, ' '));
   final List<int> orderedIds = <int>[];
 
   for (final Match match in _quoteLink.allMatches(text)) {

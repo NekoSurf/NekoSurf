@@ -1,0 +1,2 @@
+REPLY COUNTS
+Find a reply whose text starts with a number, right after the quote (like ">>123" followed by "4 weeks long"). The post it quotes should now count it, and show it on its replies page.
