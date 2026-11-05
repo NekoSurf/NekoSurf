@@ -127,20 +127,24 @@ class _AppWithThemeState extends State<AppWithTheme>
       debugShowCheckedModeBanner: false,
       home: const BoardList(),
       navigatorObservers: [_unfocusOnPush],
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          pageTransitionsTheme: PageTransitionsTheme(
-            builders: {
-              for (final platform in TargetPlatform.values)
-                platform:
-                    platform == TargetPlatform.iOS ||
-                        platform == TargetPlatform.macOS
-                    ? const CupertinoPageTransitionsBuilder()
-                    : const FastCupertinoTransitionsBuilder(),
-            },
+      // Beyond this, fixed-size cards and rows cut their text off.
+      builder: (context, child) => MediaQuery.withClampedTextScaling(
+        maxScaleFactor: 1.3,
+        child: Theme(
+          data: Theme.of(context).copyWith(
+            pageTransitionsTheme: PageTransitionsTheme(
+              builders: {
+                for (final platform in TargetPlatform.values)
+                  platform:
+                      platform == TargetPlatform.iOS ||
+                          platform == TargetPlatform.macOS
+                      ? const CupertinoPageTransitionsBuilder()
+                      : const FastCupertinoTransitionsBuilder(),
+              },
+            ),
           ),
+          child: child!,
         ),
-        child: child!,
       ),
       theme: CupertinoThemeData(
         brightness: theme.isDark ? Brightness.dark : Brightness.light,

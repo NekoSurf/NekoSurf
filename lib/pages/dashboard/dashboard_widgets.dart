@@ -331,12 +331,18 @@ class DashBoardRow extends StatelessWidget {
                 borderRadius: BorderRadius.circular(13),
               ),
               alignment: Alignment.center,
-              child: Text(
-                '/$board/',
-                style: TextStyle(
-                  fontSize: board.length > 3 ? 10 : 12,
-                  fontWeight: FontWeight.w800,
-                  color: color,
+              padding: const EdgeInsets.symmetric(horizontal: 3),
+              // Stays on one line, however large the text is set.
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  '/$board/',
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: board.length > 3 ? 10 : 12,
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                  ),
                 ),
               ),
             ),
