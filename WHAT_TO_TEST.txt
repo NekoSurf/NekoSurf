@@ -8,6 +8,11 @@ Find a post with a spoilered image (on /v/ or /vg/, for example).
 WHO'S POSTING
 On a board with poster IDs, like /qst/ or /pol/: each post's header should show a colored ID:abc123, the same color for the same poster. Tripcodes show after the name, staff tags like ## mod in red.
 
+REFRESHING A THREAD
+• Pull well past the bottom or top of a thread: you should feel a tap and see "No new posts" or "3 new posts". Pulling once gives one message, also in a thread shorter than the screen.
+• ⋯ → Refresh should do the same.
+• Open an archived thread from History: under the title it should say Archived. A closed one says Closed. If a thread is deleted while it's open, it says Deleted the next time it updates.
+
 LINKS
 • Tap a quote of a post that was deleted: "Post not found", not an empty post.
 

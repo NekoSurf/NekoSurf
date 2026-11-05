@@ -18,6 +18,7 @@ import 'package:flutter_chan/pages/thread/thread_rows.dart';
 import 'package:flutter_chan/pages/thread/thread_rows_list.dart';
 import 'package:flutter_chan/services/back_swipe_route.dart';
 import 'package:flutter_chan/services/image_cache.dart';
+import 'package:flutter_chan/services/show_snackbar.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/cupertino_menu.dart';
 import 'package:flutter_chan/widgets/dash_header.dart';
@@ -79,6 +80,8 @@ class ThreadPageState extends State<ThreadPage>
   Duration _liveInterval = _liveMinInterval;
   String? _lastModified;
   bool _liveStopped = false;
+  bool _isGone = false;
+  bool _isRefreshing = false;
   bool _isVisible = true;
 
   late Bookmark favorite;
@@ -274,6 +277,7 @@ class ThreadPageState extends State<ThreadPage>
   void loadThread() {
     _liveTimer?.cancel();
     _liveStopped = false;
+    _isGone = false;
     _liveInterval = _liveMinInterval;
     _lastModified = null;
     forgetNewThisVisit();
@@ -299,7 +303,11 @@ class ThreadPageState extends State<ThreadPage>
     setState(() {
       _fetchAllPostsFromThread =
           fetchAllPostsFromThread(widget.board, widget.thread).then((posts) {
-            _setPosts(posts);
+            if (!mounted) {
+              return posts;
+            }
+            // The header, outside the FutureBuilder, says if it's archived.
+            setState(() => _setPosts(posts));
             if (posts.isNotEmpty) {
               _recordHistory(posts.first);
             }
@@ -342,42 +350,91 @@ class ThreadPageState extends State<ThreadPage>
       return;
     }
 
+    await _update();
+    _scheduleLiveUpdate();
+  }
+
+  /// Asks 4chan what's changed. Returns how many posts arrived; null if it
+  /// couldn't tell.
+  Future<int?> _update() async {
     try {
       final update = await fetchThreadUpdate(
         widget.board,
         widget.thread,
         lastModified: _lastModified,
       );
-      if (!mounted || _liveStopped) {
-        return;
+      if (!mounted) {
+        return null;
       }
       _lastModified = update.lastModified;
 
       if (update.status == 404) {
+        setState(() => _isGone = true);
         _liveStopped = true;
-        return;
+        return 0;
       }
 
       final List<Post>? posts = update.posts;
       if (posts == null || posts.isEmpty) {
         _backOff();
-      } else {
-        _applyUpdate(posts);
-        if (!_isLive(posts)) {
-          _liveStopped = true;
-          return;
-        }
+        return update.status == 304 ? 0 : null;
       }
+      final int added = _applyUpdate(posts);
+      _liveStopped = !_isLive(posts);
+      return added;
     } catch (_) {
       _backOff();
+      return null;
     }
+  }
 
+  /// Updates the thread now, and says what that found.
+  Future<void> _refresh() async {
+    if (_isRefreshing || allPosts.isEmpty) {
+      return;
+    }
+    _isRefreshing = true;
+    _liveTimer?.cancel();
+    final int? added = await _update();
+    _isRefreshing = false;
+    if (!mounted) {
+      return;
+    }
     _scheduleLiveUpdate();
+    showCupertinoSnackbar(
+      const Duration(milliseconds: 1800),
+      true,
+      context,
+      added == null
+          ? "Couldn't refresh"
+          : _isGone
+          ? 'The thread is gone'
+          : added == 0
+          ? 'No new posts'
+          : added == 1
+          ? '1 new post'
+          : '$added new posts',
+    );
+  }
+
+  @override
+  void onPulledPastEnd() => _refresh();
+
+  /// What's become of the thread, if it isn't live any more.
+  String? get _threadStatus {
+    final Post? op = allPosts.firstOrNull;
+    return _isGone
+        ? 'Deleted'
+        : op?.archived == 1
+        ? 'Archived'
+        : op?.closed == 1
+        ? 'Closed'
+        : null;
   }
 
   /// Swaps in the refreshed posts. New ones are appended below, so the list
   /// doesn't move.
-  void _applyUpdate(List<Post> posts) {
+  int _applyUpdate(List<Post> posts) {
     final Set<int?> known = allPosts.map((p) => p.no).toSet();
     final int added = posts.where((p) => !known.contains(p.no)).length;
 
@@ -387,13 +444,14 @@ class ThreadPageState extends State<ThreadPage>
       _liveInterval = _liveMinInterval;
     }
     if (added == 0 && posts.length == allPosts.length) {
-      return;
+      return 0;
     }
 
     setState(() {
       _setPosts(posts);
     });
     _schedulePreloadRefresh();
+    return added;
   }
 
   /// The nearest videos above and below what's on screen.
@@ -583,6 +641,7 @@ class ThreadPageState extends State<ThreadPage>
   Widget build(BuildContext context) {
     return DashBarScaffold(
       title: unescape(cleanTags(widget.threadName)),
+      subtitle: _threadStatus,
       actions: [
         DashIconButton(
           icon: const Icon(CupertinoIcons.square_grid_3x2),
@@ -610,6 +669,11 @@ class ThreadPageState extends State<ThreadPage>
               onPressed: () {
                 launchURL(urls.threadPage(widget.board, widget.thread));
               },
+            ),
+            buildMenuItem(
+              title: 'Refresh',
+              icon: CupertinoIcons.arrow_clockwise,
+              onPressed: _refresh,
             ),
             buildMenuItem(
               title: 'Scroll to Top',

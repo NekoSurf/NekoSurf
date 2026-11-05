@@ -17,6 +17,8 @@ import 'package:flutter_chan/enums/enums.dart';
 import 'package:flutter_chan/pages/media/shared_media_viewer.dart';
 import 'package:flutter_chan/pages/thread/thread_page_post.dart';
 import 'package:flutter_chan/pages/thread/thread_replied_to.dart';
+import 'package:flutter_chan/pages/thread/thread_rows.dart';
+import 'package:flutter_chan/pages/thread/thread_rows_list.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/spoiler_cover.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -325,5 +327,71 @@ void main() {
         expect(find.byType(InteractiveViewer), findsOneWidget);
       });
     });
+
+    testWidgets(
+      'pulling the list past its end asks for a refresh, once per pull',
+      (tester) async {
+        final GlobalKey<_PullListState> key = GlobalKey();
+        await tester.pumpWidget(app(Scaffold(body: _PullList(key: key))));
+        await tester.pump();
+        await tester.pump();
+
+        Future<void> pull() async {
+          final TestGesture gesture = await tester.startGesture(
+            tester.getCenter(find.byKey(key)),
+          );
+          for (int step = 0; step < 12; step++) {
+            await gesture.moveBy(const Offset(0, 40));
+            await tester.pump(const Duration(milliseconds: 16));
+          }
+          await gesture.up();
+          await tester.pumpAndSettle();
+        }
+
+        await pull();
+        expect(key.currentState!.pulls, 1);
+
+        await pull();
+        expect(key.currentState!.pulls, 2);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+    );
   });
+}
+
+/// A short list, to pull at the ends of.
+class _PullList extends StatefulWidget {
+  const _PullList({super.key});
+
+  @override
+  State<_PullList> createState() => _PullListState();
+}
+
+class _PullListState extends State<_PullList> with ThreadRowsList<_PullList> {
+  int pulls = 0;
+
+  final List<Post> _posts = <Post>[
+    Post(no: 1, time: 1700000000, com: 'Words'),
+    Post(no: 2, time: 1700000000, com: 'Words'),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    rebuildRows();
+  }
+
+  @override
+  int get threadNumber => 1;
+
+  @override
+  void onPulledPastEnd() => pulls++;
+
+  @override
+  List<ThreadRow> buildRows() =>
+      buildFlatRows(_posts, replyCounts: const <int, int>{});
+
+  @override
+  Widget build(BuildContext context) =>
+      buildRowList(context, board: 'g', thread: 1, allPosts: _posts);
 }

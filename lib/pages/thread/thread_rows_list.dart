@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
@@ -100,6 +102,33 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
 
   /// A scroll by itself has ended, leaving the list where the reader is now.
   void onAutoScrollEnded() {}
+
+  /// The reader pulled the list past one of its ends.
+  void onPulledPastEnd() {}
+
+  // How far past an end counts, once per pull.
+  static const double _pullDistance = 80;
+  bool _wasPulled = false;
+
+  bool _onScroll(ScrollNotification notification) {
+    if (notification is ScrollEndNotification) {
+      _wasPulled = false;
+    } else if (notification is ScrollUpdateNotification &&
+        notification.dragDetails != null &&
+        !_wasPulled) {
+      final ScrollMetrics metrics = notification.metrics;
+      final double past = max(
+        metrics.pixels - metrics.maxScrollExtent,
+        metrics.minScrollExtent - metrics.pixels,
+      );
+      if (past > _pullDistance) {
+        _wasPulled = true;
+        HapticFeedback.mediumImpact();
+        onPulledPastEnd();
+      }
+    }
+    return false;
+  }
 
   /// What's folded, or where a post shows in full, has changed.
   void onFoldsChanged() {}
@@ -522,78 +551,83 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
     final bool isDark = Provider.of<ThemeChanger>(context).isDark;
     final bool isFlat = threadLayout == ThreadLayout.flat;
 
-    return ScrollablePositionedList.builder(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.paddingOf(context).bottom + 8,
-      ),
-      shrinkWrap: false,
-      itemCount: rows.length,
-      itemScrollController: itemScrollController,
-      itemPositionsListener: itemPositionsListener,
-      physics: _StopsAtEndsWhenDriven(
-        isDriven: () => _isAutoScrolling,
-        onDrivenStep: _checkAim,
-      ),
-      itemBuilder: (context, index) {
-        final ThreadRow row = rows[index];
-        final Post post = row.post;
-        final int? postId = post.no;
+    return NotificationListener<ScrollNotification>(
+      onNotification: _onScroll,
+      child: ScrollablePositionedList.builder(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.paddingOf(context).bottom + 8,
+        ),
+        shrinkWrap: false,
+        itemCount: rows.length,
+        itemScrollController: itemScrollController,
+        itemPositionsListener: itemPositionsListener,
+        physics: _StopsAtEndsWhenDriven(
+          // A thread shorter than the screen can still be pulled to refresh.
+          parent: const AlwaysScrollableScrollPhysics(),
+          isDriven: () => _isAutoScrolling,
+          onDrivenStep: _checkAim,
+        ),
+        itemBuilder: (context, index) {
+          final ThreadRow row = rows[index];
+          final Post post = row.post;
+          final int? postId = post.no;
 
-        return Padding(
-          // Folding moves posts to other positions; don't let one take over
-          // another's state.
-          key: ValueKey<String>(row.path),
-          padding: EdgeInsets.only(
-            top: index == 0 ? MediaQuery.paddingOf(context).top + 8 : 0,
-          ),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 400),
-            curve: Curves.easeOut,
-            color: row.path == _highlightedRow
-                ? DashColors.accent.withValues(alpha: 0.16)
-                : DashColors.accent.withValues(
-                    alpha: _newThisVisit.contains(postId) ? 0.07 : 0,
-                  ),
-            child: ThreadBranch(
-              ancestors: row.ancestors,
-              previousDepth: index == 0
-                  ? null
-                  : rows[index - 1].ancestors.length,
-              isDark: isDark,
-              child: ThreadPagePost(
-                board: board,
-                thread: thread,
-                post: post,
-                allPosts: allPosts,
-                replies: _listedPosts,
-                number: row.postIndex,
-                replyCount: row.replyCount,
-                // The opening post's replies are the rest of the thread, not
-                // a branch to fold: its count still opens them on their own.
-                onToggleFold: row.postIndex == 0 || postId == null
+          return Padding(
+            // Folding moves posts to other positions; don't let one take over
+            // another's state.
+            key: ValueKey<String>(row.path),
+            padding: EdgeInsets.only(
+              top: index == 0 ? MediaQuery.paddingOf(context).top + 8 : 0,
+            ),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.easeOut,
+              color: row.path == _highlightedRow
+                  ? DashColors.accent.withValues(alpha: 0.16)
+                  : DashColors.accent.withValues(
+                      alpha: _newThisVisit.contains(postId) ? 0.07 : 0,
+                    ),
+              child: ThreadBranch(
+                ancestors: row.ancestors,
+                previousDepth: index == 0
                     ? null
-                    : row.isPreview
-                    ? () => _showInFullHere(row)
-                    : () => _toggleRow(row.path),
-                folded: row.collapsed,
-                isPreview: row.isPreview,
-                countOpensReplies: isFlat,
-                newReplies: row.newReplies,
-                onTapQuote: _showQuotedPost,
-                // The top level answers the post the list is about. Flat, no
-                // post is under another, so none of its quotes stands out.
-                repliedTo: isFlat
-                    ? null
-                    : row.ancestors.isNotEmpty
-                    ? row.ancestors.last
-                    : rootPost ?? allPosts.firstOrNull?.no,
-                preloadVideo: preloadVideos.contains(postId ?? post.tim),
-                onDismiss: _showPost,
+                    : rows[index - 1].ancestors.length,
+                isDark: isDark,
+                child: ThreadPagePost(
+                  board: board,
+                  thread: thread,
+                  post: post,
+                  allPosts: allPosts,
+                  replies: _listedPosts,
+                  number: row.postIndex,
+                  replyCount: row.replyCount,
+                  // The opening post's replies are the rest of the thread, not
+                  // a branch to fold: its count still opens them on their own.
+                  onToggleFold: row.postIndex == 0 || postId == null
+                      ? null
+                      : row.isPreview
+                      ? () => _showInFullHere(row)
+                      : () => _toggleRow(row.path),
+                  folded: row.collapsed,
+                  isPreview: row.isPreview,
+                  countOpensReplies: isFlat,
+                  newReplies: row.newReplies,
+                  onTapQuote: _showQuotedPost,
+                  // The top level answers the post the list is about. Flat, no
+                  // post is under another, so none of its quotes stands out.
+                  repliedTo: isFlat
+                      ? null
+                      : row.ancestors.isNotEmpty
+                      ? row.ancestors.last
+                      : rootPost ?? allPosts.firstOrNull?.no,
+                  preloadVideo: preloadVideos.contains(postId ?? post.tim),
+                  onDismiss: _showPost,
+                ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
