@@ -92,24 +92,6 @@ class _VideoScrubGestureState extends State<VideoScrubGesture> {
     super.dispose();
   }
 
-  String _format(Duration value) {
-    final int hours = value.inHours;
-    final String minutes = value.inMinutes
-        .remainder(60)
-        .toString()
-        .padLeft(2, '0');
-    final String seconds = value.inSeconds
-        .remainder(60)
-        .toString()
-        .padLeft(2, '0');
-
-    if (hours > 0) {
-      return '${hours.toString().padLeft(2, '0')}:$minutes:$seconds';
-    }
-
-    return '$minutes:$seconds';
-  }
-
   @override
   Widget build(BuildContext context) {
     final MediaVideo? scrubbing = _scrubbing;
@@ -154,8 +136,8 @@ class _VideoScrubGestureState extends State<VideoScrubGesture> {
                     child: ValueListenableBuilder<Duration?>(
                       valueListenable: scrubbing.scrubPosition,
                       builder: (context, target, _) => Text(
-                        '${_format(target ?? Duration.zero)} / '
-                        '${_format(scrubbing.duration)}',
+                        '${formatVideoTime(target ?? Duration.zero)} / '
+                        '${formatVideoTime(scrubbing.duration)}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,
@@ -184,4 +166,23 @@ class _EdgeExcludingHorizontalDragRecognizer
   bool isPointerAllowed(PointerEvent event) {
     return event.position.dx > edgeInset && super.isPointerAllowed(event);
   }
+}
+
+/// A place in a video, like 01:23 or 01:02:03.
+String formatVideoTime(Duration value) {
+  final int hours = value.inHours;
+  final String minutes = value.inMinutes
+      .remainder(60)
+      .toString()
+      .padLeft(2, '0');
+  final String seconds = value.inSeconds
+      .remainder(60)
+      .toString()
+      .padLeft(2, '0');
+
+  if (hours > 0) {
+    return '${hours.toString().padLeft(2, '0')}:$minutes:$seconds';
+  }
+
+  return '$minutes:$seconds';
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/save_videos.dart';
 import 'package:flutter_chan/API/urls.dart' as urls;
@@ -555,7 +556,6 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
       _mediaUrl(post),
       _fileName(post),
       context,
-      isSaved: false,
       onProgress: (double? value) => progress.value = value,
     );
     if (!mounted) {
@@ -586,7 +586,6 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
       _mediaUrl(post),
       _fileName(post),
       context,
-      isSaved: false,
       onProgress: (double? value) => progress.value = value,
     );
     if (!mounted) {
@@ -622,37 +621,45 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
         });
         widget.currentPostIdNotifier.value = _currentPostId;
       },
-      actions: SharedMediaViewerTopBarActions(
-        saveToggle: SharedMediaViewerSaveToggleAction(
-          isSaved: isSaved,
-          isSaving: savedAttachments.isSaving(key),
-          saveProgress: savedAttachments.saveProgressOf(key),
-          isRemoving: _removing.contains(key),
-          didSave: _savedChecks.containsKey(key),
-          onSave: _saveToAttachments,
-          onRemove: _removeFromAttachments,
-        ),
-        download: SharedMediaViewerDownloadAction(
-          isDownloading: _downloading.contains(key),
+      actions: [
+        if (isSaved)
+          SharedMediaViewerAction(
+            icon: CupertinoIcons.trash,
+            onPressed: (_) => _removeFromAttachments(),
+            isBusy: _removing.contains(key),
+          )
+        else
+          SharedMediaViewerAction(
+            icon: CupertinoIcons.add_circled,
+            onPressed: (_) => _saveToAttachments(),
+            isBusy: savedAttachments.isSaving(key),
+            progress: savedAttachments.saveProgressOf(key),
+            isCompleted: _savedChecks.containsKey(key),
+          ),
+        SharedMediaViewerAction(
+          icon: CupertinoIcons.arrow_down_to_line,
+          onPressed: (_) => _downloadToGallery(),
+          isBusy: _downloading.contains(key),
           progress: _downloadProgress[key],
-          didDownload: _downloadedChecks.containsKey(key),
-          onDownload: _downloadToGallery,
+          isCompleted: _downloadedChecks.containsKey(key),
         ),
-        share: SharedMediaViewerShareAction(
-          isSharing: _sharing.contains(key),
+        SharedMediaViewerAction(
+          icon: CupertinoIcons.share,
+          onPressed: (_) => _shareCurrentMedia(),
+          isBusy: _sharing.contains(key),
           progress: _shareProgress[key],
-          onShare: _shareCurrentMedia,
         ),
-        search: SharedMediaViewerSearchAction(
+        SharedMediaViewerAction(
+          icon: CupertinoIcons.search,
           // Search engines only take images, so videos use their thumbnail.
-          onSearch: (anchor) => showReverseImageSearchMenu(
+          onPressed: (BuildContext anchor) => showReverseImageSearchMenu(
             anchor,
             _currentPost.isVideo
                 ? urls.thumbnail(widget.board, _currentPost.tim)
                 : _mediaUrl(_currentPost),
           ),
         ),
-      ),
+      ],
     );
   }
 }

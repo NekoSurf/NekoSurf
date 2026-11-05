@@ -67,18 +67,6 @@ class SaveSteps {
   void _report(double progress) => _onProgress?.call(_wholePercent(progress));
 }
 
-Future<bool> _requestPermission(Permission permission) async {
-  if (await permission.isGranted) {
-    return true;
-  } else {
-    final result = await permission.request();
-    if (result == PermissionStatus.granted) {
-      return true;
-    }
-  }
-  return false;
-}
-
 // Thumbnails live in the app-private Application Support dir so they never show
 // up in Files / the Download folder. iOS media sits in the Documents root.
 String _thumbnailsDir = '';
@@ -130,7 +118,7 @@ Future<Directory> requestDirectory({
       : Permission.storage;
 
   final bool granted = ask
-      ? await _requestPermission(permission)
+      ? await permission.request().isGranted
       : await permission.isGranted;
   if (!granted) {
     if (context != null && context.mounted) {
@@ -161,31 +149,13 @@ Future<Directory> requestDirectory({
   return directory;
 }
 
-Future<bool> checkAndRequestPermissions({required bool skipIfExists}) async {
-  if (!Platform.isAndroid && !Platform.isIOS) {
-    return false;
+/// Asks to add to Photos or the gallery; it never needs to read them.
+Future<bool> _canSaveToGallery() async {
+  if (!Platform.isAndroid) {
+    return Permission.photosAddOnly.request().isGranted;
   }
-
-  if (Platform.isAndroid) {
-    final deviceInfo = await DeviceInfoPlugin().androidInfo;
-    final sdkInt = deviceInfo.version.sdkInt;
-
-    if (skipIfExists) {
-      // Read permission is required to check if the file already exists
-      return sdkInt >= 33
-          ? await Permission.photos.request().isGranted
-          : await Permission.storage.request().isGranted;
-    } else {
-      // No read permission required for Android SDK 29 and above
-      return sdkInt >= 29 || await Permission.storage.request().isGranted;
-    }
-  } else if (Platform.isIOS) {
-    return skipIfExists
-        ? await Permission.photos.request().isGranted
-        : await Permission.photosAddOnly.request().isGranted;
-  }
-
-  return false; // Unsupported platforms
+  final int sdkVersion = (await DeviceInfoPlugin().androidInfo).version.sdkInt;
+  return sdkVersion >= 29 || await Permission.storage.request().isGranted;
 }
 
 // Phones' file systems (APFS, ext4) take names of up to 255 bytes; this
@@ -245,13 +215,11 @@ String _withMp4Extension(String name) => name.toLowerCase().endsWith('.webm')
 /// [onProgress] hears how much of the video is converted, from 0 to 1, as
 /// ffmpeg reports the time it's up to; null if the webm doesn't say how
 /// long it is.
-Future<int> convertWebMToMP4(
+Future<int> _convertWebMToMP4(
   File webmFile,
   File mp4File, {
   void Function(double? progress)? onProgress,
 }) async {
-  mp4File = File(_withMp4Extension(mp4File.path));
-
   final (int? sourceBitrate, int? durationMs) = await _probe(webmFile);
   final int bitrate = sourceBitrate == null ? 4000000 : 2 * sourceBitrate;
 
@@ -310,95 +278,58 @@ Future<bool> _saveToGallery(String path, String name) async {
   }
 }
 
-/// Saves an attachment to Photos/gallery; returns whether it got there.
+/// What saving or sharing [url] gives out: downloaded into [folder] under a
+/// safe name and, for a webm on iPhone, converted to an mp4.
+Future<File> _downloadToGive(
+  Directory folder,
+  String url,
+  String fileName,
+  SaveProgress? onProgress,
+) async {
+  final bool converts = _converts(fileName);
+  final SaveSteps steps = SaveSteps(onProgress, converts: converts);
+  final File downloaded = await downloadInto(
+    folder,
+    url,
+    localFileName(fileName),
+    onProgress: steps.download,
+  );
+  if (!converts) {
+    return downloaded;
+  }
+  final File mp4 = File(_withMp4Extension(downloaded.path));
+  final int returnCode = await _convertWebMToMP4(
+    downloaded,
+    mp4,
+    onProgress: steps.convert,
+  );
+  if (returnCode != 0) {
+    throw Exception('webm conversion failed');
+  }
+  await _deleteQuietly(downloaded);
+  return mp4;
+}
+
+/// Downloads an attachment to Photos/gallery; returns whether it got there.
 /// Failures are shown in a snackbar.
 Future<bool> saveVideo(
   String url,
   String fileName,
   BuildContext context, {
-  bool isSaved = true,
   SaveProgress? onProgress,
 }) async {
-  final bool hasPermission = await checkAndRequestPermissions(
-    skipIfExists: false,
-  );
-
-  if (!hasPermission) {
+  if (!await _canSaveToGallery()) {
     if (context.mounted) {
-      showCupertinoSnackbar(
-        const Duration(milliseconds: 1800),
-        true,
-        context,
-        'Permission denied',
-      );
+      _showFailed(context, 'Permission denied');
     }
     return false;
   }
 
   Directory? work;
   try {
-    if (isSaved) {
-      // Only saved media is in this folder; everything else is downloaded
-      // to a work folder, so it needs no storage access on Android.
-      final Directory directory = await requestDirectory();
-      // On iOS, saved attachments are converted from .webm to .mp4
-      // On Android, they remain as .webm
-      final String savedName = savedNameOnDisk(fileName);
-      final String savedPath = savedMediaPath(directory.path, savedName);
-      final File savedFile = File(savedPath);
-
-      if (!await savedFile.exists()) {
-        if (context.mounted) {
-          showCupertinoSnackbar(
-            const Duration(milliseconds: 1800),
-            true,
-            context,
-            'File not found',
-          );
-        }
-        return false;
-      }
-
-      if (!await _saveToGallery(savedPath, savedName)) {
-        throw Exception('gallery save failed');
-      }
-      return true;
-    }
-
     work = await _newWorkFolder();
-    final String localName = localFileName(fileName);
-    final SaveSteps steps = SaveSteps(
-      onProgress,
-      converts: _converts(fileName),
-    );
-    final File downloadedFile = await _downloadInto(
-      work,
-      url,
-      localName,
-      onProgress: steps.download,
-    );
-
-    if (_converts(fileName)) {
-      final String outputName = _withMp4Extension(localName);
-      final File outputFile = File('${downloadedFile.parent.path}/$outputName');
-
-      final returnCode = await convertWebMToMP4(
-        downloadedFile,
-        outputFile,
-        onProgress: steps.convert,
-      );
-
-      if (returnCode != 0) {
-        throw Exception('webm conversion failed');
-      }
-
-      if (!await _saveToGallery(outputFile.path, outputName)) {
-        throw Exception('gallery save failed');
-      }
-      return true;
-    }
-
-    if (!await _saveToGallery(downloadedFile.path, localName)) {
+    final File file = await _downloadToGive(work, url, fileName, onProgress);
+    if (!await _saveToGallery(file.path, file.path.split('/').last)) {
       throw Exception('gallery save failed');
     }
     return true;
@@ -415,21 +346,17 @@ Future<bool> saveVideo(
   }
 }
 
-/// Saves already-saved attachments to Photos/gallery; returns the number that failed.
-Future<int> saveSavedAttachmentsToGallery(
+/// Saves already-saved attachments to Photos/gallery; returns the number that
+/// failed, or null without the permission, which is shown in a snackbar.
+Future<int?> saveSavedAttachmentsToGallery(
   List<String> fileNames,
   BuildContext context,
 ) async {
-  if (!await checkAndRequestPermissions(skipIfExists: false)) {
+  if (!await _canSaveToGallery()) {
     if (context.mounted) {
-      showCupertinoSnackbar(
-        const Duration(milliseconds: 1800),
-        true,
-        context,
-        'Permission denied',
-      );
+      _showFailed(context, 'Permission denied');
     }
-    return fileNames.length;
+    return null;
   }
 
   final Directory directory;
@@ -459,7 +386,8 @@ Future<int> saveSavedAttachmentsToGallery(
   return failed;
 }
 
-/// Opens one share sheet for all given saved attachments (includes "Save to Files").
+/// Opens one share sheet for all given saved attachments (includes "Save to
+/// Files"). If none of them can be, that's shown in a snackbar.
 Future<void> shareSavedAttachments(
   List<String> fileNames,
   BuildContext context,
@@ -468,96 +396,51 @@ Future<void> shareSavedAttachments(
   try {
     directory = await requestDirectory(context: context);
   } catch (_) {
+    // The permission sheet said why.
     return;
   }
 
-  final files = <XFile>[];
-  for (final fileName in fileNames) {
-    final String savedPath = savedMediaPath(
-      directory.path,
-      savedNameOnDisk(fileName),
-    );
-    if (await File(savedPath).exists()) {
-      files.add(XFile(savedPath));
+  try {
+    final files = <XFile>[];
+    for (final fileName in fileNames) {
+      final String savedPath = savedMediaPath(
+        directory.path,
+        savedNameOnDisk(fileName),
+      );
+      if (await File(savedPath).exists()) {
+        files.add(XFile(savedPath));
+      }
+    }
+    if (files.isEmpty) {
+      throw const FileSystemException('Saved files are gone');
+    }
+    await shareInTurn(ShareParams(files: files));
+  } catch (e) {
+    debugPrint('shareSavedAttachments error: $e');
+    if (context.mounted) {
+      _showFailed(context, "Couldn't share it");
     }
   }
-  if (files.isEmpty) {
-    return;
-  }
-  await shareInTurn(ShareParams(files: files));
 }
 
+/// Downloads an attachment and opens the share sheet for it.
 Future<void> shareMedia(
   String url,
   String fileName,
   BuildContext context, {
-  bool isSaved = false,
   SaveProgress? onProgress,
 }) async {
-  if (isSaved) {
-    final Directory directory;
-    try {
-      directory = await requestDirectory(context: context);
-    } catch (_) {
-      return;
-    }
-    final String savedPath = savedMediaPath(
-      directory.path,
-      savedNameOnDisk(fileName),
-    );
-    try {
-      if (!await File(savedPath).exists()) {
-        throw FileSystemException('Saved file is gone', savedPath);
-      }
-      await shareInTurn(ShareParams(files: [XFile(savedPath)]));
-    } catch (e) {
-      debugPrint('shareMedia error: $e');
-      if (context.mounted) {
-        _showFailed(context, "Couldn't share it");
-      }
-    }
-    return;
-  }
-
   Directory? shareFolder;
   bool shared = false;
   try {
     shareFolder = await _newShareFolder();
-    final String localName = localFileName(fileName);
-    final SaveSteps steps = SaveSteps(
-      onProgress,
-      converts: _converts(fileName),
-    );
-    final File downloadedFile = await _downloadInto(
+    final File file = await _downloadToGive(
       shareFolder,
       url,
-      localName,
-      onProgress: steps.download,
+      fileName,
+      onProgress,
     );
-
-    if (_converts(fileName)) {
-      final File fileDownloadPath = File(
-        '${downloadedFile.parent.path}/$localName',
-      );
-      final int returnCode = await convertWebMToMP4(
-        downloadedFile,
-        fileDownloadPath,
-        onProgress: steps.convert,
-      );
-      // Only the mp4 is shared.
-      await _deleteQuietly(downloadedFile);
-
-      if (returnCode != 0) {
-        throw Exception('webm conversion failed');
-      }
-      await shareInTurn(
-        ShareParams(files: [XFile(_withMp4Extension(fileDownloadPath.path))]),
-      );
-      shared = true;
-      return;
-    }
-
-    await shareInTurn(ShareParams(files: [XFile(downloadedFile.path)]));
+    await shareInTurn(ShareParams(files: [XFile(file.path)]));
     shared = true;
   } catch (e) {
     debugPrint('shareMedia error: $e');
@@ -647,7 +530,7 @@ Future<SavedAttachment?> saveAttachment(
       onProgress,
       converts: _converts(fileName),
     );
-    final File downloadedFile = await _downloadInto(
+    final File downloadedFile = await downloadInto(
       work,
       url,
       fileName,
@@ -668,7 +551,7 @@ Future<SavedAttachment?> saveAttachment(
 
     output = File('${savedDir.path}/$savedName');
     if (_converts(fileName)) {
-      if (await convertWebMToMP4(
+      if (await _convertWebMToMP4(
             downloadedFile,
             output,
             onProgress: steps.convert,
@@ -877,7 +760,8 @@ Future<void> deleteSaveLeftoversIn(Directory temp) async {
 /// it was watched already, or once the player's download of it is done,
 /// otherwise downloaded. [onProgress] hears how far along either download
 /// is, in whole percent.
-Future<File> _downloadInto(
+@visibleForTesting
+Future<File> downloadInto(
   Directory folder,
   String url,
   String fileName, {
@@ -899,14 +783,6 @@ Future<File> _downloadInto(
   await _download(url, file, onProgress: report);
   return file;
 }
-
-@visibleForTesting
-Future<File> downloadIntoForTesting(
-  Directory folder,
-  String url,
-  String fileName, {
-  SaveProgress? onProgress,
-}) => _downloadInto(folder, url, fileName, onProgress: onProgress);
 
 // A connection that sends nothing for this long is given up on, instead of
 // leaving the save spinning forever.

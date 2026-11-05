@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_chan/API/save_videos.dart';
 import 'package:flutter_chan/Models/saved_attachment.dart';
 import 'package:flutter_chan/blocs/saved_attachments_model.dart';
 import 'package:flutter_chan/pages/media/shared_media_viewer.dart';
+import 'package:flutter_chan/services/show_snackbar.dart';
 import 'package:flutter_chan/widgets/dash_dialogs.dart';
 import 'package:provider/provider.dart';
 
@@ -100,18 +100,23 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
       return;
     }
     setState(() {});
-    final bool saved = await saveVideo(
+    final int? failed = await saveSavedAttachmentsToGallery(<String>[
       fileName,
-      fileName,
-      context,
-      isSaved: true,
-    );
+    ], context);
     if (!mounted) {
       return;
     }
+    if ((failed ?? 0) > 0) {
+      showCupertinoSnackbar(
+        const Duration(milliseconds: 1800),
+        true,
+        context,
+        "Couldn't save it to Photos",
+      );
+    }
     setState(() {
       _downloading.remove(fileName);
-      if (saved) {
+      if (failed == 0) {
         _downloadedChecks[fileName]?.cancel();
         _downloadedChecks[fileName] = Timer(
           const Duration(milliseconds: 1200),
@@ -136,7 +141,7 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
     setState(() {
       _isSharing = true;
     });
-    await shareMedia(fileName, fileName, context, isSaved: true);
+    await shareSavedAttachments(<String>[fileName], context);
     if (!mounted) {
       return;
     }
@@ -222,25 +227,24 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
         });
       },
 
-      actions: SharedMediaViewerTopBarActions(
-        saveToggle: SharedMediaViewerSaveToggleAction(
-          isSaved: true,
-          isSaving: false,
-          isRemoving: _isRemoving,
-          didSave: true,
-          onRemove: _removeCurrentAttachment,
-          onSave: () {},
+      actions: [
+        SharedMediaViewerAction(
+          icon: CupertinoIcons.trash,
+          onPressed: (_) => _removeCurrentAttachment(),
+          isBusy: _isRemoving,
         ),
-        download: SharedMediaViewerDownloadAction(
-          isDownloading: _downloading.contains(currentFileName),
-          didDownload: _downloadedChecks.containsKey(currentFileName),
-          onDownload: _downloadCurrentToGallery,
+        SharedMediaViewerAction(
+          icon: CupertinoIcons.arrow_down_to_line,
+          onPressed: (_) => _downloadCurrentToGallery(),
+          isBusy: _downloading.contains(currentFileName),
+          isCompleted: _downloadedChecks.containsKey(currentFileName),
         ),
-        share: SharedMediaViewerShareAction(
-          isSharing: _isSharing,
-          onShare: _shareCurrentMedia,
+        SharedMediaViewerAction(
+          icon: CupertinoIcons.share,
+          onPressed: (_) => _shareCurrentMedia(),
+          isBusy: _isSharing,
         ),
-      ),
+      ],
     );
   }
 }

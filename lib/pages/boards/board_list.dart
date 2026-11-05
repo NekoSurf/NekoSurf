@@ -379,7 +379,7 @@ class BoardListState extends State<BoardList> {
                     names,
                     context,
                   );
-                  if (!mounted) {
+                  if (failed == null || !mounted) {
                     return;
                   }
                   showCupertinoSnackbar(

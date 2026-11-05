@@ -9,110 +9,36 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/widgets/dash_dialogs.dart';
+import 'package:flutter_chan/widgets/frosted.dart';
 import 'package:flutter_chan/widgets/media_video.dart';
 import 'package:flutter_chan/widgets/video_scrub_gesture.dart';
 import 'package:preload_page_view/preload_page_view.dart';
 import 'package:provider/provider.dart';
 
-class SharedMediaViewerSaveToggleAction {
-  const SharedMediaViewerSaveToggleAction({
-    required this.isSaved,
-    required this.isSaving,
-    required this.isRemoving,
-    required this.didSave,
-    required this.onSave,
-    required this.onRemove,
-    this.saveProgress,
-  });
-
-  final bool isSaved;
-  final bool isSaving;
-
-  /// How far along saving is; see [SharedMediaViewerAction.progress].
-  final ValueListenable<double?>? saveProgress;
-  final bool isRemoving;
-  final bool didSave;
-  final VoidCallback onSave;
-  final VoidCallback onRemove;
-}
-
-class SharedMediaViewerDownloadAction {
-  const SharedMediaViewerDownloadAction({
-    required this.isDownloading,
-    required this.didDownload,
-    required this.onDownload,
-    this.progress,
-  });
-
-  final bool isDownloading;
-
-  /// How far along it is; see [SharedMediaViewerAction.progress].
-  final ValueListenable<double?>? progress;
-  final bool didDownload;
-  final VoidCallback onDownload;
-}
-
-class SharedMediaViewerShareAction {
-  const SharedMediaViewerShareAction({
-    required this.isSharing,
-    required this.onShare,
-    this.progress,
-  });
-
-  final bool isSharing;
-
-  /// How far along it is; see [SharedMediaViewerAction.progress].
-  final ValueListenable<double?>? progress;
-
-  final VoidCallback onShare;
-}
-
-class SharedMediaViewerSearchAction {
-  const SharedMediaViewerSearchAction({required this.onSearch});
-
-  /// Gets the button's context, to anchor a menu to it.
-  final ValueChanged<BuildContext> onSearch;
-}
-
-class SharedMediaViewerTopBarActions {
-  const SharedMediaViewerTopBarActions({
-    this.saveToggle,
-    this.download,
-    this.share,
-    this.search,
-  });
-
-  final SharedMediaViewerSaveToggleAction? saveToggle;
-  final SharedMediaViewerDownloadAction? download;
-  final SharedMediaViewerShareAction? share;
-  final SharedMediaViewerSearchAction? search;
-}
-
+/// A button in the viewer's top bar.
 class SharedMediaViewerAction {
   const SharedMediaViewerAction({
     required this.icon,
     required this.onPressed,
-    this.onPressedWithContext,
-    this.completedIcon,
     this.isBusy = false,
-    this.isCompleted = false,
-    this.disableWhenCompleted = false,
     this.progress,
+    this.isCompleted = false,
   });
 
   final IconData icon;
 
-  /// While busy, how far along it is, from 0 to 1 (see SaveProgress): a
-  /// ring fills up while it's known, a spinner shows while it's null.
-  final ValueListenable<double?>? progress;
-  final IconData? completedIcon;
-  final VoidCallback? onPressed;
+  /// Gets the button's context, to anchor a menu to it.
+  final ValueChanged<BuildContext> onPressed;
 
-  /// Used instead of [onPressed] when the action needs the button's context.
-  final ValueChanged<BuildContext>? onPressedWithContext;
+  /// Busy: it can't be pressed, and shows how far along it is instead.
   final bool isBusy;
+
+  /// While busy, from 0 to 1 (see SaveProgress): a ring fills up while it's
+  /// known, a spinner shows while it's null.
+  final ValueListenable<double?>? progress;
+
+  /// Just done: it can't be pressed, and shows a check mark for now.
   final bool isCompleted;
-  final bool disableWhenCompleted;
 }
 
 class SharedMediaViewerItem {
@@ -163,15 +89,15 @@ class SharedMediaViewer extends StatefulWidget {
     required this.initialIndex,
     required this.onClose,
     required this.mediaNameBuilder,
-    this.actions,
-    this.onIndexChanged,
+    required this.actions,
+    required this.onIndexChanged,
   });
 
   final List<SharedMediaViewerItem> items;
   final int initialIndex;
   final VoidCallback onClose;
-  final SharedMediaViewerTopBarActions? actions;
-  final ValueChanged<int>? onIndexChanged;
+  final List<SharedMediaViewerAction> actions;
+  final ValueChanged<int> onIndexChanged;
 
   final String Function(int index) mediaNameBuilder;
 
@@ -291,9 +217,6 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
     final settings = Provider.of<SettingsProvider>(context);
     final double topInset = MediaQuery.of(context).padding.top;
     final int itemCount = widget.items.length;
-    final List<SharedMediaViewerAction> actions = itemCount == 0
-        ? const <SharedMediaViewerAction>[]
-        : _buildActions();
     final String mediaTitle = itemCount == 0
         ? ''
         : widget.mediaNameBuilder(_currentIndex);
@@ -354,7 +277,7 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
                     _isImageZoomed = false;
                   });
                   _precacheAround(index);
-                  widget.onIndexChanged?.call(index);
+                  widget.onIndexChanged(index);
                 },
                 itemBuilder: (context, index) {
                   final SharedMediaViewerItem item = widget.items[index];
@@ -366,7 +289,6 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
                       isActive: _currentIndex == index,
                       chromeVisible: _chromeVisible,
                       onTap: _toggleChrome,
-                      thumbnail: item.thumbnail,
                       rate: _rate,
                       onCycleRate: _cycleRate,
                       autoAdvance: settings.getFullscreenAutoAdvance(),
@@ -405,72 +327,87 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
               ),
             ),
           ),
-          _chrome(
-            top: true,
-            child: Container(
-              padding: EdgeInsets.fromLTRB(12, topInset + 8, 12, 28),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.7),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-              child: Row(
-                children: [
-                  _OverlayButton(
-                    onPressed: widget.onClose,
-                    child: const Icon(
-                      CupertinoIcons.chevron_left,
-                      color: Colors.white,
-                      size: 18,
-                    ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: _Chrome(
+              visible: _chromeVisible,
+              hiddenOffset: -0.3,
+              child: Container(
+                padding: EdgeInsets.fromLTRB(12, topInset + 8, 12, 28),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.7),
+                      Colors.transparent,
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: showFileInfo,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            mediaTitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.3,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            itemCount == 0
-                                ? ''
-                                : '${_currentIndex + 1} of $itemCount',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.65),
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
+                ),
+                child: Row(
+                  children: [
+                    _OverlayButton(
+                      onPressed: widget.onClose,
+                      child: const Icon(
+                        CupertinoIcons.chevron_left,
+                        color: Colors.white,
+                        size: 18,
                       ),
                     ),
-                  ),
-                  if (actions.isNotEmpty)
-                    _ActionPill(
-                      children: [
-                        for (final SharedMediaViewerAction action in actions)
-                          _buildActionButton(action),
-                      ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: showFileInfo,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              mediaTitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              itemCount == 0
+                                  ? ''
+                                  : '${_currentIndex + 1} of $itemCount',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.65),
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                ],
+                    if (itemCount > 0)
+                      Frosted(
+                        radius: 16,
+                        blur: 16,
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                        color: _buttonBacking,
+                        borderColor: _buttonBorder,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (final SharedMediaViewerAction action
+                                in widget.actions)
+                              _buildActionButton(action),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -490,28 +427,6 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
       return layer;
     }
     return pick(route)(context, layer);
-  }
-
-  Widget _chrome({required bool top, required Widget child}) {
-    return Positioned(
-      top: top ? 0 : null,
-      bottom: top ? null : 0,
-      left: 0,
-      right: 0,
-      child: IgnorePointer(
-        ignoring: !_chromeVisible,
-        child: AnimatedSlide(
-          offset: Offset(0, _chromeVisible ? 0 : (top ? -0.3 : 0.3)),
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-          child: AnimatedOpacity(
-            opacity: _chromeVisible ? 1 : 0,
-            duration: const Duration(milliseconds: 200),
-            child: RouteChromeFade(child: child),
-          ),
-        ),
-      ),
-    );
   }
 
   Widget _buildPagedBackdrop() {
@@ -536,10 +451,8 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
         final int upper = page.ceil().clamp(0, itemCount - 1);
         final double t = (page - lower).abs().clamp(0.0, 1.0);
 
-        final ImageProvider<Object> lowerImage =
-            _backdropForIndex(lower) ?? widget.items[lower].imageProvider;
-        final ImageProvider<Object> upperImage =
-            _backdropForIndex(upper) ?? widget.items[upper].imageProvider;
+        final ImageProvider<Object> lowerImage = _backdrop(widget.items[lower]);
+        final ImageProvider<Object> upperImage = _backdrop(widget.items[upper]);
 
         return Stack(
           fit: StackFit.expand,
@@ -552,14 +465,8 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
     );
   }
 
-  ImageProvider<Object>? _backdropForIndex(int index) {
-    if (index < 0 || index >= widget.items.length) {
-      return null;
-    }
-
-    final SharedMediaViewerItem item = widget.items[index];
-    return item.thumbnail ?? item.imageProvider;
-  }
+  ImageProvider<Object> _backdrop(SharedMediaViewerItem item) =>
+      item.thumbnail ?? item.imageProvider;
 
   Widget _buildBlurredBackdrop(ImageProvider<Object> image, double opacity) {
     return Opacity(
@@ -576,112 +483,25 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
     );
   }
 
-  List<SharedMediaViewerAction> _buildActions() {
-    final SharedMediaViewerTopBarActions? actionConfig = widget.actions;
-    if (actionConfig == null) {
-      return const <SharedMediaViewerAction>[];
-    }
-
-    final List<SharedMediaViewerAction> actions = <SharedMediaViewerAction>[];
-    final SharedMediaViewerSaveToggleAction? saveToggle =
-        actionConfig.saveToggle;
-    if (saveToggle != null) {
-      if (saveToggle.isSaved) {
-        actions.add(
-          SharedMediaViewerAction(
-            icon: CupertinoIcons.trash,
-            onPressed: saveToggle.onRemove,
-            isBusy: saveToggle.isRemoving,
-          ),
-        );
-      } else {
-        actions.add(
-          SharedMediaViewerAction(
-            icon: CupertinoIcons.add_circled,
-            completedIcon: CupertinoIcons.check_mark_circled_solid,
-            onPressed: saveToggle.onSave,
-            isBusy: saveToggle.isSaving,
-            progress: saveToggle.saveProgress,
-            isCompleted: saveToggle.didSave,
-            disableWhenCompleted: true,
-          ),
-        );
-      }
-    }
-
-    final SharedMediaViewerDownloadAction? download = actionConfig.download;
-    if (download != null) {
-      actions.add(
-        SharedMediaViewerAction(
-          icon: CupertinoIcons.arrow_down_to_line,
-          completedIcon: CupertinoIcons.check_mark_circled_solid,
-          onPressed: download.onDownload,
-          isBusy: download.isDownloading,
-          progress: download.progress,
-          isCompleted: download.didDownload,
-          disableWhenCompleted: true,
-        ),
-      );
-    }
-
-    final SharedMediaViewerShareAction? share = actionConfig.share;
-    if (share != null) {
-      actions.add(
-        SharedMediaViewerAction(
-          icon: CupertinoIcons.share,
-          onPressed: share.onShare,
-          isBusy: share.isSharing,
-          progress: share.progress,
-        ),
-      );
-    }
-
-    final SharedMediaViewerSearchAction? search = actionConfig.search;
-    if (search != null) {
-      actions.add(
-        SharedMediaViewerAction(
-          icon: CupertinoIcons.search,
-          onPressed: null,
-          onPressedWithContext: search.onSearch,
-        ),
-      );
-    }
-
-    return actions;
-  }
-
   Widget _buildActionButton(SharedMediaViewerAction action) {
-    final bool disableForBusy = action.isBusy;
-    final bool disableForCompleted =
-        action.isCompleted && action.disableWhenCompleted;
-    final bool disabled = disableForBusy || disableForCompleted;
-    final ValueChanged<BuildContext>? withContext = action.onPressedWithContext;
-    if (withContext != null) {
-      return Builder(
-        builder: (buttonContext) => _OverlayButton(
-          bare: true,
-          onPressed: disabled ? null : () => withContext(buttonContext),
-          child: Icon(action.icon, color: Colors.white, size: 18),
-        ),
-      );
-    }
-
-    final VoidCallback? onPressed = disabled ? null : action.onPressed;
-
-    return _OverlayButton(
-      bare: true,
-      onPressed: onPressed,
-      // A busy button can't be pressed, but its spinner must stay visible.
-      dimmed: onPressed == null && !action.isBusy,
-      child: action.isBusy
-          ? _BusyIndicator(progress: action.progress)
-          : Icon(
-              action.isCompleted && action.completedIcon != null
-                  ? action.completedIcon!
-                  : action.icon,
-              color: Colors.white,
-              size: 18,
-            ),
+    return Builder(
+      builder: (buttonContext) => _OverlayButton(
+        bare: true,
+        onPressed: action.isBusy || action.isCompleted
+            ? null
+            : () => action.onPressed(buttonContext),
+        // A busy button can't be pressed, but its spinner must stay visible.
+        dimmed: action.isCompleted && !action.isBusy,
+        child: action.isBusy
+            ? _BusyIndicator(progress: action.progress)
+            : Icon(
+                action.isCompleted
+                    ? CupertinoIcons.check_mark_circled_solid
+                    : action.icon,
+                color: Colors.white,
+                size: 18,
+              ),
+      ),
     );
   }
 }
@@ -689,6 +509,38 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
 /// Behind the top bar's buttons: dark, so their white icons and spinners
 /// stand out on bright pictures as well as dark ones.
 final Color _buttonBacking = Colors.black.withValues(alpha: 0.35);
+final Color _buttonBorder = Colors.white.withValues(alpha: 0.12);
+
+/// The viewer's controls: they slide away by [hiddenOffset] of their height
+/// and fade when not [visible].
+class _Chrome extends StatelessWidget {
+  const _Chrome({
+    required this.visible,
+    required this.hiddenOffset,
+    required this.child,
+  });
+
+  final bool visible;
+  final double hiddenOffset;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      ignoring: !visible,
+      child: AnimatedSlide(
+        offset: Offset(0, visible ? 0 : hiddenOffset),
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        child: AnimatedOpacity(
+          opacity: visible ? 1 : 0,
+          duration: const Duration(milliseconds: 200),
+          child: RouteChromeFade(child: child),
+        ),
+      ),
+    );
+  }
+}
 
 class _OverlayButton extends StatelessWidget {
   const _OverlayButton({
@@ -707,20 +559,9 @@ class _OverlayButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Widget button = GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onPressed,
-      child: Container(
-        width: 40,
-        height: 40,
-        alignment: Alignment.center,
-        decoration: bare
-            ? null
-            : BoxDecoration(
-                color: _buttonBacking,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-              ),
+    final Widget content = SizedBox.square(
+      dimension: 40,
+      child: Center(
         child: Opacity(
           opacity: (dimmed ?? onPressed == null) ? 0.5 : 1,
           child: child,
@@ -728,16 +569,18 @@ class _OverlayButton extends StatelessWidget {
       ),
     );
 
-    if (bare) {
-      return button;
-    }
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: button,
-      ),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onPressed,
+      child: bare
+          ? content
+          : Frosted(
+              radius: 14,
+              blur: 16,
+              color: _buttonBacking,
+              borderColor: _buttonBorder,
+              child: content,
+            ),
     );
   }
 }
@@ -796,31 +639,6 @@ class _ProgressRing extends StatelessWidget {
   }
 }
 
-class _ActionPill extends StatelessWidget {
-  const _ActionPill({required this.children});
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 2),
-          decoration: BoxDecoration(
-            color: _buttonBacking,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-          ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: children),
-        ),
-      ),
-    );
-  }
-}
-
 class _SharedMediaVideoPage extends StatefulWidget {
   const _SharedMediaVideoPage({
     super.key,
@@ -834,7 +652,6 @@ class _SharedMediaVideoPage extends StatefulWidget {
     required this.autoAdvance,
     required this.onToggleAutoAdvance,
     required this.onCompleted,
-    this.thumbnail,
   });
 
   final double rate;
@@ -849,7 +666,6 @@ class _SharedMediaVideoPage extends StatefulWidget {
   final bool chromeVisible;
   final VoidCallback onTap;
   final ValueChanged<bool> onScrubStateChanged;
-  final ImageProvider<Object>? thumbnail;
 
   @override
   State<_SharedMediaVideoPage> createState() => _SharedMediaVideoPageState();
@@ -938,27 +754,9 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
     return '$text×';
   }
 
-  String _formatDuration(Duration value) {
-    final int hours = value.inHours;
-    final String minutes = value.inMinutes
-        .remainder(60)
-        .toString()
-        .padLeft(2, '0');
-    final String seconds = value.inSeconds
-        .remainder(60)
-        .toString()
-        .padLeft(2, '0');
-
-    if (hours > 0) {
-      return '${hours.toString().padLeft(2, '0')}:$minutes:$seconds';
-    }
-
-    return '$minutes:$seconds';
-  }
-
   @override
   Widget build(BuildContext context) {
-    final ImageProvider<Object>? thumbnail = widget.thumbnail;
+    final ImageProvider<Object>? thumbnail = widget.item.thumbnail;
     final int? width = widget.item.width;
     final int? height = widget.item.height;
     final double? aspectRatio = width != null && height != null && height > 0
@@ -998,22 +796,12 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
             left: 0,
             right: 0,
             bottom: 0,
-            child: IgnorePointer(
-              ignoring: !widget.chromeVisible,
-              child: AnimatedSlide(
-                offset: Offset(0, widget.chromeVisible ? 0 : 0.3),
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOutCubic,
-                child: AnimatedOpacity(
-                  opacity: widget.chromeVisible ? 1 : 0,
-                  duration: const Duration(milliseconds: 200),
-                  child: RouteChromeFade(
-                    child: ListenableBuilder(
-                      listenable: _video,
-                      builder: (context, _) => _buildControls(context),
-                    ),
-                  ),
-                ),
+            child: _Chrome(
+              visible: widget.chromeVisible,
+              hiddenOffset: 0.3,
+              child: ListenableBuilder(
+                listenable: _video,
+                builder: (context, _) => _buildControls(context),
               ),
             ),
           ),
@@ -1125,7 +913,7 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              _formatDuration(shown),
+                              formatVideoTime(shown),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
@@ -1133,7 +921,7 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
                               ),
                             ),
                             Text(
-                              _formatDuration(duration),
+                              formatVideoTime(duration),
                               style: TextStyle(
                                 color: Colors.white.withValues(alpha: 0.65),
                                 fontSize: 12,

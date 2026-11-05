@@ -84,7 +84,7 @@ void main() {
     final String url = 'http://127.0.0.1:${server.port}/b/1.webm';
 
     final List<double?> heard = <double?>[];
-    final File file = await downloadIntoForTesting(
+    final File file = await downloadInto(
       dir,
       url,
       '1.webm',

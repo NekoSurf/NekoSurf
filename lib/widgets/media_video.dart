@@ -571,6 +571,12 @@ class MediaVideo extends ChangeNotifier {
       _resumeAt = lease.player.state.position;
       _resumePlaying = !_userPaused;
     }
+    _dropPlayer();
+    notifyListeners();
+  }
+
+  /// Back to having no player.
+  void _dropPlayer() {
     _token++;
     _starting = false;
     _detach();
@@ -578,20 +584,14 @@ class MediaVideo extends ChangeNotifier {
     _hasFirstFrame = false;
     _playing = false;
     _buffering = false;
-    notifyListeners();
   }
 
   /// It didn't play: a fresh player gets one more go, then it waits for
   /// [retry].
   void _fail() {
     final VideoLease? lease = _lease;
-    _token++;
-    _starting = false;
-    _detach();
-    _lease = null;
+    _dropPlayer();
     lease?.release();
-    _hasFirstFrame = false;
-    _playing = false;
 
     if (!_retried) {
       _retried = true;
@@ -623,7 +623,6 @@ class MediaVideoView extends StatelessWidget {
     required this.video,
     required this.thumbnail,
     this.fit = BoxFit.contain,
-    this.aspectRatio,
     this.indicatorSize = 26,
     this.wakelock = false,
   });
@@ -631,9 +630,6 @@ class MediaVideoView extends StatelessWidget {
   final MediaVideo video;
   final Widget thumbnail;
   final BoxFit fit;
-
-  /// Sizes the video inside the available space (for [BoxFit.contain]).
-  final double? aspectRatio;
   final double indicatorSize;
 
   /// Keeps the screen on while it plays. The lock is global and each view
@@ -646,37 +642,27 @@ class MediaVideoView extends StatelessWidget {
       listenable: video,
       builder: (context, _) {
         final VideoController? controller = video.controller;
-        Widget? surface;
-        if (controller != null) {
-          surface = Video(
-            controller: controller,
-            fit: fit,
-            // No controls: media_kit's NoVideoControls is an untyped null.
-            controls: null,
-            // Not black: the bars around the video show what's behind it
-            // (the blurred thumbnail in fullscreen).
-            fill: Colors.transparent,
-            wakelock: wakelock,
-            // VideoPlayers already handles the background.
-            pauseUponEnteringBackgroundMode: false,
-          );
-          final double? ratio = aspectRatio;
-          if (ratio != null) {
-            surface = Center(
-              child: AspectRatio(aspectRatio: ratio, child: surface),
-            );
-          }
-        }
 
         return Stack(
           fit: StackFit.expand,
           children: [
             thumbnail,
-            if (surface != null)
+            if (controller != null)
               AnimatedOpacity(
                 opacity: video.hasFirstFrame ? 1 : 0,
                 duration: const Duration(milliseconds: 150),
-                child: surface,
+                child: Video(
+                  controller: controller,
+                  fit: fit,
+                  // No controls: media_kit's NoVideoControls is an untyped null.
+                  controls: null,
+                  // Not black: the bars around the video show what's behind it
+                  // (the blurred thumbnail in fullscreen).
+                  fill: Colors.transparent,
+                  wakelock: wakelock,
+                  // VideoPlayers already handles the background.
+                  pauseUponEnteringBackgroundMode: false,
+                ),
               ),
             if (video.failed)
               Center(

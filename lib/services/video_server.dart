@@ -329,11 +329,7 @@ class VideoServer {
 
   Future<File> _fileFor(String url) async {
     final Directory dir = await (_dir ??= _openDir());
-    final List<String> segments = Uri.parse(url).pathSegments;
-    final String name = segments.isEmpty
-        ? url.hashCode.toRadixString(16)
-        : segments.join('_');
-    return File('${dir.path}/$name');
+    return File('${dir.path}/${Uri.parse(url).pathSegments.join('_')}');
   }
 
   Future<Directory> _openDir() async {
