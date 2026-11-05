@@ -537,6 +537,149 @@ void main() {
       expect(header(2), findsNothing);
     });
 
+    testWidgets(
+      'a quote of the last post stops at the end, without going past it',
+      variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+      (tester) async {
+        // Short posts, so that the last one can't reach the top of the screen.
+        final Post first = Post(
+          no: 3,
+          time: 1700000000,
+          com: '${_quoteOf(2)}<br>${_quoteOf(40)}<br>Words of 3',
+        );
+        final List<Post> short = [
+          Post(no: 1, time: 1700000000),
+          root,
+          first,
+          for (int no = 4; no <= 40; no++)
+            Post(
+              no: no,
+              time: 1700000000,
+              com: '${_quoteOf(2)}<br>Words of $no',
+            ),
+        ];
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider<ThemeChanger>(
+                create: (_) => ThemeChanger(ThemeData.dark()),
+              ),
+              ChangeNotifierProvider<SettingsProvider>.value(value: settings),
+              ChangeNotifierProvider<WatchedPostsProvider>.value(
+                value: watched,
+              ),
+            ],
+            child: MaterialApp(
+              home: ThreadReplies(
+                post: root,
+                thread: 1,
+                board: 'g',
+                allPosts: short,
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        await tester.tap(find.text('#39'));
+        final Finder last = find.text('Words of 40');
+        final Finder approaching = find.text('Words of 36');
+        final double screen = tester.getSize(find.byType(ThreadReplies)).height;
+        double highest = screen;
+        double? previous;
+        double lastStep = 0;
+        for (int frame = 0; frame < 120; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          // While the list it fades to is being set up, it can't be seen.
+          if (frame > 3 && last.evaluate().isNotEmpty) {
+            final double bottom = tester.getBottomLeft(last).dy;
+            highest = bottom < highest ? bottom : highest;
+          }
+          // Higher up, this one is on screen for the way in.
+          if (frame > 3 && approaching.evaluate().isNotEmpty) {
+            final double top = tester.getTopLeft(approaching).dy;
+            if (previous != null && (top - previous).abs() > 0.01) {
+              lastStep = (top - previous).abs();
+            }
+            previous = top;
+          }
+        }
+        await tester.pumpAndSettle(const Duration(seconds: 2));
+
+        // It never leaves empty space below the last post.
+        expect(last, findsOneWidget);
+        expect(highest, greaterThan(screen - 80));
+        // And it slows down into place, rather than being cut off at speed.
+        expect(lastStep, lessThan(4));
+      },
+    );
+
+    testWidgets(
+      'a quote of a post already on screen slows down at the end too',
+      variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+      (tester) async {
+        // About a screen and a half of short posts, with the quoted one in view.
+        final Post first = Post(
+          no: 3,
+          time: 1700000000,
+          com: '${_quoteOf(2)}<br>${_quoteOf(7)}<br>Words of 3',
+        );
+        final List<Post> short = [
+          Post(no: 1, time: 1700000000),
+          root,
+          first,
+          for (int no = 4; no <= 10; no++)
+            Post(
+              no: no,
+              time: 1700000000,
+              com: '${_quoteOf(2)}<br>Words of $no',
+            ),
+        ];
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider<ThemeChanger>(
+                create: (_) => ThemeChanger(ThemeData.dark()),
+              ),
+              ChangeNotifierProvider<SettingsProvider>.value(value: settings),
+              ChangeNotifierProvider<WatchedPostsProvider>.value(
+                value: watched,
+              ),
+            ],
+            child: MaterialApp(
+              home: ThreadReplies(
+                post: root,
+                thread: 1,
+                board: 'g',
+                allPosts: short,
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        final Finder quoted = find.text('Words of 7');
+        expect(quoted, findsOneWidget);
+
+        await tester.tap(find.text('#6'));
+        double? previous;
+        double lastStep = 0;
+        double travelled = 0;
+        for (int frame = 0; frame < 60; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          final double top = tester.getTopLeft(quoted).dy;
+          if (previous != null && (top - previous).abs() > 0.01) {
+            lastStep = (top - previous).abs();
+            travelled += lastStep;
+          }
+          previous = top;
+        }
+        await tester.pumpAndSettle(const Duration(seconds: 2));
+
+        expect(travelled, greaterThan(0));
+        expect(lastStep, lessThan(4));
+      },
+    );
+
     testWidgets('keeps its header where it was', (tester) async {
       await pumpList(tester);
       await scrollHeaderTo(tester, 6, 300);

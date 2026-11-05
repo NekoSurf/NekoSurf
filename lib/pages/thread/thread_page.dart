@@ -697,22 +697,14 @@ class ThreadPageState extends State<ThreadPage>
               title: 'Scroll to Top',
               icon: CupertinoIcons.arrow_up,
               onPressed: () {
-                scrollToRow(
-                  0,
-                  alignment: 0,
-                  duration: const Duration(milliseconds: 500),
-                );
+                scrollToRow(0, alignment: 0);
               },
             ),
             buildMenuItem(
               title: 'Scroll to Bottom',
               icon: CupertinoIcons.arrow_down,
               onPressed: () {
-                scrollToRow(
-                  rows.length - 1,
-                  alignment: 0,
-                  duration: const Duration(milliseconds: 500),
-                );
+                scrollToRow(rows.length - 1, alignment: 0);
               },
             ),
           ],

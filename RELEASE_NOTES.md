@@ -17,5 +17,6 @@
 
 ## What's fixed
 
+- Scroll to Top and Scroll to Bottom, and going back to a post from the viewer, stop at the ends of the list instead of going past them
 - Quotes in the middle of a sentence can be tapped, and name the post like #38
 - Replies whose text starts with a number now count as replies to the post they quote, in the reply count and on the replies page

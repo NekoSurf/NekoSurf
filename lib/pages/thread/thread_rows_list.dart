@@ -52,6 +52,7 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
   final Set<int> _newThisVisit = <int>{};
   bool _isCheckingNewPosts = false;
   bool _isAutoScrolling = false;
+  ({int row, double alignment, Duration duration, double? distance})? _aim;
   Timer? _autoScrollTimer;
 
   @override
@@ -409,13 +410,34 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
     return open;
   }
 
-  /// Scrolls to [row] by itself. The list doesn't always say when such a scroll
-  /// ends, as the reader can stop it, so this goes by how long it should take.
+  /// Scrolls to [row] by itself, to [alignment] on the screen or as near as the
+  /// ends of the list allow.
+  ///
+  /// A row near the end can't reach the top of the screen, and only the list
+  /// knows, once it's on its way: see [_checkAim].
   void scrollToRow(
     int row, {
     required double alignment,
-    Duration duration = const Duration(milliseconds: 350),
+    Duration duration = const Duration(milliseconds: 200),
   }) {
+    if (!itemScrollController.isAttached || rows.isEmpty) {
+      return;
+    }
+    final ItemPosition? shown = itemPositionsListener.itemPositions.value
+        .where((ItemPosition position) => position.index == row)
+        .firstOrNull;
+    _aim = (
+      row: row,
+      alignment: alignment,
+      duration: duration,
+      distance: shown == null ? null : shown.itemLeadingEdge - alignment,
+    );
+    _driveTo(row, alignment, duration);
+  }
+
+  /// The list doesn't always say when a scroll ends, as the reader can stop it,
+  /// so this goes by how long it should take.
+  void _driveTo(int row, double alignment, Duration duration) {
     if (!itemScrollController.isAttached) {
       return;
     }
@@ -430,8 +452,51 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
       index: row,
       alignment: alignment,
       duration: duration,
-      curve: Curves.easeInOutCubic,
+      curve: Curves.easeInOut,
     );
+  }
+
+  /// Whether the scroll under way can get where it's going, now the list knows
+  /// its ends, on its first step. If not, it starts over aiming for as far as it
+  /// can go, to slow down into place instead of being cut off at speed. To a row
+  /// that isn't laid out, the list fades to another list, not yet showing, which
+  /// is at 0 with the row in place, and moving up to that.
+  void _checkAim(ScrollMetrics position, double value) {
+    final ({int row, double alignment, Duration duration, double? distance})?
+    aim = _aim;
+    if (aim == null) {
+      return;
+    }
+    final double? distance = aim.distance;
+    final double beyond;
+    if (distance != null) {
+      final double destination =
+          position.pixels + distance * position.viewportDimension;
+      beyond = destination > position.maxScrollExtent
+          ? destination - position.maxScrollExtent
+          : destination < position.minScrollExtent
+          ? destination - position.minScrollExtent
+          : 0;
+    } else if (value > position.pixels &&
+        position.pixels < position.maxScrollExtent &&
+        position.maxScrollExtent < 0) {
+      beyond = -position.maxScrollExtent;
+    } else {
+      return;
+    }
+    _aim = null;
+    if (beyond == 0) {
+      return;
+    }
+    final double alignment =
+        aim.alignment + beyond / position.viewportDimension;
+    // Not in the middle of the list's step.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _driveTo(aim.row, alignment, aim.duration);
+      }
+    });
+    WidgetsBinding.instance.scheduleFrame();
   }
 
   /// Scrolls to the post the media viewer ended on.
@@ -465,6 +530,10 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
       itemCount: rows.length,
       itemScrollController: itemScrollController,
       itemPositionsListener: itemPositionsListener,
+      physics: _StopsAtEndsWhenDriven(
+        isDriven: () => _isAutoScrolling,
+        onDrivenStep: _checkAim,
+      ),
       itemBuilder: (context, index) {
         final ThreadRow row = rows[index];
         final Post post = row.post;
@@ -534,5 +603,39 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
     _autoScrollTimer?.cancel();
     itemPositionsListener.itemPositions.removeListener(_onPositionsChanged);
     super.dispose();
+  }
+}
+
+/// Stops at the ends of the list while it scrolls by itself, in case it's still
+/// told to go past them, and tells of each step. What the reader does still
+/// bounces.
+class _StopsAtEndsWhenDriven extends ScrollPhysics {
+  const _StopsAtEndsWhenDriven({
+    required this.isDriven,
+    required this.onDrivenStep,
+    super.parent,
+  });
+
+  final bool Function() isDriven;
+  final void Function(ScrollMetrics position, double value) onDrivenStep;
+
+  @override
+  _StopsAtEndsWhenDriven applyTo(ScrollPhysics? ancestor) =>
+      _StopsAtEndsWhenDriven(
+        isDriven: isDriven,
+        onDrivenStep: onDrivenStep,
+        parent: buildParent(ancestor),
+      );
+
+  @override
+  double applyBoundaryConditions(ScrollMetrics position, double value) {
+    if (!isDriven()) {
+      return super.applyBoundaryConditions(position, value);
+    }
+    onDrivenStep(position, value);
+    return const ClampingScrollPhysics().applyBoundaryConditions(
+      position,
+      value,
+    );
   }
 }
