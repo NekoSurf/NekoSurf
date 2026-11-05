@@ -66,21 +66,10 @@ class _BookmarksPostState extends State<BookmarksPost> {
     return FutureBuilder<BookmarkStatus>(
       future: _fetchBookmarkStatus,
       builder: (BuildContext context, snapshot) {
-        final bool hasStatusData = snapshot.hasData && snapshot.data != null;
-        final bool failedToLoad =
-            snapshot.hasError ||
-            (snapshot.connectionState == ConnectionState.done &&
-                !hasStatusData);
+        // Until it's known, or if it can't be, it can still be opened.
         final ThreadStatus status =
-            snapshot.connectionState == ConnectionState.waiting
-            ? ThreadStatus.online
-            : failedToLoad
-            ? ThreadStatus.deleted
-            : (snapshot.data?.status ?? ThreadStatus.online);
-        final ThreadReplyCount? replyCount =
-            snapshot.connectionState == ConnectionState.waiting || failedToLoad
-            ? null
-            : snapshot.data?.replies;
+            snapshot.data?.status ?? ThreadStatus.online;
+        final ThreadReplyCount? replyCount = snapshot.data?.replies;
         final bool isDeleted = status == ThreadStatus.deleted;
 
         final int? replies = replyCount?.replies;

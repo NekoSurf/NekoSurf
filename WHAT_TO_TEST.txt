@@ -1,2 +1,5 @@
 LARGE TEXT
 Settings on your phone → Display → Text Size at the largest, with Larger Accessibility Sizes on. The title bar and tabs stay as they are; cards and posts grow a little, with nothing cut off. Check the home screen, a board, a thread, Settings and dialogs.
+
+Please also try what couldn't be checked on a simulator:
+• Bookmarks with no connection: they should stay openable, not say Deleted.

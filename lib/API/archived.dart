@@ -93,7 +93,9 @@ Future<BookmarkStatus> _fetchBookmarkStatusFromThread(
     urls.thread(board ?? '', thread ?? ''),
   );
 
-  if (response.statusCode == 200) {
+  if (response.statusCode == 404) {
+    bookmarkStatus.status = ThreadStatus.deleted;
+  } else if (response.statusCode == 200) {
     final List<Post> posts = (jsonDecode(response.body)['posts'] as List)
         .map((model) => Post.fromJson(model as Map<String?, dynamic>))
         .toList();
@@ -111,7 +113,8 @@ Future<BookmarkStatus> _fetchBookmarkStatusFromThread(
 
     bookmarkStatus.replies = list;
   } else {
-    bookmarkStatus.status = ThreadStatus.deleted;
+    // Rate limited or failing: that says nothing about the thread.
+    throw ApiException(response.statusCode, 'thread');
   }
 
   return bookmarkStatus;
