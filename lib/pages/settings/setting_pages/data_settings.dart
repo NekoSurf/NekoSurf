@@ -66,7 +66,7 @@ class _DataSettingsState extends State<DataSettings> {
                     icon: CupertinoIcons.arrow_down_circle_fill,
                     color: const Color(0xFF60A5FA),
                     title: 'Auto-scroll to last seen',
-                    subtitle: 'Jump to the last media you viewed in a thread',
+                    subtitle: 'Open threads where you left them',
                     trailing: SettingsSwitch(
                       value: settings.getAutoScrollToLastSeen(),
                       onChanged: settings.setAutoScrollToLastSeen,
