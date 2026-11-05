@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_chan/Models/watched_posts.dart';
+import 'package:flutter_chan/Models/thread_memory.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
@@ -20,7 +20,6 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
   Timer? _saveDebounceTimer;
   bool _hasPendingSave = false;
 
-  static const String _watchedPostsStorageKey = 'watchedPosts';
   static const String _threadMemoryStorageKey = 'threadMemory';
   static const Duration _saveDebounceDelay = Duration(seconds: 2);
 
@@ -47,14 +46,14 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
     }
 
     _hasPendingSave = false;
-    await _saveWatchedPosts();
+    await _save();
   }
 
   @override
   void dispose() {
     _cleanupTimer?.cancel();
     if (_hasPendingSave) {
-      _saveWatchedPosts();
+      _save();
       _hasPendingSave = false;
     }
     _saveDebounceTimer?.cancel();
@@ -73,64 +72,36 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
     }
   }
 
-  final Map<int, WatchedPosts> _watchedPostsByThread = {};
-
   // Pages ask for this when they build, so changing it doesn't notify anyone.
   final Map<int, ThreadMemory> _threadMemory = {};
 
-  List<WatchedPosts> get watchedPosts =>
-      List.unmodifiable(_watchedPostsByThread.values);
-
   void _load() {
-    final List<String>? watchedPostsList = _prefs.getStringList(
-      _watchedPostsStorageKey,
-    );
+    // What older versions kept instead.
+    unawaited(_prefs.remove('watchedPosts'));
 
-    if (watchedPostsList != null) {
-      for (final String watchedPostsString in watchedPostsList) {
-        try {
-          final Map<String, dynamic> watchedPostsMap =
-              json.decode(watchedPostsString) as Map<String, dynamic>;
-          final parsed = WatchedPosts.fromJson(watchedPostsMap);
-          final existing = _watchedPostsByThread[parsed.thread];
-          if (existing == null ||
-              parsed.watchedAt.isAfter(existing.watchedAt)) {
-            _watchedPostsByThread[parsed.thread] = parsed;
-          }
-        } catch (e) {
-          debugPrint('Error parsing watched posts entry: $e');
-        }
+    final String? stored = _prefs.getString(_threadMemoryStorageKey);
+    if (stored != null) {
+      try {
+        final Map<String, dynamic> threads =
+            json.decode(stored) as Map<String, dynamic>;
+        threads.forEach((String thread, dynamic value) {
+          _threadMemory[int.parse(thread)] = ThreadMemory.fromJson(
+            value as Map<String, dynamic>,
+          );
+        });
+      } catch (e) {
+        debugPrint('Error parsing thread memory: $e');
       }
     }
 
-    _loadThreadMemory();
     clearOldWatchedPosts();
-  }
-
-  void _loadThreadMemory() {
-    final String? stored = _prefs.getString(_threadMemoryStorageKey);
-    if (stored == null) {
-      return;
-    }
-    try {
-      final Map<String, dynamic> threads =
-          json.decode(stored) as Map<String, dynamic>;
-      threads.forEach((String thread, dynamic value) {
-        _threadMemory[int.parse(thread)] = ThreadMemory.fromJson(
-          value as Map<String, dynamic>,
-        );
-      });
-    } catch (e) {
-      debugPrint('Error parsing thread memory: $e');
-    }
   }
 
   ThreadMemory _memoryOf(int thread) =>
       _threadMemory.putIfAbsent(thread, ThreadMemory.new);
 
   /// Takes note of the [posts] in [thread], oldest first: those posted since it
-  /// was last open are unseen. A thread that's new to this works from how far
-  /// it was read, if it was, so that it agrees with [newReplies].
+  /// was last open are unseen.
   void noteThreadPosts(int thread, List<int> posts) {
     if (posts.isEmpty) {
       return;
@@ -139,16 +110,12 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
     final int? newest = memory.newestPost;
     if (newest != null) {
       memory.unseen.addAll(posts.where((int post) => post > newest));
-    } else {
-      final WatchedPosts? watched = _watchedPostsByThread[thread];
-      if (watched != null) {
-        memory.unseen.addAll(posts.skip(watched.furthestIndex + 1));
-      }
     }
     // Deleted posts can't be seen any more.
     memory.unseen.retainAll(posts);
     memory.newestPost = posts.reduce(max);
     memory.knownReplies = posts.length - 1;
+    memory.lastRead = DateTime.now();
     _schedulePersist();
     notifyListeners();
   }
@@ -164,83 +131,63 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
   }
 
-  /// Remembers [postIndex] as where to resume [thread]. [seen] is how many
-  /// replies reaching it means were read, when the list isn't in thread order.
-  Future<void> markAsWatched({
-    required int postIndex,
-    required int thread,
-    int? seen,
-  }) async {
-    final int reached = seen ?? postIndex;
-    final existing = _watchedPostsByThread[thread];
-    if (existing != null &&
-        existing.postIndex == postIndex &&
-        DateTime.now().difference(existing.watchedAt) <
-            const Duration(seconds: 10)) {
-      return;
-    }
-
-    final WatchedPosts latestForThread = WatchedPosts(
-      postIndex: postIndex,
-      thread: thread,
-      watchedAt: DateTime.now(),
-      furthestIndex: max(existing?.furthestIndex ?? reached, reached),
-    );
-
-    _watchedPostsByThread[thread] = latestForThread;
+  /// Remembers the row at the top of the screen in [thread], and how far down
+  /// the screen it starts.
+  void rememberPlace(
+    int thread, {
+    required int post,
+    required String path,
+    required double alignment,
+  }) {
+    _memoryOf(thread)
+      ..topPost = post
+      ..topPath = path
+      ..topAlignment = alignment
+      ..lastRead = DateTime.now();
     _schedulePersist();
-    notifyListeners();
   }
 
+  /// Remembers what's folded in [thread], and where posts were moved to.
+  void rememberFolds(
+    int thread, {
+    required Set<String> folded,
+    required Map<int, int> primaryParents,
+  }) {
+    _memoryOf(thread)
+      ..folded.clear()
+      ..folded.addAll(folded)
+      ..primaryParents.clear()
+      ..primaryParents.addAll(primaryParents);
+    _schedulePersist();
+  }
+
+  /// What's remembered about [thread], if it's been open.
+  ThreadMemory? threadMemory(int thread) => _threadMemory[thread];
+
   /// The replies in [thread] not seen yet, given its current reply count: those
-  /// known to be unseen, and any posted since it was last loaded. Until it's been
-  /// loaded with this, those posted after the furthest post read. Null if the
-  /// thread hasn't been read (or its read position expired), so unread threads
-  /// don't show a misleading count.
+  /// known to be unseen, and any posted since it was last loaded. Null if it
+  /// hasn't been open (or that's been forgotten), so unread threads don't show a
+  /// misleading count.
   int? newReplies(int thread, int replies) {
-    final WatchedPosts? watched = _watchedPostsByThread[thread];
-    if (watched == null) {
-      return null;
-    }
     final ThreadMemory? memory = _threadMemory[thread];
     final int? knownReplies = memory?.knownReplies;
     if (memory == null || knownReplies == null) {
-      // Index 0 is the OP, so reaching index i means i replies were seen.
-      return max(0, replies - watched.furthestIndex);
+      return null;
     }
     return memory.unseen.length + max(0, replies - knownReplies);
   }
 
-  Future<void> removeFromWatched(int postIndex, int thread) async {
-    final existing = _watchedPostsByThread[thread];
-    if (existing == null || existing.postIndex != postIndex) {
-      return;
-    }
-
-    _watchedPostsByThread.remove(thread);
-    _threadMemory.remove(thread);
-    await _saveWatchedPosts();
-    notifyListeners();
-  }
-
-  Future<void> _saveWatchedPosts() async {
-    final List<String> watchedPostsStrings = _watchedPostsByThread.values
-        .map((media) => json.encode(media.toJson()))
-        .toList();
-    await _prefs.setStringList(_watchedPostsStorageKey, watchedPostsStrings);
-    await _prefs.setString(
-      _threadMemoryStorageKey,
-      json.encode(<String, dynamic>{
-        for (final MapEntry<int, ThreadMemory> entry in _threadMemory.entries)
-          '${entry.key}': entry.value.toJson(),
-      }),
-    );
-  }
+  Future<void> _save() => _prefs.setString(
+    _threadMemoryStorageKey,
+    json.encode(<String, dynamic>{
+      for (final MapEntry<int, ThreadMemory> entry in _threadMemory.entries)
+        '${entry.key}': entry.value.toJson(),
+    }),
+  );
 
   Future<void> clearAllWatchedPosts() async {
-    _watchedPostsByThread.clear();
     _threadMemory.clear();
-    await _saveWatchedPosts();
+    await _save();
     notifyListeners();
   }
 
@@ -251,18 +198,11 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
       Duration(days: retentionDays),
     );
 
-    _watchedPostsByThread.removeWhere(
-      (_, media) => media.watchedAt.isBefore(cutoffDate),
-    );
     _threadMemory.removeWhere(
-      (int thread, _) => !_watchedPostsByThread.containsKey(thread),
+      (_, ThreadMemory memory) => memory.lastRead.isBefore(cutoffDate),
     );
 
-    await _saveWatchedPosts();
+    await _save();
     notifyListeners();
-  }
-
-  WatchedPosts? getLatestWatchedPosts(int thread) {
-    return _watchedPostsByThread[thread];
   }
 }

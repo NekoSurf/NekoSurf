@@ -823,6 +823,57 @@ void main() {
       expect(watched.unseenPosts(1), {7});
       await saveNewPosts(tester);
     });
+
+    testWidgets("posts passed on the way to a quote aren't seen", (
+      tester,
+    ) async {
+      final Post first = Post(
+        no: 3,
+        time: 1700000000,
+        com: '${_quoteOf(2)}<br>${_quoteOf(15)}<br>Words of 3',
+      );
+      final List<Post> many = [
+        Post(no: 1, time: 1700000000),
+        root,
+        first,
+        for (int no = 4; no <= 30; no++)
+          Post(no: no, time: 1700000000, com: '${_quoteOf(2)}<br>Words of $no'),
+      ];
+      watched.noteThreadPosts(1, const <int>[1, 2]);
+      watched.noteThreadPosts(1, <int>[for (final Post p in many) p.no!]);
+      watched.markPostsSeen(1, <int>[
+        for (final Post p in many)
+          if (p.no != 10) p.no!,
+      ]);
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<ThemeChanger>(
+              create: (_) => ThemeChanger(ThemeData.dark()),
+            ),
+            ChangeNotifierProvider<SettingsProvider>.value(value: settings),
+            ChangeNotifierProvider<WatchedPostsProvider>.value(value: watched),
+          ],
+          child: MaterialApp(
+            home: ThreadReplies(
+              post: root,
+              thread: 1,
+              board: 'g',
+              allPosts: many,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.text('#14'));
+      await tester.pumpAndSettle(const Duration(seconds: 2));
+
+      expect(find.text('Words of 15'), findsOneWidget);
+      expect(find.text('Words of 10'), findsNothing);
+      expect(watched.unseenPosts(1), {10});
+      await saveNewPosts(tester);
+    });
   });
 
   group('tapping a post', () {

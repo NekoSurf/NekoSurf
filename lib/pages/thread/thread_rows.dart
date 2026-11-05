@@ -11,7 +11,6 @@ class ThreadRow {
     required this.post,
     required this.path,
     required this.postIndex,
-    required this.seen,
     this.replyCount = 0,
     this.ancestors = const <int>[],
     this.collapsed = false,
@@ -26,10 +25,6 @@ class ThreadRow {
 
   /// Where the post is in the thread, oldest first, whatever the row order.
   final int postIndex;
-
-  /// How many other posts come before this one with every branch open, so that
-  /// reaching a row counts the replies folded away above it as read.
-  final int seen;
 
   /// Replies below this post, counting the replies to those replies, and a
   /// post that's there by several routes once.
@@ -182,7 +177,6 @@ List<ThreadRow> buildNestedRows(
   }
 
   final List<ThreadRow> rows = <ThreadRow>[];
-  final Set<int> seenPosts = <int>{};
 
   void add(Post post, List<int> ancestors) {
     final int? id = post.no;
@@ -199,7 +193,6 @@ List<ThreadRow> buildNestedRows(
         post: post,
         path: path,
         postIndex: postIndex[id] ?? 0,
-        seen: seenPosts.length - (seenPosts.contains(id) ? 1 : 0),
         replyCount: id == opId ? opReplyCount : postsBelow(id).length,
         ancestors: ancestors,
         collapsed: isCollapsed,
@@ -209,15 +202,8 @@ List<ThreadRow> buildNestedRows(
             : 0,
       ),
     );
-    if (id != null) {
-      seenPosts.add(id);
-    }
 
-    if (isCollapsed) {
-      seenPosts.addAll(postsBelow(id));
-      return;
-    }
-    if (isPreview || id == null) {
+    if (isCollapsed || isPreview || id == null) {
       return;
     }
     final List<int> belowThis = <int>[...ancestors, id];
@@ -269,7 +255,6 @@ List<ThreadRow> buildFlatRows(
         post: posts[index],
         path: '${posts[index].no}',
         postIndex: positions?[posts[index].no] ?? index,
-        seen: index,
         replyCount: replyCounts[posts[index].no] ?? 0,
         collapsed: index > 0 && collapsed.contains('${posts[index].no}'),
       ),

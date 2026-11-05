@@ -124,18 +124,6 @@ void main() {
       expect(_row(rows, 2).parent, ThreadRow.topLevel);
     });
 
-    test('counts folded replies as read once past them', () {
-      final List<ThreadRow> rows = _nested(posts, collapsed: {'2'});
-      expect(_row(rows, 1).seen, 0);
-      expect(_row(rows, 2).seen, 1);
-      expect(_row(rows, 5).seen, 5);
-      expect(_row(rows, 6).seen, 6);
-    });
-
-    test('the last row means every reply was read', () {
-      expect(_nested(posts).last.seen, posts.length - 1);
-    });
-
     test('leaves posts that came in later flat at the bottom', () {
       final List<Post> withNew = [
         ...posts,
@@ -283,18 +271,8 @@ void main() {
         expect(at(rows, '3/4').collapsed, isFalse);
       });
 
-      test('counts as read once, and the last row means all were read', () {
-        final List<ThreadRow> rows = rowsOf();
-
-        expect(at(rows, '3/4').seen, quoting.length - 1);
-        expect(rows.every((r) => r.seen < quoting.length), isTrue);
-      });
-
-      test('folded replies count as read once past them', () {
-        final List<ThreadRow> rows = rowsOf(collapsed: {'2'});
-
-        expect(_numbers(rows), [1, 2, 3, 4]);
-        expect(_row(rows, 3).seen, 5);
+      test('folding hides its replies there', () {
+        expect(_numbers(rowsOf(collapsed: {'2'})), [1, 2, 3, 4]);
       });
 
       test('a part of a thread keeps a reply that also quotes outside it', () {
@@ -359,12 +337,6 @@ void main() {
 
           expect(at(rows, '3/4').collapsed, isFalse);
           expect(at(rows, '3/4').isPreview, isTrue);
-        });
-
-        test('its replies count as read once', () {
-          final List<ThreadRow> rows = _nested(branching);
-
-          expect(rows.last.seen, branching.length - 1);
         });
       });
 
@@ -432,12 +404,11 @@ void main() {
       expect(rows.map((r) => r.path).toSet(), hasLength(posts.length));
     });
 
-    test('counts the replies below each post, and what was read', () {
+    test('counts the replies below each post', () {
       final List<ThreadRow> rows = buildFlatRows(posts, replyCounts: counts);
 
       expect(_row(rows, 2).replyCount, 3);
       expect(_row(rows, 7).replyCount, 0);
-      expect(rows.last.seen, posts.length - 1);
     });
 
     test('folds a post on its own, but not the first one', () {

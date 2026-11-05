@@ -34,6 +34,9 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
   final Map<int, int> primaryParents = <int, int>{};
   List<ThreadRow> rows = const <ThreadRow>[];
 
+  /// The row at [path], or else where [post] is first listed.
+  int? rowOf({String? path, int? post}) => _rowByPath[path] ?? rowByPost[post];
+
   /// Where each post is first listed, as it can be listed several times.
   Map<int, int> rowByPost = const <int, int>{};
   Map<String, int> _rowByPath = const <String, int>{};
@@ -48,6 +51,8 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
   // ends, so they can still be told apart on the way back up.
   final Set<int> _newThisVisit = <int>{};
   bool _isCheckingNewPosts = false;
+  bool _isAutoScrolling = false;
+  Timer? _autoScrollTimer;
 
   @override
   void initState() {
@@ -88,6 +93,15 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
       }
     });
   }
+
+  /// Whether the list is scrolling by itself: what passes by isn't being read.
+  bool get isAutoScrolling => _isAutoScrolling;
+
+  /// A scroll by itself has ended, leaving the list where the reader is now.
+  void onAutoScrollEnded() {}
+
+  /// What's folded, or where a post shows in full, has changed.
+  void onFoldsChanged() {}
 
   /// The thread these rows are from.
   int get threadNumber;
@@ -222,6 +236,7 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
       }
       rebuildRows();
     });
+    onFoldsChanged();
     _holdPlace(path, edge);
     if (edge == null) {
       flashRow(path);
@@ -239,6 +254,7 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
       primaryParents[post] = row.parent;
       rebuildRows();
     });
+    onFoldsChanged();
     _holdPlace(row.path, edge);
   }
 
@@ -291,14 +307,7 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
   void _goToRow(ThreadRow target, double alignment) {
     final int? index = _rowByPath[target.path];
     if (index != null && !rows[index].collapsed) {
-      if (itemScrollController.isAttached) {
-        itemScrollController.scrollTo(
-          index: index,
-          alignment: alignment,
-          duration: const Duration(milliseconds: 350),
-          curve: Curves.easeInOutCubic,
-        );
-      }
+      scrollToRow(index, alignment: alignment);
       flashRow(target.path);
       return;
     }
@@ -310,6 +319,7 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
       }
       rebuildRows();
     });
+    onFoldsChanged();
     // The list only knows of the rows that came back once it's built them.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final int? index = _rowByPath[target.path];
@@ -342,7 +352,7 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
   }
 
   void _onPositionsChanged() {
-    if (_isCheckingNewPosts || !isListSettled) {
+    if (_isCheckingNewPosts || _isAutoScrolling || !isListSettled) {
       return;
     }
     // Positions can update mid-layout; setState must wait for the frame.
@@ -367,7 +377,7 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
   /// A new post counts as seen once it's on screen, unless it's folded away or
   /// only a preview.
   void _checkNewPosts() {
-    if (!mounted || !isListSettled) {
+    if (!mounted || _isAutoScrolling || !isListSettled) {
       return;
     }
     final Set<int> unseen = unseenPosts;
@@ -399,21 +409,41 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
     return open;
   }
 
+  /// Scrolls to [row] by itself. The list doesn't always say when such a scroll
+  /// ends, as the reader can stop it, so this goes by how long it should take.
+  void scrollToRow(
+    int row, {
+    required double alignment,
+    Duration duration = const Duration(milliseconds: 350),
+  }) {
+    if (!itemScrollController.isAttached) {
+      return;
+    }
+    _isAutoScrolling = true;
+    _autoScrollTimer?.cancel();
+    _autoScrollTimer = Timer(duration + const Duration(milliseconds: 150), () {
+      _isAutoScrolling = false;
+      _checkNewPosts();
+      onAutoScrollEnded();
+    });
+    itemScrollController.scrollTo(
+      index: row,
+      alignment: alignment,
+      duration: duration,
+      curve: Curves.easeInOutCubic,
+    );
+  }
+
   /// Scrolls to the post the media viewer ended on.
   void _showPost(int? post) {
-    if (post == null || !itemScrollController.isAttached) {
+    if (post == null) {
       return;
     }
     final int target = _nearestRow(post);
     if (target < 0) {
       return;
     }
-    itemScrollController.scrollTo(
-      index: target,
-      alignment: belowHeader,
-      duration: const Duration(milliseconds: 350),
-      curve: Curves.easeInOutCubic,
-    );
+    scrollToRow(target, alignment: belowHeader);
   }
 
   Widget buildRowList(
@@ -501,6 +531,7 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
   @override
   void dispose() {
     _highlightTimer?.cancel();
+    _autoScrollTimer?.cancel();
     itemPositionsListener.itemPositions.removeListener(_onPositionsChanged);
     super.dispose();
   }

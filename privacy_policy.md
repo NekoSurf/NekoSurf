@@ -13,7 +13,7 @@ NekoSurf is a free, open-source app for reading 4chan, made by wrngwrld. This po
 NekoSurf keeps these on your phone only:
 
 - Your settings, favorite boards, bookmarks and the filters you set to hide threads
-- The threads you've visited (you can turn this off in Settings → Privacy → Track history) and the posts you've already seen or not yet seen (watched posts)
+- The threads you've visited (you can turn this off in Settings → Privacy → Track history) and, for each thread, the posts you've already seen or not yet, where you left off and what you folded seen, where you were and what you folded (watched posts)
 - What you save to the Saved tab: on iPhone in the app's folder (which you can see in the Files app), on Android in Download/4Chan
 - Images and videos you've viewed, cached so they load faster the next time
 

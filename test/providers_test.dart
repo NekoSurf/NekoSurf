@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_chan/Models/bookmark.dart';
 import 'package:flutter_chan/Models/post.dart';
+import 'package:flutter_chan/Models/thread_memory.dart';
 import 'package:flutter_chan/blocs/bookmarks_model.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/watched_posts_model.dart';
@@ -145,26 +146,89 @@ void main() {
       expect(watched.unseenPosts(1), {5});
     });
 
-    test('a thread read before agrees with its new reply count', () async {
+    test(
+      "remembers a thread's place and folds, until it's forgotten",
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        final WatchedPostsProvider watched = await watchedProvider();
+
+        watched.rememberPlace(1, post: 7, path: '3/7', alignment: -0.25);
+        watched.rememberFolds(1, folded: {'3', '3/7'}, primaryParents: {7: 3});
+        await watched.clearOldWatchedPosts();
+
+        final WatchedPostsProvider again = await watchedProvider();
+        expect(again.threadMemory(1)?.topPost, 7);
+        expect(again.threadMemory(1)?.topPath, '3/7');
+        expect(again.threadMemory(1)?.topAlignment, -0.25);
+        expect(again.threadMemory(1)?.folded, {'3', '3/7'});
+        expect(again.threadMemory(1)?.primaryParents, {7: 3});
+
+        await again.clearAllWatchedPosts();
+        expect(again.threadMemory(1), isNull);
+      },
+    );
+
+    String lastOpen(Duration ago) => json.encode(<String, dynamic>{
+      '1': ThreadMemory(
+        knownReplies: 3,
+        lastRead: DateTime.now().subtract(ago),
+      ).toJson(),
+    });
+
+    test('forgets a thread not open for longer than it should keep', () async {
+      SharedPreferences.setMockInitialValues({
+        'threadMemory': lastOpen(const Duration(days: 8)),
+      });
+      final WatchedPostsProvider watched = await watchedProvider();
+
+      expect(watched.threadMemory(1), isNull);
+      expect(watched.newReplies(1, 5), isNull);
+    });
+
+    test('keeps a thread opened recently, and being there renews it', () async {
+      SharedPreferences.setMockInitialValues({
+        'threadMemory': lastOpen(const Duration(days: 6)),
+      });
+      final WatchedPostsProvider watched = await watchedProvider();
+      expect(watched.newReplies(1, 5), 2);
+
+      watched.rememberPlace(1, post: 7, path: '7', alignment: 0.5);
+
+      expect(
+        DateTime.now().difference(watched.threadMemory(1)!.lastRead),
+        lessThan(const Duration(minutes: 1)),
+      );
+    });
+
+    test("a thread that hasn't been open has no count", () async {
       SharedPreferences.setMockInitialValues({});
       final WatchedPostsProvider watched = await watchedProvider();
 
-      await watched.markAsWatched(postIndex: 2, thread: 1);
-      watched.noteThreadPosts(1, [10, 11, 12, 13, 14]);
+      expect(watched.newReplies(1, 5), isNull);
+    });
 
-      expect(watched.unseenPosts(1), {13, 14});
-      expect(watched.newReplies(1, 4), 2);
+    test('what older versions kept is dropped', () async {
+      SharedPreferences.setMockInitialValues({
+        'watchedPosts': <String>[
+          '{"postIndex":2,"thread":1,"watchedAt":"2026-11-05T00:00:00.000"}',
+        ],
+      });
+      final WatchedPostsProvider watched = await watchedProvider();
+
+      expect(watched.newReplies(1, 5), isNull);
+      expect(
+        (await SharedPreferences.getInstance()).containsKey('watchedPosts'),
+        isFalse,
+      );
     });
 
     test('counts what is unseen, and what was posted since loading', () async {
       SharedPreferences.setMockInitialValues({});
       final WatchedPostsProvider watched = await watchedProvider();
 
-      await watched.markAsWatched(postIndex: 4, thread: 1);
       watched.noteThreadPosts(1, [1, 2, 3]);
       watched.noteThreadPosts(1, [1, 2, 3, 4, 5]);
 
-      // How far it was read doesn't matter: 4 and 5 still haven't been seen.
       expect(watched.newReplies(1, 4), 2);
       expect(watched.newReplies(1, 5), 3);
 
@@ -190,7 +254,6 @@ void main() {
       SharedPreferences.setMockInitialValues({});
       final WatchedPostsProvider watched = await watchedProvider();
 
-      await watched.markAsWatched(postIndex: 0, thread: 1);
       watched.noteThreadPosts(1, [1]);
       watched.noteThreadPosts(1, [1, 2]);
       await watched.clearOldWatchedPosts();
@@ -200,33 +263,6 @@ void main() {
 
       await again.clearAllWatchedPosts();
       expect(again.unseenPosts(1), isEmpty);
-    });
-
-    test('counts replies read apart from where to resume', () async {
-      SharedPreferences.setMockInitialValues({});
-      final WatchedPostsProvider watched = WatchedPostsProvider(
-        await SharedPreferences.getInstance(),
-      );
-      addTearDown(watched.dispose);
-
-      // With replies nested, the last reply listed can be an early post.
-      await watched.markAsWatched(postIndex: 3, seen: 10, thread: 1);
-
-      expect(watched.getLatestWatchedPosts(1)?.postIndex, 3);
-      expect(watched.newReplies(1, 10), 0);
-      expect(watched.newReplies(1, 12), 2);
-    });
-
-    test('takes the place in the thread as the count otherwise', () async {
-      SharedPreferences.setMockInitialValues({});
-      final WatchedPostsProvider watched = WatchedPostsProvider(
-        await SharedPreferences.getInstance(),
-      );
-      addTearDown(watched.dispose);
-
-      await watched.markAsWatched(postIndex: 4, thread: 1);
-
-      expect(watched.newReplies(1, 10), 6);
     });
   });
 }

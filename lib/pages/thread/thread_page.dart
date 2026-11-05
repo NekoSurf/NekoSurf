@@ -6,6 +6,7 @@ import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/API/urls.dart' as urls;
 import 'package:flutter_chan/Models/bookmark.dart';
 import 'package:flutter_chan/Models/post.dart';
+import 'package:flutter_chan/Models/thread_memory.dart';
 import 'package:flutter_chan/blocs/history_model.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/watched_posts_model.dart';
@@ -21,8 +22,8 @@ import 'package:flutter_chan/widgets/cupertino_menu.dart';
 import 'package:flutter_chan/widgets/dash_header.dart';
 import 'package:flutter_chan/widgets/dash_scaffold.dart';
 import 'package:flutter_chan/widgets/reload.dart';
-import 'package:flutter_chan/widgets/resume_toast.dart';
 import 'package:provider/provider.dart';
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:share_plus/share_plus.dart';
 
 class ThreadPage extends StatefulWidget {
@@ -66,11 +67,10 @@ class ThreadPageState extends State<ThreadPage>
   Set<int>? _treePosts;
 
   Set<int> _preloadVideoPostIds = const <int>{};
-  bool _hasScrolledToLastWatched = false;
+  bool _didRestorePlace = false;
   bool _isListSettled = false;
+  bool _isListShown = false;
   bool _recordedHistory = false;
-  bool _showResumeToast = false;
-  Timer? _resumeToastTimer;
   bool _didStartPreloading = false;
   Timer? _preloadDebounce;
   final Set<int> _preloadedThumbnailIds = <int>{};
@@ -86,41 +86,33 @@ class ThreadPageState extends State<ThreadPage>
   bool _isVisible = true;
 
   late Bookmark favorite;
-  void _markVisiblePostsAsWatched() {
+
+  /// Remembers what's at the top of the screen, to come back to it.
+  void _rememberPlace() {
     if (rows.isEmpty) {
       return;
     }
 
-    final watchedPosts = Provider.of<WatchedPostsProvider>(
-      context,
-      listen: false,
-    );
-
-    // Positions come in no particular order; remember the furthest post
-    // that is on screen, not whichever happened to be listed last.
-    int? furthest;
-    for (final position in itemPositionsListener.itemPositions.value) {
-      if (position.itemLeadingEdge < 0 || position.itemLeadingEdge > 0.85) {
-        continue;
+    // What's on screen on the way to somewhere else isn't being read.
+    if (isListSettled && !isAutoScrolling) {
+      // Rows behind the floating header aren't on screen.
+      ItemPosition? top;
+      for (final ItemPosition position in visiblePositions()) {
+        if (position.index < rows.length &&
+            position.itemTrailingEdge > belowHeader &&
+            (top == null || position.index < top.index)) {
+          top = position;
+        }
       }
-
-      final int index = position.index;
-      if (index < 0 || index >= rows.length) {
-        continue;
+      final int? topPost = top == null ? null : rows[top.index].post.no;
+      if (top != null && topPost != null) {
+        Provider.of<WatchedPostsProvider>(context, listen: false).rememberPlace(
+          widget.thread,
+          post: topPost,
+          path: rows[top.index].path,
+          alignment: top.itemLeadingEdge,
+        );
       }
-
-      if (furthest == null || index > furthest) {
-        furthest = index;
-      }
-    }
-
-    if (furthest != null) {
-      final ThreadRow row = rows[furthest];
-      watchedPosts.markAsWatched(
-        postIndex: row.postIndex,
-        seen: row.seen,
-        thread: widget.thread,
-      );
     }
 
     _schedulePreloadRefresh();
@@ -140,7 +132,7 @@ class ThreadPageState extends State<ThreadPage>
       board: widget.board,
     );
 
-    itemPositionsListener.itemPositions.addListener(_markVisiblePostsAsWatched);
+    itemPositionsListener.itemPositions.addListener(_rememberPlace);
   }
 
   /// Records the thread in history from its loaded opening post, since
@@ -184,12 +176,9 @@ class ThreadPageState extends State<ThreadPage>
 
   @override
   void dispose() {
-    itemPositionsListener.itemPositions.removeListener(
-      _markVisiblePostsAsWatched,
-    );
+    itemPositionsListener.itemPositions.removeListener(_rememberPlace);
     _preloadDebounce?.cancel();
     _preloadDebounce = null;
-    _resumeToastTimer?.cancel();
     _liveTimer?.cancel();
     scrollController.dispose();
     super.dispose();
@@ -208,10 +197,33 @@ class ThreadPageState extends State<ThreadPage>
   @override
   bool get isListSettled => _isListSettled;
 
-  /// The list has been told where it's staying, if anywhere else.
+  /// The list has been told where it's staying, if anywhere else. Once it's been
+  /// laid out there, two frames later, it can be shown.
   void _settleList() {
     _isListSettled = true;
     onListSettled();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _rememberPlace();
+          setState(() => _isListShown = true);
+        }
+      });
+      WidgetsBinding.instance.scheduleFrame();
+    });
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
+  @override
+  void onAutoScrollEnded() => _rememberPlace();
+
+  @override
+  void onFoldsChanged() {
+    Provider.of<WatchedPostsProvider>(context, listen: false).rememberFolds(
+      widget.thread,
+      folded: collapsedRows,
+      primaryParents: primaryParents,
+    );
   }
 
   void _setPosts(List<Post> posts) {
@@ -271,10 +283,19 @@ class ThreadPageState extends State<ThreadPage>
     _lastModified = null;
     forgetNewThisVisit();
     _treePosts = null;
-    collapsedRows.clear();
-    primaryParents.clear();
-    _hasScrolledToLastWatched = false;
+    final ThreadMemory? memory = Provider.of<WatchedPostsProvider>(
+      context,
+      listen: false,
+    ).threadMemory(widget.thread);
+    collapsedRows
+      ..clear()
+      ..addAll(memory?.folded ?? const <String>{});
+    primaryParents
+      ..clear()
+      ..addAll(memory?.primaryParents ?? const <int, int>{});
+    _didRestorePlace = false;
     _isListSettled = false;
+    _isListShown = false;
     _didStartPreloading = false;
     _preloadDebounce?.cancel();
     _preloadDebounce = null;
@@ -557,90 +578,71 @@ class ThreadPageState extends State<ThreadPage>
     });
   }
 
-  void scrollToLastWatchedPosts(List<Post> allPosts) {
+  /// Puts the list back where the thread was left, while it's still hidden.
+  void _restorePlace() {
     // Opened at a specific post (e.g. from search): never resume instead,
     // even if that post has since been deleted.
     if (widget.initialPost != null) {
       final int? row = rowByPost[widget.initialPost];
       if (row != null && row > 0) {
-        _jumpWhenAttached(row);
+        _jumpWhenAttached(row, alignment: belowHeader, flash: true);
       } else {
         _settleList();
       }
       return;
     }
 
-    final settings = Provider.of<SettingsProvider>(context, listen: false);
-    final watchedPosts = Provider.of<WatchedPostsProvider>(
+    if (!Provider.of<SettingsProvider>(
       context,
       listen: false,
-    );
-
-    if (!settings.getAutoScrollToLastSeen()) {
+    ).getAutoScrollToLastSeen()) {
       _settleList();
       return;
     }
 
-    final latestWatchedPosts = watchedPosts.getLatestWatchedPosts(
-      widget.thread,
-    );
+    final ThreadMemory? memory = Provider.of<WatchedPostsProvider>(
+      context,
+      listen: false,
+    ).threadMemory(widget.thread);
+    final int? row = rowOf(path: memory?.topPath, post: memory?.topPost);
+    final double alignment = memory?.topAlignment ?? belowHeader;
 
-    if (latestWatchedPosts == null ||
-        latestWatchedPosts.postIndex == -1 ||
-        allPosts.isEmpty) {
+    // Still at the very top: the list starts there anyway.
+    if (row == null || (row == 0 && alignment >= 0)) {
       _settleList();
     } else {
-      // The position is saved as a place in the thread, whatever the order
-      // the list was in at the time.
-      final Post lastPost =
-          allPosts[min(latestWatchedPosts.postIndex, allPosts.length - 1)];
-      Future.delayed(const Duration(milliseconds: 50), () {
-        if (!mounted) {
-          return;
-        }
-        if (itemScrollController.isAttached) {
-          itemScrollController.jumpTo(
-            index: rowByPost[lastPost.no] ?? 0,
-            alignment: belowHeader,
-          );
-          if (latestWatchedPosts.postIndex > 0) {
-            _flashResumeToast();
-          }
-        }
-        _settleList();
-      });
+      _jumpWhenAttached(row, alignment: alignment);
     }
   }
 
   /// The list may not be laid out yet on the first frame; try a few more.
-  void _jumpWhenAttached(int index, {int attempts = 10}) {
-    Future.delayed(const Duration(milliseconds: 50), () {
-      if (!mounted) {
-        return;
-      }
-      if (itemScrollController.isAttached) {
-        itemScrollController.jumpTo(index: index, alignment: belowHeader);
+  void _jumpWhenAttached(
+    int index, {
+    required double alignment,
+    bool flash = false,
+    int attempts = 10,
+  }) {
+    if (!mounted) {
+      return;
+    }
+    if (itemScrollController.isAttached) {
+      itemScrollController.jumpTo(index: index, alignment: alignment);
+      if (flash) {
         flashRow(rows[index].path);
-        _settleList();
-      } else if (attempts > 1) {
-        _jumpWhenAttached(index, attempts: attempts - 1);
-      } else {
-        _settleList();
       }
-    });
-  }
-
-  void _flashResumeToast() {
-    _resumeToastTimer?.cancel();
-    setState(() => _showResumeToast = true);
-    _resumeToastTimer = Timer(const Duration(seconds: 4), _hideResumeToast);
-  }
-
-  void _hideResumeToast() {
-    _resumeToastTimer?.cancel();
-    _resumeToastTimer = null;
-    if (mounted && _showResumeToast) {
-      setState(() => _showResumeToast = false);
+      _settleList();
+    } else if (attempts > 1) {
+      Future.delayed(
+        const Duration(milliseconds: 50),
+        () => _jumpWhenAttached(
+          index,
+          alignment: alignment,
+          flash: flash,
+          attempts: attempts - 1,
+        ),
+      );
+    } else {
+      _settleList();
     }
   }
 
@@ -695,28 +697,22 @@ class ThreadPageState extends State<ThreadPage>
               title: 'Scroll to Top',
               icon: CupertinoIcons.arrow_up,
               onPressed: () {
-                if (itemScrollController.isAttached) {
-                  itemScrollController.scrollTo(
-                    index: 0,
-                    alignment: 0,
-                    duration: const Duration(milliseconds: 500),
-                    curve: Curves.easeInOutCubic,
-                  );
-                }
+                scrollToRow(
+                  0,
+                  alignment: 0,
+                  duration: const Duration(milliseconds: 500),
+                );
               },
             ),
             buildMenuItem(
               title: 'Scroll to Bottom',
               icon: CupertinoIcons.arrow_down,
               onPressed: () {
-                if (itemScrollController.isAttached) {
-                  itemScrollController.scrollTo(
-                    index: rows.length - 1,
-                    alignment: 0,
-                    duration: const Duration(milliseconds: 500),
-                    curve: Curves.easeInOutCubic,
-                  );
-                }
+                scrollToRow(
+                  rows.length - 1,
+                  alignment: 0,
+                  duration: const Duration(milliseconds: 500),
+                );
               },
             ),
           ],
@@ -748,43 +744,34 @@ class ThreadPageState extends State<ThreadPage>
               } else {
                 _startPreloadingIfNeeded();
 
-                if (!_hasScrolledToLastWatched) {
+                if (!_didRestorePlace) {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
-                    scrollToLastWatchedPosts(allPosts);
-                    _hasScrolledToLastWatched = true;
+                    _restorePlace();
+                    _didRestorePlace = true;
                   });
                 }
 
+                // Hidden until it's back in place, so it doesn't show the top of
+                // the thread on its way. Always there, as adding it later would
+                // start the list over.
                 return Stack(
+                  fit: StackFit.expand,
                   children: [
-                    buildRowList(
-                      context,
-                      board: widget.board,
-                      thread: widget.thread,
-                      allPosts: allPosts,
-                      preloadVideos: _preloadVideoPostIds,
-                    ),
-                    Positioned(
-                      left: 16,
-                      right: 16,
-                      bottom: MediaQuery.paddingOf(context).bottom + 16,
-                      child: Center(
-                        child: ResumeToast(
-                          visible: _showResumeToast,
-                          onBackToTop: () {
-                            _hideResumeToast();
-                            if (itemScrollController.isAttached) {
-                              itemScrollController.scrollTo(
-                                index: 0,
-                                alignment: 0,
-                                duration: const Duration(milliseconds: 500),
-                                curve: Curves.easeInOutCubic,
-                              );
-                            }
-                          },
+                    IgnorePointer(
+                      ignoring: !_isListShown,
+                      child: Opacity(
+                        opacity: _isListShown ? 1 : 0,
+                        child: buildRowList(
+                          context,
+                          board: widget.board,
+                          thread: widget.thread,
+                          allPosts: allPosts,
+                          preloadVideos: _preloadVideoPostIds,
                         ),
                       ),
                     ),
+                    if (!_isListShown)
+                      const Center(child: CupertinoActivityIndicator()),
                   ],
                 );
               }
