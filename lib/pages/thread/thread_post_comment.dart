@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -56,6 +58,13 @@ class _ThreadPostCommentState extends State<ThreadPostComment> {
   static final RegExp _spoilerPattern = RegExp(r'<s>(.*?)</s>');
   static final RegExp _linkPattern = RegExp(r'<a [^>]*>(.*?)</a>');
   static final RegExp _hrefPattern = RegExp('href="([^"]*)"');
+  // With the line breaks around it, which the block has room for by itself.
+  static final RegExp _codePattern = RegExp(
+    r'(?:<br>)?<pre[^>]*>(.*?)</pre>(?:<br>)?',
+    dotAll: true,
+  );
+  // Stands in for a code block while the comment is split into lines.
+  static const String _codeMark = '\u0000';
   static final RegExp _urlPattern = RegExp(
     r'https?://[\w-]+(\.[\w-]+)+([\w.,@?^=%&:/~+#-]*[\w@?^=%&/~+#-])?',
     caseSensitive: false,
@@ -94,10 +103,19 @@ class _ThreadPostCommentState extends State<ThreadPostComment> {
     _disposeRecognizers();
     final List<Widget> formattedCom = [];
 
-    final List<String> splittedCom = com.split('<br>');
-    // Blank lines at the end would only add a gap below the post.
+    final List<String> codeBlocks = <String>[];
+    final List<String> splittedCom = com
+        .replaceAllMapped(_codePattern, (Match match) {
+          codeBlocks.add(match.group(1)!);
+          return '<br>$_codeMark<br>';
+        })
+        .split('<br>');
+    // Blank lines at either end would only add a gap around the post.
     while (splittedCom.isNotEmpty && _isBlank(splittedCom.last)) {
       splittedCom.removeLast();
+    }
+    while (splittedCom.isNotEmpty && _isBlank(splittedCom.first)) {
+      splittedCom.removeAt(0);
     }
 
     // Quotes on lines of their own sit side by side, as tags.
@@ -134,7 +152,18 @@ class _ThreadPostCommentState extends State<ThreadPostComment> {
 
     for (final line in splittedCom) {
       final int? soleQuote = _soleQuote(line);
-      if (soleQuote != null) {
+      if (line == _codeMark) {
+        flushQuotes();
+        formattedCom.add(
+          _CodeBlock(
+            code: unescape(
+              cleanTags(codeBlocks.removeAt(0).replaceAll('<br>', '\n')),
+            ).trimRight(),
+            isDark: isDark,
+            onTap: _handleTextTap,
+          ),
+        );
+      } else if (soleQuote != null) {
         pendingQuotes.add(
           _QuoteTag(
             label: postLabel(soleQuote, widget.allPosts),
@@ -433,6 +462,42 @@ class _QuoteTag {
 
   final String label;
   final int post;
+}
+
+/// A block of code, keeping its lines and spacing, in a monospaced font.
+class _CodeBlock extends StatelessWidget {
+  const _CodeBlock({
+    required this.code,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  final String code;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: DashColors.muted(isDark).withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: SelectableText(
+        code,
+        onTap: onTap,
+        style: TextStyle(
+          color: DashColors.text(isDark),
+          fontFamily: Platform.isIOS ? 'Menlo' : 'monospace',
+          fontSize: 12.5,
+          height: 1.35,
+        ),
+      ),
+    );
+  }
 }
 
 /// A small tag naming a quoted post, which opens it when tapped.

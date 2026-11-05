@@ -335,6 +335,30 @@ void main() {
       await finish(tester);
     });
 
+    testWidgets('code keeps its lines and spacing', (tester) async {
+      await pumpPost(
+        tester,
+        Post(
+          no: 3,
+          time: 1700000000,
+          com:
+              'Look:<br><pre class="prettyprint">if (a) {<br>  b &amp;&amp; c;<br>}</pre>Nice',
+        ),
+      );
+
+      final SelectableText code = tester.widget<SelectableText>(
+        find.byWidgetPredicate(
+          (Widget widget) =>
+              widget is SelectableText &&
+              widget.data?.contains('if (a)') == true,
+        ),
+      );
+      expect(code.data, 'if (a) {\n  b && c;\n}');
+      expect(code.style?.fontFamily, isNotNull);
+      expect(find.text('Look:'), findsOneWidget);
+      expect(find.text('Nice'), findsOneWidget);
+    });
+
     testWidgets('a post shows its ID, trip and role', (tester) async {
       await pumpPost(
         tester,

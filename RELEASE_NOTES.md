@@ -13,6 +13,9 @@
 ### 🔗 Links to other threads and boards
 - Quotes of another thread, like "Previous" links, now open and say "(other thread)", and links to other boards open too
 
+### 💻 Code looks like code
+- Code blocks keep their lines and spacing, in a monospaced font, in a box of their own
+
 ## What's fixed
 
 - Bookmarks no longer say Deleted when 4chan is limiting requests or can't be reached, and can still be opened then
