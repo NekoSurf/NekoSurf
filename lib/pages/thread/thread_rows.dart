@@ -16,6 +16,7 @@ class ThreadRow {
     this.ancestors = const <int>[],
     this.collapsed = false,
     this.isPreview = false,
+    this.newReplies = 0,
   });
 
   final Post post;
@@ -43,6 +44,9 @@ class ThreadRow {
   /// The post is shown in full under another post it quotes, with its replies:
   /// this is a short preview of it, and tapping moves all that here.
   final bool isPreview;
+
+  /// How many unseen posts are hidden below it, while it's folded or a preview.
+  final int newReplies;
 
   /// The post it's listed under, or [topLevel].
   int get parent => ancestors.isEmpty ? topLevel : ancestors.last;
@@ -83,12 +87,13 @@ double _estimatedTextHeight(Post post) {
 /// per quote, however the replies branch.
 ///
 /// A post can have several rows: each folds on its own, by the [ThreadRow.path]
-/// in [collapsed].
+/// in [collapsed]. [unseen] are the posts to count as new when hidden.
 List<ThreadRow> buildNestedRows(
   List<Post> posts, {
   required Map<int, List<Post>> children,
   Set<String> collapsed = const <String>{},
   Map<int, int> primaryParents = const <int, int>{},
+  Set<int> unseen = const <int>{},
   Set<int>? treePosts,
   int opReplyCount = 0,
   Map<int, int>? positions,
@@ -199,6 +204,9 @@ List<ThreadRow> buildNestedRows(
         ancestors: ancestors,
         collapsed: isCollapsed,
         isPreview: isPreview,
+        newReplies: isCollapsed || isPreview
+            ? postsBelow(id).where(unseen.contains).length
+            : 0,
       ),
     );
     if (id != null) {

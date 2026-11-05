@@ -57,6 +57,9 @@ class _ThreadRepliesState extends State<ThreadReplies>
     rebuildRows();
   }
 
+  @override
+  int get threadNumber => widget.thread;
+
   // The post itself is on the page before this one; its replies start here.
   @override
   List<ThreadRow> buildRows() =>
@@ -72,6 +75,7 @@ class _ThreadRepliesState extends State<ThreadReplies>
                   children: _children,
                   collapsed: collapsedRows,
                   primaryParents: primaryParents,
+                  unseen: unseenPosts,
                   positions: _positions,
                 ))
           .skip(1)

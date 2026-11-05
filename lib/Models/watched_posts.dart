@@ -32,3 +32,34 @@ class WatchedPosts {
     };
   }
 }
+
+/// What's remembered about a thread besides how far it was read.
+class ThreadMemory {
+  ThreadMemory({this.newestPost, this.knownReplies, Set<int>? unseen})
+    : unseen = unseen ?? <int>{};
+
+  factory ThreadMemory.fromJson(Map<String, dynamic> json) {
+    return ThreadMemory(
+      newestPost: json['newest'] as int?,
+      knownReplies: json['replies'] as int?,
+      unseen: (json['unseen'] as List<dynamic>?)?.cast<int>().toSet(),
+    );
+  }
+
+  /// The newest post known in the thread.
+  int? newestPost;
+
+  /// How many replies the thread had when it was last loaded.
+  int? knownReplies;
+
+  /// Posts since then that haven't been on screen.
+  final Set<int> unseen;
+
+  Map<String, dynamic> toJson() {
+    return {
+      if (newestPost != null) 'newest': newestPost,
+      if (knownReplies != null) 'replies': knownReplies,
+      'unseen': unseen.toList(),
+    };
+  }
+}

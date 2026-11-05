@@ -37,6 +37,7 @@ class ThreadPagePost extends StatefulWidget {
     this.folded = false,
     this.isPreview = false,
     this.countOpensReplies = false,
+    this.newReplies = 0,
     this.onTapQuote,
     this.repliedTo,
     this.number,
@@ -64,6 +65,9 @@ class ThreadPagePost extends StatefulWidget {
   /// Its count opens its replies on their own page even though it can fold, as
   /// they aren't listed below it.
   final bool countOpensReplies;
+
+  /// How many unseen posts folding hides below it.
+  final int newReplies;
 
   /// See [ThreadPostComment.onTapQuote].
   final bool Function(int post)? onTapQuote;
@@ -410,6 +414,18 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                       width: 16,
                       height: 11,
                       child: CountryFlag.fromCountryCode(country),
+                    ),
+                  ),
+                if (widget.newReplies > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 10),
+                    child: Text(
+                      '${widget.newReplies} new',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: DashColors.accent,
+                      ),
                     ),
                   ),
                 if (widget.replyCount > 0 || isHidden)

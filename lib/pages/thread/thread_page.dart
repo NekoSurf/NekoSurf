@@ -20,7 +20,6 @@ import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/cupertino_menu.dart';
 import 'package:flutter_chan/widgets/dash_header.dart';
 import 'package:flutter_chan/widgets/dash_scaffold.dart';
-import 'package:flutter_chan/widgets/new_posts_pill.dart';
 import 'package:flutter_chan/widgets/reload.dart';
 import 'package:flutter_chan/widgets/resume_toast.dart';
 import 'package:provider/provider.dart';
@@ -68,6 +67,7 @@ class ThreadPageState extends State<ThreadPage>
 
   Set<int> _preloadVideoPostIds = const <int>{};
   bool _hasScrolledToLastWatched = false;
+  bool _isListSettled = false;
   bool _recordedHistory = false;
   bool _showResumeToast = false;
   Timer? _resumeToastTimer;
@@ -84,8 +84,6 @@ class ThreadPageState extends State<ThreadPage>
   String? _lastModified;
   bool _liveStopped = false;
   bool _isVisible = true;
-  int _newPostCount = 0;
-  int? _firstNewPost;
 
   late Bookmark favorite;
   void _markVisiblePostsAsWatched() {
@@ -123,15 +121,6 @@ class ThreadPageState extends State<ThreadPage>
         seen: row.seen,
         thread: widget.thread,
       );
-      final int? firstNew = rowByPost[_firstNewPost];
-      if (_newPostCount > 0 && (firstNew == null || furthest >= firstNew)) {
-        // Positions can update mid-layout; setState must wait for the frame.
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            _clearNewPosts();
-          }
-        });
-      }
     }
 
     _schedulePreloadRefresh();
@@ -213,8 +202,27 @@ class ThreadPageState extends State<ThreadPage>
     _isVisible = TickerMode.valuesOf(context).enabled;
   }
 
+  @override
+  int get threadNumber => widget.thread;
+
+  @override
+  bool get isListSettled => _isListSettled;
+
+  /// The list has been told where it's staying, if anywhere else.
+  void _settleList() {
+    _isListSettled = true;
+    onListSettled();
+  }
+
   void _setPosts(List<Post> posts) {
     allPosts = posts;
+    Provider.of<WatchedPostsProvider>(context, listen: false).noteThreadPosts(
+      widget.thread,
+      <int>[
+        for (final Post post in posts)
+          if (post.no != null) post.no!,
+      ],
+    );
     _replyDescendantCountByPost = buildReplyDescendantCountIndex(posts);
     _indexReplyTree();
     rebuildRows();
@@ -249,6 +257,7 @@ class ThreadPageState extends State<ThreadPage>
           children: _replyChildren,
           collapsed: collapsedRows,
           primaryParents: primaryParents,
+          unseen: unseenPosts,
           treePosts: _treePosts,
           opReplyCount: allPosts.isEmpty
               ? 0
@@ -260,12 +269,12 @@ class ThreadPageState extends State<ThreadPage>
     _liveStopped = false;
     _liveInterval = _liveMinInterval;
     _lastModified = null;
-    _newPostCount = 0;
-    _firstNewPost = null;
+    forgetNewThisVisit();
     _treePosts = null;
     collapsedRows.clear();
     primaryParents.clear();
     _hasScrolledToLastWatched = false;
+    _isListSettled = false;
     _didStartPreloading = false;
     _preloadDebounce?.cancel();
     _preloadDebounce = null;
@@ -351,10 +360,9 @@ class ThreadPageState extends State<ThreadPage>
   }
 
   /// Swaps in the refreshed posts. New ones are appended below, so the list
-  /// doesn't move; the pill points at the first one.
+  /// doesn't move.
   void _applyUpdate(List<Post> posts) {
     final Set<int?> known = allPosts.map((p) => p.no).toSet();
-    final int firstNew = posts.indexWhere((p) => !known.contains(p.no));
     final int added = posts.where((p) => !known.contains(p.no)).length;
 
     if (added == 0) {
@@ -368,36 +376,8 @@ class ThreadPageState extends State<ThreadPage>
 
     setState(() {
       _setPosts(posts);
-      if (added > 0) {
-        _firstNewPost ??= posts[firstNew].no;
-        _newPostCount += added;
-        _showResumeToast = false;
-      }
     });
     _schedulePreloadRefresh();
-  }
-
-  void _clearNewPosts() {
-    if (_newPostCount == 0) {
-      return;
-    }
-    setState(() {
-      _newPostCount = 0;
-      _firstNewPost = null;
-    });
-  }
-
-  void _jumpToNewPosts() {
-    final int? target = rowByPost[_firstNewPost];
-    _clearNewPosts();
-    if (target != null && itemScrollController.isAttached) {
-      itemScrollController.scrollTo(
-        index: target,
-        alignment: belowHeader,
-        duration: const Duration(milliseconds: 450),
-        curve: Curves.easeInOutCubic,
-      );
-    }
   }
 
   int _resolveAnchorIndex(int postCount) {
@@ -584,6 +564,8 @@ class ThreadPageState extends State<ThreadPage>
       final int? row = rowByPost[widget.initialPost];
       if (row != null && row > 0) {
         _jumpWhenAttached(row);
+      } else {
+        _settleList();
       }
       return;
     }
@@ -595,6 +577,7 @@ class ThreadPageState extends State<ThreadPage>
     );
 
     if (!settings.getAutoScrollToLastSeen()) {
+      _settleList();
       return;
     }
 
@@ -602,24 +585,30 @@ class ThreadPageState extends State<ThreadPage>
       widget.thread,
     );
 
-    if (latestWatchedPosts != null && allPosts.isNotEmpty) {
-      if (latestWatchedPosts.postIndex != -1) {
-        // The position is saved as a place in the thread, whatever the order
-        // the list was in at the time.
-        final Post lastPost =
-            allPosts[min(latestWatchedPosts.postIndex, allPosts.length - 1)];
-        Future.delayed(const Duration(milliseconds: 50), () {
-          if (mounted && itemScrollController.isAttached) {
-            itemScrollController.jumpTo(
-              index: rowByPost[lastPost.no] ?? 0,
-              alignment: belowHeader,
-            );
-            if (latestWatchedPosts.postIndex > 0) {
-              _flashResumeToast();
-            }
+    if (latestWatchedPosts == null ||
+        latestWatchedPosts.postIndex == -1 ||
+        allPosts.isEmpty) {
+      _settleList();
+    } else {
+      // The position is saved as a place in the thread, whatever the order
+      // the list was in at the time.
+      final Post lastPost =
+          allPosts[min(latestWatchedPosts.postIndex, allPosts.length - 1)];
+      Future.delayed(const Duration(milliseconds: 50), () {
+        if (!mounted) {
+          return;
+        }
+        if (itemScrollController.isAttached) {
+          itemScrollController.jumpTo(
+            index: rowByPost[lastPost.no] ?? 0,
+            alignment: belowHeader,
+          );
+          if (latestWatchedPosts.postIndex > 0) {
+            _flashResumeToast();
           }
-        });
-      }
+        }
+        _settleList();
+      });
     }
   }
 
@@ -632,8 +621,11 @@ class ThreadPageState extends State<ThreadPage>
       if (itemScrollController.isAttached) {
         itemScrollController.jumpTo(index: index, alignment: belowHeader);
         flashRow(rows[index].path);
+        _settleList();
       } else if (attempts > 1) {
         _jumpWhenAttached(index, attempts: attempts - 1);
+      } else {
+        _settleList();
       }
     });
   }
@@ -777,19 +769,8 @@ class ThreadPageState extends State<ThreadPage>
                       right: 16,
                       bottom: MediaQuery.paddingOf(context).bottom + 16,
                       child: Center(
-                        child: NewPostsPill(
-                          count: _newPostCount,
-                          onTap: _jumpToNewPosts,
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      left: 16,
-                      right: 16,
-                      bottom: MediaQuery.paddingOf(context).bottom + 16,
-                      child: Center(
                         child: ResumeToast(
-                          visible: _showResumeToast && _newPostCount == 0,
+                          visible: _showResumeToast,
                           onBackToTop: () {
                             _hideResumeToast();
                             if (itemScrollController.isAttached) {

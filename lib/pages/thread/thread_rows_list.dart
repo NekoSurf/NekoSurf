@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
+import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/enums/enums.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/pages/thread/thread_page_post.dart';
@@ -43,6 +44,11 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
   Timer? _highlightTimer;
   String? _highlightedRow;
 
+  // Posts that were new at some point in this visit: they stay tinted until it
+  // ends, so they can still be told apart on the way back up.
+  final Set<int> _newThisVisit = <int>{};
+  bool _isCheckingNewPosts = false;
+
   @override
   void initState() {
     super.initState();
@@ -50,6 +56,7 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
       context,
       listen: false,
     ).getThreadLayout();
+    itemPositionsListener.itemPositions.addListener(_onPositionsChanged);
   }
 
   @override
@@ -82,10 +89,27 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
     });
   }
 
+  /// The thread these rows are from.
+  int get threadNumber;
+
+  /// Whether what's on screen is where the reader is, rather than where the
+  /// list starts on its way to where they left off. See [onListSettled].
+  bool get isListSettled => true;
+
+  /// The posts in the thread that haven't been on screen since they were posted.
+  Set<int> get unseenPosts => Provider.of<WatchedPostsProvider>(
+    context,
+    listen: false,
+  ).unseenPosts(threadNumber);
+
+  /// Starts a new visit: posts already seen stop being tinted.
+  void forgetNewThisVisit() => _newThisVisit.clear();
+
   /// The rows to show, given [collapsedRows] and [primaryParents].
   List<ThreadRow> buildRows();
 
   void rebuildRows() {
+    _newThisVisit.addAll(unseenPosts);
     rows = buildRows();
     final Map<int, int> byPost = <int, int>{};
     final Map<String, int> byPath = <String, int>{};
@@ -317,6 +341,55 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
     return true;
   }
 
+  void _onPositionsChanged() {
+    if (_isCheckingNewPosts || !isListSettled) {
+      return;
+    }
+    // Positions can update mid-layout; setState must wait for the frame.
+    _isCheckingNewPosts = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _isCheckingNewPosts = false;
+      _checkNewPosts();
+    });
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
+  /// Tells the list it's where the reader is now, once it's been laid out there:
+  /// positions only update two frames after the list was told to move.
+  void onListSettled() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _checkNewPosts());
+      WidgetsBinding.instance.scheduleFrame();
+    });
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
+  /// A new post counts as seen once it's on screen, unless it's folded away or
+  /// only a preview.
+  void _checkNewPosts() {
+    if (!mounted || !isListSettled) {
+      return;
+    }
+    final Set<int> unseen = unseenPosts;
+    final Set<int> seen = <int>{
+      if (unseen.isNotEmpty)
+        for (final ItemPosition position in visiblePositions())
+          if (position.index < rows.length &&
+              !rows[position.index].collapsed &&
+              !rows[position.index].isPreview &&
+              unseen.contains(rows[position.index].post.no) &&
+              position.itemTrailingEdge > belowHeader)
+            rows[position.index].post.no!,
+    };
+    if (seen.isNotEmpty) {
+      Provider.of<WatchedPostsProvider>(
+        context,
+        listen: false,
+      ).markPostsSeen(threadNumber, seen);
+      setState(rebuildRows);
+    }
+  }
+
   /// The rows there would be with nothing folded.
   List<ThreadRow> _rowsWithoutFolds() {
     final Set<String> folded = Set<String>.of(collapsedRows);
@@ -379,7 +452,9 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
             curve: Curves.easeOut,
             color: row.path == _highlightedRow
                 ? DashColors.accent.withValues(alpha: 0.16)
-                : DashColors.accent.withValues(alpha: 0),
+                : DashColors.accent.withValues(
+                    alpha: _newThisVisit.contains(postId) ? 0.07 : 0,
+                  ),
             child: ThreadBranch(
               ancestors: row.ancestors,
               previousDepth: index == 0
@@ -404,6 +479,7 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
                 folded: row.collapsed,
                 isPreview: row.isPreview,
                 countOpensReplies: isFlat,
+                newReplies: row.newReplies,
                 onTapQuote: _showQuotedPost,
                 // The top level answers the post the list is about. Flat, no
                 // post is under another, so none of its quotes stands out.
@@ -425,6 +501,7 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
   @override
   void dispose() {
     _highlightTimer?.cancel();
+    itemPositionsListener.itemPositions.removeListener(_onPositionsChanged);
     super.dispose();
   }
 }

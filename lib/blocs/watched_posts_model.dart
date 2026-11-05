@@ -21,6 +21,7 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
   bool _hasPendingSave = false;
 
   static const String _watchedPostsStorageKey = 'watchedPosts';
+  static const String _threadMemoryStorageKey = 'threadMemory';
   static const Duration _saveDebounceDelay = Duration(seconds: 2);
 
   void _startCleanupTimer() {
@@ -73,6 +74,10 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   final Map<int, WatchedPosts> _watchedPostsByThread = {};
+
+  // Pages ask for this when they build, so changing it doesn't notify anyone.
+  final Map<int, ThreadMemory> _threadMemory = {};
+
   List<WatchedPosts> get watchedPosts =>
       List.unmodifiable(_watchedPostsByThread.values);
 
@@ -98,7 +103,65 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
       }
     }
 
+    _loadThreadMemory();
     clearOldWatchedPosts();
+  }
+
+  void _loadThreadMemory() {
+    final String? stored = _prefs.getString(_threadMemoryStorageKey);
+    if (stored == null) {
+      return;
+    }
+    try {
+      final Map<String, dynamic> threads =
+          json.decode(stored) as Map<String, dynamic>;
+      threads.forEach((String thread, dynamic value) {
+        _threadMemory[int.parse(thread)] = ThreadMemory.fromJson(
+          value as Map<String, dynamic>,
+        );
+      });
+    } catch (e) {
+      debugPrint('Error parsing thread memory: $e');
+    }
+  }
+
+  ThreadMemory _memoryOf(int thread) =>
+      _threadMemory.putIfAbsent(thread, ThreadMemory.new);
+
+  /// Takes note of the [posts] in [thread], oldest first: those posted since it
+  /// was last open are unseen. A thread that's new to this works from how far
+  /// it was read, if it was, so that it agrees with [newReplies].
+  void noteThreadPosts(int thread, List<int> posts) {
+    if (posts.isEmpty) {
+      return;
+    }
+    final ThreadMemory memory = _memoryOf(thread);
+    final int? newest = memory.newestPost;
+    if (newest != null) {
+      memory.unseen.addAll(posts.where((int post) => post > newest));
+    } else {
+      final WatchedPosts? watched = _watchedPostsByThread[thread];
+      if (watched != null) {
+        memory.unseen.addAll(posts.skip(watched.furthestIndex + 1));
+      }
+    }
+    // Deleted posts can't be seen any more.
+    memory.unseen.retainAll(posts);
+    memory.newestPost = posts.reduce(max);
+    memory.knownReplies = posts.length - 1;
+    _schedulePersist();
+    notifyListeners();
+  }
+
+  /// The posts in [thread] that were posted since it was first read and haven't
+  /// been on screen yet.
+  Set<int> unseenPosts(int thread) =>
+      Set<int>.unmodifiable(_threadMemory[thread]?.unseen ?? const <int>{});
+
+  void markPostsSeen(int thread, Iterable<int> posts) {
+    _threadMemory[thread]?.unseen.removeAll(posts);
+    _schedulePersist();
+    notifyListeners();
   }
 
   /// Remembers [postIndex] as where to resume [thread]. [seen] is how many
@@ -129,16 +192,23 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
   }
 
-  /// Replies posted after the furthest post read in [thread], given its
-  /// current reply count. Null if the thread hasn't been read (or its read
-  /// position expired), so unread threads don't show a misleading count.
+  /// The replies in [thread] not seen yet, given its current reply count: those
+  /// known to be unseen, and any posted since it was last loaded. Until it's been
+  /// loaded with this, those posted after the furthest post read. Null if the
+  /// thread hasn't been read (or its read position expired), so unread threads
+  /// don't show a misleading count.
   int? newReplies(int thread, int replies) {
     final WatchedPosts? watched = _watchedPostsByThread[thread];
     if (watched == null) {
       return null;
     }
-    // Index 0 is the OP, so reaching index i means i replies were seen.
-    return max(0, replies - watched.furthestIndex);
+    final ThreadMemory? memory = _threadMemory[thread];
+    final int? knownReplies = memory?.knownReplies;
+    if (memory == null || knownReplies == null) {
+      // Index 0 is the OP, so reaching index i means i replies were seen.
+      return max(0, replies - watched.furthestIndex);
+    }
+    return memory.unseen.length + max(0, replies - knownReplies);
   }
 
   Future<void> removeFromWatched(int postIndex, int thread) async {
@@ -148,6 +218,7 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
     }
 
     _watchedPostsByThread.remove(thread);
+    _threadMemory.remove(thread);
     await _saveWatchedPosts();
     notifyListeners();
   }
@@ -157,10 +228,18 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
         .map((media) => json.encode(media.toJson()))
         .toList();
     await _prefs.setStringList(_watchedPostsStorageKey, watchedPostsStrings);
+    await _prefs.setString(
+      _threadMemoryStorageKey,
+      json.encode(<String, dynamic>{
+        for (final MapEntry<int, ThreadMemory> entry in _threadMemory.entries)
+          '${entry.key}': entry.value.toJson(),
+      }),
+    );
   }
 
   Future<void> clearAllWatchedPosts() async {
     _watchedPostsByThread.clear();
+    _threadMemory.clear();
     await _saveWatchedPosts();
     notifyListeners();
   }
@@ -174,6 +253,9 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
 
     _watchedPostsByThread.removeWhere(
       (_, media) => media.watchedAt.isBefore(cutoffDate),
+    );
+    _threadMemory.removeWhere(
+      (int thread, _) => !_watchedPostsByThread.containsKey(thread),
     );
 
     await _saveWatchedPosts();

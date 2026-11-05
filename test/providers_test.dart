@@ -114,6 +114,94 @@ void main() {
   });
 
   group('WatchedPostsProvider', () {
+    Future<WatchedPostsProvider> watchedProvider() async {
+      final WatchedPostsProvider watched = WatchedPostsProvider(
+        await SharedPreferences.getInstance(),
+      );
+      addTearDown(watched.dispose);
+      // Let the cleanup it starts with finish.
+      await Future<void>.delayed(Duration.zero);
+      return watched;
+    }
+
+    test('a thread opened for the first time has nothing new', () async {
+      SharedPreferences.setMockInitialValues({});
+      final WatchedPostsProvider watched = await watchedProvider();
+
+      watched.noteThreadPosts(1, [1, 2, 3]);
+
+      expect(watched.unseenPosts(1), isEmpty);
+    });
+
+    test('posts after the newest known are new, until seen', () async {
+      SharedPreferences.setMockInitialValues({});
+      final WatchedPostsProvider watched = await watchedProvider();
+
+      watched.noteThreadPosts(1, [1, 2, 3]);
+      watched.noteThreadPosts(1, [1, 2, 3, 4, 5]);
+      expect(watched.unseenPosts(1), {4, 5});
+
+      watched.markPostsSeen(1, [4]);
+      expect(watched.unseenPosts(1), {5});
+    });
+
+    test('a thread read before agrees with its new reply count', () async {
+      SharedPreferences.setMockInitialValues({});
+      final WatchedPostsProvider watched = await watchedProvider();
+
+      await watched.markAsWatched(postIndex: 2, thread: 1);
+      watched.noteThreadPosts(1, [10, 11, 12, 13, 14]);
+
+      expect(watched.unseenPosts(1), {13, 14});
+      expect(watched.newReplies(1, 4), 2);
+    });
+
+    test('counts what is unseen, and what was posted since loading', () async {
+      SharedPreferences.setMockInitialValues({});
+      final WatchedPostsProvider watched = await watchedProvider();
+
+      await watched.markAsWatched(postIndex: 4, thread: 1);
+      watched.noteThreadPosts(1, [1, 2, 3]);
+      watched.noteThreadPosts(1, [1, 2, 3, 4, 5]);
+
+      // How far it was read doesn't matter: 4 and 5 still haven't been seen.
+      expect(watched.newReplies(1, 4), 2);
+      expect(watched.newReplies(1, 5), 3);
+
+      watched.markPostsSeen(1, [4]);
+      expect(watched.newReplies(1, 4), 1);
+
+      watched.markPostsSeen(1, [5]);
+      expect(watched.newReplies(1, 4), 0);
+    });
+
+    test('a deleted post is no longer new', () async {
+      SharedPreferences.setMockInitialValues({});
+      final WatchedPostsProvider watched = await watchedProvider();
+
+      watched.noteThreadPosts(1, [1]);
+      watched.noteThreadPosts(1, [1, 2, 3]);
+      watched.noteThreadPosts(1, [1, 3]);
+
+      expect(watched.unseenPosts(1), {3});
+    });
+
+    test('new posts are remembered, and cleared with watched posts', () async {
+      SharedPreferences.setMockInitialValues({});
+      final WatchedPostsProvider watched = await watchedProvider();
+
+      await watched.markAsWatched(postIndex: 0, thread: 1);
+      watched.noteThreadPosts(1, [1]);
+      watched.noteThreadPosts(1, [1, 2]);
+      await watched.clearOldWatchedPosts();
+
+      final WatchedPostsProvider again = await watchedProvider();
+      expect(again.unseenPosts(1), {2});
+
+      await again.clearAllWatchedPosts();
+      expect(again.unseenPosts(1), isEmpty);
+    });
+
     test('counts replies read apart from where to resume', () async {
       SharedPreferences.setMockInitialValues({});
       final WatchedPostsProvider watched = WatchedPostsProvider(

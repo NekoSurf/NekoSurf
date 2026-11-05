@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
+import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/enums/enums.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/pages/thread/thread_page_post.dart';
@@ -20,11 +21,14 @@ String _quoteOf(int id) => '<a href="#p$id" class="quotelink">&gt;&gt;$id</a>';
 
 void main() {
   late SettingsProvider settings;
+  late WatchedPostsProvider watched;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     settings = SettingsProvider(prefs);
+    watched = WatchedPostsProvider(prefs);
+    addTearDown(watched.dispose);
   });
 
   /// The row of a post with [replyCount] replies.
@@ -346,6 +350,7 @@ void main() {
               create: (_) => ThemeChanger(ThemeData.dark()),
             ),
             ChangeNotifierProvider<SettingsProvider>.value(value: settings),
+            ChangeNotifierProvider<WatchedPostsProvider>.value(value: watched),
           ],
           child: MaterialApp(
             home: ThreadReplies(
@@ -382,6 +387,7 @@ void main() {
               create: (_) => ThemeChanger(ThemeData.dark()),
             ),
             ChangeNotifierProvider<SettingsProvider>.value(value: settings),
+            ChangeNotifierProvider<WatchedPostsProvider>.value(value: watched),
           ],
           child: MaterialApp(
             home: ThreadReplies(
@@ -454,6 +460,7 @@ void main() {
               create: (_) => ThemeChanger(ThemeData.dark()),
             ),
             ChangeNotifierProvider<SettingsProvider>.value(value: settings),
+            ChangeNotifierProvider<WatchedPostsProvider>.value(value: watched),
           ],
           child: MaterialApp(
             home: ThreadReplies(
@@ -508,6 +515,7 @@ void main() {
               create: (_) => ThemeChanger(ThemeData.dark()),
             ),
             ChangeNotifierProvider<SettingsProvider>.value(value: settings),
+            ChangeNotifierProvider<WatchedPostsProvider>.value(value: watched),
           ],
           child: MaterialApp(
             home: ThreadReplies(
@@ -598,6 +606,7 @@ void main() {
               create: (_) => ThemeChanger(ThemeData.dark()),
             ),
             ChangeNotifierProvider<SettingsProvider>.value(value: settings),
+            ChangeNotifierProvider<WatchedPostsProvider>.value(value: watched),
           ],
           child: MaterialApp(
             home: ThreadReplies(
@@ -712,6 +721,107 @@ void main() {
       await tester.pumpAndSettle(const Duration(seconds: 1));
 
       expect(leftOf(tester, 'Words of 4'), flat);
+    });
+  });
+
+  group('new posts', () {
+    // The replies page of 2: 3 answers it, and 4 and 5 answer 3.
+    final Post root = Post(no: 2, time: 1700000000);
+    final String tall = List<String>.filled(60, 'A line of text').join('<br>');
+    final List<Post> posts = [
+      Post(no: 1, time: 1700000000),
+      root,
+      Post(no: 3, time: 1700000000, com: '${_quoteOf(2)}<br>Words of 3'),
+      Post(no: 4, time: 1700000000, com: '${_quoteOf(3)}<br>Words of 4'),
+      Post(no: 5, time: 1700000000, com: '${_quoteOf(3)}<br>Words of 5'),
+      Post(no: 6, time: 1700000000, com: '${_quoteOf(2)}<br>$tall'),
+      Post(no: 7, time: 1700000000, com: '${_quoteOf(6)}<br>Words of 7'),
+      Post(no: 8, time: 1700000000, com: '${_quoteOf(2)}<br>Words of 8'),
+      Post(no: 9, time: 1700000000, com: '${_quoteOf(2)}<br>$tall'),
+    ];
+
+    Future<void> pumpNew(WidgetTester tester, Set<int> unseen) async {
+      watched.noteThreadPosts(1, const <int>[1, 2]);
+      watched.noteThreadPosts(1, <int>[1, 2, 3, 4, 5, 6, 7, 8, 9]);
+      watched.markPostsSeen(1, <int>{3, 4, 5, 6, 7, 8, 9}.difference(unseen));
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<ThemeChanger>(
+              create: (_) => ThemeChanger(ThemeData.dark()),
+            ),
+            ChangeNotifierProvider<SettingsProvider>.value(value: settings),
+            ChangeNotifierProvider<WatchedPostsProvider>.value(value: watched),
+          ],
+          child: MaterialApp(
+            home: ThreadReplies(
+              post: root,
+              thread: 1,
+              board: 'g',
+              allPosts: posts,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+    }
+
+    // They're saved a moment after they change.
+    Future<void> saveNewPosts(WidgetTester tester) =>
+        tester.pump(const Duration(seconds: 3));
+
+    bool isTinted(WidgetTester tester, String words) {
+      final AnimatedContainer box = tester.widget<AnimatedContainer>(
+        find
+            .ancestor(
+              of: find.text(words),
+              matching: find.byType(AnimatedContainer),
+            )
+            .first,
+      );
+      return (box.decoration! as BoxDecoration).color !=
+          DashColors.accent.withValues(alpha: 0);
+    }
+
+    testWidgets('are tinted, and the others are not', (tester) async {
+      await pumpNew(tester, {4});
+
+      expect(isTinted(tester, 'Words of 4'), isTrue);
+      expect(isTinted(tester, 'Words of 3'), isFalse);
+      await saveNewPosts(tester);
+    });
+
+    testWidgets('stop being unseen once on screen, but stay tinted', (
+      tester,
+    ) async {
+      await pumpNew(tester, {4});
+      await tester.pumpAndSettle();
+
+      expect(watched.unseenPosts(1), isEmpty);
+      expect(isTinted(tester, 'Words of 4'), isTrue);
+      await saveNewPosts(tester);
+    });
+
+    testWidgets('stay unseen while below the screen', (tester) async {
+      await pumpNew(tester, {4, 8});
+      await tester.pumpAndSettle();
+
+      expect(watched.unseenPosts(1), {8});
+      await saveNewPosts(tester);
+    });
+
+    testWidgets('folded away stay unseen, counted by the post on screen', (
+      tester,
+    ) async {
+      await pumpNew(tester, {7});
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.textContaining('#5   ', findRichText: true));
+      await tester.pumpAndSettle(const Duration(seconds: 2));
+
+      expect(find.text('1 new'), findsOneWidget);
+      expect(watched.unseenPosts(1), {7});
+      await saveNewPosts(tester);
     });
   });
 

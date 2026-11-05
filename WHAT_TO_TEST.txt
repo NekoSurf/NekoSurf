@@ -11,7 +11,7 @@ Open a busy thread.
 • Leave a thread partway, then open it again: it should resume on the same post, and the "new" count in History should look right.
 
 Please also try what couldn't be checked on a simulator:
-• Live thread: stay in a fast thread until the new posts pill appears. New replies should appear at the bottom without the list moving, and the pill should take you to them. Reopen the thread: they should now be under their posts.
+• Live thread: stay in a fast thread. New replies should appear at the bottom, tinted, without the list moving. Reopen the thread: unseen ones sit under their posts, still tinted. Fold a post above some: it should say like 2 new.
 • Open an image in a nested reply and swipe to another one: it should go through them in the order they're listed, skipping folded posts. Go back: the list should land on the last one you saw.
 • Videos in nested replies: they should play as you scroll, and open and close zooming from the right place. After closing the viewer, the list should stay where it was.
 • A very long back-and-forth: it should stay readable however deep.

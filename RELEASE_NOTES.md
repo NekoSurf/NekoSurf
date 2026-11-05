@@ -8,6 +8,7 @@
 - Tapping a quote jumps to that post
 - Prefer posts in the order they were posted? Choose Flat under Thread layout in Settings → Threads
 - Replies posted while you're reading appear at the bottom, so the list doesn't move; they join their post the next time you open the thread
+- New posts are tinted until you've seen them, even after you leave the thread; a folded post says how many it's hiding
 
 ### 👈 Swipe back from anywhere
 - Swipe right anywhere on a page to go back, not just from the edge of the screen; the page follows your finger and carries on at its speed when you let go

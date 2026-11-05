@@ -83,6 +83,28 @@ void main() {
       expect(_row(rows, 5).collapsed, isFalse);
     });
 
+    test('counts the unseen posts folded away below a post', () {
+      final List<ThreadRow> rows = buildNestedRows(
+        posts,
+        children: buildReplyChildrenIndex(posts),
+        collapsed: {'2'},
+        unseen: {3, 7, 6},
+      );
+
+      expect(_row(rows, 2).newReplies, 2);
+      expect(_row(rows, 6).newReplies, 0);
+    });
+
+    test("doesn't count unseen posts that aren't hidden", () {
+      final List<ThreadRow> rows = buildNestedRows(
+        posts,
+        children: buildReplyChildrenIndex(posts),
+        unseen: {3, 7},
+      );
+
+      expect(_row(rows, 2).newReplies, 0);
+    });
+
     test('folding inside a branch leaves the rest of it', () {
       expect(_numbers(_nested(posts, collapsed: {'2/3'})), [1, 2, 3, 4, 5, 6]);
     });
