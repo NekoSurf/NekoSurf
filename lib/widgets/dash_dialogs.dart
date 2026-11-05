@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
+import 'package:flutter_chan/widgets/frosted.dart';
 
 bool _isDark(BuildContext context) =>
     CupertinoTheme.brightnessOf(context) == Brightness.dark;
@@ -23,12 +24,9 @@ Future<T?> showDashDialog<T>({
         parent: animation,
         curve: Curves.easeOutCubic,
       );
-      return FadeTransition(
-        opacity: curved,
-        child: ScaleTransition(
-          scale: Tween<double>(begin: 0.94, end: 1).animate(curved),
-          child: child,
-        ),
+      return ScaleTransition(
+        scale: Tween<double>(begin: 0.94, end: 1).animate(curved),
+        child: child,
       );
     },
   );
@@ -56,65 +54,57 @@ class DashDialog extends StatelessWidget {
         child: Container(
           constraints: const BoxConstraints(maxWidth: 340),
           margin: const EdgeInsets.symmetric(horizontal: 28),
-          padding: const EdgeInsets.fromLTRB(20, 22, 20, 16),
-          decoration: BoxDecoration(
-            color: DashColors.card(isDark),
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(
-              color: DashColors.accent.withValues(alpha: 0.18),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.15),
-                blurRadius: 40,
-                offset: const Offset(0, 16),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (title != null)
-                DefaultTextStyle(
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.4,
-                    color: DashColors.text(isDark),
-                  ),
-                  child: title!,
-                ),
-              if (content != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: DefaultTextStyle(
+          child: Frosted(
+            fadesWithRoute: true,
+            radius: 28,
+            padding: const EdgeInsets.fromLTRB(20, 22, 20, 16),
+            color: Frosted.panel(isDark),
+            borderColor: DashColors.accent.withValues(alpha: 0.18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (title != null)
+                  DefaultTextStyle(
                     style: TextStyle(
-                      fontSize: 14.5,
-                      height: 1.4,
-                      color: DashColors.muted(isDark),
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.4,
+                      color: DashColors.text(isDark),
                     ),
-                    child: content!,
+                    child: title!,
                   ),
-                ),
-              if (actions.isNotEmpty) ...[
-                const SizedBox(height: 20),
-                if (actions.length <= 2)
-                  Row(
-                    children: [
-                      for (int i = 0; i < actions.length; i++) ...[
-                        if (i > 0) const SizedBox(width: 10),
-                        Expanded(child: actions[i]),
+                if (content != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: DefaultTextStyle(
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        height: 1.4,
+                        color: DashColors.muted(isDark),
+                      ),
+                      child: content!,
+                    ),
+                  ),
+                if (actions.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  if (actions.length <= 2)
+                    Row(
+                      children: [
+                        for (int i = 0; i < actions.length; i++) ...[
+                          if (i > 0) const SizedBox(width: 10),
+                          Expanded(child: actions[i]),
+                        ],
                       ],
+                    )
+                  else
+                    for (int i = 0; i < actions.length; i++) ...[
+                      if (i > 0) const SizedBox(height: 8),
+                      actions[i],
                     ],
-                  )
-                else
-                  for (int i = 0; i < actions.length; i++) ...[
-                    if (i > 0) const SizedBox(height: 8),
-                    actions[i],
-                  ],
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -215,13 +205,6 @@ Future<void> showDashMenu(
     transitionDuration: const Duration(milliseconds: 160),
     pageBuilder: (ctx, _, _) =>
         _DashMenu(anchor: anchor, entries: entries, title: title),
-    transitionBuilder: (ctx, animation, _, child) {
-      final curved = CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeOutCubic,
-      );
-      return FadeTransition(opacity: curved, child: child);
-    },
   );
 }
 
@@ -276,54 +259,48 @@ class _DashMenu extends StatelessWidget {
           width: _width,
           child: Material(
             color: Colors.transparent,
-            child: Container(
+            child: ConstrainedBox(
               constraints: BoxConstraints(maxHeight: maxHeight),
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: DashColors.card(isDark),
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: DashColors.border(isDark)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.15),
-                    blurRadius: 30,
-                    offset: const Offset(0, 12),
-                  ),
-                ],
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (title != null)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(10, 6, 10, 8),
-                        child: Text(
-                          title!,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
-                            color: DashColors.muted(isDark),
+              child: Frosted(
+                fadesWithRoute: true,
+                radius: 22,
+                padding: const EdgeInsets.all(6),
+                color: Frosted.panel(isDark),
+                borderColor: DashColors.border(isDark),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (title != null)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(10, 6, 10, 8),
+                          child: Text(
+                            title!,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: DashColors.muted(isDark),
+                            ),
                           ),
                         ),
-                      ),
-                    for (final entry in entries)
-                      if (entry.isDivider)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          child: Divider(
-                            height: 1,
-                            color: DashColors.border(isDark),
-                          ),
-                        )
-                      else
-                        _MenuRow(entry: entry, isDark: isDark),
-                  ],
+                      for (final entry in entries)
+                        if (entry.isDivider)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            child: Divider(
+                              height: 1,
+                              color: DashColors.border(isDark),
+                            ),
+                          )
+                        else
+                          _MenuRow(entry: entry, isDark: isDark),
+                    ],
+                  ),
                 ),
               ),
             ),

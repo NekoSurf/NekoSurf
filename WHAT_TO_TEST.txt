@@ -6,12 +6,12 @@ Open a busy thread.
 • Tap anywhere on a reply, including its text: it shrinks to its header, the arrow turns sideways, and what's above stays put. If its header had scrolled away, it lands below the title bar and flashes. Tap again: it all comes back.
 • Tap a quote tag: the list jumps to that post, which flashes, unfolding it if folded. The post a reply sits under stands out among its quotes.
 • ⋯ → Scroll to Bottom and Top: it should slow to a stop at the end, no bounce, and posts it jumped past stay new. The same when closing the viewer on the last video.
-• Long-press its text: that should select the text, not fold. Tap a quote like #38 or OP, in a sentence too, an image or a video: those should do their own thing, not fold.
+• Long-press its text: that should select, not fold. A quote like #38 or OP, in a sentence too, an image or a video should do their own thing, not fold.
 • A reply quoting two posts shows under both, or only under the lower one if it answers the other. If it has replies, an image or a lot of text, it's in full under the first and a short dimmed preview under the others: tap a preview and it all moves there, without the list moving.
 • Settings → Threads → Thread layout → Flat: every post in posting order, no indents, tapping folds just that post, and a post's count opens its replies.
 • Leave a thread partway, then open it again: it should show the very same view, with no jump, and folds still folded. The "new" count in History should look right.
 
-Please also try what couldn't be checked on a simulator:
+Also try on a real phone:
 • Live thread: stay in a fast thread. New replies should appear at the bottom, tinted, without the list moving. Reopen the thread: unseen ones sit under their posts, still tinted. Fold a post above some: it should say like 2 new.
 • Open an image in a nested reply and swipe to another one: it should go through them in the order they're listed, skipping folded posts. Go back: the list should land on the last one you saw.
 • Videos in nested replies: they should play as you scroll, and open and close zooming from the right place. After closing the viewer, the list should stay where it was.
@@ -24,18 +24,21 @@ SWIPE BACK FROM ANYWHERE
 On a board, a thread, History, search or Settings, swipe right starting from the middle of the screen.
 
 • The page should follow your finger with the previous page showing behind it, and go back once you let go past halfway or flick it.
-• Let go while moving: the page should carry on smoothly at your finger's speed, with no jump or stall.
+• Let go while moving: the page should carry on at your finger's speed, with no jump.
 • Let go early after a slow drag: the page should slide back into place.
 • Start the swipe on comment text, an image and a board or History row: all should go back, without opening or selecting anything.
 • Rows with actions: swipe left to reveal them, then right to close them. That shouldn't go back. Swipe right on a closed row: that should.
 • Drag across a video in a thread: it should scrub, not go back. The left edge of the screen should still go back.
 
-Please also try what couldn't be checked on a simulator:
-• How it feels on a real phone: does it ever go back when you only meant to scroll or select text?
-• Long-press text to select it, then drag the selection handles: that should still select, not go back.
+Also try on a real phone:
+• Does it ever go back when you only meant to scroll or select text?
+• Long-press text, then drag the selection handles: that should still select, not go back.
 • In the search field with the keyboard up, try swiping right on the field and on the results.
-• The fullscreen viewer and the Saved tab's viewer should work exactly as before, closing only from the left edge.
+• The fullscreen and Saved tab viewers should work as before, closing only from the left edge.
 • On Android, compare it with the system's own back gesture from the edge.
+
+FROSTED LOOK
+• Open a ⋯ menu or dialog over an image: it should fade in blurred, with no sharp flash, and stay easy to read, in light mode too.
 
 REPLY COUNTS
 Find a reply whose text starts with a number (like ">>123" followed by "4 weeks long"). The post it quotes should count it.

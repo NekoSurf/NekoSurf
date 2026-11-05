@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/widgets/dash_dialogs.dart';
+import 'package:flutter_chan/widgets/frosted.dart';
 
 Future<dynamic> showCupertinoSnackbar(
   Duration? duration,
@@ -33,28 +34,20 @@ Future<dynamic> showCupertinoSnackbar(
               left: 24,
               right: 24,
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-            decoration: BoxDecoration(
-              color: DashColors.card(isDark),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(
-                color: DashColors.accent.withValues(alpha: 0.25),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
+            child: Frosted(
+              fadesWithRoute: true,
+              radius: 999,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              color: Frosted.panel(isDark),
+              borderColor: DashColors.accent.withValues(alpha: 0.25),
+              child: Text(
+                message,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: DashColors.text(isDark),
                 ),
-              ],
-            ),
-            child: Text(
-              message,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: DashColors.text(isDark),
               ),
             ),
           ),

@@ -15,6 +15,9 @@
 - Swipe right anywhere on a page to go back, not just from the edge of the screen; the page follows your finger and carries on at its speed when you let go
 - Works on boards, threads, History, search and Settings; dragging across a video still scrubs it, and the fullscreen viewer works as before
 
+### 🧊 A frosted look
+- Header buttons, menus, dialogs and messages are see-through now, with what's behind them blurred
+
 ## What's fixed
 
 - Scroll to Top and Scroll to Bottom, and going back to a post from the viewer, stop at the ends of the list instead of going past them

@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/constants.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
+import 'package:flutter_chan/widgets/frosted.dart';
 
 const double kDashHeaderHeight = 62;
 const double kDashTabBarHeight = 64;
@@ -38,19 +39,24 @@ class _DashIconButtonState extends State<DashIconButton> {
       child: AnimatedScale(
         scale: _pressed ? 0.9 : 1,
         duration: const Duration(milliseconds: 100),
-        child: Container(
-          width: 40,
-          height: 40,
-          margin: const EdgeInsets.only(left: 8),
-          decoration: BoxDecoration(
-            color: DashColors.card(isDark),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: DashColors.border(isDark)),
-          ),
-          alignment: Alignment.center,
-          child: IconTheme(
-            data: IconThemeData(color: DashColors.text(isDark), size: 19),
-            child: widget.icon,
+        child: Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: SizedBox.square(
+            dimension: 40,
+            child: Frosted(
+              radius: 14,
+              blur: 16,
+              color: Colors.white.withValues(alpha: isDark ? 0.08 : 0.55),
+              borderColor: isDark
+                  ? Colors.white.withValues(alpha: 0.12)
+                  : Colors.black.withValues(alpha: 0.08),
+              child: Center(
+                child: IconTheme(
+                  data: IconThemeData(color: DashColors.text(isDark), size: 19),
+                  child: widget.icon,
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -104,18 +110,22 @@ class DashHeader extends StatelessWidget {
                   GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () => Navigator.of(context).maybePop(),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      margin: const EdgeInsets.only(right: 12),
-                      decoration: BoxDecoration(
-                        color: DashColors.accent.withValues(alpha: 0.14),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Icon(
-                        CupertinoIcons.chevron_left,
-                        size: 18,
-                        color: DashColors.accent,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: SizedBox.square(
+                        dimension: 40,
+                        child: Frosted(
+                          radius: 14,
+                          blur: 16,
+                          color: DashColors.accent.withValues(alpha: 0.14),
+                          child: const Center(
+                            child: Icon(
+                              CupertinoIcons.chevron_left,
+                              size: 18,
+                              color: DashColors.accent,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   )
@@ -190,67 +200,61 @@ class DashTabBar extends StatelessWidget {
 
     return Padding(
       padding: EdgeInsets.fromLTRB(16, 0, 16, bottom > 0 ? bottom : 12),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-          child: Container(
-            height: kDashTabBarHeight,
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: DashColors.card(isDark).withValues(alpha: 0.82),
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: DashColors.border(isDark)),
-            ),
-            child: Row(
-              children: [
-                for (int i = 0; i < tabs.length; i++)
-                  Expanded(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => onSelected(i),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 220),
-                        curve: Curves.easeOutCubic,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(22),
-                          gradient: i == selectedIndex
-                              ? LinearGradient(
-                                  colors: [
-                                    DashColors.accent.withValues(alpha: 0.24),
-                                    DashColors.accent2.withValues(alpha: 0.2),
-                                  ],
-                                )
-                              : null,
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              tabs[i].icon,
-                              size: 21,
+      child: SizedBox(
+        height: kDashTabBarHeight,
+        child: Frosted(
+          radius: 28,
+          padding: const EdgeInsets.all(6),
+          color: DashColors.card(isDark).withValues(alpha: 0.82),
+          borderColor: DashColors.border(isDark),
+          child: Row(
+            children: [
+              for (int i = 0; i < tabs.length; i++)
+                Expanded(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => onSelected(i),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(22),
+                        gradient: i == selectedIndex
+                            ? LinearGradient(
+                                colors: [
+                                  DashColors.accent.withValues(alpha: 0.24),
+                                  DashColors.accent2.withValues(alpha: 0.2),
+                                ],
+                              )
+                            : null,
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            tabs[i].icon,
+                            size: 21,
+                            color: i == selectedIndex
+                                ? DashColors.accent
+                                : DashColors.muted(isDark),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            tabs[i].label,
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
                               color: i == selectedIndex
-                                  ? DashColors.accent
+                                  ? DashColors.text(isDark)
                                   : DashColors.muted(isDark),
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              tabs[i].label,
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w700,
-                                color: i == selectedIndex
-                                    ? DashColors.text(isDark)
-                                    : DashColors.muted(isDark),
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
         ),
       ),
