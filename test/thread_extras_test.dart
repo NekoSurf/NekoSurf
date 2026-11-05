@@ -242,6 +242,28 @@ void main() {
       await finish(tester);
     });
 
+    testWidgets('a post shows its ID, trip and role', (tester) async {
+      await pumpPost(
+        tester,
+        Post(
+          no: 3,
+          time: 1700000000,
+          name: 'A &amp; B',
+          trip: '!abc',
+          capcode: 'mod',
+          id: 'Ab12Cd34',
+        ),
+      );
+
+      for (final String text in ['A & B', '!abc', '## mod', 'ID:Ab12Cd34']) {
+        expect(
+          find.textContaining(text, findRichText: true),
+          findsOneWidget,
+          reason: text,
+        );
+      }
+    });
+
     group('a spoiler', () {
       final Post spoiler = Post(
         no: 3,

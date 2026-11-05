@@ -5,6 +5,9 @@ Find a post with a spoilered image (on /v/ or /vg/, for example).
 • On a spoilered thread, or in the gallery and search, the thumbnail stays covered, and tapping goes where it always did.
 • Bookmark a thread whose first post is a spoiler: its card should have no image. The same in History.
 
+WHO'S POSTING
+On a board with poster IDs, like /qst/ or /pol/: each post's header should show a colored ID:abc123, the same color for the same poster. Tripcodes show after the name, staff tags like ## mod in red.
+
 LINKS
 • Tap a quote of a post that was deleted: "Post not found", not an empty post.
 

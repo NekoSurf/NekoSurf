@@ -22,6 +22,9 @@ class Post {
     this.country,
     this.board,
     this.archived,
+    this.id,
+    this.trip,
+    this.capcode,
     this.spoiler,
   });
 
@@ -48,6 +51,9 @@ class Post {
     country: json['country'] as String?,
     board: json['board'] as String?,
     archived: json['archived'] as int?,
+    id: json['id'] as String?,
+    trip: json['trip'] as String?,
+    capcode: json['capcode'] as String?,
     spoiler: json['spoiler'] as int?,
   );
 
@@ -74,6 +80,12 @@ class Post {
   String? board;
   int? archived;
 
+  /// The poster's ID in this thread, on boards that show them.
+  String? id;
+  String? trip;
+
+  /// The staff role the post is by, like "mod".
+  String? capcode;
   int? spoiler;
 
   /// The upload ([tim]) if it's a spoiler, to cover it (see SpoilerCover).
@@ -113,6 +125,9 @@ class Post {
     'images': images,
     'board': board,
     'archived': archived,
+    'id': id,
+    'trip': trip,
+    'capcode': capcode,
     'spoiler': spoiler,
   };
 }

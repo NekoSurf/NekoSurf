@@ -217,6 +217,16 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     );
   }
 
+  /// A color to tell a poster's [id] apart by.
+  Color _idColor(String id, bool isDark) => HSLColor.fromAHSL(
+    1,
+    id.codeUnits
+        .fold<int>(0, (int hue, int unit) => (hue * 31 + unit) % 360)
+        .toDouble(),
+    0.6,
+    isDark ? 0.7 : 0.35,
+  ).toColor();
+
   /// The row's width in physical pixels, capped at the original's.
   int? _imageDecodeWidth(BuildContext context) {
     final double target =
@@ -398,7 +408,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                       ),
                       children: [
                         TextSpan(
-                          text: post.name ?? 'Anonymous',
+                          text: unescape(cleanTags(post.name ?? 'Anonymous')),
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -406,6 +416,23 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                             color: DashColors.text(isDark),
                           ),
                         ),
+                        if (post.trip != null) TextSpan(text: ' ${post.trip}'),
+                        if (post.capcode != null)
+                          TextSpan(
+                            text: ' ## ${post.capcode}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: DashColors.nsfw,
+                            ),
+                          ),
+                        if (post.id != null)
+                          TextSpan(
+                            text: '   ID:${post.id}',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: _idColor(post.id!, isDark),
+                            ),
+                          ),
                         if (time != null)
                           TextSpan(
                             text:
@@ -416,7 +443,13 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                         if (post.no != null) TextSpan(text: '   ${post.no}'),
                       ],
                     ),
-                    maxLines: 1,
+                    // Room for these too, without cutting off the post's number.
+                    maxLines:
+                        post.id != null ||
+                            post.trip != null ||
+                            post.capcode != null
+                        ? 2
+                        : 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
