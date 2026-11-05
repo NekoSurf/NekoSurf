@@ -44,7 +44,7 @@ class _SettingsState extends State<Settings> {
                 color: DashColors.accent2,
                 title: 'Threads',
                 subtitle:
-                    '${settings.getBoardViewMode() == ViewMode.grid ? 'Grid' : 'List'} view, sorting, playback',
+                    '${settings.getBoardViewMode() == ViewMode.grid ? 'Grid' : 'List'} view, sorting, ${settings.getThreadLayout() == ThreadLayout.nested ? 'nested' : 'flat'} threads',
                 showChevron: true,
                 onTap: () => _push(const ThreadsSettings()),
               ),

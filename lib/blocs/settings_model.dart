@@ -24,6 +24,7 @@ class SettingsProvider with ChangeNotifier {
         byName(SortDirection.values, 'boardSortDirection') ??
         boardSortDirection;
     boardViewMode = byName(ViewMode.values, 'boardViewMode') ?? boardViewMode;
+    threadLayout = byName(ThreadLayout.values, 'threadLayout') ?? threadLayout;
     allowNSFW = _prefs.getBool('allowNSFW') ?? allowNSFW;
     watchedPostsRetentionDays =
         _prefs.getInt('watchedPostsRetentionDays') ?? watchedPostsRetentionDays;
@@ -54,6 +55,7 @@ class SettingsProvider with ChangeNotifier {
   Sort boardSort = Sort.byImagesCount;
   SortDirection boardSortDirection = SortDirection.desc;
   ViewMode boardViewMode = ViewMode.grid;
+  ThreadLayout threadLayout = ThreadLayout.nested;
   int watchedPostsRetentionDays = 7;
   int videoCacheMegabytes = VideoServer.defaultMaxCacheBytes ~/ _megabyte;
   bool autoScrollToLastSeen = true;
@@ -128,6 +130,13 @@ class SettingsProvider with ChangeNotifier {
   Future<void> setBoardViewMode(ViewMode mode) {
     boardViewMode = mode;
     return _save('boardViewMode', mode.name);
+  }
+
+  ThreadLayout getThreadLayout() => threadLayout;
+
+  Future<void> setThreadLayout(ThreadLayout layout) {
+    threadLayout = layout;
+    return _save('threadLayout', layout.name);
   }
 
   bool getShowStickyThreads() => showStickyThreads;

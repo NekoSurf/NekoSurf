@@ -1,7 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/Models/post.dart';
+import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
+import 'package:flutter_chan/enums/enums.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/pages/thread/thread_page_post.dart';
 import 'package:flutter_chan/pages/thread/thread_post_comment.dart';
@@ -17,7 +19,13 @@ const String _comment =
 String _quoteOf(int id) => '<a href="#p$id" class="quotelink">&gt;&gt;$id</a>';
 
 void main() {
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  late SettingsProvider settings;
+
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    settings = SettingsProvider(prefs);
+  });
 
   /// The row of a post with [replyCount] replies.
   Future<void> pumpRow(
@@ -332,8 +340,13 @@ void main() {
 
     Future<void> pumpReplies(WidgetTester tester) async {
       await tester.pumpWidget(
-        ChangeNotifierProvider<ThemeChanger>(
-          create: (_) => ThemeChanger(ThemeData.dark()),
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<ThemeChanger>(
+              create: (_) => ThemeChanger(ThemeData.dark()),
+            ),
+            ChangeNotifierProvider<SettingsProvider>.value(value: settings),
+          ],
           child: MaterialApp(
             home: ThreadReplies(
               post: root,
@@ -363,8 +376,13 @@ void main() {
       // 3 and 4 answer 2, and 5 quotes both, so it's listed under each.
       final Post top = Post(no: 2, time: 1700000000);
       await tester.pumpWidget(
-        ChangeNotifierProvider<ThemeChanger>(
-          create: (_) => ThemeChanger(ThemeData.dark()),
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<ThemeChanger>(
+              create: (_) => ThemeChanger(ThemeData.dark()),
+            ),
+            ChangeNotifierProvider<SettingsProvider>.value(value: settings),
+          ],
           child: MaterialApp(
             home: ThreadReplies(
               post: top,
@@ -430,8 +448,13 @@ void main() {
 
     Future<void> pumpList(WidgetTester tester) async {
       await tester.pumpWidget(
-        ChangeNotifierProvider<ThemeChanger>(
-          create: (_) => ThemeChanger(ThemeData.dark()),
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<ThemeChanger>(
+              create: (_) => ThemeChanger(ThemeData.dark()),
+            ),
+            ChangeNotifierProvider<SettingsProvider>.value(value: settings),
+          ],
           child: MaterialApp(
             home: ThreadReplies(
               post: root,
@@ -479,8 +502,13 @@ void main() {
         com: '${_quoteOf(2)}<br>${_quoteOf(28)}<br>$tall',
       );
       await tester.pumpWidget(
-        ChangeNotifierProvider<ThemeChanger>(
-          create: (_) => ThemeChanger(ThemeData.dark()),
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<ThemeChanger>(
+              create: (_) => ThemeChanger(ThemeData.dark()),
+            ),
+            ChangeNotifierProvider<SettingsProvider>.value(value: settings),
+          ],
           child: MaterialApp(
             home: ThreadReplies(
               post: root,
@@ -544,6 +572,146 @@ void main() {
       final double at = tester.getTopLeft(header(6)).dy;
       expect(at, greaterThanOrEqualTo(0));
       expect(at, lessThan(200));
+    });
+  });
+
+  group('in the flat layout', () {
+    // The replies page of 2: 3 answers it, 4 answers 3, and 5 answers 2 and 3.
+    final Post root = Post(no: 2, time: 1700000000);
+    final List<Post> posts = [
+      Post(no: 1, time: 1700000000),
+      root,
+      Post(no: 3, time: 1700000000, com: '${_quoteOf(2)}<br>Words of 3'),
+      Post(no: 4, time: 1700000000, com: '${_quoteOf(3)}<br>Words of 4'),
+      Post(
+        no: 5,
+        time: 1700000000,
+        com: '${_quoteOf(2)}<br>${_quoteOf(3)}<br>Words of 5',
+      ),
+    ];
+
+    Future<void> pumpFlat(WidgetTester tester) async {
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<ThemeChanger>(
+              create: (_) => ThemeChanger(ThemeData.dark()),
+            ),
+            ChangeNotifierProvider<SettingsProvider>.value(value: settings),
+          ],
+          child: MaterialApp(
+            home: ThreadReplies(
+              post: root,
+              thread: 1,
+              board: 'g',
+              allPosts: posts,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+    }
+
+    setUp(() => settings.setThreadLayout(ThreadLayout.flat));
+
+    double topOf(WidgetTester tester, String words) =>
+        tester.getTopLeft(find.text(words)).dy;
+
+    double leftOf(WidgetTester tester, String words) =>
+        tester.getTopLeft(find.text(words)).dx;
+
+    testWidgets('lists each post once, in order, without indents', (
+      tester,
+    ) async {
+      await pumpFlat(tester);
+
+      expect(find.text('Words of 5'), findsOneWidget);
+      expect(
+        topOf(tester, 'Words of 3'),
+        lessThan(topOf(tester, 'Words of 4')),
+      );
+      expect(
+        topOf(tester, 'Words of 4'),
+        lessThan(topOf(tester, 'Words of 5')),
+      );
+      expect(leftOf(tester, 'Words of 4'), leftOf(tester, 'Words of 3'));
+    });
+
+    testWidgets('tapping a post folds just that post', (tester) async {
+      await pumpFlat(tester);
+
+      await tester.tap(find.text('Words of 4'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Words of 4'), findsNothing);
+      expect(find.text('Words of 5'), findsOneWidget);
+      expect(find.byIcon(CupertinoIcons.chevron_right), findsOneWidget);
+    });
+
+    testWidgets('tapping it again brings it back', (tester) async {
+      await pumpFlat(tester);
+
+      await tester.tap(find.text('Words of 4'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(CupertinoIcons.chevron_right));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Words of 4'), findsOneWidget);
+    });
+
+    testWidgets('a folded post with replies still opens them from its count', (
+      tester,
+    ) async {
+      await pumpFlat(tester);
+
+      await tester.tap(find.text('Words of 3'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(CupertinoIcons.reply));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Replies to #2'), findsOneWidget);
+    });
+
+    testWidgets('its count opens its replies', (tester) async {
+      await pumpFlat(tester);
+
+      await tester.tap(find.byIcon(CupertinoIcons.reply));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Replies to #2'), findsOneWidget);
+    });
+
+    testWidgets('no quote stands out, as no post is under another', (
+      tester,
+    ) async {
+      await pumpFlat(tester);
+
+      // 5 quotes 2 and 3; under 3 in the nested layout, only that one would.
+      expect(find.byIcon(CupertinoIcons.arrow_turn_left_up), findsNWidgets(4));
+    });
+
+    testWidgets('a quote still jumps, without a new page', (tester) async {
+      await pumpFlat(tester);
+
+      await tester.tap(find.text('#2').last);
+      await tester.pumpAndSettle(const Duration(seconds: 2));
+
+      expect(find.byType(ThreadRepliesTo), findsNothing);
+    });
+
+    testWidgets('switching in Settings relays the open list', (tester) async {
+      await pumpFlat(tester);
+      final double flat = leftOf(tester, 'Words of 4');
+
+      await settings.setThreadLayout(ThreadLayout.nested);
+      await tester.pumpAndSettle(const Duration(seconds: 1));
+
+      expect(leftOf(tester, 'Words of 4'), greaterThan(flat));
+
+      await settings.setThreadLayout(ThreadLayout.flat);
+      await tester.pumpAndSettle(const Duration(seconds: 1));
+
+      expect(leftOf(tester, 'Words of 4'), flat);
     });
   });
 

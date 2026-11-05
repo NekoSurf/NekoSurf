@@ -36,6 +36,7 @@ class ThreadPagePost extends StatefulWidget {
     this.onToggleFold,
     this.folded = false,
     this.isPreview = false,
+    this.countOpensReplies = false,
     this.onTapQuote,
     this.repliedTo,
     this.number,
@@ -59,6 +60,10 @@ class ThreadPagePost extends StatefulWidget {
   /// Shown in full elsewhere: this is a short, dimmed preview, and
   /// [onToggleFold] moves it here.
   final bool isPreview;
+
+  /// Its count opens its replies on their own page even though it can fold, as
+  /// they aren't listed below it.
+  final bool countOpensReplies;
 
   /// See [ThreadPostComment.onTapQuote].
   final bool Function(int post)? onTapQuote;
@@ -353,6 +358,8 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     final VoidCallback? fold = widget.onToggleFold;
     final bool folded = fold != null && widget.folded;
     final bool isPreview = fold != null && widget.isPreview;
+    final bool opensReplies = fold == null || widget.countOpensReplies;
+    final bool isHidden = folded || isPreview;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -405,10 +412,12 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                       child: CountryFlag.fromCountryCode(country),
                     ),
                   ),
-                if (widget.replyCount > 0 || folded || isPreview)
+                if (widget.replyCount > 0 || isHidden)
                   GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onTap: fold ?? _openReplies,
+                    onTap: opensReplies && widget.replyCount > 0
+                        ? _openReplies
+                        : fold,
                     child: Padding(
                       padding: const EdgeInsets.only(
                         left: 14,
@@ -430,14 +439,26 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                             const SizedBox(width: 3),
                           ],
                           Icon(
-                            folded || isPreview
+                            opensReplies && widget.replyCount > 0
+                                ? CupertinoIcons.reply
+                                : isHidden
                                 ? CupertinoIcons.chevron_right
-                                : fold != null
-                                ? CupertinoIcons.chevron_down
-                                : CupertinoIcons.reply,
+                                : CupertinoIcons.chevron_down,
                             size: 12,
                             color: muted,
                           ),
+                          // Its count opens its replies: this still says it's
+                          // folded.
+                          if (folded &&
+                              widget.countOpensReplies &&
+                              widget.replyCount > 0) ...[
+                            const SizedBox(width: 6),
+                            Icon(
+                              CupertinoIcons.chevron_right,
+                              size: 12,
+                              color: muted,
+                            ),
+                          ],
                         ],
                       ),
                     ),

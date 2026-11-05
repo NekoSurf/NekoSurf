@@ -6,6 +6,7 @@
 - Tap any reply to fold it and its replies down to one line, and again to bring them back
 - A reply that quotes several posts shows under each of them, unless one is already above it in that branch, with the quote of the post it's under standing out; a longer one is a short preview in all but one place, and tapping it moves it and its replies there
 - Tapping a quote jumps to that post
+- Prefer posts in the order they were posted? Choose Flat under Thread layout in Settings → Threads
 - Replies posted while you're reading appear at the bottom, so the list doesn't move; they join their post the next time you open the thread
 
 ### 👈 Swipe back from anywhere

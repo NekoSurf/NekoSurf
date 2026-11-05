@@ -399,6 +399,48 @@ void main() {
     });
   });
 
+  group('buildFlatRows', () {
+    final Map<int, int> counts = buildReplyDescendantCountIndex(posts);
+
+    test('lists every post once, in the order it was posted', () {
+      final List<ThreadRow> rows = buildFlatRows(posts, replyCounts: counts);
+
+      expect(_numbers(rows), [1, 2, 3, 4, 5, 6, 7]);
+      expect(rows.every((r) => r.ancestors.isEmpty), isTrue);
+      expect(rows.map((r) => r.path).toSet(), hasLength(posts.length));
+    });
+
+    test('counts the replies below each post, and what was read', () {
+      final List<ThreadRow> rows = buildFlatRows(posts, replyCounts: counts);
+
+      expect(_row(rows, 2).replyCount, 3);
+      expect(_row(rows, 7).replyCount, 0);
+      expect(rows.last.seen, posts.length - 1);
+    });
+
+    test('folds a post on its own, but not the first one', () {
+      final List<ThreadRow> rows = buildFlatRows(
+        posts,
+        replyCounts: counts,
+        collapsed: {'1', '3'},
+      );
+
+      expect(_numbers(rows), [1, 2, 3, 4, 5, 6, 7]);
+      expect(_row(rows, 1).collapsed, isFalse);
+      expect(_row(rows, 3).collapsed, isTrue);
+    });
+
+    test('keeps a part of a thread where it is in the thread', () {
+      final List<ThreadRow> rows = buildFlatRows(
+        [posts[1], posts[6]],
+        replyCounts: counts,
+        positions: {for (int i = 0; i < posts.length; i++) posts[i].no!: i},
+      );
+
+      expect(_row(rows, 7).postIndex, 6);
+    });
+  });
+
   group('ThreadBranch', () {
     test('moves each level less than the one before', () {
       expect(ThreadBranch.indentFor(0), 0);

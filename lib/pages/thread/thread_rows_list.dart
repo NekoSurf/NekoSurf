@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/Models/post.dart';
+import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
+import 'package:flutter_chan/enums/enums.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/pages/thread/thread_page_post.dart';
 import 'package:flutter_chan/pages/thread/thread_rows.dart';
@@ -19,6 +21,9 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
   final ItemScrollController itemScrollController = ItemScrollController();
   final ItemPositionsListener itemPositionsListener =
       ItemPositionsListener.create();
+
+  /// How the rows are laid out, as chosen in Settings.
+  ThreadLayout threadLayout = ThreadLayout.nested;
 
   /// The folded rows, by [ThreadRow.path].
   final Set<String> collapsedRows = <String>{};
@@ -37,6 +42,45 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
   List<Post> _listedPosts = const <Post>[];
   Timer? _highlightTimer;
   String? _highlightedRow;
+
+  @override
+  void initState() {
+    super.initState();
+    threadLayout = Provider.of<SettingsProvider>(
+      context,
+      listen: false,
+    ).getThreadLayout();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final ThreadLayout chosen = Provider.of<SettingsProvider>(
+      context,
+    ).getThreadLayout();
+    if (chosen != threadLayout) {
+      _switchLayout(chosen);
+    }
+  }
+
+  /// Lays the rows out anew, keeping the post at the top of the screen there.
+  void _switchLayout(ThreadLayout chosen) {
+    final ItemPosition? top = _topPosition();
+    final int? post = top != null && top.index < rows.length
+        ? rows[top.index].post.no
+        : null;
+    threadLayout = chosen;
+    rebuildRows();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final int? row = rowByPost[post];
+      if (mounted && row != null && itemScrollController.isAttached) {
+        itemScrollController.jumpTo(
+          index: row,
+          alignment: top?.itemLeadingEdge ?? 0,
+        );
+      }
+    });
+  }
 
   /// The rows to show, given [collapsedRows] and [primaryParents].
   List<ThreadRow> buildRows();
@@ -259,12 +303,8 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
     ThreadRow? target = row >= 0 ? rows[row] : null;
     if (target == null || target.isPreview) {
       // It's folded away: see where it'd be if open.
-      final Set<String> folded = Set<String>.of(collapsedRows);
-      collapsedRows.clear();
-      final List<ThreadRow> open = buildRows();
-      collapsedRows.addAll(folded);
       target =
-          open
+          _rowsWithoutFolds()
               .where((ThreadRow r) => r.post.no == post && !r.isPreview)
               .firstOrNull ??
           target;
@@ -275,6 +315,15 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
 
     _goToRow(target, belowHeader);
     return true;
+  }
+
+  /// The rows there would be with nothing folded.
+  List<ThreadRow> _rowsWithoutFolds() {
+    final Set<String> folded = Set<String>.of(collapsedRows);
+    collapsedRows.clear();
+    final List<ThreadRow> open = buildRows();
+    collapsedRows.addAll(folded);
+    return open;
   }
 
   /// Scrolls to the post the media viewer ended on.
@@ -303,6 +352,7 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
     Set<int> preloadVideos = const <int>{},
   }) {
     final bool isDark = Provider.of<ThemeChanger>(context).isDark;
+    final bool isFlat = threadLayout == ThreadLayout.flat;
 
     return ScrollablePositionedList.builder(
       padding: EdgeInsets.only(
@@ -353,9 +403,13 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
                     : () => _toggleRow(row.path),
                 folded: row.collapsed,
                 isPreview: row.isPreview,
+                countOpensReplies: isFlat,
                 onTapQuote: _showQuotedPost,
-                // The top level answers the post the list is about.
-                repliedTo: row.ancestors.isNotEmpty
+                // The top level answers the post the list is about. Flat, no
+                // post is under another, so none of its quotes stands out.
+                repliedTo: isFlat
+                    ? null
+                    : row.ancestors.isNotEmpty
                     ? row.ancestors.last
                     : rootPost ?? allPosts.firstOrNull?.no,
                 preloadVideo: preloadVideos.contains(postId ?? post.tim),

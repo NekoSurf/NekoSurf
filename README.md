@@ -40,7 +40,7 @@
 
 ### 📖 Read
 
-- Threads read like comments: replies nested under the post they answer, and folded away with a tap
+- Threads read like comments: replies nested under the post they answer, and folded away with a tap; or a flat list in the order they were posted, if you prefer
 - Bookmarks that show when a thread is archived or deleted
 - Threads can open where you left off, and a history keeps the ones you visited
 - Swipe right anywhere on a page to go back

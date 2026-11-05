@@ -60,6 +60,20 @@ void main() {
   });
 
   group('SettingsProvider', () {
+    test(
+      'threads are nested until flat is chosen, which is remembered',
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        final SharedPreferences prefs = await SharedPreferences.getInstance();
+
+        final SettingsProvider settings = SettingsProvider(prefs);
+        expect(settings.getThreadLayout(), ThreadLayout.nested);
+
+        await settings.setThreadLayout(ThreadLayout.flat);
+        expect(SettingsProvider(prefs).getThreadLayout(), ThreadLayout.flat);
+      },
+    );
+
     test('has the saved settings as soon as it exists', () async {
       SharedPreferences.setMockInitialValues({
         'boardSort': 'byReplyCount',

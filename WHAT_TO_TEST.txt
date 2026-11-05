@@ -7,6 +7,7 @@ Open a busy thread.
 • Tap a quote tag: the list jumps to that post, which flashes, unfolding it if folded. The post a reply sits under stands out among its quotes.
 • Long-press its text: that should select the text, not fold. Tap a quote like #38 or OP, in a sentence too, an image or a video: those should do their own thing, not fold.
 • A reply quoting two posts shows under both, or only under the lower one if it answers the other. If it has replies, an image or a lot of text, it's in full under the first and a short dimmed preview under the others: tap a preview and it all moves there, without the list moving.
+• Settings → Threads → Thread layout → Flat: every post in posting order, no indents, tapping folds just that post, and a post's count opens its replies.
 • Leave a thread partway, then open it again: it should resume on the same post, and the "new" count in History should look right.
 
 Please also try what couldn't be checked on a simulator:

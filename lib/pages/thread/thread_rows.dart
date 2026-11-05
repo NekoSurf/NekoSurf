@@ -242,6 +242,32 @@ List<ThreadRow> buildNestedRows(
   return rows;
 }
 
+/// The thread with every post in the order it was posted, for
+/// [ThreadLayout.flat].
+///
+/// [replyCounts] says how many replies are below each post, wherever they're
+/// listed, and [positions] where posts are in the thread, for when [posts] is
+/// only a part of it. A post in [collapsed] folds on its own, as its replies
+/// aren't below it here; the first one, the post the list is about, doesn't.
+List<ThreadRow> buildFlatRows(
+  List<Post> posts, {
+  required Map<int, int> replyCounts,
+  Set<String> collapsed = const <String>{},
+  Map<int, int>? positions,
+}) {
+  return <ThreadRow>[
+    for (int index = 0; index < posts.length; index++)
+      ThreadRow(
+        post: posts[index],
+        path: '${posts[index].no}',
+        postIndex: positions?[posts[index].no] ?? index,
+        seen: index,
+        replyCount: replyCounts[posts[index].no] ?? 0,
+        collapsed: index > 0 && collapsed.contains('${posts[index].no}'),
+      ),
+  ];
+}
+
 /// How a post is named in a thread of [allPosts]: `OP`, its place like `#38`,
 /// or its number if it isn't in the thread.
 String postLabel(int post, List<Post> allPosts) {

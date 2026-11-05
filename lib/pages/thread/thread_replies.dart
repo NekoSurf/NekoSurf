@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/Models/post.dart';
+import 'package:flutter_chan/enums/enums.dart';
 import 'package:flutter_chan/pages/thread/thread_rows.dart';
 import 'package:flutter_chan/pages/thread/thread_rows_list.dart';
 import 'package:flutter_chan/widgets/dash_scaffold.dart';
@@ -29,6 +30,7 @@ class _ThreadRepliesState extends State<ThreadReplies>
   late final List<Post> _branch;
   late final Map<int, List<Post>> _children;
   late final Map<int, int> _positions;
+  late final Map<int, int> _replyCounts;
 
   @override
   void initState() {
@@ -51,18 +53,29 @@ class _ThreadRepliesState extends State<ThreadReplies>
         if (widget.allPosts[index].no != null)
           widget.allPosts[index].no!: index,
     };
+    _replyCounts = buildReplyDescendantCountIndex(widget.allPosts);
     rebuildRows();
   }
 
   // The post itself is on the page before this one; its replies start here.
   @override
-  List<ThreadRow> buildRows() => buildNestedRows(
-    _branch,
-    children: _children,
-    collapsed: collapsedRows,
-    primaryParents: primaryParents,
-    positions: _positions,
-  ).skip(1).toList();
+  List<ThreadRow> buildRows() =>
+      (threadLayout == ThreadLayout.flat
+              ? buildFlatRows(
+                  _branch,
+                  replyCounts: _replyCounts,
+                  collapsed: collapsedRows,
+                  positions: _positions,
+                )
+              : buildNestedRows(
+                  _branch,
+                  children: _children,
+                  collapsed: collapsedRows,
+                  primaryParents: primaryParents,
+                  positions: _positions,
+                ))
+          .skip(1)
+          .toList();
 
   @override
   Widget build(BuildContext context) {

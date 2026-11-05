@@ -91,7 +91,7 @@ class ThreadsSettings extends StatelessWidget {
 
     return DashScaffold(
       title: 'Threads',
-      subtitle: 'Defaults for boards and feed',
+      subtitle: 'How boards, the feed and threads look',
       slivers: [
         SliverToBoxAdapter(
           child: Column(
@@ -179,6 +179,44 @@ class ThreadsSettings extends StatelessWidget {
                       value: settings.getBoardViewMode() == ViewMode.grid
                           ? 'Grid'
                           : 'List',
+                      onTap: open,
+                    ),
+                  ),
+                ],
+              ),
+              SettingsGroup(
+                title: 'Reading',
+                footer:
+                    'Nested puts each reply under the post it answers, so '
+                    'you can fold whole conversations. Flat lists every post in '
+                    'the order it was posted.',
+                children: [
+                  DashMenuAnchor(
+                    menuChildren: [
+                      buildMenuItem(
+                        title: 'Nested',
+                        icon: CupertinoIcons.list_bullet_indent,
+                        isSelected:
+                            settings.getThreadLayout() == ThreadLayout.nested,
+                        onPressed: () =>
+                            settings.setThreadLayout(ThreadLayout.nested),
+                      ),
+                      buildMenuItem(
+                        title: 'Flat',
+                        icon: CupertinoIcons.list_bullet,
+                        isSelected:
+                            settings.getThreadLayout() == ThreadLayout.flat,
+                        onPressed: () =>
+                            settings.setThreadLayout(ThreadLayout.flat),
+                      ),
+                    ],
+                    builder: (context, open) => SettingsRow(
+                      icon: CupertinoIcons.list_bullet_indent,
+                      color: const Color(0xFF60A5FA),
+                      title: 'Thread layout',
+                      value: settings.getThreadLayout() == ThreadLayout.nested
+                          ? 'Nested'
+                          : 'Flat',
                       onTap: open,
                     ),
                   ),

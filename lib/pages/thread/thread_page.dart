@@ -9,6 +9,7 @@ import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/history_model.dart';
 import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/watched_posts_model.dart';
+import 'package:flutter_chan/enums/enums.dart';
 import 'package:flutter_chan/pages/bookmark_button.dart';
 import 'package:flutter_chan/pages/thread/thread_gallery_page.dart';
 import 'package:flutter_chan/pages/thread/thread_rows.dart';
@@ -237,16 +238,22 @@ class ThreadPageState extends State<ThreadPage>
   }
 
   @override
-  List<ThreadRow> buildRows() => buildNestedRows(
-    allPosts,
-    children: _replyChildren,
-    collapsed: collapsedRows,
-    primaryParents: primaryParents,
-    treePosts: _treePosts,
-    opReplyCount: allPosts.isEmpty
-        ? 0
-        : _replyDescendantCountByPost[allPosts.first.no] ?? 0,
-  );
+  List<ThreadRow> buildRows() => threadLayout == ThreadLayout.flat
+      ? buildFlatRows(
+          allPosts,
+          replyCounts: _replyDescendantCountByPost,
+          collapsed: collapsedRows,
+        )
+      : buildNestedRows(
+          allPosts,
+          children: _replyChildren,
+          collapsed: collapsedRows,
+          primaryParents: primaryParents,
+          treePosts: _treePosts,
+          opReplyCount: allPosts.isEmpty
+              ? 0
+              : _replyDescendantCountByPost[allPosts.first.no] ?? 0,
+        );
 
   void loadThread() {
     _liveTimer?.cancel();
