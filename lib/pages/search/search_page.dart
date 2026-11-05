@@ -182,6 +182,7 @@ class _SearchPageState extends State<SearchPage> {
       onRefresh: _refresh,
       actions: [
         DashIconButton(
+          label: 'Open in browser',
           icon: const Icon(CupertinoIcons.globe),
           onPressed: _openInBrowser,
         ),

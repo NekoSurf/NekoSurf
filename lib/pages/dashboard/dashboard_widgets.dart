@@ -409,6 +409,9 @@ class DashBoardRow extends StatelessWidget {
               onPressed: onToggleFavorite,
               child: Icon(
                 isFavorite ? CupertinoIcons.heart_fill : CupertinoIcons.heart,
+                semanticLabel: isFavorite
+                    ? 'Remove from favorites'
+                    : 'Add to favorites',
                 size: 20,
                 color: isFavorite
                     ? const Color(0xFFF472B6)

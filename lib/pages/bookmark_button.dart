@@ -22,6 +22,7 @@ class _BookmarkButtonState extends State<BookmarkButton> {
         favorite != null && bookmarks.isBookmarked(favorite);
 
     return DashIconButton(
+      label: isFavorite ? 'Remove bookmark' : 'Bookmark',
       onPressed: () {
         if (favorite == null) {
           return;

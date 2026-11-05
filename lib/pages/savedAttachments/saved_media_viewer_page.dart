@@ -230,17 +230,20 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
       actions: [
         SharedMediaViewerAction(
           icon: CupertinoIcons.trash,
+          label: 'Delete',
           onPressed: (_) => _removeCurrentAttachment(),
           isBusy: _isRemoving,
         ),
         SharedMediaViewerAction(
           icon: CupertinoIcons.arrow_down_to_line,
+          label: 'Save to Photos',
           onPressed: (_) => _downloadCurrentToGallery(),
           isBusy: _downloading.contains(currentFileName),
           isCompleted: _downloadedChecks.containsKey(currentFileName),
         ),
         SharedMediaViewerAction(
           icon: CupertinoIcons.share,
+          label: 'Share',
           onPressed: (_) => _shareCurrentMedia(),
           isBusy: _isSharing,
         ),

@@ -496,6 +496,11 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                                 : CupertinoIcons.chevron_down,
                             size: 12,
                             color: muted,
+                            semanticLabel: widget.replyCount > 0
+                                ? 'replies'
+                                : isHidden
+                                ? 'Folded'
+                                : 'Open',
                           ),
                           // Its count opens its replies: this still says it's
                           // folded.

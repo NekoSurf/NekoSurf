@@ -117,6 +117,9 @@ class _FeedPageState extends State<FeedPage> {
       onRefresh: _loadFeed,
       actions: [
         DashIconButton(
+          label: settings.getBoardViewMode() == ViewMode.grid
+              ? 'Show as list'
+              : 'Show as grid',
           icon: Icon(
             settings.getBoardViewMode() == ViewMode.grid
                 ? CupertinoIcons.list_bullet

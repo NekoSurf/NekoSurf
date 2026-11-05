@@ -19,6 +19,9 @@
 ### 📶 Data saver
 - Turn it on in Settings → Data and threads show only thumbnails: images and videos load when you open them
 
+### ♿ VoiceOver and TalkBack
+- Icon buttons now say what they do
+
 ## What's fixed
 
 - Bookmarks no longer say Deleted when 4chan is limiting requests or can't be reached, and can still be opened then

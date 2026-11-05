@@ -308,18 +308,21 @@ class BoardListState extends State<BoardList> {
           ),
           actions: [
             DashIconButton(
+              label: 'History',
               icon: const Icon(CupertinoIcons.clock),
               onPressed: () => Navigator.of(
                 context,
               ).push(BackSwipePageRoute(builder: (_) => const HistoryPage())),
             ),
             DashIconButton(
+              label: 'Search',
               icon: const Icon(CupertinoIcons.search),
               onPressed: () => Navigator.of(
                 context,
               ).push(BackSwipePageRoute(builder: (_) => const SearchPage())),
             ),
             DashIconButton(
+              label: 'Open a link',
               icon: const Icon(CupertinoIcons.link),
               onPressed: showOpenLinkDialog,
             ),
@@ -371,6 +374,7 @@ class BoardListState extends State<BoardList> {
       final bool hasSelection = savedAttachments.selected.isNotEmpty;
       return [
         DashIconButton(
+          label: 'Save to Photos',
           icon: const Icon(CupertinoIcons.arrow_down_to_line),
           onPressed: hasSelection
               ? () async {
@@ -394,6 +398,7 @@ class BoardListState extends State<BoardList> {
               : () {},
         ),
         DashIconButton(
+          label: 'Share',
           icon: const Icon(CupertinoIcons.share),
           onPressed: hasSelection
               ? () => shareSavedAttachments(
@@ -403,6 +408,7 @@ class BoardListState extends State<BoardList> {
               : () {},
         ),
         DashIconButton(
+          label: 'Delete',
           icon: const Icon(CupertinoIcons.trash, color: Color(0xFFFF5D6C)),
           onPressed: hasSelection
               ? () => showDashDialog<void>(
@@ -447,6 +453,7 @@ class BoardListState extends State<BoardList> {
           ],
         ),
         DashIconButton(
+          label: 'Stop selecting',
           icon: const Icon(CupertinoIcons.xmark),
           onPressed: () => savedAttachments.setSelecting(false),
         ),
@@ -512,6 +519,7 @@ class BoardListState extends State<BoardList> {
     return [
       CupertinoMenuButton(
         icon: CupertinoIcons.sort_down,
+        label: 'Sort',
         menuChildren: [
           buildMenuItem(
             title: 'Newest',

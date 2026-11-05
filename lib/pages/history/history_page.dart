@@ -123,6 +123,7 @@ class _HistoryPageState extends State<HistoryPage> {
       actions: [
         if (history.threads.isNotEmpty)
           DashIconButton(
+            label: 'Clear history',
             icon: const Icon(CupertinoIcons.trash),
             onPressed: () => _confirmClear(history),
           ),

@@ -661,6 +661,7 @@ class ThreadPageState extends State<ThreadPage>
       subtitle: _threadStatus,
       actions: [
         DashIconButton(
+          label: 'Gallery',
           icon: const Icon(CupertinoIcons.square_grid_3x2),
           onPressed: _openGallery,
         ),

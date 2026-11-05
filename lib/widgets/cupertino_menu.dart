@@ -6,10 +6,12 @@ class CupertinoMenuButton extends StatelessWidget {
   const CupertinoMenuButton({
     super.key,
     this.icon = CupertinoIcons.ellipsis_circle,
+    this.label = 'More',
     required this.menuChildren,
   });
 
   final IconData icon;
+  final String label;
   final List<DashMenuEntry> menuChildren;
 
   @override
@@ -17,7 +19,7 @@ class CupertinoMenuButton extends StatelessWidget {
     return DashMenuAnchor(
       menuChildren: menuChildren,
       builder: (context, open) =>
-          DashIconButton(icon: Icon(icon), onPressed: open),
+          DashIconButton(label: label, icon: Icon(icon), onPressed: open),
     );
   }
 }

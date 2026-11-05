@@ -287,6 +287,7 @@ class _InlineOverlay extends StatelessWidget {
                     video.muted ? Icons.volume_off : Icons.volume_up,
                     color: Colors.white,
                     size: 16,
+                    semanticLabel: video.muted ? 'Unmute' : 'Mute',
                   ),
                 ),
               ),

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_chan/API/api.dart';
@@ -23,6 +24,7 @@ import 'package:flutter_chan/pages/thread/thread_rows.dart';
 import 'package:flutter_chan/pages/thread/thread_rows_list.dart';
 import 'package:flutter_chan/services/board_link.dart';
 import 'package:flutter_chan/services/string.dart';
+import 'package:flutter_chan/widgets/dash_header.dart';
 import 'package:flutter_chan/widgets/spoiler_cover.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -497,6 +499,26 @@ void main() {
       },
       variant: TargetPlatformVariant.only(TargetPlatform.iOS),
     );
+
+    testWidgets('an icon button says what it does to VoiceOver', (
+      tester,
+    ) async {
+      final SemanticsHandle handle = tester.ensureSemantics();
+      await tester.pumpWidget(
+        app(
+          Scaffold(
+            body: DashIconButton(
+              label: 'Gallery',
+              icon: const Icon(CupertinoIcons.square_grid_3x2),
+              onPressed: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.bySemanticsLabel('Gallery'), findsOneWidget);
+      handle.dispose();
+    });
   });
 }
 

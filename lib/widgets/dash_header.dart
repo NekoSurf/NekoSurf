@@ -12,10 +12,13 @@ const double kDashTabBarHeight = 64;
 class DashIconButton extends StatefulWidget {
   const DashIconButton({
     super.key,
+    required this.label,
     required this.icon,
     required this.onPressed,
   });
 
+  /// What it does, for VoiceOver.
+  final String label;
   final Widget icon;
   final VoidCallback? onPressed;
 
@@ -30,30 +33,37 @@ class _DashIconButtonState extends State<DashIconButton> {
   Widget build(BuildContext context) {
     final bool isDark = CupertinoTheme.brightnessOf(context) == Brightness.dark;
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapCancel: () => setState(() => _pressed = false),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTap: widget.onPressed,
-      child: AnimatedScale(
-        scale: _pressed ? 0.9 : 1,
-        duration: const Duration(milliseconds: 100),
-        child: Padding(
-          padding: const EdgeInsets.only(left: 8),
-          child: SizedBox.square(
-            dimension: 40,
-            child: Frosted(
-              radius: 14,
-              blur: 16,
-              color: Colors.white.withValues(alpha: isDark ? 0.08 : 0.55),
-              borderColor: isDark
-                  ? Colors.white.withValues(alpha: 0.12)
-                  : Colors.black.withValues(alpha: 0.08),
-              child: Center(
-                child: IconTheme(
-                  data: IconThemeData(color: DashColors.text(isDark), size: 19),
-                  child: widget.icon,
+    return Semantics(
+      label: widget.label,
+      button: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapCancel: () => setState(() => _pressed = false),
+        onTapUp: (_) => setState(() => _pressed = false),
+        onTap: widget.onPressed,
+        child: AnimatedScale(
+          scale: _pressed ? 0.9 : 1,
+          duration: const Duration(milliseconds: 100),
+          child: Padding(
+            padding: const EdgeInsets.only(left: 8),
+            child: SizedBox.square(
+              dimension: 40,
+              child: Frosted(
+                radius: 14,
+                blur: 16,
+                color: Colors.white.withValues(alpha: isDark ? 0.08 : 0.55),
+                borderColor: isDark
+                    ? Colors.white.withValues(alpha: 0.12)
+                    : Colors.black.withValues(alpha: 0.08),
+                child: Center(
+                  child: IconTheme(
+                    data: IconThemeData(
+                      color: DashColors.text(isDark),
+                      size: 19,
+                    ),
+                    child: widget.icon,
+                  ),
                 ),
               ),
             ),
@@ -123,6 +133,7 @@ class DashHeader extends StatelessWidget {
                             color: DashColors.accent.withValues(alpha: 0.14),
                             child: const Center(
                               child: Icon(
+                                semanticLabel: 'Back',
                                 CupertinoIcons.chevron_left,
                                 size: 18,
                                 color: DashColors.accent,

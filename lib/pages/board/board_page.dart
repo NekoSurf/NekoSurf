@@ -168,6 +168,7 @@ class BoardPageState extends State<BoardPage> {
       keyboardDismiss: true,
       actions: [
         DashIconButton(
+          label: isFavorite ? 'Remove from favorites' : 'Add to favorites',
           icon: Icon(
             isFavorite ? CupertinoIcons.heart_fill : CupertinoIcons.heart,
             color: CupertinoColors.systemRed,
@@ -177,6 +178,9 @@ class BoardPageState extends State<BoardPage> {
               : favorites.addFavorites(widget.board),
         ),
         DashIconButton(
+          label: settings.getBoardViewMode() == ViewMode.grid
+              ? 'Show as list'
+              : 'Show as grid',
           icon: Icon(
             settings.getBoardViewMode() == ViewMode.grid
                 ? CupertinoIcons.list_bullet
@@ -191,6 +195,7 @@ class BoardPageState extends State<BoardPage> {
         ),
         if (_hasArchive)
           DashIconButton(
+            label: 'Archive',
             icon: const Icon(CupertinoIcons.archivebox),
             onPressed: () => Navigator.of(context).push(
               BackSwipePageRoute(

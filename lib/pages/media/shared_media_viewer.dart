@@ -20,6 +20,7 @@ import 'package:provider/provider.dart';
 class SharedMediaViewerAction {
   const SharedMediaViewerAction({
     required this.icon,
+    required this.label,
     required this.onPressed,
     this.isBusy = false,
     this.progress,
@@ -27,6 +28,9 @@ class SharedMediaViewerAction {
   });
 
   final IconData icon;
+
+  /// What it does, for VoiceOver.
+  final String label;
 
   /// Gets the button's context, to anchor a menu to it.
   final ValueChanged<BuildContext> onPressed;
@@ -367,6 +371,7 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
                     _OverlayButton(
                       onPressed: widget.onClose,
                       child: const Icon(
+                        semanticLabel: 'Back',
                         CupertinoIcons.chevron_left,
                         color: Colors.white,
                         size: 18,
@@ -524,6 +529,7 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
                     : action.icon,
                 color: Colors.white,
                 size: 18,
+                semanticLabel: action.isCompleted ? 'Done' : action.label,
               ),
       ),
     );
@@ -879,6 +885,7 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
                       : CupertinoIcons.play_fill,
                   color: Colors.black,
                   size: 17,
+                  semanticLabel: _video.isPlaying ? 'Pause' : 'Play',
                 ),
               ),
             ),
@@ -994,6 +1001,9 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
                       ? CupertinoIcons.forward_end_fill
                       : CupertinoIcons.repeat,
                   size: 20,
+                  semanticLabel: widget.autoAdvance
+                      ? 'Plays the next one after this'
+                      : 'Plays on repeat',
                   color: widget.autoAdvance ? DashColors.accent : Colors.white,
                 ),
               ),

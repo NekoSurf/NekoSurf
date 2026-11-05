@@ -89,6 +89,7 @@ class _ArchivePageState extends State<ArchivePage> {
       keyboardDismiss: true,
       actions: [
         DashIconButton(
+          label: grid ? 'Show as list' : 'Show as grid',
           icon: Icon(
             grid ? CupertinoIcons.list_bullet : CupertinoIcons.square_grid_2x2,
           ),

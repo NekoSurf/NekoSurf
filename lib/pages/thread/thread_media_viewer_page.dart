@@ -626,12 +626,14 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
         if (isSaved)
           SharedMediaViewerAction(
             icon: CupertinoIcons.trash,
+            label: 'Remove from Saved',
             onPressed: (_) => _removeFromAttachments(),
             isBusy: _removing.contains(key),
           )
         else
           SharedMediaViewerAction(
             icon: CupertinoIcons.add_circled,
+            label: 'Save',
             onPressed: (_) => _saveToAttachments(),
             isBusy: savedAttachments.isSaving(key),
             progress: savedAttachments.saveProgressOf(key),
@@ -639,6 +641,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
           ),
         SharedMediaViewerAction(
           icon: CupertinoIcons.arrow_down_to_line,
+          label: 'Save to Photos',
           onPressed: (_) => _downloadToGallery(),
           isBusy: _downloading.contains(key),
           progress: _downloadProgress[key],
@@ -646,12 +649,14 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
         ),
         SharedMediaViewerAction(
           icon: CupertinoIcons.share,
+          label: 'Share',
           onPressed: (_) => _shareCurrentMedia(),
           isBusy: _sharing.contains(key),
           progress: _shareProgress[key],
         ),
         SharedMediaViewerAction(
           icon: CupertinoIcons.search,
+          label: 'Search for this image',
           // Search engines only take images, so videos use their thumbnail.
           onPressed: (BuildContext anchor) => showReverseImageSearchMenu(
             anchor,
