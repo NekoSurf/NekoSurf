@@ -420,6 +420,22 @@ class ThreadPageState extends State<ThreadPage>
   @override
   void onPulledPastEnd() => _refresh();
 
+  /// Opened by its number alone, like from a link, it's named once it's loaded.
+  String get _title {
+    final Post? op = allPosts.firstOrNull;
+    final bool isPlaceholder =
+        widget.post.tim == null &&
+        widget.post.sub == null &&
+        widget.post.com == null;
+    if (op != null && isPlaceholder) {
+      final String name = unescape(cleanTags(op.sub ?? op.com ?? '')).trim();
+      if (name.isNotEmpty) {
+        return name;
+      }
+    }
+    return unescape(cleanTags(widget.threadName));
+  }
+
   /// What's become of the thread, if it isn't live any more.
   String? get _threadStatus {
     final Post? op = allPosts.firstOrNull;
@@ -640,7 +656,7 @@ class ThreadPageState extends State<ThreadPage>
   @override
   Widget build(BuildContext context) {
     return DashBarScaffold(
-      title: unescape(cleanTags(widget.threadName)),
+      title: _title,
       subtitle: _threadStatus,
       actions: [
         DashIconButton(

@@ -10,6 +10,9 @@
 - Pull past the top or bottom of a thread, or choose ⋯ → Refresh, and it tells you how many new posts it found
 - The title bar says when a thread is Archived, Closed or Deleted
 
+### 🔗 Links to other threads and boards
+- Quotes of another thread, like "Previous" links, now open and say "(other thread)", and links to other boards open too
+
 ## What's fixed
 
 - Bookmarks no longer say Deleted when 4chan is limiting requests or can't be reached, and can still be opened then

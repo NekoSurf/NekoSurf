@@ -14,11 +14,14 @@ import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/enums/enums.dart';
+import 'package:flutter_chan/pages/board/board_page.dart';
 import 'package:flutter_chan/pages/media/shared_media_viewer.dart';
+import 'package:flutter_chan/pages/thread/thread_page.dart';
 import 'package:flutter_chan/pages/thread/thread_page_post.dart';
 import 'package:flutter_chan/pages/thread/thread_replied_to.dart';
 import 'package:flutter_chan/pages/thread/thread_rows.dart';
 import 'package:flutter_chan/pages/thread/thread_rows_list.dart';
+import 'package:flutter_chan/services/board_link.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/spoiler_cover.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -54,6 +57,46 @@ void main() {
   });
 
   tearDown(resetRevealedSpoilers);
+
+  group('parseBoardLink', () {
+    test('finds the thread and post of a cross-thread quote', () {
+      expect(parseBoardLink('/g/thread/10#p12'), (
+        board: 'g',
+        thread: 10,
+        post: 12,
+      ));
+      expect(parseBoardLink('/g/thread/10/some-title#q12'), (
+        board: 'g',
+        thread: 10,
+        post: 12,
+      ));
+      expect(parseBoardLink('//boards.4channel.org/g/thread/10'), (
+        board: 'g',
+        thread: 10,
+        post: null,
+      ));
+    });
+
+    test('finds a board', () {
+      for (final String link in [
+        '/g/',
+        '//boards.4chan.org/g/',
+        '/g/catalog#s=linux',
+        'https://boards.4chan.org/g/',
+      ]) {
+        expect(parseBoardLink(link), (
+          board: 'g',
+          thread: null,
+          post: null,
+        ), reason: link);
+      }
+    });
+
+    test('leaves a quote in the same thread, and other sites, alone', () {
+      expect(parseBoardLink('#p12'), isNull);
+      expect(parseBoardLink('https://example.com/g/'), isNull);
+    });
+  });
 
   group('unescape', () {
     test('turns entities into characters', () {
@@ -214,6 +257,54 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 30));
     }
+
+    group('a quote of another thread', () {
+      const String com =
+          '<a href="/g/thread/10#p12" class="quotelink">&gt;&gt;12</a>';
+
+      testWidgets('says so', (tester) async {
+        await pumpPost(tester, Post(no: 3, time: 1700000000, com: com));
+
+        expect(
+          find.textContaining('>>12 (other thread)', findRichText: true),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('opens that thread at the post', (tester) async {
+        await pumpPost(tester, Post(no: 3, time: 1700000000, com: com));
+
+        await tester.tapOnText(find.textRange.ofSubstring('>>12'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+
+        final ThreadPage page = tester.widget<ThreadPage>(
+          find.byType(ThreadPage),
+        );
+        expect(page.board, 'g');
+        expect(page.thread, 10);
+        expect(page.initialPost, 12);
+        await finish(tester);
+      });
+    });
+
+    testWidgets('a link to another board opens it', (tester) async {
+      await pumpPost(
+        tester,
+        Post(
+          no: 3,
+          time: 1700000000,
+          com: '<a href="/wsg/" class="quotelink">&gt;&gt;&gt;/wsg/</a>',
+        ),
+      );
+
+      await tester.tapOnText(find.textRange.ofSubstring('>>>/wsg/'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(tester.widget<BoardPage>(find.byType(BoardPage)).board, 'wsg');
+      await finish(tester);
+    });
 
     testWidgets('a quote of a post that is gone says so', (tester) async {
       answer = (_) => http.Response('{"posts":[{"no":1}]}', 200);

@@ -3,10 +3,13 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/theme.dart';
+import 'package:flutter_chan/pages/board/board_page.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
+import 'package:flutter_chan/pages/thread/thread_page.dart';
 import 'package:flutter_chan/pages/thread/thread_replied_to.dart';
 import 'package:flutter_chan/pages/thread/thread_rows.dart';
 import 'package:flutter_chan/services/back_swipe_route.dart';
+import 'package:flutter_chan/services/board_link.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/spoiler_text.dart';
 import 'package:provider/provider.dart';
@@ -52,6 +55,7 @@ class ThreadPostComment extends StatefulWidget {
 class _ThreadPostCommentState extends State<ThreadPostComment> {
   static final RegExp _spoilerPattern = RegExp(r'<s>(.*?)</s>');
   static final RegExp _linkPattern = RegExp(r'<a [^>]*>(.*?)</a>');
+  static final RegExp _hrefPattern = RegExp('href="([^"]*)"');
   static final RegExp _urlPattern = RegExp(
     r'https?://[\w-]+(\.[\w-]+)+([\w.,@?^=%&:/~+#-]*[\w@?^=%&/~+#-])?',
     caseSensitive: false,
@@ -235,7 +239,22 @@ class _ThreadPostCommentState extends State<ThreadPostComment> {
     if (match == null || match.end != line.trim().length) {
       return null;
     }
+    // Elsewhere: it needs saying, so it's shown like any other link.
+    if (_elsewhere(match.group(0)!) != null) {
+      return null;
+    }
     return _quotedPost(match.group(1)!);
+  }
+
+  /// Where the link [anchor] goes, if that's outside this thread.
+  ({String board, int? thread, int? post})? _elsewhere(String anchor) {
+    final String? href = _hrefPattern.firstMatch(anchor)?.group(1);
+    final target = href == null ? null : parseBoardLink(href);
+    if (target == null ||
+        (target.board == widget.board && target.thread == widget.thread)) {
+      return null;
+    }
+    return target;
   }
 
   /// The post a link's text quotes, like `&gt;&gt;123`, if it's one.
@@ -261,22 +280,29 @@ class _ThreadPostCommentState extends State<ThreadPostComment> {
       }
 
       final String linkText = match.group(1)!;
+      final elsewhere = _elsewhere(match.group(0)!);
       final int? quoted = _quotedPost(linkText);
+      final bool isHere = quoted != null && elsewhere == null;
       spans.add(
         TextSpan(
-          text: quoted != null
+          text: isHere
               ? postLabel(quoted, widget.allPosts)
+              : quoted != null
+              ? '${unescape(cleanTags(linkText))} (other thread)'
               : unescape(cleanTags(linkText)),
           style: TextStyle(
-            color: quoted != null && _isQuieter(quoted)
+            color: isHere && _isQuieter(quoted)
                 ? DashColors.muted(isDark)
                 : _quoteColor(isDark),
             fontWeight: FontWeight.w500,
           ),
-          recognizer: quoted == null
+          recognizer: isHere
+              ? _track(TapGestureRecognizer()..onTap = () => _openQuote(quoted))
+              : elsewhere == null
               ? null
               : _track(
-                  TapGestureRecognizer()..onTap = () => _openQuote(quoted),
+                  TapGestureRecognizer()
+                    ..onTap = () => _openElsewhere(elsewhere),
                 ),
         ),
       );
@@ -338,6 +364,24 @@ class _ThreadPostCommentState extends State<ThreadPostComment> {
           board: widget.board,
           allPosts: widget.allPosts,
         ),
+      ),
+    );
+  }
+
+  /// Opens the board or thread a link names, at the post if it names one.
+  void _openElsewhere(({String board, int? thread, int? post}) target) {
+    final int? thread = target.thread;
+    Navigator.of(context).push(
+      BackSwipePageRoute(
+        builder: (context) => thread == null
+            ? BoardPage(board: target.board, boardName: '/${target.board}/')
+            : ThreadPage(
+                board: target.board,
+                thread: thread,
+                threadName: '/${target.board}/ No.$thread',
+                post: Post(no: thread, board: target.board),
+                initialPost: target.post == thread ? null : target.post,
+              ),
       ),
     );
   }

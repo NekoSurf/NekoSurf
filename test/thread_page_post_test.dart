@@ -316,19 +316,13 @@ void main() {
       expect(find.text('99'), findsOneWidget);
     });
 
-    testWidgets('of another board show as written, and do nothing', (
-      tester,
-    ) async {
+    testWidgets('of another board show as written', (tester) async {
       await pumpQuoting(
         tester,
         '<a href="/g/" class="quotelink">&gt;&gt;&gt;/g/</a>',
       );
 
-      await tester.tapOnText(find.textRange.ofSubstring('>>>/g/'));
-      await tester.pumpAndSettle();
-
-      expect(tester.takeException(), isNull);
-      expect(find.byType(ThreadRepliesTo), findsNothing);
+      expect(find.textContaining('>>>/g/', findRichText: true), findsOneWidget);
     });
   });
 
