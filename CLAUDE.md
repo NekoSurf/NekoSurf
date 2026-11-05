@@ -8,6 +8,29 @@
   GitHub shows the signed commit as Verified. Don't use `--reset-author`,
   which would make Claude the author.
 - End the message with the `Co-Authored-By: Claude ...` line.
+- Commit straight on `main`, without a branch, and don't push: the maintainer
+  does. Only commit when asked.
+
+### Keeping the history readable
+
+The commits since the last push should read as a list of what changed, so each
+one is a feature or fix as a user would name it, not a step in building it.
+Every time you're asked to commit, first compare with what's unpushed:
+
+```sh
+git log --stat origin/main..HEAD
+```
+
+- A change that revises an unpushed feature goes into that feature's commit, so
+  nothing is added and later undone. A new feature or fix gets its own commit.
+- Combine or split unpushed commits when that reads better, without being asked,
+  and say what you did. Never rewrite what's already been pushed.
+- A commit carries its own tests, docs and release-note lines.
+- Regrouping must not change the code: before starting, keep a backup ref
+  (`git update-ref refs/backup/before-regroup HEAD`), and afterwards check that
+  the final tree is the same as the work you started from. Each new or rewritten
+  commit should pass `flutter analyze` and `flutter test` on its own.
+- Update the message of a commit you change, so it's still true.
 
 ## Keeping the docs up to date
 
