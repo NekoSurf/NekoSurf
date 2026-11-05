@@ -124,7 +124,7 @@ class ThreadPageState extends State<ThreadPage>
       no: widget.post.no,
       sub: widget.post.sub,
       com: widget.post.com,
-      imageUrl: '${widget.post.tim}s.jpg',
+      imageUrl: widget.post.thumbnailName,
       board: widget.board,
     );
 
@@ -149,7 +149,7 @@ class ThreadPageState extends State<ThreadPage>
       board: widget.board,
       no: widget.thread,
       title: subject.isNotEmpty ? subject : widget.threadName,
-      imageUrl: op.tim != null ? '${op.tim}s.jpg' : null,
+      imageUrl: op.thumbnailName,
       com: op.com,
     );
 
@@ -163,7 +163,7 @@ class ThreadPageState extends State<ThreadPage>
           no: op.no,
           sub: op.sub,
           com: op.com,
-          imageUrl: '${op.tim}s.jpg',
+          imageUrl: op.thumbnailName,
           board: widget.board,
         );
       });

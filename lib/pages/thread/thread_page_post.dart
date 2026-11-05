@@ -17,6 +17,7 @@ import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/widgets/feed_video_player.dart';
 import 'package:flutter_chan/widgets/image_viewer.dart';
 import 'package:flutter_chan/widgets/media_video.dart';
+import 'package:flutter_chan/widgets/spoiler_cover.dart';
 import 'package:provider/provider.dart';
 
 /// A post as a row: a one-line header, then its text, then its image or
@@ -200,6 +201,22 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     }
   }
 
+  /// The post's image or video, under a cover while it's a spoiler.
+  Widget _buildMedia() {
+    final Widget media = widget.post.isVideo ? _buildVideo() : _buildImage();
+    final int? upload = widget.post.spoilerUpload;
+    if (upload == null) {
+      return media;
+    }
+    return AspectRatio(
+      aspectRatio: _mediaAspectRatio(),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(mediaInlineRadius),
+        child: SpoilerCover(upload: upload, child: media),
+      ),
+    );
+  }
+
   /// The row's width in physical pixels, capped at the original's.
   int? _imageDecodeWidth(BuildContext context) {
     final double target =
@@ -236,12 +253,17 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                       padding: EdgeInsets.only(right: com == null ? 0 : 10),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(6),
-                        child: Image(
-                          image: thumbnailImage(_thumbnailUrl()),
-                          width: 60,
-                          height: 60,
-                          fit: BoxFit.cover,
-                          errorBuilder: imageErrorPlaceholder,
+                        child: SizedBox.square(
+                          dimension: 60,
+                          child: SpoilerCover(
+                            upload: widget.post.spoilerUpload,
+                            canReveal: false,
+                            child: Image(
+                              image: thumbnailImage(_thumbnailUrl()),
+                              fit: BoxFit.cover,
+                              errorBuilder: imageErrorPlaceholder,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -500,7 +522,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
             ],
             if (!folded && !isPreview && post.hasFile) ...[
               const SizedBox(height: 8),
-              if (post.isVideo) _buildVideo() else _buildImage(),
+              _buildMedia(),
             ],
           ],
         ),

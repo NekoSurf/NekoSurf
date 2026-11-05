@@ -11,6 +11,7 @@ import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 import 'package:flutter_chan/widgets/dash_dialogs.dart';
 import 'package:flutter_chan/widgets/frosted.dart';
 import 'package:flutter_chan/widgets/media_video.dart';
+import 'package:flutter_chan/widgets/spoiler_cover.dart';
 import 'package:flutter_chan/widgets/video_scrub_gesture.dart';
 import 'package:preload_page_view/preload_page_view.dart';
 import 'package:provider/provider.dart';
@@ -51,6 +52,7 @@ class SharedMediaViewerItem {
     this.thumbnail,
     this.width,
     this.height,
+    this.spoilerUpload,
   });
 
   final String id;
@@ -63,6 +65,9 @@ class SharedMediaViewerItem {
   /// The video's size, when known up front.
   final int? width;
   final int? height;
+
+  /// See [SpoilerCover.upload].
+  final int? spoilerUpload;
 }
 
 /// A scrollable ignores touches while its page settles, which blocks zoom;
@@ -279,51 +284,58 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
                   _precacheAround(index);
                   widget.onIndexChanged(index);
                 },
-                itemBuilder: (context, index) {
-                  final SharedMediaViewerItem item = widget.items[index];
+                itemBuilder: (context, index) => SpoilerCover(
+                  upload: widget.items[index].spoilerUpload,
+                  // Its backdrop can show now too.
+                  onRevealed: () => setState(() {}),
+                  child: Builder(
+                    builder: (context) {
+                      final SharedMediaViewerItem item = widget.items[index];
 
-                  if (item.isVideo) {
-                    return _SharedMediaVideoPage(
-                      key: ValueKey('shared-media-video-${item.id}'),
-                      item: item,
-                      isActive: _currentIndex == index,
-                      chromeVisible: _chromeVisible,
-                      onTap: _toggleChrome,
-                      rate: _rate,
-                      onCycleRate: _cycleRate,
-                      autoAdvance: settings.getFullscreenAutoAdvance(),
-                      onToggleAutoAdvance: () =>
-                          settings.setFullscreenAutoAdvance(
-                            !settings.getFullscreenAutoAdvance(),
-                          ),
-                      onCompleted: () => _advanceAfter(index),
-                      onScrubStateChanged: (isScrubbing) {
-                        if (!mounted || _isVideoScrubbing == isScrubbing) {
-                          return;
-                        }
+                      if (item.isVideo) {
+                        return _SharedMediaVideoPage(
+                          key: ValueKey('shared-media-video-${item.id}'),
+                          item: item,
+                          isActive: _currentIndex == index,
+                          chromeVisible: _chromeVisible,
+                          onTap: _toggleChrome,
+                          rate: _rate,
+                          onCycleRate: _cycleRate,
+                          autoAdvance: settings.getFullscreenAutoAdvance(),
+                          onToggleAutoAdvance: () =>
+                              settings.setFullscreenAutoAdvance(
+                                !settings.getFullscreenAutoAdvance(),
+                              ),
+                          onCompleted: () => _advanceAfter(index),
+                          onScrubStateChanged: (isScrubbing) {
+                            if (!mounted || _isVideoScrubbing == isScrubbing) {
+                              return;
+                            }
 
-                        setState(() {
-                          _isVideoScrubbing = isScrubbing;
-                        });
-                      },
-                    );
-                  }
-
-                  return _SharedMediaImagePage(
-                    key: ValueKey('shared-media-image-${item.id}'),
-                    item: item,
-                    onTap: _toggleChrome,
-                    onZoomStateChanged: (isZoomed) {
-                      if (!mounted || _isImageZoomed == isZoomed) {
-                        return;
+                            setState(() {
+                              _isVideoScrubbing = isScrubbing;
+                            });
+                          },
+                        );
                       }
 
-                      setState(() {
-                        _isImageZoomed = isZoomed;
-                      });
+                      return _SharedMediaImagePage(
+                        key: ValueKey('shared-media-image-${item.id}'),
+                        item: item,
+                        onTap: _toggleChrome,
+                        onZoomStateChanged: (isZoomed) {
+                          if (!mounted || _isImageZoomed == isZoomed) {
+                            return;
+                          }
+
+                          setState(() {
+                            _isImageZoomed = isZoomed;
+                          });
+                        },
+                      );
                     },
-                  );
-                },
+                  ),
+                ),
               ),
             ),
           ),
@@ -451,22 +463,30 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
         final int upper = page.ceil().clamp(0, itemCount - 1);
         final double t = (page - lower).abs().clamp(0.0, 1.0);
 
-        final ImageProvider<Object> lowerImage = _backdrop(widget.items[lower]);
-        final ImageProvider<Object> upperImage = _backdrop(widget.items[upper]);
+        final ImageProvider<Object>? lowerImage = _backdrop(
+          widget.items[lower],
+        );
+        final ImageProvider<Object>? upperImage = _backdrop(
+          widget.items[upper],
+        );
 
         return Stack(
           fit: StackFit.expand,
           children: [
-            _buildBlurredBackdrop(lowerImage, upper == lower ? 1 : 1 - t),
-            if (upper != lower) _buildBlurredBackdrop(upperImage, t),
+            if (lowerImage != null)
+              _buildBlurredBackdrop(lowerImage, upper == lower ? 1 : 1 - t),
+            if (upper != lower && upperImage != null)
+              _buildBlurredBackdrop(upperImage, t),
           ],
         );
       },
     );
   }
 
-  ImageProvider<Object> _backdrop(SharedMediaViewerItem item) =>
-      item.thumbnail ?? item.imageProvider;
+  ImageProvider<Object>? _backdrop(SharedMediaViewerItem item) =>
+      isSpoilerCovered(item.spoilerUpload)
+      ? null
+      : item.thumbnail ?? item.imageProvider;
 
   Widget _buildBlurredBackdrop(ImageProvider<Object> image, double opacity) {
     return Opacity(

@@ -481,6 +481,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
             thumbnail: thumbnailImage(urls.thumbnail(widget.board, post.tim)),
             width: post.w,
             height: post.h,
+            spoilerUpload: post.spoilerUpload,
           );
         })
         .toList(growable: false);

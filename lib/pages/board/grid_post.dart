@@ -12,6 +12,7 @@ import 'package:flutter_chan/services/back_swipe_route.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/services/thread_filters.dart';
 import 'package:flutter_chan/widgets/image_viewer.dart';
+import 'package:flutter_chan/widgets/spoiler_cover.dart';
 import 'package:provider/provider.dart';
 
 class GridPost extends StatefulWidget {
@@ -42,7 +43,7 @@ class _GridPostState extends State<GridPost> {
       no: widget.post.no,
       sub: widget.post.sub,
       com: widget.post.com,
-      imageUrl: '${widget.post.tim}s.jpg',
+      imageUrl: widget.post.thumbnailName,
       board: widget.board,
     );
   }
@@ -99,9 +100,13 @@ class _GridPostState extends State<GridPost> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    ImageViewer(
-                      url: urls.thumbnail(widget.board, widget.post.tim),
-                      fit: BoxFit.cover,
+                    SpoilerCover(
+                      upload: widget.post.spoilerUpload,
+                      canReveal: false,
+                      child: ImageViewer(
+                        url: urls.thumbnail(widget.board, widget.post.tim),
+                        fit: BoxFit.cover,
+                      ),
                     ),
                     DecoratedBox(
                       decoration: BoxDecoration(

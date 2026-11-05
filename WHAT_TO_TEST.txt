@@ -1,3 +1,10 @@
+SPOILERS
+Find a post with a spoilered image (on /v/ or /vg/, for example).
+
+• It should show a cover with an eye and "Spoiler", in the thread and when swiping to it in the viewer. Tap it: the image or video shows, and stays shown until you close the app.
+• On a spoilered thread, or in the gallery and search, the thumbnail stays covered, and tapping goes where it always did.
+• Bookmark a thread whose first post is a spoiler: its card should have no image. The same in History.
+
 LINKS
 • Tap a quote of a post that was deleted: "Post not found", not an empty post.
 

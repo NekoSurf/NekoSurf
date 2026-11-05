@@ -13,6 +13,7 @@ import 'package:flutter_chan/services/back_swipe_route.dart';
 import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_chan/services/thread_filters.dart';
 import 'package:flutter_chan/widgets/image_viewer.dart';
+import 'package:flutter_chan/widgets/spoiler_cover.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -45,7 +46,7 @@ class _ListPostState extends State<ListPost> {
       no: widget.post.no,
       sub: widget.post.sub,
       com: widget.post.com,
-      imageUrl: '${widget.post.tim}s.jpg',
+      imageUrl: widget.post.thumbnailName,
       board: widget.board,
     );
   }
@@ -316,12 +317,16 @@ class _ListPostState extends State<ListPost> {
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
-                              ImageViewer(
-                                url: urls.thumbnail(
-                                  widget.board,
-                                  widget.post.tim,
+                              SpoilerCover(
+                                upload: widget.post.spoilerUpload,
+                                canReveal: false,
+                                child: ImageViewer(
+                                  url: urls.thumbnail(
+                                    widget.board,
+                                    widget.post.tim,
+                                  ),
+                                  fit: BoxFit.cover,
                                 ),
-                                fit: BoxFit.cover,
                               ),
                               if (widget.post.isVideo)
                                 const Center(

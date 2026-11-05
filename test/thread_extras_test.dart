@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/API/archived.dart';
 import 'package:flutter_chan/API/http_client.dart';
@@ -13,13 +14,30 @@ import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/enums/enums.dart';
+import 'package:flutter_chan/pages/media/shared_media_viewer.dart';
+import 'package:flutter_chan/pages/thread/thread_page_post.dart';
 import 'package:flutter_chan/pages/thread/thread_replied_to.dart';
 import 'package:flutter_chan/services/string.dart';
+import 'package:flutter_chan/widgets/spoiler_cover.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+// A pixel, so that images in these tests have something to show.
+final ImageProvider<Object> _pixel = MemoryImage(
+  Uint8List.fromList(const <int>[
+    0x89,
+    0x50,
+    0x4E,
+    0x47,
+    0x0D,
+    0x0A,
+    0x1A,
+    0x0A,
+  ]),
+);
 
 void main() {
   http.Response Function(http.BaseRequest request) answer = (_) =>
@@ -32,6 +50,8 @@ void main() {
       () => MockClient((http.Request request) async => answer(request)),
     );
   });
+
+  tearDown(resetRevealedSpoilers);
 
   group('unescape', () {
     test('turns entities into characters', () {
@@ -168,6 +188,25 @@ void main() {
       child: MaterialApp(home: home),
     );
 
+    Future<void> pumpPost(WidgetTester tester, Post post) async {
+      await tester.pumpWidget(
+        app(
+          Scaffold(
+            body: SingleChildScrollView(
+              child: ThreadPagePost(
+                board: 'g',
+                thread: 1,
+                post: post,
+                allPosts: [Post(no: 1, time: 1700000000), post],
+                onDismiss: (_) {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+    }
+
     // Timers of requests that aren't answered in fake time.
     Future<void> finish(WidgetTester tester) async {
       await tester.pumpWidget(const SizedBox());
@@ -201,6 +240,68 @@ void main() {
       expect(find.text('Post not found'), findsOneWidget);
       expect(find.text('Anonymous'), findsNothing);
       await finish(tester);
+    });
+
+    group('a spoiler', () {
+      final Post spoiler = Post(
+        no: 3,
+        time: 1700000000,
+        tim: 1700000000123,
+        ext: '.jpg',
+        w: 100,
+        h: 100,
+        spoiler: 1,
+      );
+
+      testWidgets('is covered until tapped', (tester) async {
+        await pumpPost(tester, spoiler);
+
+        expect(find.text('Spoiler'), findsOneWidget);
+        expect(find.byType(Image), findsNothing);
+
+        await tester.tap(find.text('Spoiler'));
+        await tester.pump();
+
+        expect(find.text('Spoiler'), findsNothing);
+        expect(find.byType(Image), findsWidgets);
+      });
+
+      test('has no thumbnail to keep', () {
+        expect(spoiler.thumbnailName, isNull);
+        expect(Post(tim: 5, ext: '.jpg').thumbnailName, '5s.jpg');
+        expect(Post().thumbnailName, isNull);
+      });
+
+      testWidgets('is covered in the viewer too', (tester) async {
+        await tester.pumpWidget(
+          app(
+            SharedMediaViewer(
+              items: [
+                SharedMediaViewerItem(
+                  id: '1',
+                  source: 'a.jpg',
+                  isVideo: false,
+                  imageProvider: _pixel,
+                  spoilerUpload: 5,
+                ),
+              ],
+              initialIndex: 0,
+              onClose: () {},
+              mediaNameBuilder: (_) => 'a.jpg',
+              actions: const [],
+              onIndexChanged: (_) {},
+            ),
+          ),
+        );
+        await tester.pump();
+
+        expect(find.byType(InteractiveViewer), findsNothing);
+
+        await tester.tap(find.text('Spoiler'));
+        await tester.pump();
+
+        expect(find.byType(InteractiveViewer), findsOneWidget);
+      });
     });
   });
 }

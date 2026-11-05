@@ -22,6 +22,7 @@ class Post {
     this.country,
     this.board,
     this.archived,
+    this.spoiler,
   });
 
   factory Post.fromJson(Map<String?, dynamic> json) => Post(
@@ -47,6 +48,7 @@ class Post {
     country: json['country'] as String?,
     board: json['board'] as String?,
     archived: json['archived'] as int?,
+    spoiler: json['spoiler'] as int?,
   );
 
   int? no;
@@ -71,6 +73,15 @@ class Post {
   String? country;
   String? board;
   int? archived;
+
+  int? spoiler;
+
+  /// The upload ([tim]) if it's a spoiler, to cover it (see SpoilerCover).
+  int? get spoilerUpload => spoiler == 1 ? tim : null;
+
+  /// The name of its thumbnail, to keep showing it later; a spoiler has none.
+  String? get thumbnailName =>
+      tim == null || spoiler == 1 ? null : '${tim}s.jpg';
 
   /// Whether a file is attached ([tim] and [ext] are set).
   bool get hasFile => tim != null && ext != null;
@@ -102,5 +113,6 @@ class Post {
     'images': images,
     'board': board,
     'archived': archived,
+    'spoiler': spoiler,
   };
 }

@@ -1,3 +1,8 @@
+## What's new
+
+### 🙈 Spoilers stay covered
+- Spoilered images and videos are covered until you tap them, in threads and the viewer; on boards, in search and the gallery they stay covered, and spoilered threads keep no thumbnail in History or Bookmarks
+
 ## What's fixed
 
 - Bookmarks no longer say Deleted when 4chan is limiting requests or can't be reached, and can still be opened then

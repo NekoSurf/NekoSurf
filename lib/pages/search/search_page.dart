@@ -17,6 +17,7 @@ import 'package:flutter_chan/widgets/dash_header.dart';
 import 'package:flutter_chan/widgets/dash_scaffold.dart';
 import 'package:flutter_chan/widgets/image_viewer.dart';
 import 'package:flutter_chan/widgets/reload.dart';
+import 'package:flutter_chan/widgets/spoiler_cover.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -578,9 +579,13 @@ class _SearchResultTile extends StatelessWidget {
                 child: SizedBox(
                   width: 72,
                   height: 72,
-                  child: ImageViewer(
-                    url: urls.thumbnail(board, post.tim),
-                    fit: BoxFit.cover,
+                  child: SpoilerCover(
+                    upload: post.spoilerUpload,
+                    canReveal: false,
+                    child: ImageViewer(
+                      url: urls.thumbnail(board, post.tim),
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
               ),

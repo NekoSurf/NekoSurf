@@ -7,6 +7,7 @@ import 'package:flutter_chan/pages/thread/thread_media_viewer_page.dart';
 import 'package:flutter_chan/services/image_cache.dart';
 import 'package:flutter_chan/widgets/dash_scaffold.dart';
 import 'package:flutter_chan/widgets/image_viewer.dart';
+import 'package:flutter_chan/widgets/spoiler_cover.dart';
 
 /// Every image and video in a thread as a grid. Tapping one opens the
 /// fullscreen viewer at that item, paging through the thread's media.
@@ -80,15 +81,19 @@ class ThreadGalleryPage extends StatelessWidget {
                       fit: StackFit.expand,
                       children: [
                         ColoredBox(color: DashColors.border(isDark)),
-                        Image(
-                          image: ResizeImage.resizeIfNeeded(
-                            decodeWidth,
-                            null,
-                            thumbnailImage(urls.thumbnail(board, post.tim)),
+                        SpoilerCover(
+                          upload: post.spoilerUpload,
+                          canReveal: false,
+                          child: Image(
+                            image: ResizeImage.resizeIfNeeded(
+                              decodeWidth,
+                              null,
+                              thumbnailImage(urls.thumbnail(board, post.tim)),
+                            ),
+                            fit: BoxFit.cover,
+                            frameBuilder: fadeInImageFrame,
+                            errorBuilder: imageErrorPlaceholder,
                           ),
-                          fit: BoxFit.cover,
-                          frameBuilder: fadeInImageFrame,
-                          errorBuilder: imageErrorPlaceholder,
                         ),
                         if (post.isVideo)
                           const Positioned(

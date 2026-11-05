@@ -201,6 +201,7 @@ Post? _parsePost(Element container) {
     time: utc == null ? null : int.tryParse(utc),
     tim: tim,
     ext: ext,
+    spoiler: thumb?.classes.contains('imgspoiler') ?? false ? 1 : null,
   );
 }
 
