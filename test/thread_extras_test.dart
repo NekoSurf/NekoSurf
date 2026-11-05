@@ -14,6 +14,7 @@ import 'package:flutter_chan/blocs/theme.dart';
 import 'package:flutter_chan/blocs/watched_posts_model.dart';
 import 'package:flutter_chan/enums/enums.dart';
 import 'package:flutter_chan/pages/thread/thread_replied_to.dart';
+import 'package:flutter_chan/services/string.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -30,6 +31,27 @@ void main() {
       () => httpClient,
       () => MockClient((http.Request request) async => answer(request)),
     );
+  });
+
+  group('unescape', () {
+    test('turns entities into characters', () {
+      expect(unescape('&gt;&lt;&amp;&quot;&#039;&#39;&#47;'), '><&"\'\'/');
+      expect(unescape('a&nbsp;b'), 'a b');
+      expect(unescape('&#x27;&#X27;'), "''");
+    });
+
+    test('a backslash is one backslash', () {
+      expect(unescape('&#92;'), r'\');
+    });
+
+    test('goes over the text once', () {
+      expect(unescape('&amp;quot;'), '&quot;');
+      expect(unescape('&amp;gt;'), '&gt;');
+    });
+
+    test('leaves what it does not know', () {
+      expect(unescape('&nope; & &#99999999;'), '&nope; & &#99999999;');
+    });
   });
 
   group('TimeoutClient', () {
