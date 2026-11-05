@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/API/archived.dart';
 import 'package:flutter_chan/API/http_client.dart';
@@ -17,6 +19,50 @@ void main() {
       () => httpClient,
       () => MockClient((http.Request request) async => answer(request)),
     );
+  });
+
+  group('TimeoutClient', () {
+    const Duration stall = Duration(milliseconds: 20);
+
+    test('gives up on a server that never answers', () {
+      final TimeoutClient client = TimeoutClient(
+        MockClient.streaming(
+          (_, _) => Completer<http.StreamedResponse>().future,
+        ),
+        stall: stall,
+      );
+
+      expect(
+        client.get(Uri.parse('https://a/')),
+        throwsA(isA<TimeoutException>()),
+      );
+    });
+
+    test('gives up on an answer that stops arriving', () {
+      final TimeoutClient client = TimeoutClient(
+        MockClient.streaming((_, _) async {
+          return http.StreamedResponse(
+            StreamController<List<int>>().stream,
+            200,
+          );
+        }),
+        stall: stall,
+      );
+
+      expect(
+        client.get(Uri.parse('https://a/')),
+        throwsA(isA<TimeoutException>()),
+      );
+    });
+
+    test('lets an answer through', () async {
+      final TimeoutClient client = TimeoutClient(
+        MockClient((_) async => http.Response('hello', 200)),
+        stall: stall,
+      );
+
+      expect((await client.get(Uri.parse('https://a/'))).body, 'hello');
+    });
   });
 
   group('the status of a bookmark', () {

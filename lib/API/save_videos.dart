@@ -784,10 +784,6 @@ Future<File> downloadInto(
   return file;
 }
 
-// A connection that sends nothing for this long is given up on, instead of
-// leaving the save spinning forever.
-const Duration _stallTimeout = Duration(seconds: 20);
-
 // Tries per download. Several saves at once can make 4chan answer 429 (too
 // many requests); like the player's downloads, they wait and try again.
 const int _downloadAttempts = 3;
@@ -836,9 +832,9 @@ Future<void> _downloadOnce(
 ) async {
   final Uri uri = Uri.parse(url);
   try {
-    final http.StreamedResponse response = await httpClient
-        .send(http.Request('GET', uri))
-        .timeout(_stallTimeout);
+    final http.StreamedResponse response = await httpClient.send(
+      http.Request('GET', uri),
+    );
     if (response.statusCode != HttpStatus.ok) {
       // Read to the end, or the connection isn't reused.
       await response.stream.drain<void>();
@@ -850,7 +846,7 @@ Future<void> _downloadOnce(
     final IOSink sink = file.openWrite();
     try {
       await sink.addStream(
-        response.stream.timeout(_stallTimeout).map((List<int> chunk) {
+        response.stream.map((List<int> chunk) {
           received += chunk.length;
           if (total != null && total > 0) {
             onProgress?.call(received / total);

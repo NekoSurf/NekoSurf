@@ -556,7 +556,6 @@ class _Download {
   }) : part = File('${file.path}.part');
 
   static const int _attempts = 5;
-  static const Duration _stallTimeout = Duration(seconds: 20);
   // A reader starting this little ahead of the fetch waits for it.
   static const int _seekAhead = 256 * 1024;
   // Scrubbing seeks over and over; moves that close together wait a
@@ -777,9 +776,7 @@ class _Download {
       }
       request.headers[HttpHeaders.rangeHeader] = 'bytes=$from-${to - 1}';
     }
-    final http.StreamedResponse response = await httpClient
-        .send(request)
-        .timeout(_stallTimeout);
+    final http.StreamedResponse response = await httpClient.send(request);
 
     final int position;
     final int end;
@@ -806,9 +803,7 @@ class _Download {
     bool stopped = false;
     final RandomAccessFile writer = await part.open(mode: FileMode.append);
     try {
-      await for (final List<int> chunk in response.stream.timeout(
-        _stallTimeout,
-      )) {
+      await for (final List<int> chunk in response.stream) {
         if (_cancelled) {
           break;
         }
