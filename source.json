@@ -24,6 +24,15 @@
       ],
       "versions": [
         {
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.12.1%2B297/Runner.ipa",
+          "size": 33407905,
+          "version": "0.12.1",
+          "buildVersion": "297",
+          "date": "2026-11-05T15:03:25+00:00",
+          "localizedDescription": "Read threads like comments, with replies nested right under each post and branches you can fold, and swipe right anywhere on a page to go back; replies that start with a number now count as replies to the post they quote.",
+          "minOSVersion": "17.0"
+        },
+        {
           "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.12.1%2B296/Runner.ipa",
           "size": 33388656,
           "version": "0.12.1",
