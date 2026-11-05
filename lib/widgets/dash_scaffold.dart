@@ -11,7 +11,6 @@ class DashScaffold extends StatefulWidget {
     this.subtitle,
     this.leading,
     this.actions = const [],
-    this.bottomBar,
     this.onRefresh,
     this.keyboardDismiss = false,
     this.reserveTabBarSpace = false,
@@ -25,7 +24,6 @@ class DashScaffold extends StatefulWidget {
   /// Leaves room at the bottom for a tab bar drawn by the parent.
   final bool reserveTabBarSpace;
   final List<Widget> actions;
-  final Widget? bottomBar;
   final Future<void> Function()? onRefresh;
   final bool keyboardDismiss;
 
@@ -52,8 +50,7 @@ class _DashScaffoldState extends State<DashScaffold> {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final double top = MediaQuery.paddingOf(context).top;
     final double bottom = MediaQuery.paddingOf(context).bottom;
-    final double barSpace =
-        widget.bottomBar == null && !widget.reserveTabBarSpace
+    final double barSpace = !widget.reserveTabBarSpace
         ? 0
         : kDashTabBarHeight + (bottom > 0 ? bottom : 12) + 12;
 
@@ -93,8 +90,6 @@ class _DashScaffoldState extends State<DashScaffold> {
               elevated: _elevated,
             ),
           ),
-          if (widget.bottomBar != null)
-            Positioned(left: 0, right: 0, bottom: 0, child: widget.bottomBar!),
         ],
       ),
     );

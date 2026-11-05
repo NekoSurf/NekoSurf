@@ -129,7 +129,6 @@ class _FeedPageState extends State<FeedPage> {
           ),
         ),
         CupertinoMenuButton(
-          isGlass: true,
           menuChildren: [
             buildMenuItem(
               title: 'Image Count',

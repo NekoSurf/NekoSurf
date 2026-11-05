@@ -44,10 +44,9 @@ class VideoServer {
   static const int defaultMaxCacheBytes = 300 * 1024 * 1024;
 
   /// Beyond this, the least recently watched videos are deleted.
-  int get maxCacheBytes => _maxCacheBytes;
   int _maxCacheBytes = defaultMaxCacheBytes;
 
-  /// Sets [maxCacheBytes], deleting what's now beyond it.
+  /// Sets [_maxCacheBytes], deleting what's now beyond it.
   Future<void> setMaxCacheBytes(int bytes) async {
     if (bytes == _maxCacheBytes) {
       return;
@@ -352,7 +351,7 @@ class VideoServer {
     }
   }
 
-  /// Deletes the least recently watched videos beyond [maxCacheBytes], and
+  /// Deletes the least recently watched videos beyond [_maxCacheBytes], and
   /// with [leftovers], what downloads that never finished left behind.
   Future<void> _prune(Directory dir, {bool leftovers = false}) async {
     try {

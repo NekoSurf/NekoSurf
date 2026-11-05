@@ -221,8 +221,6 @@ class VideoLease {
   double _priority = 0;
   bool _released = false;
 
-  bool get isReleased => _released;
-
   /// How much the holder wants it: 0 when it doesn't play it and isn't
   /// about to, otherwise how much of the video is on screen (0 to 1, more
   /// for fullscreen). A wanted lease is only taken for a video wanted

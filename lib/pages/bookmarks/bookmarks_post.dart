@@ -96,7 +96,6 @@ class _BookmarksPostState extends State<BookmarksPost> {
             status: status,
             replyCount: replyCount,
             newReplies: newReplies,
-            isDeleted: isDeleted,
             isDark: isDark,
           ),
         );
@@ -150,7 +149,6 @@ class _BookmarksPostState extends State<BookmarksPost> {
                           'No.${widget.favorite.no}',
                       thread: widget.favorite.no ?? 0,
                       board: widget.favorite.board ?? '',
-                      fromFavorites: true,
                     ),
                   ),
                 );
@@ -170,7 +168,6 @@ class _BookmarkCard extends StatelessWidget {
     required this.status,
     required this.replyCount,
     required this.newReplies,
-    required this.isDeleted,
     required this.isDark,
   });
 
@@ -178,7 +175,6 @@ class _BookmarkCard extends StatelessWidget {
   final ThreadStatus? status;
   final ThreadReplyCount? replyCount;
   final int newReplies;
-  final bool isDeleted;
   final bool isDark;
 
   @override

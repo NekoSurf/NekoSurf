@@ -2,16 +2,10 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
 
 class RepliesRow extends StatelessWidget {
-  const RepliesRow({
-    super.key,
-    this.replies = '-',
-    this.imageReplies = '-',
-    this.showImageReplies = true,
-  });
+  const RepliesRow({super.key, this.replies = '-', this.imageReplies = '-'});
 
   final dynamic replies;
   final dynamic imageReplies;
-  final bool showImageReplies;
 
   @override
   Widget build(BuildContext context) {
@@ -39,10 +33,8 @@ class RepliesRow extends StatelessWidget {
     return Row(
       children: [
         buildChip(CupertinoIcons.reply, replies, DashColors.accent),
-        if (showImageReplies) ...[
-          const SizedBox(width: 8),
-          buildChip(CupertinoIcons.camera, imageReplies, DashColors.accent2),
-        ],
+        const SizedBox(width: 8),
+        buildChip(CupertinoIcons.camera, imageReplies, DashColors.accent2),
       ],
     );
   }

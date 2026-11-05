@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_chan/API/api.dart';
 import 'package:flutter_chan/API/urls.dart' as urls;
 import 'package:flutter_chan/Models/bookmark.dart';
@@ -33,7 +34,6 @@ class ThreadPage extends StatefulWidget {
     required this.thread,
     required this.threadName,
     required this.post,
-    this.fromFavorites = false,
     this.initialPost,
   });
 
@@ -41,7 +41,6 @@ class ThreadPage extends StatefulWidget {
   final int thread;
   final String threadName;
   final Post post;
-  final bool fromFavorites;
 
   /// Post to show once the thread loads, instead of resuming at the
   /// last-read one.
@@ -54,10 +53,7 @@ class ThreadPage extends StatefulWidget {
 class ThreadPageState extends State<ThreadPage>
     with ThreadRowsList<ThreadPage> {
   static const int _preloadVideosEachSide = 3;
-  static const int _maxPreloadedVideos = 6;
-  static const int _maxThumbnailPreloadsPerPass = _maxPreloadedVideos;
 
-  final ScrollController scrollController = ScrollController();
   late Future<List<Post>> _fetchAllPostsFromThread;
   List<Post> allPosts = [];
   Map<int, int> _replyDescendantCountByPost = const <int, int>{};
@@ -180,7 +176,6 @@ class ThreadPageState extends State<ThreadPage>
     _preloadDebounce?.cancel();
     _preloadDebounce = null;
     _liveTimer?.cancel();
-    scrollController.dispose();
     super.dispose();
   }
 
@@ -401,124 +396,50 @@ class ThreadPageState extends State<ThreadPage>
     _schedulePreloadRefresh();
   }
 
-  int _resolveAnchorIndex(int postCount) {
-    final positions = visiblePositions();
-
-    if (positions.isEmpty) {
-      return 0;
-    }
-
-    positions.sort((a, b) => a.itemLeadingEdge.compareTo(b.itemLeadingEdge));
-
-    return positions.first.index.clamp(0, postCount - 1);
-  }
-
-  bool _sameIdSet(Set<int> a, Set<int> b) {
-    if (a.length != b.length) {
-      return false;
-    }
-
-    for (final int value in a) {
-      if (!b.contains(value)) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
+  /// The nearest videos above and below what's on screen.
   ({Set<int> ids, List<Post> posts}) _collectPreloadWindow() {
-    if (rows.isEmpty) {
-      return (ids: <int>{}, posts: const <Post>[]);
-    }
-
-    final positions = visiblePositions();
-
-    int minVisibleIndex;
-    int maxVisibleIndex;
-    if (positions.isEmpty) {
-      final int anchor = _resolveAnchorIndex(rows.length);
-      minVisibleIndex = anchor;
-      maxVisibleIndex = anchor;
-    } else {
-      minVisibleIndex = positions.first.index;
-      maxVisibleIndex = positions.first.index;
-
-      for (final position in positions) {
-        if (position.index < minVisibleIndex) {
-          minVisibleIndex = position.index;
-        }
-        if (position.index > maxVisibleIndex) {
-          maxVisibleIndex = position.index;
-        }
-      }
-    }
-
-    minVisibleIndex = minVisibleIndex.clamp(0, rows.length - 1);
-    maxVisibleIndex = maxVisibleIndex.clamp(0, rows.length - 1);
-
     final Set<int> ids = <int>{};
     final List<Post> posts = <Post>[];
-
-    int previousCollected = 0;
-    for (
-      int index = minVisibleIndex - 1;
-      index >= 0 && previousCollected < _preloadVideosEachSide;
-      index--
-    ) {
-      if (ids.length >= _maxPreloadedVideos) {
-        break;
-      }
-
-      final Post post = rows[index].post;
-      if (!post.isVideo || rows[index].collapsed) {
-        continue;
-      }
-
-      final int? postId = post.no ?? post.tim;
-      if (postId == null || !ids.add(postId)) {
-        continue;
-      }
-
-      posts.add(post);
-      previousCollected++;
+    if (rows.isEmpty) {
+      return (ids: ids, posts: posts);
     }
 
-    int nextCollected = 0;
-    for (
-      int index = maxVisibleIndex + 1;
-      index < rows.length && nextCollected < _preloadVideosEachSide;
-      index++
-    ) {
-      if (ids.length >= _maxPreloadedVideos) {
-        break;
+    void collect(Iterable<int> indexes) {
+      int collected = 0;
+      for (final int index in indexes) {
+        final Post post = rows[index].post;
+        final int? postId = post.no ?? post.tim;
+        if (post.isVideo &&
+            !rows[index].collapsed &&
+            postId != null &&
+            ids.add(postId)) {
+          posts.add(post);
+          if (++collected == _preloadVideosEachSide) {
+            return;
+          }
+        }
       }
-
-      final Post post = rows[index].post;
-      if (!post.isVideo || rows[index].collapsed) {
-        continue;
-      }
-
-      final int? postId = post.no ?? post.tim;
-      if (postId == null || !ids.add(postId)) {
-        continue;
-      }
-
-      posts.add(post);
-      nextCollected++;
     }
+
+    final List<int> shown = <int>[
+      for (final ItemPosition position in visiblePositions())
+        position.index.clamp(0, rows.length - 1),
+    ];
+    final int top = shown.isEmpty ? 0 : shown.reduce(min);
+    final int bottom = shown.isEmpty ? 0 : shown.reduce(max);
+    collect(Iterable<int>.generate(top, (int i) => top - 1 - i));
+    collect(
+      Iterable<int>.generate(
+        rows.length - bottom - 1,
+        (int i) => bottom + 1 + i,
+      ),
+    );
 
     return (ids: ids, posts: posts);
   }
 
   Future<void> _preloadThumbnails(List<Post> posts) async {
-    int preloaded = 0;
-
     for (final Post post in posts) {
-      if (preloaded >= _maxThumbnailPreloadsPerPass) {
-        break;
-      }
-
       final int? tim = post.tim;
       if (tim == null || !_preloadedThumbnailIds.add(tim)) {
         continue;
@@ -531,8 +452,6 @@ class ThreadPageState extends State<ThreadPage>
       try {
         await precacheImage(thumbnailProvider, context);
       } catch (_) {}
-
-      preloaded++;
     }
   }
 
@@ -543,7 +462,7 @@ class ThreadPageState extends State<ThreadPage>
 
     final preloadWindow = _collectPreloadWindow();
 
-    if (!_sameIdSet(_preloadVideoPostIds, preloadWindow.ids)) {
+    if (!setEquals(_preloadVideoPostIds, preloadWindow.ids)) {
       setState(() {
         _preloadVideoPostIds = preloadWindow.ids;
       });
@@ -671,7 +590,6 @@ class ThreadPageState extends State<ThreadPage>
         ),
         BookmarkButton(favorite: favorite),
         CupertinoMenuButton(
-          isGlass: true,
           menuChildren: [
             buildMenuItem(
               title: 'Share',

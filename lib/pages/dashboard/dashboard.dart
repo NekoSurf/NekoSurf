@@ -14,9 +14,7 @@ import 'package:flutter_chan/widgets/reload.dart';
 import 'package:provider/provider.dart';
 
 class Dashboard extends StatefulWidget {
-  const Dashboard({super.key, required this.onSelectTab});
-
-  final ValueChanged<int> onSelectTab;
+  const Dashboard({super.key});
 
   @override
   State<Dashboard> createState() => DashboardState();

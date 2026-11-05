@@ -78,15 +78,6 @@ class ThreadPagePost extends StatefulWidget {
   /// Where the post is in the thread, as the order listed may differ.
   final int? number;
 
-  static String formatBytes(int bytes, int decimals) {
-    if (bytes <= 0) {
-      return '0 B';
-    }
-    const suffixes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
-    final i = (log(bytes) / log(1024)).floor();
-    return '${(bytes / pow(1024, i)).toStringAsFixed(decimals)} ${suffixes[i]}';
-  }
-
   @override
   State<ThreadPagePost> createState() => _ThreadPagePostState();
 }

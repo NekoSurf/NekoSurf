@@ -15,19 +15,13 @@ class Post {
     this.tnH,
     this.tim,
     this.time,
-    this.md5,
-    this.fsize,
     this.resto,
-    this.capcode,
-    this.semanticUrl,
     this.replies,
     this.images,
-    this.uniqueIps,
     this.lastModified,
     this.country,
     this.board,
     this.archived,
-    this.repliedPosts,
   });
 
   factory Post.fromJson(Map<String?, dynamic> json) => Post(
@@ -46,19 +40,13 @@ class Post {
     tnH: json['tn_h'] as int?,
     tim: json['tim'] as int?,
     time: json['time'] as int?,
-    md5: json['md5'] as String?,
-    fsize: json['fsize'] as int?,
     resto: json['resto'] as int?,
-    capcode: json['capcode'] as String?,
-    semanticUrl: json['semantic_url'] as String?,
     replies: json['replies'] as int?,
     images: json['images'] as int?,
-    uniqueIps: json['unique_ips'] as int?,
     lastModified: json['last_modified'] as int?,
     country: json['country'] as String?,
     board: json['board'] as String?,
     archived: json['archived'] as int?,
-    repliedPosts: json['repliedPosts'] as List<Post>?,
   );
 
   int? no;
@@ -76,19 +64,13 @@ class Post {
   int? tnH;
   int? tim;
   int? time;
-  String? md5;
-  int? fsize;
   int? resto;
-  String? capcode;
-  String? semanticUrl;
   int? replies;
   int? images;
-  int? uniqueIps;
   int? lastModified;
   String? country;
   String? board;
   int? archived;
-  List<Post>? repliedPosts;
 
   /// Whether a file is attached ([tim] and [ext] are set).
   bool get hasFile => tim != null && ext != null;
@@ -115,16 +97,10 @@ class Post {
     'tn_h': tnH,
     'tim': tim,
     'time': time,
-    'md5': md5,
-    'fsize': fsize,
     'resto': resto,
-    'capcode': capcode,
-    'semantic_url': semanticUrl,
     'replies': replies,
     'images': images,
-    'unique_ips': uniqueIps,
     'board': board,
     'archived': archived,
-    'repliedPosts': repliedPosts,
   };
 }

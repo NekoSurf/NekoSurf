@@ -6,14 +6,12 @@ class ImageViewer extends StatelessWidget {
   const ImageViewer({
     super.key,
     required this.url,
-    this.interactiveViewer = false,
     this.fit = BoxFit.contain,
     this.height,
     this.width,
   });
 
   final String url;
-  final bool interactiveViewer;
   final BoxFit fit;
   final double? height;
   final double? width;
@@ -32,25 +30,15 @@ class ImageViewer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return interactiveViewer
-        ? InteractiveViewer(
-            minScale: 0.5,
-            maxScale: 5,
-            child: Image(
-              image: thumbnailImage(url),
-              loadingBuilder: _loadingBuilder,
-              errorBuilder: imageErrorPlaceholder,
-            ),
-          )
-        : Image(
-            image: thumbnailImage(url),
-            fit: fit,
-            height: height,
-            width: width,
-            loadingBuilder: _loadingBuilder,
-            frameBuilder: fadeInImageFrame,
-            errorBuilder: imageErrorPlaceholder,
-          );
+    return Image(
+      image: thumbnailImage(url),
+      fit: fit,
+      height: height,
+      width: width,
+      loadingBuilder: _loadingBuilder,
+      frameBuilder: fadeInImageFrame,
+      errorBuilder: imageErrorPlaceholder,
+    );
   }
 }
 

@@ -10,14 +10,6 @@ import 'package:flutter_chan/services/string.dart';
 import 'package:http/http.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-Future<List<Post>> fetchAllThreadsFromBoard(
-  Sort sorting,
-  String board, {
-  SortDirection direction = SortDirection.desc,
-}) async {
-  return sortThreads(await fetchCatalog(board), sorting, direction);
-}
-
 /// Every live thread on [board], in catalog order.
 Future<List<Post>> fetchCatalog(String board) async {
   final Response response = await httpClient.get(urls.catalog(board));
@@ -182,15 +174,6 @@ List<Post> _parseThread(String body) {
   return (jsonDecode(body)['posts'] as List)
       .map((model) => Post.fromJson(model as Map<String?, dynamic>))
       .toList();
-}
-
-Future<List<Post>> fetchAllRepliesToPost(
-  int post,
-  String board,
-  int thread,
-  List<Post> allPosts,
-) async {
-  return collectReplySubtree(rootPostId: post, allPosts: allPosts);
 }
 
 /// Which posts answer each post, oldest first.

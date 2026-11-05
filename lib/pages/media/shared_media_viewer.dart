@@ -96,7 +96,6 @@ class SharedMediaViewerAction {
     this.completedIcon,
     this.isBusy = false,
     this.isCompleted = false,
-    this.disableWhenBusy = true,
     this.disableWhenCompleted = false,
     this.progress,
   });
@@ -113,7 +112,6 @@ class SharedMediaViewerAction {
   final ValueChanged<BuildContext>? onPressedWithContext;
   final bool isBusy;
   final bool isCompleted;
-  final bool disableWhenBusy;
   final bool disableWhenCompleted;
 }
 
@@ -164,8 +162,7 @@ class SharedMediaViewer extends StatefulWidget {
     required this.items,
     required this.initialIndex,
     required this.onClose,
-    this.mediaName,
-    this.mediaNameBuilder,
+    required this.mediaNameBuilder,
     this.actions,
     this.onIndexChanged,
   });
@@ -176,8 +173,7 @@ class SharedMediaViewer extends StatefulWidget {
   final SharedMediaViewerTopBarActions? actions;
   final ValueChanged<int>? onIndexChanged;
 
-  final String? mediaName;
-  final String Function(int index)? mediaNameBuilder;
+  final String Function(int index) mediaNameBuilder;
 
   @override
   State<SharedMediaViewer> createState() => _SharedMediaViewerState();
@@ -298,7 +294,9 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
     final List<SharedMediaViewerAction> actions = itemCount == 0
         ? const <SharedMediaViewerAction>[]
         : _buildActions();
-    final String mediaTitle = _resolveMediaTitle(itemCount);
+    final String mediaTitle = itemCount == 0
+        ? ''
+        : widget.mediaNameBuilder(_currentIndex);
 
     void showFileInfo() {
       showDashDialog<void>(
@@ -652,21 +650,8 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
     return actions;
   }
 
-  String _resolveMediaTitle(int itemCount) {
-    if (itemCount == 0) {
-      return '';
-    }
-
-    final String Function(int index)? builder = widget.mediaNameBuilder;
-    if (builder != null) {
-      return builder(_currentIndex);
-    }
-
-    return widget.mediaName ?? '';
-  }
-
   Widget _buildActionButton(SharedMediaViewerAction action) {
-    final bool disableForBusy = action.isBusy && action.disableWhenBusy;
+    final bool disableForBusy = action.isBusy;
     final bool disableForCompleted =
         action.isCompleted && action.disableWhenCompleted;
     final bool disabled = disableForBusy || disableForCompleted;

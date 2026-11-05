@@ -202,7 +202,6 @@ class BoardPageState extends State<BoardPage> {
             ),
           ),
         CupertinoMenuButton(
-          isGlass: true,
           menuChildren: [
             buildMenuItem(
               title: 'Image Count',

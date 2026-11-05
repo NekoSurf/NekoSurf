@@ -327,7 +327,7 @@ class BoardListState extends State<BoardList> {
           keyboardDismiss: true,
           reserveTabBarSpace: true,
           onRefresh: () async => _dashboardKey.currentState?.refresh(),
-          slivers: [Dashboard(key: _dashboardKey, onSelectTab: _selectTab)],
+          slivers: [Dashboard(key: _dashboardKey)],
         );
       case 1:
         return Consumer<SavedAttachmentsProvider>(
@@ -433,8 +433,6 @@ class BoardListState extends State<BoardList> {
               : () {},
         ),
         CupertinoMenuButton(
-          glassIcon: const Icon(CupertinoIcons.ellipsis_circle),
-          isGlass: true,
           menuChildren: [
             buildMenuItem(
               title: 'Select all',
@@ -456,8 +454,6 @@ class BoardListState extends State<BoardList> {
     }
     return [
       CupertinoMenuButton(
-        glassIcon: const Icon(CupertinoIcons.ellipsis_circle),
-        isGlass: true,
         menuChildren: [
           buildMenuItem(
             title: 'Select',
@@ -515,8 +511,6 @@ class BoardListState extends State<BoardList> {
   List<Widget> _bookmarkActions(BookmarksProvider bookmarks) {
     return [
       CupertinoMenuButton(
-        glassIcon: const Icon(CupertinoIcons.sort_down),
-        isGlass: true,
         icon: CupertinoIcons.sort_down,
         menuChildren: [
           buildMenuItem(
@@ -532,9 +526,6 @@ class BoardListState extends State<BoardList> {
         ],
       ),
       CupertinoMenuButton(
-        glassIcon: const Icon(CupertinoIcons.ellipsis_circle),
-        isGlass: true,
-        icon: CupertinoIcons.ellipsis_circle,
         menuChildren: [
           buildMenuItem(
             title: 'Clear bookmarks',

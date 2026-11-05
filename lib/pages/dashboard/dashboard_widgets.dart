@@ -41,45 +41,23 @@ class DashSectionHeader extends StatelessWidget {
     super.key,
     required this.title,
     required this.isDark,
-    this.actionLabel,
-    this.onAction,
   });
 
   final String title;
   final bool isDark;
-  final String? actionLabel;
-  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 28, 20, 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              title,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.4,
-                color: DashColors.text(isDark),
-              ),
-            ),
-          ),
-          if (actionLabel != null)
-            GestureDetector(
-              onTap: onAction,
-              child: Text(
-                actionLabel!,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: DashColors.accent,
-                ),
-              ),
-            ),
-        ],
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.4,
+          color: DashColors.text(isDark),
+        ),
       ),
     );
   }
