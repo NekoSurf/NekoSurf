@@ -26,8 +26,6 @@ class ThreadRepliesTo extends StatefulWidget {
 }
 
 class _ThreadRepliesToState extends State<ThreadRepliesTo> {
-  final ScrollController scrollController = ScrollController();
-
   late Future<Post?>? _fetchPost;
 
   @override
@@ -73,8 +71,15 @@ class _ThreadRepliesToState extends State<ThreadRepliesTo> {
                     loadPost();
                   },
                 );
+              } else if (snapshot.data == null) {
+                return ReloadWidget(
+                  onReload: loadPost,
+                  icon: CupertinoIcons.question_circle,
+                  title: 'Post not found',
+                  message: 'It was deleted, or is no longer in this thread.',
+                );
               } else {
-                final Post post = snapshot.data ?? Post();
+                final Post post = snapshot.data!;
                 final int number = widget.allPosts.indexWhere(
                   (candidate) => candidate.no == post.no,
                 );
