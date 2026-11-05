@@ -37,6 +37,7 @@ class SettingsProvider with ChangeNotifier {
     trackHistory = _prefs.getBool('trackHistory') ?? trackHistory;
     fullscreenAutoAdvance =
         _prefs.getBool('fullscreenAutoAdvance') ?? fullscreenAutoAdvance;
+    dataSaver = _prefs.getBool('dataSaver') ?? dataSaver;
     hiddenThreadPatterns = _prefs.getStringList('hiddenThreadPatterns') ?? [];
     videoCacheMegabytes =
         _prefs.getInt('videoCacheMegabytes') ?? videoCacheMegabytes;
@@ -63,6 +64,7 @@ class SettingsProvider with ChangeNotifier {
   bool feedVideosStartMuted = true;
   bool trackHistory = true;
   bool fullscreenAutoAdvance = false;
+  bool dataSaver = false;
   List<String> hiddenThreadPatterns = [];
   List<RegExp>? _hiddenPatternRegexes;
 
@@ -167,6 +169,14 @@ class SettingsProvider with ChangeNotifier {
   Future<void> setFullscreenAutoAdvance(bool value) {
     fullscreenAutoAdvance = value;
     return _save('fullscreenAutoAdvance', value);
+  }
+
+  /// Threads show thumbnails only: full images and videos load when opened.
+  bool getDataSaver() => dataSaver;
+
+  Future<void> setDataSaver(bool value) {
+    dataSaver = value;
+    return _save('dataSaver', value);
   }
 
   List<String> getHiddenThreadPatterns() {

@@ -443,6 +443,32 @@ void main() {
       });
     });
 
+    group('the data saver', () {
+      final Post image = Post(
+        no: 3,
+        time: 1700000000,
+        tim: 1700000000123,
+        ext: '.jpg',
+        w: 100,
+        h: 100,
+      );
+
+      testWidgets('leaves only the thumbnail', (tester) async {
+        await pumpPost(tester, image);
+        expect(find.byType(Image), findsNWidgets(2));
+
+        await settings.setDataSaver(true);
+        await tester.pump();
+
+        expect(find.byType(Image), findsOneWidget);
+      });
+
+      test('is remembered', () async {
+        await settings.setDataSaver(true);
+        expect(SettingsProvider(prefs).getDataSaver(), isTrue);
+      });
+    });
+
     testWidgets(
       'pulling the list past its end asks for a refresh, once per pull',
       (tester) async {

@@ -163,42 +163,25 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
   }
 
   Widget _buildVideo() {
-    if (!widget.post.hasFile) {
-      return const SizedBox.shrink();
-    }
-    final mediaId = widget.post.tim;
-    if (mediaId == null) {
-      return _buildImage();
-    }
-    final mediaUrl = urls.file(
-      widget.board,
-      mediaId,
-      widget.post.ext ?? '.webm',
+    final SettingsProvider settings = Provider.of<SettingsProvider>(context);
+    final Post post = widget.post;
+    return FeedVideoPlayer(
+      key: ValueKey('feed-player-${widget.board}-${post.no ?? post.tim}'),
+      videoUrl: urls.file(widget.board, post.tim, post.ext),
+      thumbnailUrl: _thumbnailUrl(),
+      aspectRatio: _mediaAspectRatio(),
+      videoWidth: post.w,
+      videoHeight: post.h,
+      preload: widget.preloadVideo,
+      autoplay: !settings.getDataSaver(),
+      startMuted: settings.getFeedVideosStartMuted(),
+      boxKey: _mediaBoxKey,
+      onTap: () => _openMediaViewer(
+        widget.replies ?? widget.allPosts,
+        post,
+        origin: _zoomOrigin(),
+      ),
     );
-    final itemKey = widget.post.no ?? mediaId;
-
-    try {
-      return FeedVideoPlayer(
-        key: ValueKey('feed-player-${widget.board}-$itemKey'),
-        videoUrl: mediaUrl,
-        thumbnailUrl: _thumbnailUrl(),
-        aspectRatio: _mediaAspectRatio(),
-        videoWidth: widget.post.w,
-        videoHeight: widget.post.h,
-        preload: widget.preloadVideo,
-        startMuted: Provider.of<SettingsProvider>(
-          context,
-        ).getFeedVideosStartMuted(),
-        boxKey: _mediaBoxKey,
-        onTap: () => _openMediaViewer(
-          widget.replies ?? widget.allPosts,
-          widget.post,
-          origin: _zoomOrigin(),
-        ),
-      );
-    } catch (_) {
-      return _buildImage();
-    }
   }
 
   /// The post's image or video, under a cover while it's a spoiler.
@@ -299,6 +282,9 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
   /// The image as a preview: its thumbnail, with the full image fading in
   /// over it. Opens the viewer when tapped.
   Widget _buildImage() {
+    final bool dataSaver = Provider.of<SettingsProvider>(
+      context,
+    ).getDataSaver();
     return GestureDetector(
       onTap: () => _openMediaViewer(
         widget.replies ?? widget.allPosts,
@@ -329,45 +315,47 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                 },
               ),
             ),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(mediaInlineRadius),
-              child: Image(
-                // Decode at display size: a 4000px original fills ~48 MB once
-                // decoded, for a row about 400pt wide.
-                image: ResizeImage.resizeIfNeeded(
-                  _imageDecodeWidth(context),
-                  null,
-                  fullImage(
-                    urls.file(widget.board, widget.post.tim, widget.post.ext),
+            if (!dataSaver)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(mediaInlineRadius),
+                child: Image(
+                  // Decode at display size: a 4000px original fills ~48 MB once
+                  // decoded, for a row about 400pt wide.
+                  image: ResizeImage.resizeIfNeeded(
+                    _imageDecodeWidth(context),
+                    null,
+                    fullImage(
+                      urls.file(widget.board, widget.post.tim, widget.post.ext),
+                    ),
                   ),
+                  fit: BoxFit.cover,
+                  // The thumbnail underneath stays visible if this fails.
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) {
+                      return child;
+                    }
+
+                    return Stack(
+                      fit: StackFit.expand,
+                      children: [child, _buildLoadingOverlay()],
+                    );
+                  },
+                  frameBuilder:
+                      (context, child, frame, wasSynchronouslyLoaded) {
+                        if (wasSynchronouslyLoaded) {
+                          return child;
+                        }
+
+                        return AnimatedOpacity(
+                          opacity: frame == null ? 0 : 1,
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.easeOut,
+                          child: child,
+                        );
+                      },
                 ),
-                fit: BoxFit.cover,
-                // The thumbnail underneath stays visible if this fails.
-                errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) {
-                    return child;
-                  }
-
-                  return Stack(
-                    fit: StackFit.expand,
-                    children: [child, _buildLoadingOverlay()],
-                  );
-                },
-                frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-                  if (wasSynchronouslyLoaded) {
-                    return child;
-                  }
-
-                  return AnimatedOpacity(
-                    opacity: frame == null ? 0 : 1,
-                    duration: const Duration(milliseconds: 250),
-                    curve: Curves.easeOut,
-                    child: child,
-                  );
-                },
               ),
-            ),
           ],
         ),
       ),

@@ -474,7 +474,8 @@ class ThreadPageState extends State<ThreadPage>
   ({Set<int> ids, List<Post> posts}) _collectPreloadWindow() {
     final Set<int> ids = <int>{};
     final List<Post> posts = <Post>[];
-    if (rows.isEmpty) {
+    if (rows.isEmpty ||
+        Provider.of<SettingsProvider>(context, listen: false).getDataSaver()) {
       return (ids: ids, posts: posts);
     }
 

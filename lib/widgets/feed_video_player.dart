@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/services/image_cache.dart';
 import 'package:flutter_chan/widgets/image_viewer.dart';
@@ -25,6 +26,7 @@ class FeedVideoPlayer extends StatefulWidget {
     this.videoHeight,
     this.boxKey,
     this.preload = false,
+    this.autoplay = true,
     this.startMuted = true,
     this.onTap,
   });
@@ -41,6 +43,9 @@ class FeedVideoPlayer extends StatefulWidget {
 
   /// Downloads the video ahead of time, as it's about to scroll into view.
   final bool preload;
+
+  /// Plays while it's on screen; otherwise it only plays once opened.
+  final bool autoplay;
   final bool startMuted;
   final VoidCallback? onTap;
 
@@ -125,6 +130,9 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
     if (!oldWidget.preload && widget.preload) {
       _video.prefetch();
     }
+    if (oldWidget.autoplay != widget.autoplay) {
+      _updateDemand();
+    }
     if (oldWidget.startMuted != widget.startMuted) {
       // Not during the build: other views of the video would rebuild.
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -180,7 +188,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   }
 
   void _updateDemand() {
-    if (_visible && _tickerEnabled) {
+    if (_visible && _tickerEnabled && widget.autoplay) {
       _video.want(this, shown: _shown);
     } else {
       _video.unwant(this);
@@ -197,16 +205,18 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
   @override
   Widget build(BuildContext context) {
-    final Widget view = MediaVideoView(
-      video: _video,
+    final Widget thumbnail = Image(
+      image: thumbnailImage(widget.thumbnailUrl),
       fit: BoxFit.cover,
-      thumbnail: Image(
-        image: thumbnailImage(widget.thumbnailUrl),
-        fit: BoxFit.cover,
-        gaplessPlayback: true,
-        errorBuilder: imageErrorPlaceholder,
-      ),
+      gaplessPlayback: true,
+      errorBuilder: imageErrorPlaceholder,
     );
+    // Without autoplay (data saver) the feed only shows the thumbnail, even
+    // when the fullscreen viewer has already loaded this video: the shared
+    // player would otherwise show its frame here after going back.
+    final Widget view = widget.autoplay
+        ? MediaVideoView(video: _video, fit: BoxFit.cover, thumbnail: thumbnail)
+        : thumbnail;
     return GestureDetector(
       onTap: widget.onTap,
       child: VisibilityDetector(
@@ -223,7 +233,16 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                 fit: StackFit.expand,
                 children: [
                   view,
-                  _InlineOverlay(video: _video),
+                  if (widget.autoplay)
+                    _InlineOverlay(video: _video)
+                  else
+                    const Center(
+                      child: Icon(
+                        CupertinoIcons.play_circle_fill,
+                        color: Colors.white,
+                        size: 44,
+                      ),
+                    ),
                 ],
               ),
             ),

@@ -21,6 +21,13 @@ LINKS
 CODE
 On /g/, find a post with code. It should sit in a shaded box, in a monospaced font, with its indents. Long-press to select it; tapping it folds the post like other text.
 
+DATA SAVER
+Settings → Data → Data saver. Open a thread:
+• Images show as thumbnails, and stay that way. Videos show a play icon and don't play or download until you tap them.
+• Open a video, let it load, and go back: the thread shows its thumbnail and play icon again, not the video.
+• In the viewer, the one showing loads. The next one should start when you swipe to it, not before.
+Turn it off afterwards: everything should load again.
+
 LARGE TEXT
 Settings on your phone → Display → Text Size at the largest, with Larger Accessibility Sizes on. The title bar and tabs stay as they are; cards and posts grow a little, with nothing cut off. Check the home screen, a board, a thread, Settings and dialogs.
 

@@ -162,13 +162,17 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
   /// their files. Images further out are still warmed up so paging stays
   /// smooth.
   void _precacheAround(int index) {
+    final bool saveData = Provider.of<SettingsProvider>(
+      context,
+      listen: false,
+    ).getDataSaver();
     for (int i = index - _precacheRadius; i <= index + _precacheRadius; i++) {
       if (i < 0 || i >= widget.items.length || (i - index).abs() <= 1) {
         continue;
       }
 
       final SharedMediaViewerItem item = widget.items[i];
-      final ImageProvider<Object>? image = item.isVideo
+      final ImageProvider<Object>? image = item.isVideo || saveData
           ? item.thumbnail
           : item.imageProvider;
       if (image != null) {
@@ -270,7 +274,7 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
               child: PreloadPageView.builder(
                 controller: _pageController,
                 scrollDirection: Axis.vertical,
-                preloadPagesCount: 1,
+                preloadPagesCount: settings.getDataSaver() ? 0 : 1,
                 physics: _isVideoScrubbing || _isImageZoomed
                     ? const NeverScrollableScrollPhysics()
                     : const _SnappyPagePhysics(),

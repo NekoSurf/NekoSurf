@@ -75,6 +75,23 @@ class _DataSettingsState extends State<DataSettings> {
                 ],
               ),
               SettingsGroup(
+                title: 'Mobile data',
+                footer:
+                    'Threads show only thumbnails. Images and videos load when '
+                    'you open them.',
+                children: [
+                  SettingsRow(
+                    icon: CupertinoIcons.antenna_radiowaves_left_right,
+                    color: const Color(0xFF34D399),
+                    title: 'Data saver',
+                    trailing: SettingsSwitch(
+                      value: settings.getDataSaver(),
+                      onChanged: settings.setDataSaver,
+                    ),
+                  ),
+                ],
+              ),
+              SettingsGroup(
                 title: 'Videos',
                 footer:
                     'Watched videos are kept on your phone, so they start '
