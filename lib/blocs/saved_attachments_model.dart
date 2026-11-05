@@ -184,6 +184,14 @@ class SavedAttachmentsProvider with ChangeNotifier {
   }
 
   Future<void> removeSavedAttachments(String path, BuildContext context) async {
+    // Without access to the files, nothing changes: the sheet says why.
+    final Directory directory;
+    try {
+      directory = await requestDirectory(context: context);
+    } catch (_) {
+      return;
+    }
+
     final List<SavedAttachment> savedAttachmentList = getSavedAttachments();
 
     final List<SavedAttachment> newList = List<SavedAttachment>.from(
@@ -207,26 +215,25 @@ class SavedAttachmentsProvider with ChangeNotifier {
     }
 
     unawaited(_prefs.setStringList(_key, list));
+    notifyListeners();
 
     try {
-      Directory directory;
-      try {
-        directory = await requestDirectory(context: context);
-      } catch (e) {
-        return;
-      }
-
       for (final attachment in removed) {
         await _deleteFiles(directory.path, attachment);
       }
     } catch (e) {
       debugPrint('$e');
     }
-
-    notifyListeners();
   }
 
   Future<void> clearSavedAttachments(BuildContext context) async {
+    final Directory directory;
+    try {
+      directory = await requestDirectory(context: context);
+    } catch (_) {
+      return;
+    }
+
     final List<SavedAttachment> all = getSavedAttachments();
     list = [];
 
@@ -235,13 +242,6 @@ class SavedAttachmentsProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      Directory directory;
-      try {
-        directory = await requestDirectory(context: context);
-      } catch (e) {
-        return;
-      }
-
       for (final attachment in all) {
         await _deleteFiles(directory.path, attachment);
       }

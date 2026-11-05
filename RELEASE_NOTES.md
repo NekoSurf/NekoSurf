@@ -5,3 +5,4 @@
 - Loading stops and offers to try again if the connection goes quiet for 20 seconds, instead of spinning for minutes
 - Very large text sizes no longer cut off the title bar, the tabs and cards: text grows to a limit, and the title bar and tabs stay their size
 - Backslashes show once, and text someone wrote like &quot; shows as they wrote it
+- On Android, deleting a saved file without storage access no longer removes it from the list while leaving the file
