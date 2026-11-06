@@ -92,6 +92,24 @@ class _DataSettingsState extends State<DataSettings> {
                 ],
               ),
               SettingsGroup(
+                title: 'Saving',
+                footer:
+                    'Files you save or share are named by their number on '
+                    '4chan, like 1700000000000.jpg, instead of what the poster '
+                    'called them. Files already saved keep their names.',
+                children: [
+                  SettingsRow(
+                    icon: CupertinoIcons.number_square_fill,
+                    color: const Color(0xFFFBBF24),
+                    title: "Use 4chan's file names",
+                    trailing: SettingsSwitch(
+                      value: settings.getServerFileNames(),
+                      onChanged: settings.setServerFileNames,
+                    ),
+                  ),
+                ],
+              ),
+              SettingsGroup(
                 title: 'Videos',
                 footer:
                     'Watched videos are kept on your phone, so they start '

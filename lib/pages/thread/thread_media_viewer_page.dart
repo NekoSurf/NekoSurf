@@ -7,6 +7,7 @@ import 'package:flutter_chan/API/save_videos.dart';
 import 'package:flutter_chan/API/urls.dart' as urls;
 import 'package:flutter_chan/Models/post.dart';
 import 'package:flutter_chan/blocs/saved_attachments_model.dart';
+import 'package:flutter_chan/blocs/settings_model.dart';
 import 'package:flutter_chan/pages/media/shared_media_viewer.dart';
 import 'package:flutter_chan/services/image_cache.dart';
 import 'package:flutter_chan/services/reverse_image_search.dart';
@@ -458,6 +459,13 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
   // `tim` is unique per upload; user-provided `filename` is not.
   String _downloadName(Post post) => '${post.tim}${post.ext}';
 
+  bool get _usesServerNames =>
+      context.read<SettingsProvider>().getServerFileNames();
+
+  /// What saving to Photos or sharing calls the file.
+  String _givenName(Post post) =>
+      _usesServerNames ? _downloadName(post) : _fileName(post);
+
   /// Which upload [post] is: its `tim`, as saved attachments know it.
   String _key(Post post) => post.tim.toString();
 
@@ -504,6 +512,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
       widget.board,
       _fileName(post),
       _downloadName(post),
+      useDownloadName: _usesServerNames,
     );
     if (mounted && _isPostSaved(savedAttachments, post)) {
       _showCheck(_savedChecks, key);
@@ -555,7 +564,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
     });
     final bool saved = await saveVideo(
       _mediaUrl(post),
-      _fileName(post),
+      _givenName(post),
       context,
       onProgress: (double? value) => progress.value = value,
     );
@@ -585,7 +594,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
     });
     await shareMedia(
       _mediaUrl(post),
-      _fileName(post),
+      _givenName(post),
       context,
       onProgress: (double? value) => progress.value = value,
     );

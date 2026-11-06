@@ -33,7 +33,7 @@ class _SavedAttachmentsState extends State<SavedAttachments>
   String _key(SavedAttachment a) => a.fileName?.split('/').last ?? '';
 
   String _title(SavedAttachment a) {
-    final String name = a.originalName ?? _key(a);
+    final String name = _key(a);
     final int dot = name.lastIndexOf('.');
     return dot > 0 ? name.substring(0, dot) : name;
   }

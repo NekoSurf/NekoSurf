@@ -28,6 +28,13 @@ Settings → Data → Data saver. Open a thread:
 • In the viewer, the one showing loads. The next one should start when you swipe to it, not before.
 Turn it off afterwards: everything should load again.
 
+4CHAN'S FILE NAMES (issue #91)
+Settings → Data → Use 4chan's file names. Open an image or video from a thread:
+• Share it and choose Save to Files: the name should be a number like 1700000000000.jpg, not the poster's.
+• Save it to Photos: in Photos, swipe up on it and the name should be the number too.
+• Save it, and open it in the Saved tab: it's listed by the number too, in the viewer as well, and sharing it from there shows the number. Files saved with it on earlier show their number now too.
+Turn it off: new saves get the poster's name again, and files already saved keep theirs.
+
 LARGE TEXT
 Settings on your phone → Display → Text Size at the largest, with Larger Accessibility Sizes on. The title bar and tabs stay as they are; cards and posts grow a little, with nothing cut off. Check the home screen, a board, a thread, Settings and dialogs.
 

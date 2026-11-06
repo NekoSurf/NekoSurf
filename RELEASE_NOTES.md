@@ -19,6 +19,9 @@
 ### 📶 Data saver
 - Turn it on in Settings → Data and threads show only thumbnails: images and videos load when you open them
 
+### 🔢 Save with 4chan's file names ([#91](https://github.com/NekoSurf/NekoSurf/issues/91))
+- Turn on "Use 4chan's file names" in Settings → Data, and files you save or share are named like 1700000000000.jpg instead of what the poster called them
+
 ### ♿ VoiceOver and TalkBack
 - Icon buttons now say what they do
 

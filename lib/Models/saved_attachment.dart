@@ -27,7 +27,8 @@ class SavedAttachment {
   SavedAttachmentType? savedAttachmentType;
   String? fileName;
   String? thumbnail;
-  // Uploader's filename, for display only; `fileName` is the unique on-disk name.
+  // Older versions kept the uploader's filename here, to rename files named
+  // after their upload to.
   String? originalName;
   // 4chan upload id (`tim`); stable key even though `fileName` follows the uploader's name.
   String? id;

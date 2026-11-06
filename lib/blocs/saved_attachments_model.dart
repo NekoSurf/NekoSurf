@@ -138,8 +138,10 @@ class SavedAttachmentsProvider with ChangeNotifier {
     BuildContext context,
     String board,
     String fileName,
-    String downloadName,
-  ) async {
+    String downloadName, {
+    // Names the file after the upload.
+    bool useDownloadName = false,
+  }) async {
     final String nameWithoutExtension = downloadName.substring(
       0,
       downloadName.lastIndexOf('.'),
@@ -162,7 +164,7 @@ class SavedAttachmentsProvider with ChangeNotifier {
         urls.boardFile(board, downloadName),
         urls.boardFile(board, '${nameWithoutExtension}s.jpg'),
         downloadName,
-        fileName,
+        useDownloadName ? downloadName : fileName,
         context,
         this,
         onProgress: (double? value) => progress.value = value,
@@ -174,7 +176,6 @@ class SavedAttachmentsProvider with ChangeNotifier {
     }
 
     if (savedAttachment != null) {
-      savedAttachment.originalName = fileName;
       list.add(json.encode(savedAttachment));
     }
     notifyListeners();

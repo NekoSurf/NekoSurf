@@ -38,6 +38,7 @@ class SettingsProvider with ChangeNotifier {
     fullscreenAutoAdvance =
         _prefs.getBool('fullscreenAutoAdvance') ?? fullscreenAutoAdvance;
     dataSaver = _prefs.getBool('dataSaver') ?? dataSaver;
+    serverFileNames = _prefs.getBool('serverFileNames') ?? serverFileNames;
     hiddenThreadPatterns = _prefs.getStringList('hiddenThreadPatterns') ?? [];
     videoCacheMegabytes =
         _prefs.getInt('videoCacheMegabytes') ?? videoCacheMegabytes;
@@ -65,6 +66,7 @@ class SettingsProvider with ChangeNotifier {
   bool trackHistory = true;
   bool fullscreenAutoAdvance = false;
   bool dataSaver = false;
+  bool serverFileNames = false;
   List<String> hiddenThreadPatterns = [];
   List<RegExp>? _hiddenPatternRegexes;
 
@@ -177,6 +179,14 @@ class SettingsProvider with ChangeNotifier {
   Future<void> setDataSaver(bool value) {
     dataSaver = value;
     return _save('dataSaver', value);
+  }
+
+  /// Saved and shared files take 4chan's name for them, not the poster's.
+  bool getServerFileNames() => serverFileNames;
+
+  Future<void> setServerFileNames(bool value) {
+    serverFileNames = value;
+    return _save('serverFileNames', value);
   }
 
   List<String> getHiddenThreadPatterns() {
