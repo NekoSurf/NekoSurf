@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_chan/API/http_client.dart';
-import 'package:flutter_chan/Models/post.dart';
-import 'package:flutter_chan/blocs/saved_attachments_model.dart';
-import 'package:flutter_chan/blocs/settings_model.dart';
-import 'package:flutter_chan/blocs/theme.dart';
-import 'package:flutter_chan/pages/thread/thread_media_viewer_page.dart';
+import 'package:flutter_chan/chan/http_client.dart';
+import 'package:flutter_chan/chan/post.dart';
+import 'package:flutter_chan/saved/saved_attachments_model.dart';
+import 'package:flutter_chan/settings/settings_model.dart';
+import 'package:flutter_chan/thread/thread_media_viewer_page.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -15,21 +14,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 class _FakeSaved extends SavedAttachmentsProvider {
   _FakeSaved(super.prefs);
 
+  Post? post;
   String? fileName;
-  String? downloadName;
-  bool? useDownloadName;
 
   @override
-  Future<void> addSavedAttachments(
-    BuildContext context,
-    String board,
-    String fileName,
-    String downloadName, {
-    bool useDownloadName = false,
-  }) async {
+  Future<void> save(Post post, {required String fileName}) async {
+    this.post = post;
     this.fileName = fileName;
-    this.downloadName = downloadName;
-    this.useDownloadName = useDownloadName;
   }
 }
 
@@ -50,15 +41,15 @@ void main() {
 
   test('the setting is off until turned on, and stays on', () async {
     final SettingsProvider settings = SettingsProvider(prefs);
-    expect(settings.getServerFileNames(), isFalse);
+    expect(settings.serverFileNames.value, isFalse);
 
-    await settings.setServerFileNames(true);
-    expect(SettingsProvider(prefs).getServerFileNames(), isTrue);
+    await settings.serverFileNames.set(true);
+    expect(SettingsProvider(prefs).serverFileNames.value, isTrue);
   });
 
   Future<_FakeSaved> tapSave(WidgetTester tester, {required bool on}) async {
     final SettingsProvider settings = SettingsProvider(prefs);
-    await settings.setServerFileNames(on);
+    await settings.serverFileNames.set(on);
     final _FakeSaved saved = _FakeSaved(prefs);
     final ValueNotifier<int?> current = ValueNotifier<int?>(1);
     addTearDown(current.dispose);
@@ -66,9 +57,6 @@ void main() {
     await tester.pumpWidget(
       MultiProvider(
         providers: [
-          ChangeNotifierProvider<ThemeChanger>(
-            create: (_) => ThemeChanger(ThemeData.dark()),
-          ),
           ChangeNotifierProvider<SettingsProvider>.value(value: settings),
           ChangeNotifierProvider<SavedAttachmentsProvider>.value(value: saved),
         ],
@@ -76,6 +64,7 @@ void main() {
           home: ThreadMediaViewerPage(
             mediaPosts: [
               Post(
+                board: 'g',
                 no: 1,
                 tim: 1700000000000,
                 ext: '.jpg',
@@ -83,9 +72,7 @@ void main() {
               ),
             ],
             initialIndex: 0,
-            board: 'g',
-            thread: 1,
-            currentPostIdNotifier: current,
+            currentPost: current,
           ),
         ),
       ),
@@ -101,14 +88,11 @@ void main() {
     final _FakeSaved saved = await tapSave(tester, on: false);
 
     expect(saved.fileName, 'my_cool_image.jpg');
-    expect(saved.useDownloadName, isFalse);
   });
 
   testWidgets("with it on, a save takes 4chan's name", (tester) async {
     final _FakeSaved saved = await tapSave(tester, on: true);
 
-    expect(saved.downloadName, '1700000000000.jpg');
-    expect(saved.useDownloadName, isTrue);
-    expect(saved.fileName, 'my_cool_image.jpg');
+    expect(saved.fileName, '1700000000000.jpg');
   });
 }

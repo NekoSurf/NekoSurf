@@ -3,29 +3,25 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_chan/API/api.dart';
-import 'package:flutter_chan/API/archived.dart';
-import 'package:flutter_chan/API/http_client.dart';
-import 'package:flutter_chan/Models/bookmark_status.dart';
-import 'package:flutter_chan/Models/post.dart';
-import 'package:flutter_chan/blocs/bookmarks_model.dart';
-import 'package:flutter_chan/blocs/favorite_model.dart';
-import 'package:flutter_chan/blocs/history_model.dart';
-import 'package:flutter_chan/blocs/settings_model.dart';
-import 'package:flutter_chan/blocs/theme.dart';
-import 'package:flutter_chan/blocs/watched_posts_model.dart';
-import 'package:flutter_chan/enums/enums.dart';
-import 'package:flutter_chan/pages/board/board_page.dart';
-import 'package:flutter_chan/pages/media/shared_media_viewer.dart';
-import 'package:flutter_chan/pages/thread/thread_page.dart';
-import 'package:flutter_chan/pages/thread/thread_page_post.dart';
-import 'package:flutter_chan/pages/thread/thread_replied_to.dart';
-import 'package:flutter_chan/pages/thread/thread_rows.dart';
-import 'package:flutter_chan/pages/thread/thread_rows_list.dart';
-import 'package:flutter_chan/services/board_link.dart';
-import 'package:flutter_chan/services/string.dart';
-import 'package:flutter_chan/widgets/dash_header.dart';
-import 'package:flutter_chan/widgets/spoiler_cover.dart';
+import 'package:flutter_chan/board/board_page.dart';
+import 'package:flutter_chan/board/favorite_model.dart';
+import 'package:flutter_chan/bookmarks/bookmarks_model.dart';
+import 'package:flutter_chan/chan/board_link.dart';
+import 'package:flutter_chan/chan/http_client.dart';
+import 'package:flutter_chan/chan/post.dart';
+import 'package:flutter_chan/chan/post_text.dart';
+import 'package:flutter_chan/chan/thread_status.dart';
+import 'package:flutter_chan/history/history_model.dart';
+import 'package:flutter_chan/history/watched_posts_model.dart';
+import 'package:flutter_chan/home/routes.dart';
+import 'package:flutter_chan/media/shared_media_viewer.dart';
+import 'package:flutter_chan/media/spoiler_cover.dart';
+import 'package:flutter_chan/settings/settings_model.dart';
+import 'package:flutter_chan/thread/quoted_post_page.dart';
+import 'package:flutter_chan/thread/thread_page.dart';
+import 'package:flutter_chan/thread/thread_page_post.dart';
+import 'package:flutter_chan/thread/thread_posts.dart';
+import 'package:flutter_chan/ui/dash_header.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -58,7 +54,7 @@ void main() {
     );
   });
 
-  tearDown(resetRevealedSpoilers);
+  tearDown(() => revealedSpoilers.value = const <int>{});
 
   group('parseBoardLink', () {
     test('finds the thread and post of a cross-thread quote', () {
@@ -176,28 +172,22 @@ void main() {
 
     test('is deleted when 4chan says it does not have it', () async {
       threadAnswers(404);
-      final BookmarkStatus status = await fetchBookmarkStatus('a', '1');
-      expect(status.status, ThreadStatus.deleted);
+      final ThreadCheck? check = await checkThread('a', 1, exact: true);
+      expect(check?.status, ThreadStatus.deleted);
     });
 
     test('is unknown when 4chan is limiting requests or failing', () async {
       threadAnswers(429);
-      await expectLater(
-        fetchBookmarkStatus('b', '1'),
-        throwsA(isA<ApiException>()),
-      );
+      expect(await checkThread('b', 1, exact: true), isNull);
       threadAnswers(500);
-      await expectLater(
-        fetchBookmarkStatus('c', '1'),
-        throwsA(isA<ApiException>()),
-      );
+      expect(await checkThread('c', 1, exact: true), isNull);
     });
 
     test('is online when it is there', () async {
       threadAnswers(200);
-      final BookmarkStatus status = await fetchBookmarkStatus('d', '1');
-      expect(status.status, ThreadStatus.online);
-      expect(status.replies?.replies, 3);
+      final ThreadCheck? check = await checkThread('d', 1, exact: true);
+      expect(check?.status, ThreadStatus.online);
+      expect(check?.replies, 3);
     });
   });
 
@@ -211,15 +201,12 @@ void main() {
       SharedPreferences.setMockInitialValues({});
       prefs = await SharedPreferences.getInstance();
       settings = SettingsProvider(prefs);
-      watched = WatchedPostsProvider(prefs);
+      watched = WatchedPostsProvider(prefs, settings);
       addTearDown(watched.dispose);
     });
 
     Widget app(Widget home) => MultiProvider(
       providers: [
-        ChangeNotifierProvider<ThemeChanger>(
-          create: (_) => ThemeChanger(ThemeData.dark()),
-        ),
         ChangeNotifierProvider<SettingsProvider>.value(value: settings),
         ChangeNotifierProvider<WatchedPostsProvider>.value(value: watched),
         ChangeNotifierProvider<BookmarksProvider>(
@@ -229,10 +216,10 @@ void main() {
           create: (_) => FavoriteProvider(prefs),
         ),
         ChangeNotifierProvider<HistoryProvider>(
-          create: (_) => HistoryProvider(prefs),
+          create: (_) => HistoryProvider(prefs, settings),
         ),
       ],
-      child: MaterialApp(home: home),
+      child: MaterialApp(home: home, onGenerateRoute: generateRoute),
     );
 
     Future<void> pumpPost(WidgetTester tester, Post post) async {
@@ -241,11 +228,15 @@ void main() {
           Scaffold(
             body: SingleChildScrollView(
               child: ThreadPagePost(
-                board: 'g',
-                thread: 1,
                 post: post,
-                allPosts: [Post(no: 1, time: 1700000000), post],
-                onDismiss: (_) {},
+                thread: ThreadPosts(
+                  board: 'g',
+                  number: 1,
+                  posts: [
+                    Post(board: 'g', no: 1, time: 1700000000),
+                    post,
+                  ],
+                ),
               ),
             ),
           ),
@@ -265,7 +256,10 @@ void main() {
           '<a href="/g/thread/10#p12" class="quotelink">&gt;&gt;12</a>';
 
       testWidgets('says so', (tester) async {
-        await pumpPost(tester, Post(no: 3, time: 1700000000, com: com));
+        await pumpPost(
+          tester,
+          Post(board: 'g', no: 3, time: 1700000000, com: com),
+        );
 
         expect(
           find.textContaining('>>12 (other thread)', findRichText: true),
@@ -274,7 +268,10 @@ void main() {
       });
 
       testWidgets('opens that thread at the post', (tester) async {
-        await pumpPost(tester, Post(no: 3, time: 1700000000, com: com));
+        await pumpPost(
+          tester,
+          Post(board: 'g', no: 3, time: 1700000000, com: com),
+        );
 
         await tester.tapOnText(find.textRange.ofSubstring('>>12'));
         await tester.pump();
@@ -294,6 +291,7 @@ void main() {
       await pumpPost(
         tester,
         Post(
+          board: 'g',
           no: 3,
           time: 1700000000,
           com: '<a href="/wsg/" class="quotelink">&gt;&gt;&gt;/wsg/</a>',
@@ -312,11 +310,13 @@ void main() {
       answer = (_) => http.Response('{"posts":[{"no":1}]}', 200);
       await tester.pumpWidget(
         app(
-          ThreadRepliesTo(
+          QuotedPostPage(
             post: 99,
-            thread: 1,
-            board: 'g',
-            allPosts: [Post(no: 1, time: 1700000000)],
+            thread: ThreadPosts(
+              board: 'g',
+              number: 1,
+              posts: [Post(board: 'g', no: 1, time: 1700000000)],
+            ),
           ),
         ),
       );
@@ -341,6 +341,7 @@ void main() {
       await pumpPost(
         tester,
         Post(
+          board: 'g',
           no: 3,
           time: 1700000000,
           com:
@@ -348,23 +349,21 @@ void main() {
         ),
       );
 
-      final SelectableText code = tester.widget<SelectableText>(
-        find.byWidgetPredicate(
-          (Widget widget) =>
-              widget is SelectableText &&
-              widget.data?.contains('if (a)') == true,
-        ),
-      );
-      expect(code.data, 'if (a) {\n  b && c;\n}');
-      expect(code.style?.fontFamily, isNotNull);
+      final Finder code = find.text('if (a) {\n  b && c;\n}');
+      expect(code, findsOneWidget);
       expect(find.text('Look:'), findsOneWidget);
       expect(find.text('Nice'), findsOneWidget);
+
+      String? fontOf(Finder text) =>
+          tester.widget<EditableText>(text).style.fontFamily;
+      expect(fontOf(code), isNot(fontOf(find.text('Nice'))));
     });
 
     testWidgets('a post shows its ID, trip and role', (tester) async {
       await pumpPost(
         tester,
         Post(
+          board: 'g',
           no: 3,
           time: 1700000000,
           name: 'A &amp; B',
@@ -385,6 +384,7 @@ void main() {
 
     group('a spoiler', () {
       final Post spoiler = Post(
+        board: 'g',
         no: 3,
         time: 1700000000,
         tim: 1700000000123,
@@ -409,8 +409,11 @@ void main() {
 
       test('has no thumbnail to keep', () {
         expect(spoiler.thumbnailName, isNull);
-        expect(Post(tim: 5, ext: '.jpg').thumbnailName, '5s.jpg');
-        expect(Post().thumbnailName, isNull);
+        expect(
+          Post(board: 'g', no: 1, tim: 5, ext: '.jpg').thumbnailName,
+          '5s.jpg',
+        );
+        expect(Post(board: 'g', no: 1).thumbnailName, isNull);
       });
 
       testWidgets('is covered in the viewer too', (tester) async {
@@ -420,15 +423,15 @@ void main() {
               items: [
                 SharedMediaViewerItem(
                   id: '1',
+                  name: 'a.jpg',
                   source: 'a.jpg',
                   isVideo: false,
                   imageProvider: _pixel,
                   spoilerUpload: 5,
                 ),
               ],
-              initialIndex: 0,
+              index: 0,
               onClose: () {},
-              mediaNameBuilder: (_) => 'a.jpg',
               actions: const [],
               onIndexChanged: (_) {},
             ),
@@ -436,17 +439,19 @@ void main() {
         );
         await tester.pump();
 
-        expect(find.byType(InteractiveViewer), findsNothing);
+        expect(find.byType(Image), findsNothing);
 
         await tester.tap(find.text('Spoiler'));
         await tester.pump();
 
-        expect(find.byType(InteractiveViewer), findsOneWidget);
+        expect(find.text('Spoiler'), findsNothing);
+        expect(find.byType(Image), findsWidgets);
       });
     });
 
     group('the data saver', () {
       final Post image = Post(
+        board: 'g',
         no: 3,
         time: 1700000000,
         tim: 1700000000123,
@@ -459,29 +464,64 @@ void main() {
         await pumpPost(tester, image);
         expect(find.byType(Image), findsNWidgets(2));
 
-        await settings.setDataSaver(true);
+        await settings.dataSaver.set(true);
         await tester.pump();
 
         expect(find.byType(Image), findsOneWidget);
       });
 
       test('is remembered', () async {
-        await settings.setDataSaver(true);
-        expect(SettingsProvider(prefs).getDataSaver(), isTrue);
+        await settings.dataSaver.set(true);
+        expect(SettingsProvider(prefs).dataSaver.value, isTrue);
       });
     });
 
     testWidgets(
-      'pulling the list past its end asks for a refresh, once per pull',
+      'pulling the list past its end refreshes the thread, once per pull',
       (tester) async {
-        final GlobalKey<_PullListState> key = GlobalKey();
-        await tester.pumpWidget(app(Scaffold(body: _PullList(key: key))));
-        await tester.pump();
-        await tester.pump();
+        int requests = 0;
+        answer = (_) {
+          requests++;
+          return requests == 1
+              ? http.Response(
+                  '{"posts":[{"no":1,"sub":"Title","com":"Words"}]}',
+                  200,
+                )
+              : http.Response('', 304);
+        };
+        int buzzes = 0;
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          (MethodCall call) async {
+            if (call.method == 'HapticFeedback.vibrate') {
+              buzzes++;
+            }
+            return null;
+          },
+        );
+        addTearDown(
+          () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            SystemChannels.platform,
+            null,
+          ),
+        );
+        // Answers arrive in real time, off the UI isolate.
+        Future<void> waitFor(Finder finder) async {
+          for (int i = 0; i < 40 && finder.evaluate().isEmpty; i++) {
+            await tester.runAsync(
+              () => Future<void>.delayed(const Duration(milliseconds: 50)),
+            );
+            await tester.pump();
+          }
+          expect(finder, findsOneWidget);
+        }
+
+        await tester.pumpWidget(app(ThreadPage(post: Post(board: 'g', no: 1))));
+        await waitFor(find.text('Words').hitTestable());
 
         Future<void> pull() async {
           final TestGesture gesture = await tester.startGesture(
-            tester.getCenter(find.byKey(key)),
+            tester.getCenter(find.byType(ThreadPage)),
           );
           for (int step = 0; step < 12; step++) {
             await gesture.moveBy(const Offset(0, 40));
@@ -489,13 +529,20 @@ void main() {
           }
           await gesture.up();
           await tester.pumpAndSettle();
+          await waitFor(find.text('No new posts'));
+          // The message closes by itself.
+          await tester.pump(const Duration(seconds: 2));
+          await tester.pumpAndSettle();
         }
 
         await pull();
-        expect(key.currentState!.pulls, 1);
+        expect(requests, 2);
+        expect(buzzes, 1);
 
         await pull();
-        expect(key.currentState!.pulls, 2);
+        expect(requests, 3);
+        expect(buzzes, 2);
+        await finish(tester);
       },
       variant: TargetPlatformVariant.only(TargetPlatform.iOS),
     );
@@ -520,41 +567,4 @@ void main() {
       handle.dispose();
     });
   });
-}
-
-/// A short list, to pull at the ends of.
-class _PullList extends StatefulWidget {
-  const _PullList({super.key});
-
-  @override
-  State<_PullList> createState() => _PullListState();
-}
-
-class _PullListState extends State<_PullList> with ThreadRowsList<_PullList> {
-  int pulls = 0;
-
-  final List<Post> _posts = <Post>[
-    Post(no: 1, time: 1700000000, com: 'Words'),
-    Post(no: 2, time: 1700000000, com: 'Words'),
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    rebuildRows();
-  }
-
-  @override
-  int get threadNumber => 1;
-
-  @override
-  void onPulledPastEnd() => pulls++;
-
-  @override
-  List<ThreadRow> buildRows() =>
-      buildFlatRows(_posts, replyCounts: const <int, int>{});
-
-  @override
-  Widget build(BuildContext context) =>
-      buildRowList(context, board: 'g', thread: 1, allPosts: _posts);
 }

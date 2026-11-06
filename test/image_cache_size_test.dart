@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:flutter_chan/services/image_cache.dart';
+import 'package:flutter_chan/media/image_cache.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

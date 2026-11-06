@@ -1,11 +1,11 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter_chan/services/unfocus_on_push.dart';
+import 'package:flutter_chan/ui/unfocus_on_push.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// A board page: a search field, and a thread that opens over it.
-Widget _app({required bool observed, WidgetBuilder? thread}) {
+Widget _app({WidgetBuilder? thread}) {
   return CupertinoApp(
-    navigatorObservers: [if (observed) UnfocusOnPushObserver()],
+    navigatorObservers: [UnfocusOnPushObserver()],
     home: Builder(
       builder: (BuildContext context) => CupertinoPageScaffold(
         child: SafeArea(
@@ -61,35 +61,10 @@ bool _fieldFocused(WidgetTester tester) =>
     tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus;
 
 void main() {
-  testWidgets('without it, the back icon brings the keyboard up', (
-    WidgetTester tester,
-  ) async {
-    await tester.pumpWidget(_app(observed: false));
-    await _typeThenOpen(tester, 'thread');
-    await _back(tester);
-
-    expect(_fieldFocused(tester), isTrue);
-    expect(tester.testTextInput.isVisible, isTrue);
-  });
-
-  testWidgets(
-    "without it, a back swipe doesn't: the page doesn't take focus mid-swipe",
-    (WidgetTester tester) async {
-      await tester.pumpWidget(_app(observed: false));
-      await _typeThenOpen(tester, 'thread');
-      await _swipeBack(tester);
-
-      expect(find.text('posts'), findsNothing);
-      expect(_fieldFocused(tester), isFalse);
-      expect(tester.testTextInput.isVisible, isFalse);
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
-  );
-
   testWidgets('coming back from a thread leaves the keyboard down', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(_app(observed: true));
+    await tester.pumpWidget(_app());
     await _typeThenOpen(tester, 'thread');
     await _back(tester);
 
@@ -100,7 +75,7 @@ void main() {
   testWidgets('coming back by swiping leaves the keyboard down too', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(_app(observed: true));
+    await tester.pumpWidget(_app());
     await _typeThenOpen(tester, 'thread');
     await _swipeBack(tester);
 
@@ -112,7 +87,7 @@ void main() {
   testWidgets('a dialog gives the keyboard back when it closes', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(_app(observed: true));
+    await tester.pumpWidget(_app());
     await _typeThenOpen(tester, 'dialog');
     await _back(tester);
 
@@ -126,7 +101,6 @@ void main() {
     addTearDown(search.dispose);
     await tester.pumpWidget(
       _app(
-        observed: true,
         thread: (_) => CupertinoPageScaffold(
           child: SafeArea(
             child: CupertinoTextField(focusNode: search, autofocus: true),

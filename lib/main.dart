@@ -3,18 +3,19 @@ import 'dart:async';
 import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_chan/API/save_videos.dart';
-import 'package:flutter_chan/blocs/bookmarks_model.dart';
-import 'package:flutter_chan/blocs/favorite_model.dart';
-import 'package:flutter_chan/blocs/history_model.dart';
-import 'package:flutter_chan/blocs/saved_attachments_model.dart';
-import 'package:flutter_chan/blocs/settings_model.dart';
-import 'package:flutter_chan/blocs/theme.dart';
-import 'package:flutter_chan/blocs/watched_posts_model.dart';
-import 'package:flutter_chan/pages/boards/board_list.dart';
-import 'package:flutter_chan/services/fast_page_transitions.dart';
-import 'package:flutter_chan/services/image_cache.dart';
-import 'package:flutter_chan/services/unfocus_on_push.dart';
+import 'package:flutter_chan/board/favorite_model.dart';
+import 'package:flutter_chan/bookmarks/bookmarks_model.dart';
+import 'package:flutter_chan/history/history_model.dart';
+import 'package:flutter_chan/history/watched_posts_model.dart';
+import 'package:flutter_chan/home/app_shell.dart';
+import 'package:flutter_chan/home/routes.dart';
+import 'package:flutter_chan/media/image_cache.dart';
+import 'package:flutter_chan/media/video_server.dart';
+import 'package:flutter_chan/saved/downloads.dart';
+import 'package:flutter_chan/saved/saved_attachments_model.dart';
+import 'package:flutter_chan/settings/settings_model.dart';
+import 'package:flutter_chan/ui/fast_page_transitions.dart';
+import 'package:flutter_chan/ui/unfocus_on_push.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -39,40 +40,42 @@ Future<void> main() async {
   // Loaded before the first frame, so it shows the saved settings,
   // favorites and bookmarks rather than defaults.
   final SharedPreferences prefs = await SharedPreferences.getInstance();
+  final SettingsProvider settings = SettingsProvider(prefs);
+  unawaited(
+    VideoServer.instance.setMaxCacheBytes(
+      settings.videoCacheMegabytes.value * megabyte,
+    ),
+  );
   unawaited(deleteSaveLeftovers());
   unawaited(deleteOldImageCache());
-  runApp(MyApp(prefs: prefs));
+  runApp(MyApp(prefs: prefs, settings: settings));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key, required this.prefs});
+  const MyApp({super.key, required this.prefs, required this.settings});
 
   final SharedPreferences prefs;
+  final SettingsProvider settings;
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider<ThemeChanger>(
-          create: (_) => ThemeChanger(ThemeData.dark()),
-        ),
         ChangeNotifierProvider<BookmarksProvider>(
           create: (_) => BookmarksProvider(prefs),
         ),
         ChangeNotifierProvider<FavoriteProvider>(
           create: (_) => FavoriteProvider(prefs),
         ),
-        ChangeNotifierProvider<SettingsProvider>(
-          create: (_) => SettingsProvider(prefs),
-        ),
+        ChangeNotifierProvider<SettingsProvider>.value(value: settings),
         ChangeNotifierProvider<HistoryProvider>(
-          create: (_) => HistoryProvider(prefs),
+          create: (_) => HistoryProvider(prefs, settings),
         ),
         ChangeNotifierProvider<SavedAttachmentsProvider>(
           create: (_) => SavedAttachmentsProvider(prefs),
         ),
         ChangeNotifierProvider<WatchedPostsProvider>(
-          create: (_) => WatchedPostsProvider(prefs),
+          create: (_) => WatchedPostsProvider(prefs, settings),
           lazy: false,
         ),
       ],
@@ -93,6 +96,9 @@ class _AppWithThemeState extends State<AppWithTheme>
   // Stays with the app's one navigator; an observer can't watch two.
   final UnfocusOnPushObserver _unfocusOnPush = UnfocusOnPushObserver();
 
+  Brightness _brightness =
+      WidgetsBinding.instance.platformDispatcher.platformBrightness;
+
   @override
   void initState() {
     super.initState();
@@ -107,25 +113,18 @@ class _AppWithThemeState extends State<AppWithTheme>
 
   @override
   void didChangePlatformBrightness() {
-    final Brightness brightness =
-        WidgetsBinding.instance.platformDispatcher.platformBrightness;
-
-    final theme = Provider.of<ThemeChanger>(context, listen: false);
-
-    theme.setTheme(
-      brightness == Brightness.dark ? ThemeData.dark() : ThemeData.light(),
-    );
-
-    super.didChangePlatformBrightness();
+    setState(() {
+      _brightness =
+          WidgetsBinding.instance.platformDispatcher.platformBrightness;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Provider.of<ThemeChanger>(context);
-
     return CupertinoApp(
       debugShowCheckedModeBanner: false,
-      home: const BoardList(),
+      home: const AppShell(),
+      onGenerateRoute: generateRoute,
       navigatorObservers: [_unfocusOnPush],
       // Beyond this, fixed-size cards and rows cut their text off.
       builder: (context, child) => MediaQuery.withClampedTextScaling(
@@ -146,9 +145,7 @@ class _AppWithThemeState extends State<AppWithTheme>
           child: child!,
         ),
       ),
-      theme: CupertinoThemeData(
-        brightness: theme.isDark ? Brightness.dark : Brightness.light,
-      ),
+      theme: CupertinoThemeData(brightness: _brightness),
       localizationsDelegates: const [
         DefaultCupertinoLocalizations.delegate,
         DefaultMaterialLocalizations.delegate,

@@ -43,3 +43,6 @@ Please also try what couldn't be checked on a simulator:
 • Bad connection: turn on Airplane Mode just after opening a thread or board, or use a very slow network. Within about 20 seconds it should offer to try again.
 • Bookmarks with no connection: they should stay openable, not say Deleted.
 • Android: code blocks should use a monospaced font. Deleting a saved file with storage access off should show the permission sheet and keep the file listed.
+• Saving: save a webm to the Saved tab, Save to Photos and share it: each should end up as a video that plays. On Android it stays a webm, on iPhone it becomes an mp4.
+• Saving several at once, including two files with the same name: all should appear, none overwritten.
+• Bookmarks: open a thread from a link with history turned off and bookmark it: it should keep its title and image.

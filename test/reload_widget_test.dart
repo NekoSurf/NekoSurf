@@ -1,22 +1,14 @@
 import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_chan/API/api.dart';
-import 'package:flutter_chan/blocs/theme.dart';
-import 'package:flutter_chan/widgets/reload.dart';
+import 'package:flutter_chan/chan/load_errors.dart';
+import 'package:flutter_chan/ui/reload.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
 
 void main() {
   Future<void> showError(WidgetTester tester, Object? error) {
     return tester.pumpWidget(
-      ChangeNotifierProvider(
-        create: (_) => ThemeChanger(ThemeData.dark()),
-        child: CupertinoApp(
-          home: ReloadWidget.forError(error, onReload: () {}),
-        ),
-      ),
+      CupertinoApp(home: ReloadWidget.forError(error, onReload: () {})),
     );
   }
 

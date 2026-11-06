@@ -3,7 +3,7 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:flutter_chan/services/video_server.dart';
+import 'package:flutter_chan/media/video_server.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Stands in for 4chan's image server: serves [bytes] in slow chunks,

@@ -1,0 +1,151 @@
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_chan/chan/load_errors.dart';
+import 'package:flutter_chan/ui/colors.dart';
+
+/// Shown in place of content that failed to load, with a retry button and
+/// optionally a second way out, like opening the page in the browser.
+class ReloadWidget extends StatelessWidget {
+  const ReloadWidget({
+    super.key,
+    required this.onReload,
+    this.icon = CupertinoIcons.wifi_exclamationmark,
+    this.title = 'Loading failed',
+    this.message = 'Check your connection and try again.',
+    this.secondaryLabel,
+    this.onSecondary,
+  });
+
+  /// Says what went wrong with [error]: 4chan limiting requests, not
+  /// having the page, or failing itself; otherwise (no connection, most
+  /// likely) the default.
+  factory ReloadWidget.forError(
+    Object? error, {
+    required VoidCallback onReload,
+  }) {
+    final (IconData icon, String title, String message) = switch (error) {
+      ApiException(isRateLimited: true) => (
+        CupertinoIcons.hourglass,
+        'Too many requests',
+        '4chan is limiting requests for now. Wait a moment, then try again.',
+      ),
+      ApiException(statusCode: 404) || ThreadNotFound() => (
+        CupertinoIcons.question_circle,
+        'Not found',
+        "4chan doesn't have this page (anymore).",
+      ),
+      ApiException(statusCode: >= 500) => (
+        CupertinoIcons.exclamationmark_triangle,
+        '4chan is having trouble',
+        'Its servers answered with an error. Try again in a bit.',
+      ),
+      _ => (
+        CupertinoIcons.wifi_exclamationmark,
+        'Loading failed',
+        'Check your connection and try again.',
+      ),
+    };
+    return ReloadWidget(
+      onReload: onReload,
+      icon: icon,
+      title: title,
+      message: message,
+    );
+  }
+
+  final VoidCallback onReload;
+  final IconData icon;
+  final String title;
+  final String message;
+  final String? secondaryLabel;
+  final VoidCallback? onSecondary;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isDark = context.isDark;
+
+    return ColoredBox(
+      color: DashColors.page(isDark),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: DashColors.accent.withValues(alpha: 0.14),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 28, color: DashColors.accent),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: DashColors.text(isDark),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.35,
+                  color: DashColors.muted(isDark),
+                ),
+              ),
+              const SizedBox(height: 20),
+              CupertinoButton(
+                color: DashColors.accent,
+                borderRadius: BorderRadius.circular(999),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 22,
+                  vertical: 10,
+                ),
+                onPressed: onReload,
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      CupertinoIcons.arrow_counterclockwise,
+                      size: 18,
+                      color: Colors.black,
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      'Try again',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (secondaryLabel != null && onSecondary != null)
+                CupertinoButton(
+                  onPressed: onSecondary,
+                  child: Text(
+                    secondaryLabel!,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: DashColors.accent,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

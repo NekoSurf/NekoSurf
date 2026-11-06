@@ -1,6 +1,7 @@
-import 'package:flutter_chan/API/api.dart';
-import 'package:flutter_chan/Models/post.dart';
-import 'package:flutter_chan/pages/thread/thread_rows.dart';
+import 'package:flutter_chan/chan/post.dart';
+import 'package:flutter_chan/thread/thread_branch.dart';
+import 'package:flutter_chan/thread/thread_posts.dart';
+import 'package:flutter_chan/thread/thread_rows.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// A reply's comment quoting [ids], as 4chan marks quotes up.
@@ -36,13 +37,13 @@ void main() {
   // 1 is the opening post.
   // 2 and 6 answer it, 5 answers nothing; 3 and 4 hang under 2, 7 under 3.
   final List<Post> posts = [
-    Post(no: 1),
-    Post(no: 2, com: _quoting([1])),
-    Post(no: 3, com: _quoting([2])),
-    Post(no: 4, com: _quoting([2])),
-    Post(no: 5, com: 'no quote'),
-    Post(no: 6, com: _quoting([1])),
-    Post(no: 7, com: _quoting([3])),
+    Post(board: 'g', no: 1),
+    Post(board: 'g', no: 2, com: _quoting([1])),
+    Post(board: 'g', no: 3, com: _quoting([2])),
+    Post(board: 'g', no: 4, com: _quoting([2])),
+    Post(board: 'g', no: 5, com: 'no quote'),
+    Post(board: 'g', no: 6, com: _quoting([1])),
+    Post(board: 'g', no: 7, com: _quoting([3])),
   ];
 
   group('buildNestedRows', () {
@@ -127,8 +128,8 @@ void main() {
     test('leaves posts that came in later flat at the bottom', () {
       final List<Post> withNew = [
         ...posts,
-        Post(no: 8, com: _quoting([3])),
-        Post(no: 9, com: _quoting([8])),
+        Post(board: 'g', no: 8, com: _quoting([3])),
+        Post(board: 'g', no: 9, com: _quoting([8])),
       ];
       final List<ThreadRow> rows = _nested(
         withNew,
@@ -143,8 +144,8 @@ void main() {
 
     test('a reply whose parent was deleted moves to the top level', () {
       final List<ThreadRow> rows = _nested([
-        Post(no: 1),
-        Post(no: 3, com: _quoting([2])),
+        Post(board: 'g', no: 1),
+        Post(board: 'g', no: 3, com: _quoting([2])),
       ]);
       expect(_numbers(rows), [1, 3]);
       expect(_row(rows, 3).ancestors, isEmpty);
@@ -163,7 +164,7 @@ void main() {
       final List<ThreadRow> rows = buildNestedRows(
         [posts[1], posts[2], posts[3], posts[6]],
         children: buildReplyChildrenIndex(posts),
-        positions: {for (int i = 0; i < posts.length; i++) posts[i].no!: i},
+        positions: {for (int i = 0; i < posts.length; i++) posts[i].no: i},
       );
 
       // 2 as the root, with 3 and 4 as the top level below it, and 7 under 3.
@@ -175,8 +176,9 @@ void main() {
 
     test('nests as deep as people reply', () {
       final List<Post> chain = [
-        Post(no: 1),
-        for (int no = 2; no <= 200; no++) Post(no: no, com: _quoting([no - 1])),
+        Post(board: 'g', no: 1),
+        for (int no = 2; no <= 200; no++)
+          Post(board: 'g', no: no, com: _quoting([no - 1])),
       ];
 
       final List<ThreadRow> rows = _nested(chain);
@@ -189,12 +191,12 @@ void main() {
       // 1 is the opening post. 4 quotes 2 and 3, 5 quotes 2 twice, and 6 quotes
       // both 2 and 5, which is itself below 2.
       final List<Post> quoting = [
-        Post(no: 1),
-        Post(no: 2, com: _quoting([1])),
-        Post(no: 3, com: _quoting([1])),
-        Post(no: 4, com: _quoting([2, 3])),
-        Post(no: 5, com: _quoting([2, 2])),
-        Post(no: 6, com: _quoting([2, 5])),
+        Post(board: 'g', no: 1),
+        Post(board: 'g', no: 2, com: _quoting([1])),
+        Post(board: 'g', no: 3, com: _quoting([1])),
+        Post(board: 'g', no: 4, com: _quoting([2, 3])),
+        Post(board: 'g', no: 5, com: _quoting([2, 2])),
+        Post(board: 'g', no: 6, com: _quoting([2, 5])),
       ];
 
       List<ThreadRow> rowsOf({Set<String> collapsed = const <String>{}}) =>
@@ -228,11 +230,11 @@ void main() {
 
       test('counts as one reply, however many times it shows', () {
         final List<Post> posts = [
-          Post(no: 1),
-          Post(no: 2, com: _quoting([1])),
-          Post(no: 3, com: _quoting([2])),
-          Post(no: 4, com: _quoting([2])),
-          Post(no: 5, com: _quoting([3, 4])),
+          Post(board: 'g', no: 1),
+          Post(board: 'g', no: 2, com: _quoting([1])),
+          Post(board: 'g', no: 3, com: _quoting([2])),
+          Post(board: 'g', no: 4, com: _quoting([2])),
+          Post(board: 'g', no: 5, com: _quoting([3, 4])),
         ];
         final List<ThreadRow> rows = _nested(posts);
 
@@ -242,9 +244,9 @@ void main() {
 
       test('shows at the top level too if it quotes the opening post', () {
         final List<Post> posts = [
-          Post(no: 1),
-          Post(no: 2, com: 'no quote'),
-          Post(no: 3, com: _quoting([2, 1])),
+          Post(board: 'g', no: 1),
+          Post(board: 'g', no: 2, com: 'no quote'),
+          Post(board: 'g', no: 3, com: _quoting([2, 1])),
         ];
         final List<ThreadRow> rows = _nested(posts);
 
@@ -255,9 +257,9 @@ void main() {
 
       test('stays below a reply to the opening post it also quotes', () {
         final List<ThreadRow> rows = _nested([
-          Post(no: 1),
-          Post(no: 2, com: _quoting([1])),
-          Post(no: 3, com: _quoting([2, 1])),
+          Post(board: 'g', no: 1),
+          Post(board: 'g', no: 2, com: _quoting([1])),
+          Post(board: 'g', no: 3, com: _quoting([2, 1])),
         ]);
 
         expect(_numbers(rows), [1, 2, 3]);
@@ -277,10 +279,10 @@ void main() {
 
       test('a part of a thread keeps a reply that also quotes outside it', () {
         final List<Post> posts = [
-          Post(no: 1),
-          Post(no: 2, com: _quoting([1])),
-          Post(no: 3, com: _quoting([1])),
-          Post(no: 4, com: _quoting([2, 3])),
+          Post(board: 'g', no: 1),
+          Post(board: 'g', no: 2, com: _quoting([1])),
+          Post(board: 'g', no: 3, com: _quoting([1])),
+          Post(board: 'g', no: 4, com: _quoting([2, 3])),
         ];
         final List<ThreadRow> rows = buildNestedRows([
           posts[1],
@@ -293,12 +295,12 @@ void main() {
       group('with replies below it', () {
         // 4 quotes 2 and 3, and 5 and 6 answer it.
         final List<Post> branching = [
-          Post(no: 1),
-          Post(no: 2, com: _quoting([1])),
-          Post(no: 3, com: _quoting([1])),
-          Post(no: 4, com: _quoting([2, 3])),
-          Post(no: 5, com: _quoting([4])),
-          Post(no: 6, com: _quoting([4])),
+          Post(board: 'g', no: 1),
+          Post(board: 'g', no: 2, com: _quoting([1])),
+          Post(board: 'g', no: 3, com: _quoting([1])),
+          Post(board: 'g', no: 4, com: _quoting([2, 3])),
+          Post(board: 'g', no: 5, com: _quoting([4])),
+          Post(board: 'g', no: 6, com: _quoting([4])),
         ];
 
         test('is shown in full under the first, a preview under the rest', () {
@@ -342,10 +344,10 @@ void main() {
 
       test('with an image is a preview under the rest', () {
         final List<Post> posts = [
-          Post(no: 1),
-          Post(no: 2, com: _quoting([1])),
-          Post(no: 3, com: _quoting([1])),
-          Post(no: 4, com: _quoting([2, 3]), tim: 1, ext: '.jpg'),
+          Post(board: 'g', no: 1),
+          Post(board: 'g', no: 2, com: _quoting([1])),
+          Post(board: 'g', no: 3, com: _quoting([1])),
+          Post(board: 'g', no: 4, com: _quoting([2, 3]), tim: 1, ext: '.jpg'),
         ];
         final List<ThreadRow> rows = _nested(posts);
 
@@ -355,10 +357,14 @@ void main() {
 
       test('with a lot of text is a preview under the rest', () {
         final List<Post> posts = [
-          Post(no: 1),
-          Post(no: 2, com: _quoting([1])),
-          Post(no: 3, com: _quoting([1])),
-          Post(no: 4, com: '${_quoting([2, 3])}${'A long line. ' * 80}'),
+          Post(board: 'g', no: 1),
+          Post(board: 'g', no: 2, com: _quoting([1])),
+          Post(board: 'g', no: 3, com: _quoting([1])),
+          Post(
+            board: 'g',
+            no: 4,
+            com: '${_quoting([2, 3])}${'A long line. ' * 80}',
+          ),
         ];
         final List<ThreadRow> rows = _nested(posts);
 
@@ -369,12 +375,20 @@ void main() {
         // Pairs of posts that each quote both of the pair before: repeating
         // what's below them would double the rows with every pair.
         final List<Post> layers = [
-          Post(no: 1),
-          Post(no: 2, com: _quoting([1])),
-          Post(no: 3, com: _quoting([1])),
+          Post(board: 'g', no: 1),
+          Post(board: 'g', no: 2, com: _quoting([1])),
+          Post(board: 'g', no: 3, com: _quoting([1])),
           for (int pair = 2; pair < 150; pair++) ...[
-            Post(no: pair * 2, com: _quoting([pair * 2 - 2, pair * 2 - 1])),
-            Post(no: pair * 2 + 1, com: _quoting([pair * 2 - 2, pair * 2 - 1])),
+            Post(
+              board: 'g',
+              no: pair * 2,
+              com: _quoting([pair * 2 - 2, pair * 2 - 1]),
+            ),
+            Post(
+              board: 'g',
+              no: pair * 2 + 1,
+              com: _quoting([pair * 2 - 2, pair * 2 - 1]),
+            ),
           ],
         ];
 
@@ -394,7 +408,11 @@ void main() {
   });
 
   group('buildFlatRows', () {
-    final Map<int, int> counts = buildReplyDescendantCountIndex(posts);
+    final Map<int, int> counts = ThreadPosts(
+      board: 'g',
+      number: 1,
+      posts: posts,
+    ).replyCounts;
 
     test('lists every post once, in the order it was posted', () {
       final List<ThreadRow> rows = buildFlatRows(posts, replyCounts: counts);
@@ -427,7 +445,7 @@ void main() {
       final List<ThreadRow> rows = buildFlatRows(
         [posts[1], posts[6]],
         replyCounts: counts,
-        positions: {for (int i = 0; i < posts.length; i++) posts[i].no!: i},
+        positions: {for (int i = 0; i < posts.length; i++) posts[i].no: i},
       );
 
       expect(_row(rows, 7).postIndex, 6);

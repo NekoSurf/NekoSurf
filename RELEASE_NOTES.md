@@ -33,3 +33,4 @@
 - Very large text sizes no longer cut off the title bar, the tabs and cards: text grows to a limit, and the title bar and tabs stay their size
 - Backslashes show once, and text someone wrote like &quot; shows as they wrote it
 - On Android, deleting a saved file without storage access no longer removes it from the list while leaving the file
+- Bookmarking a thread opened from a reply in search keeps its title and image, also with history turned off

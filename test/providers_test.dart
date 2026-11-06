@@ -1,12 +1,13 @@
 import 'dart:convert';
 
-import 'package:flutter_chan/Models/bookmark.dart';
-import 'package:flutter_chan/Models/post.dart';
-import 'package:flutter_chan/Models/thread_memory.dart';
-import 'package:flutter_chan/blocs/bookmarks_model.dart';
-import 'package:flutter_chan/blocs/settings_model.dart';
-import 'package:flutter_chan/blocs/watched_posts_model.dart';
-import 'package:flutter_chan/enums/enums.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_chan/bookmarks/bookmark.dart';
+import 'package:flutter_chan/bookmarks/bookmarks_model.dart';
+import 'package:flutter_chan/chan/catalog.dart';
+import 'package:flutter_chan/chan/post.dart';
+import 'package:flutter_chan/history/thread_memory.dart';
+import 'package:flutter_chan/history/watched_posts_model.dart';
+import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -54,7 +55,7 @@ void main() {
       });
       final BookmarksProvider bookmarks = BookmarksProvider(
         await SharedPreferences.getInstance(),
-      )..setSort(Sort.byOldest);
+      )..setNewestFirst(false);
 
       expect(bookmarks.bookmarks.map((b) => b.key), ['g/1', 'v/2']);
     });
@@ -68,10 +69,10 @@ void main() {
         final SharedPreferences prefs = await SharedPreferences.getInstance();
 
         final SettingsProvider settings = SettingsProvider(prefs);
-        expect(settings.getThreadLayout(), ThreadLayout.nested);
+        expect(settings.threadLayout.value, ThreadLayout.nested);
 
-        await settings.setThreadLayout(ThreadLayout.flat);
-        expect(SettingsProvider(prefs).getThreadLayout(), ThreadLayout.flat);
+        await settings.threadLayout.set(ThreadLayout.flat);
+        expect(SettingsProvider(prefs).threadLayout.value, ThreadLayout.flat);
       },
     );
 
@@ -86,11 +87,11 @@ void main() {
         await SharedPreferences.getInstance(),
       );
 
-      expect(settings.getBoardSort(), Sort.byReplyCount);
-      expect(settings.getBoardViewMode(), ViewMode.grid);
-      expect(settings.getNSFW(), isTrue);
-      expect(settings.getWatchedPostsRetentionDays(), 30);
-      expect(settings.getTrackHistory(), isTrue);
+      expect(settings.boardSort.value, Sort.byReplyCount);
+      expect(settings.boardViewMode.value, ViewMode.grid);
+      expect(settings.allowNSFW.value, isTrue);
+      expect(settings.watchedPostsRetentionDays.value, 30);
+      expect(settings.trackHistory.value, isTrue);
     });
 
     test('saves changes and hides threads by pattern', () async {
@@ -98,7 +99,7 @@ void main() {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       final SettingsProvider settings = SettingsProvider(prefs);
 
-      await settings.setBoardViewMode(ViewMode.list);
+      await settings.boardViewMode.set(ViewMode.list);
       await settings.addHiddenThreadPattern('linux');
       // Not a valid regex: matched as plain text instead.
       await settings.addHiddenThreadPattern('(unclosed');
@@ -108,21 +109,40 @@ void main() {
         'linux',
         '(unclosed',
       ]);
-      expect(settings.isThreadHidden(Post(sub: 'Linux general')), isTrue);
-      expect(settings.isThreadHidden(Post(com: 'an (unclosed one')), isTrue);
-      expect(settings.isThreadHidden(Post(sub: 'Windows')), isFalse);
+      expect(
+        settings.isThreadHidden(Post(board: 'g', no: 1, sub: 'Linux general')),
+        isTrue,
+      );
+      expect(
+        settings.isThreadHidden(
+          Post(board: 'g', no: 1, com: 'an (unclosed one'),
+        ),
+        isTrue,
+      );
+      expect(
+        settings.isThreadHidden(Post(board: 'g', no: 1, sub: 'Windows')),
+        isFalse,
+      );
     });
   });
 
   group('WatchedPostsProvider', () {
     Future<WatchedPostsProvider> watchedProvider() async {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
       final WatchedPostsProvider watched = WatchedPostsProvider(
-        await SharedPreferences.getInstance(),
+        prefs,
+        SettingsProvider(prefs),
       );
       addTearDown(watched.dispose);
       // Let the cleanup it starts with finish.
       await Future<void>.delayed(Duration.zero);
       return watched;
+    }
+
+    // Leaving the app is what stores what hasn't been yet.
+    Future<void> goToBackground(WatchedPostsProvider watched) async {
+      watched.didChangeAppLifecycleState(AppLifecycleState.paused);
+      await Future<void>.delayed(Duration.zero);
     }
 
     test('a thread opened for the first time has nothing new', () async {
@@ -154,7 +174,7 @@ void main() {
 
         watched.rememberPlace(1, post: 7, path: '3/7', alignment: -0.25);
         watched.rememberFolds(1, folded: {'3', '3/7'}, primaryParents: {7: 3});
-        await watched.clearOldWatchedPosts();
+        await goToBackground(watched);
 
         final WatchedPostsProvider again = await watchedProvider();
         expect(again.threadMemory(1)?.topPost, 7);
@@ -256,7 +276,7 @@ void main() {
 
       watched.noteThreadPosts(1, [1]);
       watched.noteThreadPosts(1, [1, 2]);
-      await watched.clearOldWatchedPosts();
+      await goToBackground(watched);
 
       final WatchedPostsProvider again = await watchedProvider();
       expect(again.unseenPosts(1), {2});

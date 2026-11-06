@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:flutter_chan/API/save_videos.dart';
+import 'package:flutter_chan/saved/downloads.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

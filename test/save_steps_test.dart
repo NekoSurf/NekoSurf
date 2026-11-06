@@ -1,4 +1,4 @@
-import 'package:flutter_chan/API/save_videos.dart';
+import 'package:flutter_chan/saved/downloads.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -56,5 +56,11 @@ void main() {
     steps.convert(0.333);
 
     expect(ring, [0.16, 0.66]);
+  });
+
+  test('a saved file takes the extension of what it holds', () {
+    // Only iPhones convert webms; these tests don't run as one.
+    expect(savedExtension('1700000000000.webm'), '.webm');
+    expect(savedExtension('1700000000000.JPG'), '.jpg');
   });
 }

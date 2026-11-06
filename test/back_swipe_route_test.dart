@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_chan/services/back_swipe_route.dart';
+import 'package:flutter_chan/ui/back_swipe_route.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -49,51 +49,58 @@ void main() {
     expect(find.text('home'), findsOneWidget);
   });
 
-  testWidgets('follows the finger, with the page behind showing', (
-    tester,
-  ) async {
-    final NavigatorState navigator = await _openPage(
-      tester,
-      const Text('page'),
-    );
-    final Animation<double> animation = ModalRoute.of(
-      tester.element(find.byKey(_pageKey)),
-    )!.animation!;
+  testWidgets(
+    'follows the finger, with the page behind showing',
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+    (tester) async {
+      final NavigatorState navigator = await _openPage(
+        tester,
+        const Text('page'),
+      );
 
-    final TestGesture gesture = await tester.startGesture(
-      tester.getCenter(find.byKey(_pageKey)),
-    );
-    // Past the slop, so the rest is followed one to one.
-    await gesture.moveBy(const Offset(40, 0));
-    await tester.pump();
-    final double before = animation.value;
-    await gesture.moveBy(const Offset(200, 0));
-    await tester.pump();
+      final TestGesture gesture = await tester.startGesture(
+        tester.getCenter(find.byKey(_pageKey)),
+      );
+      // Past the slop, so the rest is followed one to one.
+      await gesture.moveBy(const Offset(40, 0));
+      await tester.pump();
+      final double before = tester.getTopLeft(find.byKey(_pageKey)).dx;
+      await gesture.moveBy(const Offset(200, 0));
+      await tester.pump();
 
-    expect(before - animation.value, closeTo(200 / 800, 0.001));
-    expect(navigator.userGestureInProgress, isTrue);
-    expect(find.text('home'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.byKey(_pageKey)).dx - before,
+        closeTo(200, 1),
+      );
+      expect(navigator.userGestureInProgress, isTrue);
+      expect(find.text('home'), findsOneWidget);
 
-    await gesture.up();
-    await tester.pumpAndSettle();
-    expect(navigator.userGestureInProgress, isFalse);
-  });
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(navigator.userGestureInProgress, isFalse);
+    },
+  );
 
-  testWidgets('stays when let go slowly before halfway', (tester) async {
-    final NavigatorState navigator = await _openPage(
-      tester,
-      const Text('page'),
-    );
+  testWidgets(
+    'stays when let go slowly before halfway',
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+    (tester) async {
+      final NavigatorState navigator = await _openPage(
+        tester,
+        const Text('page'),
+      );
 
-    await _drag(tester, const Offset(150, 0), over: const Duration(seconds: 2));
+      await _drag(
+        tester,
+        const Offset(150, 0),
+        over: const Duration(seconds: 2),
+      );
 
-    expect(_onPage(tester), isTrue);
-    expect(navigator.userGestureInProgress, isFalse);
-    expect(
-      ModalRoute.of(tester.element(find.byKey(_pageKey)))!.animation!.value,
-      1,
-    );
-  });
+      expect(_onPage(tester), isTrue);
+      expect(navigator.userGestureInProgress, isFalse);
+      expect(tester.getTopLeft(find.byKey(_pageKey)).dx, closeTo(0, 0.5));
+    },
+  );
 
   testWidgets('a quick flick is enough, however short', (tester) async {
     await _openPage(tester, const Text('page'));
@@ -277,30 +284,5 @@ void main() {
       expect(_onPage(tester), isTrue);
       expect(ratio(tester), 0);
     });
-  });
-
-  testWidgets('a plain route still only goes back from the edge', (
-    tester,
-  ) async {
-    final GlobalKey<NavigatorState> navigator = GlobalKey<NavigatorState>();
-    await tester.pumpWidget(
-      MaterialApp(
-        navigatorKey: navigator,
-        theme: ThemeData(platform: TargetPlatform.iOS),
-        home: const Scaffold(body: Text('home')),
-      ),
-    );
-    navigator.currentState!.push(
-      MaterialPageRoute<void>(
-        builder: (_) => const Scaffold(
-          body: SizedBox.expand(key: _pageKey, child: Text('page')),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await _drag(tester, const Offset(450, 0));
-
-    expect(_onPage(tester), isTrue);
   });
 }

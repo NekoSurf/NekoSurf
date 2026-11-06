@@ -1,15 +1,12 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_chan/Models/post.dart';
-import 'package:flutter_chan/blocs/settings_model.dart';
-import 'package:flutter_chan/blocs/theme.dart';
-import 'package:flutter_chan/blocs/watched_posts_model.dart';
-import 'package:flutter_chan/enums/enums.dart';
-import 'package:flutter_chan/pages/dashboard/dashboard_style.dart';
-import 'package:flutter_chan/pages/thread/thread_page_post.dart';
-import 'package:flutter_chan/pages/thread/thread_post_comment.dart';
-import 'package:flutter_chan/pages/thread/thread_replied_to.dart';
-import 'package:flutter_chan/pages/thread/thread_replies.dart';
+import 'package:flutter_chan/chan/post.dart';
+import 'package:flutter_chan/history/watched_posts_model.dart';
+import 'package:flutter_chan/settings/settings_model.dart';
+import 'package:flutter_chan/thread/quoted_post_page.dart';
+import 'package:flutter_chan/thread/thread_page_post.dart';
+import 'package:flutter_chan/thread/thread_posts.dart';
+import 'package:flutter_chan/thread/thread_replies.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,7 +24,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     settings = SettingsProvider(prefs);
-    watched = WatchedPostsProvider(prefs);
+    watched = WatchedPostsProvider(prefs, settings);
     addTearDown(watched.dispose);
   });
 
@@ -39,28 +36,28 @@ void main() {
     bool folded = false,
     bool isPreview = false,
   }) async {
-    final Post post = Post(no: 2, time: 1700000000, com: _comment);
+    final Post post = Post(board: 'g', no: 2, time: 1700000000, com: _comment);
     await tester.pumpWidget(
-      ChangeNotifierProvider<ThemeChanger>(
-        create: (_) => ThemeChanger(ThemeData.dark()),
-        child: MaterialApp(
-          home: Scaffold(
-            body: Align(
-              alignment: Alignment.topLeft,
-              child: SizedBox(
-                width: 400,
-                child: ThreadPagePost(
+      MaterialApp(
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: 400,
+              child: ThreadPagePost(
+                post: post,
+                thread: ThreadPosts(
                   board: 'g',
-                  thread: 1,
-                  post: post,
-                  allPosts: [Post(no: 1, time: 1700000000), post],
-                  onDismiss: (_) {},
                   number: 1,
-                  replyCount: replyCount,
-                  onToggleFold: onToggle,
-                  folded: folded,
-                  isPreview: isPreview,
+                  posts: [
+                    Post(board: 'g', no: 1, time: 1700000000),
+                    post,
+                  ],
                 ),
+                replyCount: replyCount,
+                onToggleFold: onToggle,
+                folded: folded,
+                isPreview: isPreview,
               ),
             ),
           ),
@@ -77,7 +74,7 @@ void main() {
       int folds = 0;
       await pumpRow(tester, onToggle: () => folds++, folded: true);
 
-      expect(find.byType(ThreadPostComment), findsNothing);
+      expect(find.text('Some words of a reply'), findsNothing);
       expect(
         find.textContaining('Anonymous', findRichText: true),
         findsOneWidget,
@@ -94,21 +91,21 @@ void main() {
     testWidgets('open again, shows its text', (tester) async {
       await pumpRow(tester, onToggle: () {});
 
-      expect(find.byType(ThreadPostComment), findsOneWidget);
+      expect(find.text('Some words of a reply'), findsOneWidget);
       expect(find.byIcon(CupertinoIcons.chevron_down), findsOneWidget);
     });
 
     testWidgets('without replies, shows just an arrow', (tester) async {
       await pumpRow(tester, onToggle: () {}, replyCount: 0, folded: true);
 
-      expect(find.byType(ThreadPostComment), findsNothing);
+      expect(find.text('Some words of a reply'), findsNothing);
       expect(find.byIcon(CupertinoIcons.chevron_right), findsOneWidget);
     });
 
     testWidgets("can't happen to what doesn't fold", (tester) async {
       await pumpRow(tester, onToggle: null, folded: true);
 
-      expect(find.byType(ThreadPostComment), findsOneWidget);
+      expect(find.text('Some words of a reply'), findsOneWidget);
     });
   });
 
@@ -133,12 +130,20 @@ void main() {
       await pumpRow(tester, onToggle: () {}, isPreview: true);
 
       expect(find.text('Some words of a reply'), findsOneWidget);
-      expect(find.byType(Opacity), findsOneWidget);
+      final Opacity dimming = tester.widget<Opacity>(
+        find
+            .ancestor(
+              of: find.text('Some words of a reply'),
+              matching: find.byType(Opacity),
+            )
+            .first,
+      );
+      expect(dimming.opacity, lessThan(1));
 
       await tester.tap(find.text('OP'), warnIfMissed: false);
       await tester.pumpAndSettle();
 
-      expect(find.byType(ThreadRepliesTo), findsNothing);
+      expect(find.byType(QuotedPostPage), findsNothing);
     });
 
     testWidgets('has an arrow, even without replies', (tester) async {
@@ -151,19 +156,24 @@ void main() {
   testWidgets('shows its place in the thread and its post number', (
     tester,
   ) async {
-    final Post post = Post(no: 110175321, time: 1700000000, com: 'Text');
+    final Post post = Post(
+      board: 'g',
+      no: 110175321,
+      time: 1700000000,
+      com: 'Text',
+    );
     await tester.pumpWidget(
-      ChangeNotifierProvider<ThemeChanger>(
-        create: (_) => ThemeChanger(ThemeData.dark()),
-        child: MaterialApp(
-          home: Scaffold(
-            body: ThreadPagePost(
+      MaterialApp(
+        home: Scaffold(
+          body: ThreadPagePost(
+            post: post,
+            thread: ThreadPosts(
               board: 'g',
-              thread: 1,
-              post: post,
-              allPosts: [post],
-              number: 38,
-              onDismiss: (_) {},
+              number: 1,
+              posts: [
+                for (int no = 1; no <= 38; no++) Post(board: 'g', no: no),
+                post,
+              ],
             ),
           ),
         ),
@@ -179,22 +189,22 @@ void main() {
 
   group('quotes', () {
     Future<void> pumpQuoting(WidgetTester tester, String com) async {
-      final Post post = Post(no: 3, time: 1700000000, com: com);
+      final Post post = Post(board: 'g', no: 3, time: 1700000000, com: com);
       await tester.pumpWidget(
-        ChangeNotifierProvider<ThemeChanger>(
-          create: (_) => ThemeChanger(ThemeData.dark()),
-          child: MaterialApp(
-            home: Scaffold(
-              body: ThreadPagePost(
-                board: 'g',
-                thread: 1,
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: ThreadPagePost(
                 post: post,
-                allPosts: [
-                  Post(no: 1, time: 1700000000),
-                  Post(no: 2, time: 1700000000),
-                  post,
-                ],
-                onDismiss: (_) {},
+                thread: ThreadPosts(
+                  board: 'g',
+                  number: 1,
+                  posts: [
+                    Post(board: 'g', no: 1, time: 1700000000),
+                    Post(board: 'g', no: 2, time: 1700000000),
+                    post,
+                  ],
+                ),
               ),
             ),
           ),
@@ -230,45 +240,44 @@ void main() {
       await tester.tapOnText(find.textRange.ofSubstring('#1'));
       await tester.pumpAndSettle();
 
-      expect(find.byType(ThreadRepliesTo), findsOneWidget);
+      expect(find.byType(QuotedPostPage), findsOneWidget);
       expect(find.text('Replies to #1'), findsOneWidget);
     });
 
     testWidgets('leave no gap for blank lines after the text', (tester) async {
+      await pumpQuoting(tester, '<pre>Code</pre>');
+      final double plain = tester.getSize(find.byType(ThreadPagePost)).height;
+
       await pumpQuoting(tester, '<pre>Code<br></pre><br><br>');
 
-      expect(
-        find.byWidgetPredicate((w) => w is SizedBox && w.height == 8),
-        findsNothing,
-      );
-      expect(find.byType(SelectableText), findsOneWidget);
+      expect(find.text('Code'), findsOneWidget);
+      expect(tester.getSize(find.byType(ThreadPagePost)).height, plain);
     });
 
     group('of the post it is listed under', () {
       Future<void> pumpUnder(WidgetTester tester, int? repliedTo) async {
         final Post post = Post(
+          board: 'g',
           no: 4,
           time: 1700000000,
           com: '${quoting(1)}<br>${quoting(2)}<br>Words',
         );
         await tester.pumpWidget(
-          ChangeNotifierProvider<ThemeChanger>(
-            create: (_) => ThemeChanger(ThemeData.dark()),
-            child: MaterialApp(
-              home: Scaffold(
-                body: ThreadPagePost(
+          MaterialApp(
+            home: Scaffold(
+              body: ThreadPagePost(
+                post: post,
+                thread: ThreadPosts(
                   board: 'g',
-                  thread: 1,
-                  post: post,
-                  allPosts: [
-                    Post(no: 1, time: 1700000000),
-                    Post(no: 2, time: 1700000000),
-                    Post(no: 3, time: 1700000000),
+                  number: 1,
+                  posts: [
+                    Post(board: 'g', no: 1, time: 1700000000),
+                    Post(board: 'g', no: 2, time: 1700000000),
+                    Post(board: 'g', no: 3, time: 1700000000),
                     post,
                   ],
-                  repliedTo: repliedTo,
-                  onDismiss: (_) {},
                 ),
+                repliedTo: repliedTo,
               ),
             ),
           ),
@@ -276,24 +285,32 @@ void main() {
         await tester.pump();
       }
 
-      final Color quiet = DashColors.muted(false);
-
       Color colorOf(WidgetTester tester, String label) =>
           tester.widget<Text>(find.text(label)).style!.color!;
 
+      // How a quote looks when none stands out, as 3 isn't quoted.
+      Future<Color> plainQuote(WidgetTester tester) async {
+        await pumpUnder(tester, 3);
+        return colorOf(tester, 'OP');
+      }
+
       testWidgets('stands out from the others', (tester) async {
+        final Color plain = await plainQuote(tester);
+
         await pumpUnder(tester, 2);
 
-        expect(colorOf(tester, '#1'), isNot(quiet));
-        expect(colorOf(tester, 'OP'), quiet);
+        expect(colorOf(tester, '#1'), plain);
+        expect(colorOf(tester, 'OP'), isNot(plain));
         expect(find.byIcon(CupertinoIcons.arrow_turn_left_up), findsOneWidget);
       });
 
       testWidgets('follows the place it is listed in', (tester) async {
+        final Color plain = await plainQuote(tester);
+
         await pumpUnder(tester, 1);
 
-        expect(colorOf(tester, 'OP'), isNot(quiet));
-        expect(colorOf(tester, '#1'), quiet);
+        expect(colorOf(tester, 'OP'), plain);
+        expect(colorOf(tester, '#1'), isNot(plain));
       });
 
       testWidgets('leaves them all alike if it is not one of them', (
@@ -301,8 +318,7 @@ void main() {
       ) async {
         await pumpUnder(tester, 3);
 
-        expect(colorOf(tester, 'OP'), isNot(quiet));
-        expect(colorOf(tester, '#1'), isNot(quiet));
+        expect(colorOf(tester, 'OP'), colorOf(tester, '#1'));
         expect(
           find.byIcon(CupertinoIcons.arrow_turn_left_up),
           findsNWidgets(2),
@@ -328,30 +344,30 @@ void main() {
 
   group('in a list of replies, a quote', () {
     // The replies page of 2: 3 answers it, and 4 quotes both.
-    final Post root = Post(no: 2, time: 1700000000);
+    final Post root = Post(board: 'g', no: 2, time: 1700000000);
     final List<Post> posts = [
-      Post(no: 1, time: 1700000000),
+      Post(board: 'g', no: 1, time: 1700000000),
       root,
-      Post(no: 3, time: 1700000000, com: _quoteOf(2)),
-      Post(no: 4, time: 1700000000, com: '${_quoteOf(3)}<br>Words of 4'),
+      Post(board: 'g', no: 3, time: 1700000000, com: _quoteOf(2)),
+      Post(
+        board: 'g',
+        no: 4,
+        time: 1700000000,
+        com: '${_quoteOf(3)}<br>Words of 4',
+      ),
     ];
 
     Future<void> pumpReplies(WidgetTester tester) async {
       await tester.pumpWidget(
         MultiProvider(
           providers: [
-            ChangeNotifierProvider<ThemeChanger>(
-              create: (_) => ThemeChanger(ThemeData.dark()),
-            ),
             ChangeNotifierProvider<SettingsProvider>.value(value: settings),
             ChangeNotifierProvider<WatchedPostsProvider>.value(value: watched),
           ],
           child: MaterialApp(
             home: ThreadReplies(
               post: root,
-              thread: 1,
-              board: 'g',
-              allPosts: posts,
+              thread: ThreadPosts(board: 'g', number: 1, posts: posts),
             ),
           ),
         ),
@@ -367,42 +383,43 @@ void main() {
       await tester.tap(find.text('#2'));
       await tester.pumpAndSettle(const Duration(seconds: 2));
 
-      expect(find.byType(ThreadRepliesTo), findsNothing);
+      expect(find.byType(QuotedPostPage), findsNothing);
       expect(find.text('Words of 4'), findsOneWidget);
     });
 
     testWidgets('unfolds the post it names', (tester) async {
       // 3 and 4 answer 2, and 5 quotes both, so it's listed under each.
-      final Post top = Post(no: 2, time: 1700000000);
+      final Post top = Post(board: 'g', no: 2, time: 1700000000);
       await tester.pumpWidget(
         MultiProvider(
           providers: [
-            ChangeNotifierProvider<ThemeChanger>(
-              create: (_) => ThemeChanger(ThemeData.dark()),
-            ),
             ChangeNotifierProvider<SettingsProvider>.value(value: settings),
             ChangeNotifierProvider<WatchedPostsProvider>.value(value: watched),
           ],
           child: MaterialApp(
             home: ThreadReplies(
               post: top,
-              thread: 1,
-              board: 'g',
-              allPosts: [
-                Post(no: 1, time: 1700000000),
-                top,
-                Post(no: 3, time: 1700000000, com: _quoteOf(2)),
-                Post(
-                  no: 4,
-                  time: 1700000000,
-                  com: '${_quoteOf(2)}<br>Words of 4',
-                ),
-                Post(
-                  no: 5,
-                  time: 1700000000,
-                  com: '${_quoteOf(3)}<br>${_quoteOf(4)}',
-                ),
-              ],
+              thread: ThreadPosts(
+                board: 'g',
+                number: 1,
+                posts: [
+                  Post(board: 'g', no: 1, time: 1700000000),
+                  top,
+                  Post(board: 'g', no: 3, time: 1700000000, com: _quoteOf(2)),
+                  Post(
+                    board: 'g',
+                    no: 4,
+                    time: 1700000000,
+                    com: '${_quoteOf(2)}<br>Words of 4',
+                  ),
+                  Post(
+                    board: 'g',
+                    no: 5,
+                    time: 1700000000,
+                    com: '${_quoteOf(3)}<br>${_quoteOf(4)}',
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -420,7 +437,7 @@ void main() {
       await tester.pumpAndSettle(const Duration(seconds: 2));
 
       expect(find.text('Words of 4'), findsOneWidget);
-      expect(find.byType(ThreadRepliesTo), findsNothing);
+      expect(find.byType(QuotedPostPage), findsNothing);
     });
 
     testWidgets('opens a post that is not in the list on its own page', (
@@ -431,37 +448,37 @@ void main() {
       await tester.tap(find.text('#1'));
       await tester.pumpAndSettle();
 
-      expect(find.byType(ThreadRepliesTo), findsOneWidget);
+      expect(find.byType(QuotedPostPage), findsOneWidget);
     });
   });
 
   group('folding in a long list', () {
     // Replies to 2, tall enough that only a few fit on the screen.
-    final Post root = Post(no: 2, time: 1700000000);
+    final Post root = Post(board: 'g', no: 2, time: 1700000000);
     final String tall = List<String>.filled(30, 'A line of text').join('<br>');
     final List<Post> posts = [
-      Post(no: 1, time: 1700000000),
+      Post(board: 'g', no: 1, time: 1700000000),
       root,
       for (int no = 3; no < 30; no++)
-        Post(no: no, time: 1700000000, com: '${_quoteOf(2)}<br>$tall'),
+        Post(
+          board: 'g',
+          no: no,
+          time: 1700000000,
+          com: '${_quoteOf(2)}<br>$tall',
+        ),
     ];
 
     Future<void> pumpList(WidgetTester tester) async {
       await tester.pumpWidget(
         MultiProvider(
           providers: [
-            ChangeNotifierProvider<ThemeChanger>(
-              create: (_) => ThemeChanger(ThemeData.dark()),
-            ),
             ChangeNotifierProvider<SettingsProvider>.value(value: settings),
             ChangeNotifierProvider<WatchedPostsProvider>.value(value: watched),
           ],
           child: MaterialApp(
             home: ThreadReplies(
               post: root,
-              thread: 1,
-              board: 'g',
-              allPosts: posts,
+              thread: ThreadPosts(board: 'g', number: 1, posts: posts),
             ),
           ),
         ),
@@ -498,6 +515,7 @@ void main() {
 
     testWidgets('a quote goes to its post, far down', (tester) async {
       final Post first = Post(
+        board: 'g',
         no: 3,
         time: 1700000000,
         com: '${_quoteOf(2)}<br>${_quoteOf(28)}<br>$tall',
@@ -505,18 +523,17 @@ void main() {
       await tester.pumpWidget(
         MultiProvider(
           providers: [
-            ChangeNotifierProvider<ThemeChanger>(
-              create: (_) => ThemeChanger(ThemeData.dark()),
-            ),
             ChangeNotifierProvider<SettingsProvider>.value(value: settings),
             ChangeNotifierProvider<WatchedPostsProvider>.value(value: watched),
           ],
           child: MaterialApp(
             home: ThreadReplies(
               post: root,
-              thread: 1,
-              board: 'g',
-              allPosts: [posts[0], root, first, ...posts.skip(3)],
+              thread: ThreadPosts(
+                board: 'g',
+                number: 1,
+                posts: [posts[0], root, first, ...posts.skip(3)],
+              ),
             ),
           ),
         ),
@@ -537,16 +554,18 @@ void main() {
       (tester) async {
         // Short posts, so that the last one can't reach the top of the screen.
         final Post first = Post(
+          board: 'g',
           no: 3,
           time: 1700000000,
           com: '${_quoteOf(2)}<br>${_quoteOf(40)}<br>Words of 3',
         );
         final List<Post> short = [
-          Post(no: 1, time: 1700000000),
+          Post(board: 'g', no: 1, time: 1700000000),
           root,
           first,
           for (int no = 4; no <= 40; no++)
             Post(
+              board: 'g',
               no: no,
               time: 1700000000,
               com: '${_quoteOf(2)}<br>Words of $no',
@@ -555,9 +574,6 @@ void main() {
         await tester.pumpWidget(
           MultiProvider(
             providers: [
-              ChangeNotifierProvider<ThemeChanger>(
-                create: (_) => ThemeChanger(ThemeData.dark()),
-              ),
               ChangeNotifierProvider<SettingsProvider>.value(value: settings),
               ChangeNotifierProvider<WatchedPostsProvider>.value(
                 value: watched,
@@ -566,9 +582,7 @@ void main() {
             child: MaterialApp(
               home: ThreadReplies(
                 post: root,
-                thread: 1,
-                board: 'g',
-                allPosts: short,
+                thread: ThreadPosts(board: 'g', number: 1, posts: short),
               ),
             ),
           ),
@@ -614,16 +628,18 @@ void main() {
       (tester) async {
         // About a screen and a half of short posts, with the quoted one in view.
         final Post first = Post(
+          board: 'g',
           no: 3,
           time: 1700000000,
           com: '${_quoteOf(2)}<br>${_quoteOf(7)}<br>Words of 3',
         );
         final List<Post> short = [
-          Post(no: 1, time: 1700000000),
+          Post(board: 'g', no: 1, time: 1700000000),
           root,
           first,
           for (int no = 4; no <= 10; no++)
             Post(
+              board: 'g',
               no: no,
               time: 1700000000,
               com: '${_quoteOf(2)}<br>Words of $no',
@@ -632,9 +648,6 @@ void main() {
         await tester.pumpWidget(
           MultiProvider(
             providers: [
-              ChangeNotifierProvider<ThemeChanger>(
-                create: (_) => ThemeChanger(ThemeData.dark()),
-              ),
               ChangeNotifierProvider<SettingsProvider>.value(value: settings),
               ChangeNotifierProvider<WatchedPostsProvider>.value(
                 value: watched,
@@ -643,9 +656,7 @@ void main() {
             child: MaterialApp(
               home: ThreadReplies(
                 post: root,
-                thread: 1,
-                board: 'g',
-                allPosts: short,
+                thread: ThreadPosts(board: 'g', number: 1, posts: short),
               ),
             ),
           ),
@@ -722,13 +733,24 @@ void main() {
 
   group('in the flat layout', () {
     // The replies page of 2: 3 answers it, 4 answers 3, and 5 answers 2 and 3.
-    final Post root = Post(no: 2, time: 1700000000);
+    final Post root = Post(board: 'g', no: 2, time: 1700000000);
     final List<Post> posts = [
-      Post(no: 1, time: 1700000000),
+      Post(board: 'g', no: 1, time: 1700000000),
       root,
-      Post(no: 3, time: 1700000000, com: '${_quoteOf(2)}<br>Words of 3'),
-      Post(no: 4, time: 1700000000, com: '${_quoteOf(3)}<br>Words of 4'),
       Post(
+        board: 'g',
+        no: 3,
+        time: 1700000000,
+        com: '${_quoteOf(2)}<br>Words of 3',
+      ),
+      Post(
+        board: 'g',
+        no: 4,
+        time: 1700000000,
+        com: '${_quoteOf(3)}<br>Words of 4',
+      ),
+      Post(
+        board: 'g',
         no: 5,
         time: 1700000000,
         com: '${_quoteOf(2)}<br>${_quoteOf(3)}<br>Words of 5',
@@ -739,18 +761,13 @@ void main() {
       await tester.pumpWidget(
         MultiProvider(
           providers: [
-            ChangeNotifierProvider<ThemeChanger>(
-              create: (_) => ThemeChanger(ThemeData.dark()),
-            ),
             ChangeNotifierProvider<SettingsProvider>.value(value: settings),
             ChangeNotifierProvider<WatchedPostsProvider>.value(value: watched),
           ],
           child: MaterialApp(
             home: ThreadReplies(
               post: root,
-              thread: 1,
-              board: 'g',
-              allPosts: posts,
+              thread: ThreadPosts(board: 'g', number: 1, posts: posts),
             ),
           ),
         ),
@@ -758,7 +775,7 @@ void main() {
       await tester.pump();
     }
 
-    setUp(() => settings.setThreadLayout(ThreadLayout.flat));
+    setUp(() => settings.threadLayout.set(ThreadLayout.flat));
 
     double topOf(WidgetTester tester, String words) =>
         tester.getTopLeft(find.text(words)).dy;
@@ -842,39 +859,49 @@ void main() {
       await tester.tap(find.text('#2').last);
       await tester.pumpAndSettle(const Duration(seconds: 2));
 
-      expect(find.byType(ThreadRepliesTo), findsNothing);
-    });
-
-    testWidgets('switching in Settings relays the open list', (tester) async {
-      await pumpFlat(tester);
-      final double flat = leftOf(tester, 'Words of 4');
-
-      await settings.setThreadLayout(ThreadLayout.nested);
-      await tester.pumpAndSettle(const Duration(seconds: 1));
-
-      expect(leftOf(tester, 'Words of 4'), greaterThan(flat));
-
-      await settings.setThreadLayout(ThreadLayout.flat);
-      await tester.pumpAndSettle(const Duration(seconds: 1));
-
-      expect(leftOf(tester, 'Words of 4'), flat);
+      expect(find.byType(QuotedPostPage), findsNothing);
     });
   });
 
   group('new posts', () {
     // The replies page of 2: 3 answers it, and 4 and 5 answer 3.
-    final Post root = Post(no: 2, time: 1700000000);
+    final Post root = Post(board: 'g', no: 2, time: 1700000000);
     final String tall = List<String>.filled(60, 'A line of text').join('<br>');
     final List<Post> posts = [
-      Post(no: 1, time: 1700000000),
+      Post(board: 'g', no: 1, time: 1700000000),
       root,
-      Post(no: 3, time: 1700000000, com: '${_quoteOf(2)}<br>Words of 3'),
-      Post(no: 4, time: 1700000000, com: '${_quoteOf(3)}<br>Words of 4'),
-      Post(no: 5, time: 1700000000, com: '${_quoteOf(3)}<br>Words of 5'),
-      Post(no: 6, time: 1700000000, com: '${_quoteOf(2)}<br>$tall'),
-      Post(no: 7, time: 1700000000, com: '${_quoteOf(6)}<br>Words of 7'),
-      Post(no: 8, time: 1700000000, com: '${_quoteOf(2)}<br>Words of 8'),
-      Post(no: 9, time: 1700000000, com: '${_quoteOf(2)}<br>$tall'),
+      Post(
+        board: 'g',
+        no: 3,
+        time: 1700000000,
+        com: '${_quoteOf(2)}<br>Words of 3',
+      ),
+      Post(
+        board: 'g',
+        no: 4,
+        time: 1700000000,
+        com: '${_quoteOf(3)}<br>Words of 4',
+      ),
+      Post(
+        board: 'g',
+        no: 5,
+        time: 1700000000,
+        com: '${_quoteOf(3)}<br>Words of 5',
+      ),
+      Post(board: 'g', no: 6, time: 1700000000, com: '${_quoteOf(2)}<br>$tall'),
+      Post(
+        board: 'g',
+        no: 7,
+        time: 1700000000,
+        com: '${_quoteOf(6)}<br>Words of 7',
+      ),
+      Post(
+        board: 'g',
+        no: 8,
+        time: 1700000000,
+        com: '${_quoteOf(2)}<br>Words of 8',
+      ),
+      Post(board: 'g', no: 9, time: 1700000000, com: '${_quoteOf(2)}<br>$tall'),
     ];
 
     Future<void> pumpNew(WidgetTester tester, Set<int> unseen) async {
@@ -884,18 +911,13 @@ void main() {
       await tester.pumpWidget(
         MultiProvider(
           providers: [
-            ChangeNotifierProvider<ThemeChanger>(
-              create: (_) => ThemeChanger(ThemeData.dark()),
-            ),
             ChangeNotifierProvider<SettingsProvider>.value(value: settings),
             ChangeNotifierProvider<WatchedPostsProvider>.value(value: watched),
           ],
           child: MaterialApp(
             home: ThreadReplies(
               post: root,
-              thread: 1,
-              board: 'g',
-              allPosts: posts,
+              thread: ThreadPosts(board: 'g', number: 1, posts: posts),
             ),
           ),
         ),
@@ -907,17 +929,20 @@ void main() {
     Future<void> saveNewPosts(WidgetTester tester) =>
         tester.pump(const Duration(seconds: 3));
 
+    /// Whether anything behind the post's [words] has a colour.
     bool isTinted(WidgetTester tester, String words) {
-      final AnimatedContainer box = tester.widget<AnimatedContainer>(
-        find
-            .ancestor(
+      return tester
+          .widgetList<DecoratedBox>(
+            find.ancestor(
               of: find.text(words),
-              matching: find.byType(AnimatedContainer),
-            )
-            .first,
-      );
-      return (box.decoration! as BoxDecoration).color !=
-          DashColors.accent.withValues(alpha: 0);
+              matching: find.byType(DecoratedBox),
+            ),
+          )
+          .any((DecoratedBox box) {
+            final Decoration decoration = box.decoration;
+            return decoration is BoxDecoration &&
+                (decoration.color?.a ?? 0) > 0;
+          });
     }
 
     testWidgets('are tinted, and the others are not', (tester) async {
@@ -965,38 +990,39 @@ void main() {
       tester,
     ) async {
       final Post first = Post(
+        board: 'g',
         no: 3,
         time: 1700000000,
         com: '${_quoteOf(2)}<br>${_quoteOf(15)}<br>Words of 3',
       );
       final List<Post> many = [
-        Post(no: 1, time: 1700000000),
+        Post(board: 'g', no: 1, time: 1700000000),
         root,
         first,
         for (int no = 4; no <= 30; no++)
-          Post(no: no, time: 1700000000, com: '${_quoteOf(2)}<br>Words of $no'),
+          Post(
+            board: 'g',
+            no: no,
+            time: 1700000000,
+            com: '${_quoteOf(2)}<br>Words of $no',
+          ),
       ];
       watched.noteThreadPosts(1, const <int>[1, 2]);
-      watched.noteThreadPosts(1, <int>[for (final Post p in many) p.no!]);
+      watched.noteThreadPosts(1, <int>[for (final Post p in many) p.no]);
       watched.markPostsSeen(1, <int>[
         for (final Post p in many)
-          if (p.no != 10) p.no!,
+          if (p.no != 10) p.no,
       ]);
       await tester.pumpWidget(
         MultiProvider(
           providers: [
-            ChangeNotifierProvider<ThemeChanger>(
-              create: (_) => ThemeChanger(ThemeData.dark()),
-            ),
             ChangeNotifierProvider<SettingsProvider>.value(value: settings),
             ChangeNotifierProvider<WatchedPostsProvider>.value(value: watched),
           ],
           child: MaterialApp(
             home: ThreadReplies(
               post: root,
-              thread: 1,
-              board: 'g',
-              allPosts: many,
+              thread: ThreadPosts(board: 'g', number: 1, posts: many),
             ),
           ),
         ),
@@ -1071,7 +1097,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(folds, 0);
-      expect(find.byType(ThreadRepliesTo), findsOneWidget);
+      expect(find.byType(QuotedPostPage), findsOneWidget);
     });
 
     testWidgets('folds without replies too', (tester) async {

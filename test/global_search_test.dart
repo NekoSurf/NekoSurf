@@ -1,6 +1,7 @@
-import 'package:flutter_chan/API/api.dart';
-import 'package:flutter_chan/API/global_search.dart';
-import 'package:flutter_chan/Models/post.dart';
+import 'package:flutter_chan/chan/catalog.dart';
+import 'package:flutter_chan/chan/post.dart';
+import 'package:flutter_chan/chan/urls.dart' as urls;
+import 'package:flutter_chan/search/global_search.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // Shaped like 4chan's board markup, which find.4chan.org reuses.
@@ -157,8 +158,8 @@ void main() {
 
   test('favorites search matches every word in any order', () {
     final List<Post> threads = [
-      Post(no: 1, sub: 'Skinny girl', com: 'more anal threads'),
-      Post(no: 2, sub: 'skinny jeans'),
+      Post(board: 'g', no: 1, sub: 'Skinny girl', com: 'more anal threads'),
+      Post(board: 'g', no: 2, sub: 'skinny jeans'),
     ];
 
     expect(filterThreads(threads, 'skinny anal').map((p) => p.no), [1]);
@@ -167,12 +168,12 @@ void main() {
 
   test('builds the find.4chan.org URL', () {
     expect(
-      globalSearchUri('linux kernel').toString(),
+      urls.find(query: 'linux kernel').toString(),
       'https://find.4chan.org/?q=linux+kernel',
     );
     expect(
-      globalSearchUri('rust', board: 'g', offset: 10).toString(),
-      'https://find.4chan.org/?q=rust&b=g&o=10',
+      urls.find(query: 'rust', offset: 10).toString(),
+      'https://find.4chan.org/?q=rust&o=10',
     );
   });
 }
