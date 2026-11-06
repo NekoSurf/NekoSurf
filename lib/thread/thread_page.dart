@@ -326,7 +326,7 @@ class _ThreadPageState extends State<ThreadPage>
   }
 
   @override
-  void onPulledPastEnd() => _refresh();
+  Future<void> onPulled() => _refresh();
 
   /// Opened by its number alone, like from a link, it's named once it's loaded.
   Post get _opening => thread.posts.firstOrNull ?? widget.post;

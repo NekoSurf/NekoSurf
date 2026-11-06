@@ -60,11 +60,13 @@ class _BoardPageState extends State<BoardPage> with ThreadOrder<BoardPage> {
   }
 
   /// Downloads the catalog; sorting and searching then work on this copy.
-  Future<void> _loadBoard() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+  Future<void> _loadBoard({bool keepShown = false}) async {
+    if (!keepShown) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    }
 
     try {
       final List<Post> catalog = await fetchCatalog(widget.board);
@@ -77,7 +79,8 @@ class _BoardPageState extends State<BoardPage> with ThreadOrder<BoardPage> {
         _applyView();
       });
     } catch (error) {
-      if (mounted) {
+      // Pulling to refresh keeps the threads shown if it fails.
+      if (mounted && !keepShown) {
         setState(() {
           _isLoading = false;
           _error = error;
@@ -107,6 +110,7 @@ class _BoardPageState extends State<BoardPage> with ThreadOrder<BoardPage> {
 
     return DashScaffold(
       title: widget.boardName,
+      onRefresh: () => _loadBoard(keepShown: true),
       actions: [
         DashIconButton(
           label: isFavorite ? 'Remove from favorites' : 'Add to favorites',

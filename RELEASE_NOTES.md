@@ -7,7 +7,8 @@
 - Posts show their poster ID, tripcode and staff tag, on the boards that have them
 
 ### 🔄 Refresh a thread yourself
-- Pull past the top or bottom of a thread, or choose ⋯ → Refresh, and it tells you how many new posts it found
+- Pull past the top or bottom of a thread, or choose ⋯ → Refresh, and it tells you how many new posts it found; a ring fills as you pull, you feel a tick when it's full, and a spinner shows until it's done
+- Pulling down to refresh now looks and feels the same on the home screen, Feed, boards, Search and History, where the spinner used to be hidden behind the title bar
 - The title bar says when a thread is Archived, Closed or Deleted
 
 ### 🔗 Links to other threads and boards

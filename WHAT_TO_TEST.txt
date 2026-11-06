@@ -1,6 +1,5 @@
 SPOILERS
-Find a post with a spoilered image (on /v/ or /vg/, for example).
-
+Find a spoilered image (on /v/ or /vg/, for example).
 • It should show a cover with an eye and "Spoiler", in the thread and when swiping to it in the viewer. Tap it: the image or video shows, and stays shown until you close the app.
 • On a spoilered thread, or in the gallery and search, the thumbnail stays covered, and tapping goes where it always did.
 • Bookmark a thread whose first post is a spoiler: its card should have no image. The same in History.
@@ -9,14 +8,15 @@ WHO'S POSTING
 On a board with poster IDs, like /qst/ or /pol/: each post's header should show a colored ID:abc123, the same color for the same poster. Tripcodes show after the name, staff tags like ## mod in red.
 
 REFRESHING A THREAD
-• Pull well past the bottom or top of a thread: you should feel a tap and see "No new posts" or "3 new posts". Pulling once gives one message, also in a thread shorter than the screen.
+• Pull down slowly from the top of a thread: a ring below the title bar fills, with a tick when full. Let go: it spins, then says "No new posts" or "3 new posts". Let go before it's full: nothing happens. Pulling up past the bottom does the same, also in a short thread.
+• The same ring and tick on the home screen, Feed, a board, Search and History, each reloading what it shows. On Android these screens now bounce at the ends.
 • ⋯ → Refresh should do the same.
 • Open an archived thread from History: under the title it should say Archived. A closed one says Closed. If a thread is deleted while it's open, it says Deleted the next time it updates.
 
 LINKS
 • In a /g/ general, tap "Previous: >>123 (other thread)": that thread opens and its title fills in once loaded.
 • Tap a link like >>>/g/: that board opens.
-• Tap a quote of a post that was deleted: "Post not found", not an empty post.
+• Tap a quote of a deleted post: "Post not found".
 
 CODE
 On /g/, find a post with code. It should sit in a shaded box, in a monospaced font, with its indents. Long-press to select it; tapping it folds the post like other text.
@@ -24,28 +24,28 @@ On /g/, find a post with code. It should sit in a shaded box, in a monospaced fo
 DATA SAVER
 Settings → Data → Data saver. Open a thread:
 • Images show as thumbnails, and stay that way. Videos show a play icon and don't play or download until you tap them.
-• Open a video, let it load, and go back: the thread shows its thumbnail and play icon again, not the video.
+• Open a video and go back: the thread shows its thumbnail again, not the video.
 • In the viewer, the one showing loads. The next one should start when you swipe to it, not before.
 Turn it off afterwards: everything should load again.
 
 4CHAN'S FILE NAMES (issue #91)
 Settings → Data → Use 4chan's file names. Open an image or video from a thread:
 • Share it and choose Save to Files: the name should be a number like 1700000000000.jpg, not the poster's.
-• Save it to Photos: in Photos, swipe up on it and the name should be the number too.
-• Save it, and open it in the Saved tab: it's listed by the number too, in the viewer as well, and sharing it from there shows the number. Files saved with it on earlier show their number now too.
+• Save it to Photos: swipe up on it in Photos, the name is the number too.
+• Save it and open it in the Saved tab: listed, shown and shared by the number, also files saved with it on earlier.
 Turn it off: new saves get the poster's name again, and files already saved keep theirs.
 
 POP-UP MESSAGES
-Trigger one, for example add a thread filter or refresh a saved file. While "Thread filter added" is showing, scroll the list or tap a button: it should react straight away, and the message fades out by itself after about two seconds, also over the viewer.
+Add a thread filter: while "Thread filter added" shows, scrolling and tapping should work straight away, and it fades out after about two seconds.
 
 LARGE TEXT
-Settings on your phone → Display → Text Size at the largest, with Larger Accessibility Sizes on. The title bar and tabs stay as they are; cards and posts grow a little, with nothing cut off. Check the home screen, a board, a thread, Settings and dialogs.
+Settings on your phone → Display → Text Size at the largest, with Larger Accessibility Sizes on. The title bar and tabs stay as they are; cards and posts grow a little, with nothing cut off. Check the home screen, a board, a thread and Settings.
 
 Please also try what couldn't be checked on a simulator:
 • VoiceOver or TalkBack: the icon buttons in the title bar and the viewer should say what they do, like "Gallery" or "Save to Photos".
-• Bad connection: turn on Airplane Mode just after opening a thread or board, or use a very slow network. Within about 20 seconds it should offer to try again.
-• Bookmarks with no connection: they should stay openable, not say Deleted.
+• Bad connection: turn on Airplane Mode just after opening a thread or board: within about 20 seconds it should offer to try again.
+• Bookmarks with no connection stay openable, not Deleted.
 • Android: code blocks should use a monospaced font. Deleting a saved file with storage access off should show the permission sheet and keep the file listed.
 • Saving: save a webm to the Saved tab, Save to Photos and share it: each should end up as a video that plays. On Android it stays a webm, on iPhone it becomes an mp4.
-• Saving several at once, including two files with the same name: all should appear, none overwritten.
+• Saving several at once, including two files with the same name: none overwritten.
 • Bookmarks: open a thread from a link with history turned off and bookmark it: it should keep its title and image.

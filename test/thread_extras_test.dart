@@ -528,8 +528,15 @@ void main() {
             await tester.pump(const Duration(milliseconds: 16));
           }
           await gesture.up();
-          await tester.pumpAndSettle();
+          // The spinner turns until the answer is in, so nothing settles yet.
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 50));
           await waitFor(find.text('No new posts'));
+          // The spinner shows for at least a moment, in real time here.
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 700)),
+          );
+          await tester.pump();
           // The message closes by itself.
           await tester.pump(const Duration(seconds: 2));
           await tester.pumpAndSettle();
@@ -537,11 +544,12 @@ void main() {
 
         await pull();
         expect(requests, 2);
-        expect(buzzes, 1);
+        // One tick when the ring fills, one when it's let go.
+        expect(buzzes, 2);
 
         await pull();
         expect(requests, 3);
-        expect(buzzes, 2);
+        expect(buzzes, 4);
         await finish(tester);
       },
       variant: TargetPlatformVariant.only(TargetPlatform.iOS),

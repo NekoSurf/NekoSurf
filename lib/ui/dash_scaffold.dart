@@ -1,7 +1,7 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_header.dart';
+import 'package:flutter_chan/ui/pull_to_refresh.dart';
 
 class DashScaffold extends StatefulWidget {
   const DashScaffold({
@@ -43,6 +43,14 @@ class _DashScaffoldState extends State<DashScaffold> {
     return false;
   }
 
+  Widget _refreshable(double topInset, Widget list) {
+    final Future<void> Function()? onRefresh = widget.onRefresh;
+    if (onRefresh == null) {
+      return list;
+    }
+    return PullToRefresh(onRefresh: onRefresh, topInset: topInset, child: list);
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isDark = context.isDark;
@@ -56,21 +64,26 @@ class _DashScaffoldState extends State<DashScaffold> {
       color: DashColors.page(isDark),
       child: Stack(
         children: [
-          NotificationListener<ScrollNotification>(
-            onNotification: _onScroll,
-            child: CustomScrollView(
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              slivers: [
-                if (widget.onRefresh != null)
-                  CupertinoSliverRefreshControl(onRefresh: widget.onRefresh),
-                SliverToBoxAdapter(
-                  child: SizedBox(height: top + kDashHeaderHeight + 8),
-                ),
-                ...widget.slivers,
-                SliverToBoxAdapter(
-                  child: SizedBox(height: bottom + 24 + barSpace),
-                ),
-              ],
+          _refreshable(
+            top + kDashHeaderHeight,
+            NotificationListener<ScrollNotification>(
+              onNotification: _onScroll,
+              child: CustomScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                physics: widget.onRefresh == null
+                    ? null
+                    : PullToRefresh.pullPhysics,
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: SizedBox(height: top + kDashHeaderHeight + 8),
+                  ),
+                  ...widget.slivers,
+                  SliverToBoxAdapter(
+                    child: SizedBox(height: bottom + 24 + barSpace),
+                  ),
+                ],
+              ),
             ),
           ),
           Positioned(

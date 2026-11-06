@@ -1,9 +1,7 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/history/watched_posts_model.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
@@ -13,6 +11,7 @@ import 'package:flutter_chan/thread/thread_posts.dart';
 import 'package:flutter_chan/thread/thread_rows.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_header.dart';
+import 'package:flutter_chan/ui/pull_to_refresh.dart';
 import 'package:provider/provider.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
@@ -71,31 +70,8 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
   /// A scroll by itself has ended, leaving the list where the reader is now.
   void onAutoScrollEnded() {}
 
-  void onPulledPastEnd() {}
-
-  // How far past an end counts, once per pull.
-  static const double _pullDistance = 80;
-  bool _wasPulled = false;
-
-  bool _onScroll(ScrollNotification notification) {
-    if (notification is ScrollEndNotification) {
-      _wasPulled = false;
-    } else if (notification is ScrollUpdateNotification &&
-        notification.dragDetails != null &&
-        !_wasPulled) {
-      final ScrollMetrics metrics = notification.metrics;
-      final double past = max(
-        metrics.pixels - metrics.maxScrollExtent,
-        metrics.minScrollExtent - metrics.pixels,
-      );
-      if (past > _pullDistance) {
-        _wasPulled = true;
-        HapticFeedback.mediumImpact();
-        onPulledPastEnd();
-      }
-    }
-    return false;
-  }
+  /// Pulling past either end of the list asks for this.
+  Future<void> onPulled() async {}
 
   /// What's folded, or where a post shows in full, has changed.
   void onFoldsChanged() {}
@@ -522,8 +498,9 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
   Widget buildRowList({int? rootPost, Set<int> preloadVideos = const <int>{}}) {
     final bool isFlat = _layout == ThreadLayout.flat;
 
-    return NotificationListener<ScrollNotification>(
-      onNotification: _onScroll,
+    return PullToRefresh(
+      onRefresh: onPulled,
+      fromBottom: true,
       child: ScrollablePositionedList.builder(
         padding: EdgeInsets.only(
           bottom: MediaQuery.paddingOf(context).bottom + 8,
@@ -534,7 +511,7 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
         itemPositionsListener: itemPositionsListener,
         physics: _StopsAtEndsWhenDriven(
           // A thread shorter than the screen can still be pulled to refresh.
-          parent: const AlwaysScrollableScrollPhysics(),
+          parent: PullToRefresh.pullPhysics,
           isDriven: () => _isAutoScrolling,
           onDrivenStep: _checkAim,
         ),
