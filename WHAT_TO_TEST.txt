@@ -35,6 +35,9 @@ Settings → Data → Use 4chan's file names. Open an image or video from a thre
 • Save it, and open it in the Saved tab: it's listed by the number too, in the viewer as well, and sharing it from there shows the number. Files saved with it on earlier show their number now too.
 Turn it off: new saves get the poster's name again, and files already saved keep theirs.
 
+POP-UP MESSAGES
+Trigger one, for example add a thread filter or refresh a saved file. While "Thread filter added" is showing, scroll the list or tap a button: it should react straight away, and the message fades out by itself after about two seconds, also over the viewer.
+
 LARGE TEXT
 Settings on your phone → Display → Text Size at the largest, with Larger Accessibility Sizes on. The title bar and tabs stay as they are; cards and posts grow a little, with nothing cut off. Check the home screen, a board, a thread, Settings and dialogs.
 

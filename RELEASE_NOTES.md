@@ -27,6 +27,7 @@
 
 ## What's fixed
 
+- Messages that pop up at the bottom (like "Thread filter added") no longer block the screen: you can keep scrolling and tapping while they show
 - Bookmarks no longer say Deleted when 4chan is limiting requests or can't be reached, and can still be opened then
 - Tapping a quote of a post that's gone says so, instead of showing an empty post
 - Loading stops and offers to try again if the connection goes quiet for 20 seconds, instead of spinning for minutes

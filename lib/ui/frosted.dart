@@ -15,6 +15,7 @@ class Frosted extends StatelessWidget {
     this.blur = 24,
     this.padding,
     this.fadesWithRoute = false,
+    this.fade,
   });
 
   /// The tint of a popup, solid enough to read over anything.
@@ -32,6 +33,10 @@ class Frosted extends StatelessWidget {
   /// around it, so the page would show sharp until the fade ended: this fades
   /// the blur and the tint instead.
   final bool fadesWithRoute;
+
+  /// Like [fadesWithRoute], for something that isn't a route: fades the blur
+  /// and the tint along with this animation.
+  final Animation<double>? fade;
 
   Widget _surface(double shown) {
     final Color? border = borderColor;
@@ -57,9 +62,8 @@ class Frosted extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Animation<double>? route = fadesWithRoute
-        ? ModalRoute.of(context)?.animation
-        : null;
+    final Animation<double>? route =
+        fade ?? (fadesWithRoute ? ModalRoute.of(context)?.animation : null);
     if (route == null) {
       return _surface(1);
     }
