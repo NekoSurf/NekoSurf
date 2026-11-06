@@ -6,10 +6,6 @@ import 'package:flutter_chan/ui/dash_dialogs.dart';
 import 'package:flutter_chan/ui/open_url.dart';
 
 Future<void> offerAppUpdate(BuildContext context) async {
-  // Only phones get releases to update to.
-  if (!Platform.isAndroid && !Platform.isIOS) {
-    return;
-  }
   final Uri? updateUrl = await checkForAppUpdate();
   if (!context.mounted || updateUrl == null) {
     return;
