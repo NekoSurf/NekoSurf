@@ -3,7 +3,11 @@
 
 Run with uv, which installs Pillow into promo/.venv (ffmpeg is needed too):
 
-    uv run --project promo promo/build.py
+    uv run --project promo promo/build.py             # everything
+    uv run --project promo promo/build.py board demo  # only what these show in
+
+Name shots (home, board, thread, gallery, search), demo or banner to remake
+only what uses them: a shot in the banner remakes the banner too.
 
 It writes to screenshots/:
 
@@ -46,6 +50,7 @@ PROMO = Path(__file__).resolve().parent
 BANNER_SHOTS = ("home", "board", "thread")
 SHOTS = ("home", "board", "thread", "gallery", "search")
 RECORDING = "demo"
+BANNER = "banner"
 
 # The README's GIF: GitHub shows it at most ~440 px wide, and it should load
 # quickly on a phone.
@@ -248,32 +253,60 @@ def demo(recording: Path, out_mp4: Path, out_gif: Path) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(
+        description=__doc__.splitlines()[0],
+        epilog="With no names, makes everything.",
+    )
+    parser.add_argument(
+        "names",
+        nargs="*",
+        metavar="name",
+        help=f"what to remake: {', '.join((*SHOTS, RECORDING, BANNER))}",
+    )
     parser.add_argument("--raw", type=Path, default=PROMO / "raw")
     parser.add_argument("--out", type=Path, default=PROMO.parent / "screenshots")
     parser.add_argument("--site", type=Path, default=PROMO.parent / "docs")
     args = parser.parse_args()
 
-    missing = [f"{s}.png" for s in SHOTS if not (args.raw / f"{s}.png").exists()]
-    recording = next((p for p in args.raw.glob(f"{RECORDING}.*") if p.suffix.lower() in (".mp4", ".mov")), None)
-    if recording is None:
-        missing.append(f"{RECORDING}.mp4")
+    unknown = sorted(set(args.names) - {*SHOTS, RECORDING, BANNER})
+    if unknown:
+        parser.error(f"unknown: {', '.join(unknown)}. Choose from {', '.join((*SHOTS, RECORDING, BANNER))}.")
+
+    wanted = set(args.names) or {*SHOTS, RECORDING, BANNER}
+    singles = [s for s in SHOTS if s in wanted]
+    make_banner = BANNER in wanted or bool(wanted & set(BANNER_SHOTS))
+    make_demo = RECORDING in wanted
+
+    # Only what's being made has to be there.
+    needed = {*singles, *(BANNER_SHOTS if make_banner else ())}
+    missing = [f"{s}.png" for s in SHOTS if s in needed and not (args.raw / f"{s}.png").exists()]
+    recording = None
+    if make_demo:
+        recording = next((p for p in args.raw.glob(f"{RECORDING}.*") if p.suffix.lower() in (".mp4", ".mov")), None)
+        if recording is None:
+            missing.append(f"{RECORDING}.mp4")
     if missing:
         print(f"Missing in {args.raw}: {', '.join(missing)}. Take them with promo/capture.sh.", file=sys.stderr)
         return 1
-    if not shutil.which("ffmpeg"):
+    if make_demo and not shutil.which("ffmpeg"):
         print("ffmpeg is needed for the video.", file=sys.stderr)
         return 1
 
     args.out.mkdir(parents=True, exist_ok=True)
-    shots = {s: Image.open(args.raw / f"{s}.png") for s in SHOTS}
-    banner([shots[s] for s in BANNER_SHOTS], args.out / "banner.png")
-    for name, shot in shots.items():
-        single(shot, args.out / f"phone-{name}.png")
-    demo(recording, args.site / "demo.mp4", args.out / "demo.gif")
+    args.site.mkdir(parents=True, exist_ok=True)
+    shots = {s: Image.open(args.raw / f"{s}.png") for s in needed}
+    made = []
+    if make_banner:
+        banner([shots[s] for s in BANNER_SHOTS], args.out / "banner.png")
+        made.append(args.out / "banner.png")
+    for name in singles:
+        single(shots[name], args.out / f"phone-{name}.png")
+        made.append(args.out / f"phone-{name}.png")
+    if make_demo:
+        demo(recording, args.site / "demo.mp4", args.out / "demo.gif")
+        made += [args.out / "demo.gif", args.site / "demo.mp4"]
 
-    made = [f for f in sorted(args.out.glob("*")) if f.name.startswith(("banner", "phone-", "demo"))]
-    for f in [*made, args.site / "demo.mp4"]:
+    for f in made:
         print(f"{f}  {f.stat().st_size / 1e6:.1f} MB")
     return 0
 

@@ -1,7 +1,16 @@
 # Promo images and video
 
 The README's banner and demo, and the website's images, are made from the
-app's own screens in two steps.
+app's own screens. The easiest way, on a Mac with Xcode, Flutter, and
+[uv](https://docs.astral.sh/uv/) and ffmpeg (`brew install uv ffmpeg`):
+
+```sh
+promo/promo.sh
+```
+
+It asks what to do (retake, rebuild or both) and which screens, shows when each
+was last taken, runs the two steps below for just those, and offers to open the
+results. To run the steps yourself:
 
 1. **Capture**, on a Mac with Xcode and Flutter:
 
@@ -22,6 +31,16 @@ app's own screens in two steps.
    uv run --project promo promo/build.py
    ```
 
+   With names (`promo/build.py board demo`), it remakes only what those appear
+   in, leaving the rest as they are. They're the shot names, plus `banner`:
+
+   | Name | Remakes |
+   |---|---|
+   | `home`, `board`, `thread` | `phone-<shot>.png` and the banner, which shows these three |
+   | `gallery`, `search` | `phone-<shot>.png` |
+   | `demo` | `demo.gif` and `docs/demo.mp4` |
+   | `banner` | `banner.png` |
+
    uv fetches the Python and Pillow versions pinned in `promo/` into
    `promo/.venv`, so nothing is installed system-wide. From inside `promo/`,
    `uv run build.py` does the same.
@@ -36,4 +55,5 @@ app's own screens in two steps.
    | `screenshots/phone-<shot>.png` | The website: each screen in a phone, on a transparent background |
    | `docs/demo.mp4` | The website: the recording, full quality. It lives in `docs/` because GitHub Pages serves it as a video, while GitHub's raw files come as a download type Safari won't play |
 
-When the app's look changes, capture again and rebuild.
+When the app's look changes, capture again and rebuild, with the names of
+the screens that changed.

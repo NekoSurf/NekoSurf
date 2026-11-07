@@ -6,11 +6,13 @@
 #   promo/capture.sh                 # all shots and the recording
 #   promo/capture.sh board demo      # only these
 #   promo/capture.sh --no-build      # use the app already installed
+#   promo/capture.sh --no-next       # leave out what to do afterwards
 #   DEVICE="iPhone 17 Pro" promo/capture.sh
 #
-# It boots a simulator in dark mode with a clean status bar (9:41, full
-# signal and battery), installs the app, and then, shot by shot, says what
-# to put on screen and waits for Enter. The captures go to promo/raw/.
+# The names are home, board, thread, gallery, search and demo. It boots a
+# simulator in dark mode with a clean status bar (9:41, full signal and
+# battery), installs the app, and then, shot by shot, says what to put on
+# screen and waits for Enter. The captures go to promo/raw/.
 set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
@@ -28,11 +30,13 @@ SHOTS=(
 RECORDING="demo|10-20 seconds: from the home screen, open a board, scroll a little, open a thread, tap an image, swipe to a video and let it play for 2-3 seconds, then save it."
 
 build=1
+next=1
 wanted=()
 for arg in "$@"; do
   case "$arg" in
     --no-build) build=0 ;;
-    -h|--help) sed -n '2,13p' "$0"; exit 0 ;;
+    --no-next) next=0 ;;
+    -h|--help) sed -n '2,15p' "$0"; exit 0 ;;
     *) wanted+=("$arg") ;;
   esac
 done
@@ -43,6 +47,18 @@ wants() {
   for w in "${wanted[@]}"; do [ "$w" = "$1" ] && return 0; done
   return 1
 }
+
+# A mistyped name would otherwise boot and build, then take nothing.
+for w in ${wanted[@]+"${wanted[@]}"}; do
+  known=0
+  for shot in "${SHOTS[@]}" "$RECORDING"; do
+    [ "$w" = "${shot%%|*}" ] && known=1
+  done
+  if [ $known -eq 0 ]; then
+    echo "Unknown shot \"$w\". Choose from: home board thread gallery search demo." >&2
+    exit 1
+  fi
+done
 
 command -v xcrun >/dev/null || { echo "Needs Xcode (xcrun)." >&2; exit 1; }
 
@@ -145,10 +161,12 @@ if wants "$name"; then
   done
 fi
 
+[ $next -eq 1 ] || exit 0
+
 cat <<EOF
 
 Done. To make the promo images and video from them, commit $OUT/ and push,
-then ask Claude to build them, or run (with Python's Pillow and ffmpeg):
+then ask Claude to build them, or run (with uv and ffmpeg):
 
-  python3 promo/build.py
+  uv run --project promo promo/build.py${wanted[@]+ ${wanted[*]}}
 EOF
