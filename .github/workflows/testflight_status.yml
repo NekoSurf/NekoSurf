@@ -4,6 +4,11 @@ name: TestFlight Status
 # can install it, often a day or two after the GitHub release. Once the
 # latest release's build is live, this appends a hidden marker comment to
 # the release notes; the iOS app only offers the update after that.
+#
+# While a release isn't live yet, a run stays and asks Apple every 5 minutes.
+# GitHub only starts a few of the scheduled runs a day, so waiting for the
+# next one could add hours. Prepare Release starts one when it publishes, and
+# the schedule is what picks it up again after a run's time is over.
 on:
   schedule:
     - cron: "17,47 * * * *"
@@ -18,6 +23,8 @@ jobs:
   check:
     name: Mark the release once it's on TestFlight
     runs-on: ubuntu-latest
+    # GitHub stops a job after 6 hours; the wait below ends before that.
+    timeout-minutes: 350
     permissions:
       contents: write
     steps:
@@ -61,13 +68,23 @@ jobs:
           TAG: ${{ steps.release.outputs.tag }}
           BUILD: ${{ steps.release.outputs.build }}
         run: |
-          if python .github/scripts/testflight_ready.py "$BUNDLE_ID" "$BUILD"; then
-            # Hidden on GitHub; the app looks for it in the release body.
-            gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq '.body // ""' \
-              > "$RUNNER_TEMP/notes.md"
-            printf '\n\n<!-- testflight: live -->\n' >> "$RUNNER_TEMP/notes.md"
-            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file "$RUNNER_TEMP/notes.md"
-            echo "Marked $TAG as available on TestFlight"
-          else
-            echo "Build $BUILD isn't on TestFlight yet"
-          fi
+          until python .github/scripts/testflight_ready.py "$BUNDLE_ID" "$BUILD"; do
+            if (( SECONDS > 19800 )); then
+              echo "Build $BUILD isn't on TestFlight yet; the next run takes over"
+              exit 0
+            fi
+            sleep 300
+            # A newer release is the next run's to watch, which waits for this one.
+            LATEST=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName || echo "$TAG")
+            if [ "$LATEST" != "$TAG" ]; then
+              echo "$LATEST is out now; leaving it to the next run"
+              exit 0
+            fi
+          done
+
+          # Hidden on GitHub; the app looks for it in the release body.
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq '.body // ""' \
+            > "$RUNNER_TEMP/notes.md"
+          printf '\n\n<!-- testflight: live -->\n' >> "$RUNNER_TEMP/notes.md"
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file "$RUNNER_TEMP/notes.md"
+          echo "Marked $TAG as available on TestFlight"

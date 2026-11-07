@@ -2,7 +2,8 @@ name: Prepare Release
 
 # Bumps pubspec to <version>+<next Xcode Cloud build number>, tags it (which
 # starts Xcode Cloud), creates the GitHub release, builds and uploads the
-# APK/IPA, and adds the version to source.json.
+# APK/IPA, adds the version to source.json, and starts TestFlight Status
+# watching for Apple to approve the build.
 #
 # Pushes to the protected main branch with the RELEASE_DEPLOY_KEY deploy key,
 # which is on the main ruleset's bypass list.
@@ -177,6 +178,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      # To start TestFlight Status.
+      actions: write
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       TAG: ${{ needs.prepare.outputs.tag }}
@@ -204,3 +207,8 @@ jobs:
           git commit -am "chore: add $TAG to source.json"
           git pull --rebase origin main
           git push origin main
+
+      # The release is done by now: if this fails, the schedule still gets to it.
+      - name: Start watching for the build on TestFlight
+        continue-on-error: true
+        run: gh workflow run testflight_status.yml --repo "$GITHUB_REPOSITORY" --ref main
