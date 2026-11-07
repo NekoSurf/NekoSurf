@@ -14,6 +14,9 @@ class ThreadsLayout extends StatelessWidget {
     required this.itemBuilder,
   });
 
+  static const double _gridSideInset = 10;
+  static const double _gridSpacing = 10;
+
   final bool grid;
   final int itemCount;
   final NullableIndexedWidgetBuilder itemBuilder;
@@ -29,16 +32,23 @@ class ThreadsLayout extends StatelessWidget {
         ),
       );
     }
-    final int columns = (MediaQuery.sizeOf(context).width / 230).floor();
+    final double pageWidth = MediaQuery.sizeOf(context).width;
+    final int columns = max(2, (pageWidth / 230).floor());
+    final double tileWidth =
+        (pageWidth - 2 * _gridSideInset - (columns - 1) * _gridSpacing) /
+        columns;
     return SliverPadding(
-      padding: const EdgeInsets.fromLTRB(10, 6, 10, 18),
+      padding: const EdgeInsets.fromLTRB(_gridSideInset, 6, _gridSideInset, 18),
       sliver: SliverGrid.builder(
         itemCount: itemCount,
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: max(2, columns),
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
-          childAspectRatio: 0.82,
+          crossAxisCount: columns,
+          crossAxisSpacing: _gridSpacing,
+          mainAxisSpacing: _gridSpacing,
+          // Only one row of pills under the image, however wide the tile.
+          mainAxisExtent:
+              tileWidth / 0.82 -
+              (MediaQuery.textScalerOf(context).scale(25) + 8),
         ),
         itemBuilder: itemBuilder,
       ),

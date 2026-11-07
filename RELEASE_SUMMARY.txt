@@ -1,1 +1,1 @@
-A thread's gallery can show only images or videos, the Saved tab remembers its sort order, and the pull to refresh ring no longer gets stuck on screen.
+Grid cards have a new frosted look, a thread's gallery can show only images or videos, the Saved tab remembers its sort order, and the pull to refresh ring no longer gets stuck on screen.
