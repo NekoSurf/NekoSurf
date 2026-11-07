@@ -63,16 +63,20 @@ class _PullToRefreshState extends State<PullToRefresh> {
     final ScrollMetrics metrics = notification.metrics;
     if (notification is ScrollUpdateNotification) {
       if (notification.dragDetails == null) {
-        // Only the spring back is moving the list: the finger came up.
+        // The finger came up: only what it armed refreshes.
         if (_dragging) {
           _dragging = false;
           if (_armed) {
             _start();
+            return false;
           }
         }
-        if (!_refreshing && !_armed) {
-          _setPull(_pastEnd(metrics).clamp(0.0, 1.0), atBottom: _atBottom);
-        }
+        // The ring follows the list back. Momentum can carry the list further
+        // than the finger pulled it, but that doesn't fill the ring.
+        _setPull(
+          min(_progress, _pastEnd(metrics).clamp(0.0, 1.0)),
+          atBottom: _atBottom,
+        );
         return false;
       }
       _dragging = true;
@@ -86,9 +90,7 @@ class _PullToRefreshState extends State<PullToRefresh> {
       );
     } else if (notification is ScrollEndNotification) {
       _dragging = false;
-      if (!_armed) {
-        _setPull(0);
-      }
+      _setPull(0);
     }
     return false;
   }

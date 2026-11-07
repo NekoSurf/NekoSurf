@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/ui/pull_to_refresh.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -66,6 +68,49 @@ void main() {
     await gesture.up();
     await tester.pumpAndSettle();
     expect(refreshes, isEmpty);
+  });
+
+  double ringOpacity(WidgetTester tester) => tester
+      .widget<Opacity>(
+        find
+            .ancestor(
+              of: find.byType(CircularProgressIndicator),
+              matching: find.byType(Opacity),
+            )
+            .first,
+      )
+      .opacity;
+
+  testWidgets('a short pull let go with speed clears the ring, no refresh', (
+    tester,
+  ) async {
+    final List<int> refreshes = <int>[];
+    await pumpList(tester, refreshes: refreshes);
+
+    await tester.fling(find.text('row 0'), const Offset(0, 80), 3000);
+    await tester.pumpAndSettle();
+
+    expect(refreshes, isEmpty);
+    expect(ringOpacity(tester), 0, reason: 'it would stay on screen');
+  });
+
+  testWidgets('flinging into the top never shows the ring', (tester) async {
+    final List<int> refreshes = <int>[];
+    await pumpList(tester, refreshes: refreshes, items: 30);
+
+    await tester.drag(find.text('row 0'), const Offset(0, -500));
+    await tester.pumpAndSettle();
+    await tester.fling(find.text('row 6'), const Offset(0, 200), 6000);
+
+    double brightest = 0;
+    for (int i = 0; i < 200 && tester.binding.hasScheduledFrame; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      brightest = max(brightest, ringOpacity(tester));
+    }
+
+    await tester.pumpAndSettle();
+    expect(refreshes, isEmpty);
+    expect(brightest, 0);
   });
 
   testWidgets('pulling past the bottom refreshes only when asked to', (

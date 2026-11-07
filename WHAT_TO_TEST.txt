@@ -1,0 +1,6 @@
+WHAT'S FIXED
+
+• Letting go of a short pull to refresh no longer leaves the ring on screen
+
+Please also try what couldn't be checked on a simulator:
+• Pull to refresh with a real finger: short pulls let go slowly and quickly, on iPhone and on Android; the ring should always leave, and only a full pull should refresh
