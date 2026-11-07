@@ -4,6 +4,7 @@ import 'package:flutter_chan/board/thread_filters.dart';
 import 'package:flutter_chan/bookmarks/bookmark.dart';
 import 'package:flutter_chan/bookmarks/bookmarks_model.dart';
 import 'package:flutter_chan/chan/post.dart';
+import 'package:flutter_chan/history/new_replies.dart';
 import 'package:flutter_chan/media/image_cache.dart';
 import 'package:flutter_chan/media/post_thumbnail.dart';
 import 'package:flutter_chan/ui/colors.dart';
@@ -233,12 +234,29 @@ class GridPost extends StatelessWidget {
                             alpha: isDark ? 0.7 : 0.85,
                           ),
                           padding: const EdgeInsets.fromLTRB(10, 8, 10, 9),
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.centerLeft,
-                            child: RepliesRow(
-                              replies: post.replies,
-                              imageReplies: post.images,
+                          child: NewRepliesCount(
+                            thread: post.no,
+                            replies: post.replies,
+                            builder: (context, newReplies) => Row(
+                              children: [
+                                Flexible(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: RepliesRow(
+                                      replies: post.replies,
+                                      imageReplies: post.images,
+                                    ),
+                                  ),
+                                ),
+                                if (newReplies > 0) ...[
+                                  const SizedBox(width: 6),
+                                  NewRepliesBadge(
+                                    count: newReplies,
+                                    short: true,
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                         ),

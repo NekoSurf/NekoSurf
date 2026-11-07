@@ -3,6 +3,9 @@ WHAT'S NEW
 🖼️ Filter a thread's gallery
 • In a thread's gallery, show only images or only videos; swiping in the fullscreen viewer stays within what you picked
 
+🔔 New replies on board cards
+• Threads you've opened show how many replies are new on their cards in a board and the feed, in both grid and list view
+
 🔢 New look for grid cards
 • The thread number now sits on the image in the top left, so cards take less height and more of them fit on screen
 • The image fills the whole card, with the thread number, bookmark button and reply counts frosted on top, so they stay readable on bright images
@@ -14,5 +17,7 @@ WHAT'S FIXED
 
 Please also try what couldn't be checked on a simulator:
 • Pull to refresh with a real finger: short pulls let go slowly and quickly, on iPhone and on Android; the ring should always leave, and only a full pull should refresh
+• VoiceOver or TalkBack: the new reply count on a grid card, which should read as "2 new"
 • Largest text size with Larger Accessibility Sizes on: grid cards, with a thread number that has to wrap under a Sticky label
+• Small phones: list and grid cards with a large reply count and a new reply count at once
 • Scrolling a board in grid view on an older phone, especially Android: it should stay smooth with the frosted number, bookmark button and reply counts on every card

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/board/grid_post.dart';
+import 'package:flutter_chan/board/list_post.dart';
 import 'package:flutter_chan/board/thread_views.dart';
 import 'package:flutter_chan/bookmarks/bookmarks_model.dart';
 import 'package:flutter_chan/chan/post.dart';
@@ -38,15 +39,41 @@ void main() {
     await tester.pump();
   }
 
-  Post thread({bool sticky = false}) => Post(
+  Post thread({int replies = 12, bool sticky = false}) => Post(
     board: 'g',
     no: 123456789,
     time: 1700000000,
     sub: 'A thread',
-    replies: 12,
+    replies: replies,
     images: 3,
     sticky: sticky ? 1 : null,
   );
+
+  testWidgets('a grid card shows how many replies are new, once opened', (
+    tester,
+  ) async {
+    await pumpCard(tester, GridPost(post: thread()));
+    expect(find.text('+2'), findsNothing, reason: 'never opened');
+
+    watched.noteThreadPosts(123456789, List<int>.generate(11, (i) => i + 1));
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.text('+2'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a list card says the same, in words', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(400, 400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await pumpCard(
+      tester,
+      OverflowBox(maxWidth: 380, child: ListPost(post: thread())),
+    );
+
+    watched.noteThreadPosts(123456789, List<int>.generate(11, (i) => i + 1));
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.text('+2 new'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('a grid card keeps its number on the image, even when crowded', (
     tester,
@@ -59,6 +86,16 @@ void main() {
     final Rect card = tester.getRect(find.byType(GridPost));
     final Rect number = tester.getRect(find.text('No.123456789'));
     expect(number.top, lessThan(card.center.dy));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a huge reply count does not overflow next to the new count', (
+    tester,
+  ) async {
+    await pumpCard(tester, GridPost(post: thread(replies: 123456)));
+    watched.noteThreadPosts(123456789, const <int>[1, 2]);
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.textContaining('+'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

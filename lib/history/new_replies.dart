@@ -33,9 +33,12 @@ class NewRepliesCount extends StatelessWidget {
 }
 
 class NewRepliesBadge extends StatelessWidget {
-  const NewRepliesBadge({super.key, required this.count});
+  const NewRepliesBadge({super.key, required this.count, this.short = false});
 
   final int count;
+
+  /// Only the number, where there's little room.
+  final bool short;
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +49,8 @@ class NewRepliesBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        '+$count new',
+        short ? '+$count' : '+$count new',
+        semanticsLabel: '$count new',
         style: const TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w800,

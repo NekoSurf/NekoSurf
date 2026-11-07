@@ -6,6 +6,7 @@ import 'package:flutter_chan/board/thread_filters.dart';
 import 'package:flutter_chan/bookmarks/bookmark.dart';
 import 'package:flutter_chan/bookmarks/bookmarks_model.dart';
 import 'package:flutter_chan/chan/post.dart';
+import 'package:flutter_chan/history/new_replies.dart';
 import 'package:flutter_chan/media/post_thumbnail.dart';
 import 'package:flutter_chan/ui/back_swipe_route.dart';
 import 'package:flutter_chan/ui/colors.dart';
@@ -240,16 +241,34 @@ class ListPost extends StatelessWidget {
 
                 Row(
                   children: [
-                    RepliesRow(
-                      replies: post.replies,
-                      imageReplies: post.images,
+                    Expanded(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Row(
+                          children: [
+                            RepliesRow(
+                              replies: post.replies,
+                              imageReplies: post.images,
+                            ),
+                            const SizedBox(width: 6),
+                            PostNumberPill(no: post.no),
+                            NewRepliesCount(
+                              thread: post.no,
+                              replies: post.replies,
+                              builder: (context, newReplies) => newReplies > 0
+                                  ? Padding(
+                                      padding: const EdgeInsets.only(left: 6),
+                                      child: NewRepliesBadge(count: newReplies),
+                                    )
+                                  : const SizedBox.shrink(),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
 
                     const SizedBox(width: 6),
-
-                    PostNumberPill(no: post.no),
-
-                    const Spacer(),
 
                     GestureDetector(
                       onTap: () => bookmarks.toggleBookmark(bookmark),
