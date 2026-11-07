@@ -4,6 +4,7 @@ import 'package:flutter_chan/saved/report_failure.dart';
 import 'package:flutter_chan/saved/saved_attachments_model.dart';
 import 'package:flutter_chan/saved/saved_browsing.dart';
 import 'package:flutter_chan/saved/saved_grid.dart';
+import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_dialogs.dart';
 import 'package:flutter_chan/ui/dash_header.dart';
@@ -20,7 +21,9 @@ class SavedTab extends StatefulWidget {
 }
 
 class _SavedTabState extends State<SavedTab> {
-  final SavedBrowsing browsing = SavedBrowsing();
+  late final SavedBrowsing browsing = SavedBrowsing(
+    Provider.of<SettingsProvider>(context, listen: false),
+  );
 
   @override
   void didChangeDependencies() {

@@ -1,16 +1,21 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_chan/saved/saved_attachment.dart';
+import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/ui/pills.dart';
 
 /// How the Saved tab is being looked through: what's shown, in what order, and
 /// what's selected, by file name.
 class SavedBrowsing with ChangeNotifier {
+  SavedBrowsing(this._settings);
+
+  final SettingsProvider _settings;
+
   bool selecting = false;
   final Set<String> selected = <String>{};
 
   MediaFilter filter = MediaFilter.all;
 
-  bool newestFirst = true;
+  bool get newestFirst => _settings.savedNewestFirst.value;
 
   void setFilter(MediaFilter value) {
     filter = value;
@@ -18,7 +23,7 @@ class SavedBrowsing with ChangeNotifier {
   }
 
   void setNewestFirst(bool value) {
-    newestFirst = value;
+    _settings.savedNewestFirst.set(value);
     notifyListeners();
   }
 

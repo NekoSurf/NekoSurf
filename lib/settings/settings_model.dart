@@ -80,6 +80,9 @@ class SettingsProvider with ChangeNotifier {
   );
   late final Setting<bool> trackHistory = _bool('trackHistory', true);
 
+  /// The Saved tab shows the latest saves first.
+  late final Setting<bool> savedNewestFirst = _bool('savedNewestFirst', true);
+
   /// Fullscreen videos move on to the next item when they end, instead of
   /// looping.
   late final Setting<bool> fullscreenAutoAdvance = _bool(
