@@ -165,8 +165,8 @@ fi
 
 cat <<EOF
 
-Done. To make the promo images and video from them, commit $OUT/ and push,
-then ask Claude to build them, or run (with uv and ffmpeg):
+Done. To make the promo images and video from them, run this on this Mac
+(with uv and ffmpeg), since $OUT/ isn't committed:
 
   uv run --project promo promo/build.py${wanted[@]+ ${wanted[*]}}
 EOF

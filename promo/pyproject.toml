@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Builds the promo images and video from the simulator captures in raw/"
 requires-python = ">=3.10"
 dependencies = [
+    "imagequant>=1.1.5",
     "pillow>=12.3.0",
 ]
 

@@ -20,11 +20,11 @@ results. To run the steps yourself:
 
    It boots an iPhone simulator in dark mode with a clean status bar,
    installs the app, and takes the screenshots and the screen recording one
-   by one, saying what to put on screen for each. They go to `promo/raw/`;
-   commit them. Run it with shot names (`promo/capture.sh board demo`) to
+   by one, saying what to put on screen for each. They go to `promo/raw/`,
+   which isn't committed, so they stay on this Mac. Run it with shot names (`promo/capture.sh board demo`) to
    retake only those.
 
-2. **Build**, anywhere with [uv](https://docs.astral.sh/uv/) and ffmpeg
+2. **Build**, on the same Mac, with [uv](https://docs.astral.sh/uv/) and ffmpeg
    (`brew install uv ffmpeg`):
 
    ```sh
@@ -41,12 +41,13 @@ results. To run the steps yourself:
    | `demo` | `demo.gif` and `docs/demo.mp4` |
    | `banner` | `banner.png` |
 
-   uv fetches the Python and Pillow versions pinned in `promo/` into
+   uv fetches the Python, Pillow and imagequant versions pinned in `promo/` into
    `promo/.venv`, so nothing is installed system-wide. From inside `promo/`,
    `uv run build.py` does the same.
 
    It puts each screen in an iPhone frame on the app's cyan-to-violet
-   background, and writes:
+   background, keeps the images small with a palette of 256 colors, and
+   writes:
 
    | File | Used for |
    |---|---|

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Turns the simulator captures in promo/raw/ into the promo images and video.
 
-Run with uv, which installs Pillow into promo/.venv (ffmpeg is needed too):
+Run with uv, which installs what it needs into promo/.venv (ffmpeg is needed too):
 
     uv run --project promo promo/build.py             # everything
     uv run --project promo promo/build.py board demo  # only what these show in
@@ -35,6 +35,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+import imagequant
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 # The app's accent colors (DashColors.accent and accent2).
@@ -164,6 +165,14 @@ def place(canvas: Image.Image, phone: Image.Image, center_x: int, top: int) -> N
     canvas.alpha_composite(phone, (x, top))
 
 
+def save_small(image: Image.Image, out: Path) -> None:
+    """Saves with a palette of 256 colors, between half and a third of the size,
+    which the eye barely notices. libimagequant keeps small vivid details like a red
+    heart, and its dithering keeps gradients from showing bands; Pillow's own
+    palettes lose both."""
+    imagequant.quantize_pil_image(image.convert("RGBA"), dithering_level=1.0, max_colors=256).save(out, optimize=True)
+
+
 def banner(shots: list[Image.Image], out: Path) -> None:
     """Three phones side by side, the middle one larger and in front."""
     w, h = 2400, 1260
@@ -179,13 +188,13 @@ def banner(shots: list[Image.Image], out: Path) -> None:
     place(canvas, left, w // 2 - gap - middle.width // 2, round(h * 0.12))
     place(canvas, right, w // 2 + gap + middle.width // 2, round(h * 0.12))
     place(canvas, middle, w // 2, round(h * 0.05))
-    canvas.convert("RGB").save(out, optimize=True)
+    save_small(canvas.convert("RGB"), out)
 
 
 def single(shot: Image.Image, out: Path, height: int = 1600) -> None:
     phone = framed(shot)
     phone = phone.resize((round(phone.width * height / phone.height), height), Image.LANCZOS)
-    phone.save(out, optimize=True)
+    save_small(phone, out)
 
 
 def run(args: list[str]) -> None:
