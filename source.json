@@ -24,6 +24,15 @@
       ],
       "versions": [
         {
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.12.1%2B299/Runner.ipa",
+          "size": 33410748,
+          "version": "0.12.1",
+          "buildVersion": "299",
+          "date": "2026-11-07T22:42:01+00:00",
+          "localizedDescription": "All of Settings is now on one page, a thread's gallery can show only images or videos, board cards show new replies, and the pull to refresh ring no longer gets stuck on screen.",
+          "minOSVersion": "17.0"
+        },
+        {
           "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.12.1%2B298/Runner.ipa",
           "size": 33407321,
           "version": "0.12.1",
