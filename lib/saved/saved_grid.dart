@@ -10,6 +10,7 @@ import 'package:flutter_chan/saved/saved_browsing.dart';
 import 'package:flutter_chan/saved/saved_folders.dart';
 import 'package:flutter_chan/saved/saved_media_viewer_page.dart';
 import 'package:flutter_chan/ui/colors.dart';
+import 'package:flutter_chan/ui/pills.dart';
 import 'package:provider/provider.dart';
 
 const Color _amber = Color(0xFFFBBF24);
@@ -218,32 +219,11 @@ class _SavedGridState extends State<SavedGrid> with WidgetsBindingObserver {
         ),
         const SliverToBoxAdapter(child: SizedBox(height: 14)),
         SliverToBoxAdapter(
-          child: SizedBox(
-            height: 44,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              children: [
-                _FilterPill(
-                  label: 'All',
-                  count: all.length,
-                  selected: browsing.filter == SavedFilter.all,
-                  onTap: () => browsing.setFilter(SavedFilter.all),
-                ),
-                _FilterPill(
-                  label: 'Images',
-                  count: images,
-                  selected: browsing.filter == SavedFilter.images,
-                  onTap: () => browsing.setFilter(SavedFilter.images),
-                ),
-                _FilterPill(
-                  label: 'Videos',
-                  count: videos,
-                  selected: browsing.filter == SavedFilter.videos,
-                  onTap: () => browsing.setFilter(SavedFilter.videos),
-                ),
-              ],
-            ),
+          child: MediaFilterPills(
+            filter: browsing.filter,
+            images: images,
+            videos: videos,
+            onChanged: browsing.setFilter,
           ),
         ),
         if (visible.isEmpty)
@@ -427,65 +407,6 @@ class _SummaryCard extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _FilterPill extends StatelessWidget {
-  const _FilterPill({
-    required this.label,
-    required this.count,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final int count;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final bool isDark = context.isDark;
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: selected ? DashColors.accent : DashColors.card(isDark),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: selected ? DashColors.accent : DashColors.border(isDark),
-          ),
-        ),
-        child: Row(
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: selected ? Colors.black : DashColors.text(isDark),
-              ),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              '$count',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: selected
-                    ? Colors.black.withValues(alpha: 0.6)
-                    : DashColors.muted(isDark),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

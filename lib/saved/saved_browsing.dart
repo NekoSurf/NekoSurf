@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_chan/saved/saved_attachment.dart';
-
-enum SavedFilter { all, images, videos }
+import 'package:flutter_chan/ui/pills.dart';
 
 /// How the Saved tab is being looked through: what's shown, in what order, and
 /// what's selected, by file name.
@@ -9,10 +8,11 @@ class SavedBrowsing with ChangeNotifier {
   bool selecting = false;
   final Set<String> selected = <String>{};
 
-  SavedFilter filter = SavedFilter.all;
+  MediaFilter filter = MediaFilter.all;
+
   bool newestFirst = true;
 
-  void setFilter(SavedFilter value) {
+  void setFilter(MediaFilter value) {
     filter = value;
     notifyListeners();
   }
@@ -24,13 +24,9 @@ class SavedBrowsing with ChangeNotifier {
 
   /// [attachments], oldest first, as they're shown.
   List<SavedAttachment> visible(List<SavedAttachment> attachments) {
-    final List<SavedAttachment> items = attachments.where((a) {
-      return switch (filter) {
-        SavedFilter.all => true,
-        SavedFilter.images => !a.isVideo,
-        SavedFilter.videos => a.isVideo,
-      };
-    }).toList();
+    final List<SavedAttachment> items = attachments
+        .where((a) => filter.shows(isVideo: a.isVideo))
+        .toList();
     return newestFirst ? items.reversed.toList() : items;
   }
 

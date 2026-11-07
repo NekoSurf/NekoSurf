@@ -1,3 +1,8 @@
+WHAT'S NEW
+
+🖼️ Filter a thread's gallery
+• In a thread's gallery, show only images or only videos; swiping in the fullscreen viewer stays within what you picked
+
 WHAT'S FIXED
 
 • Letting go of a short pull to refresh no longer leaves the ring on screen

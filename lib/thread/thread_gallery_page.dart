@@ -7,23 +7,36 @@ import 'package:flutter_chan/media/spoiler_cover.dart';
 import 'package:flutter_chan/thread/media_viewer_route.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
+import 'package:flutter_chan/ui/pills.dart';
 
-class ThreadGalleryPage extends StatelessWidget {
+class ThreadGalleryPage extends StatefulWidget {
   const ThreadGalleryPage({super.key, required this.mediaPosts});
 
   final List<Post> mediaPosts;
 
-  void _open(BuildContext context, int index) {
-    Navigator.of(context).push<int>(
-      ThreadMediaViewerRoute(mediaPosts: mediaPosts, initialIndex: index),
-    );
+  @override
+  State<ThreadGalleryPage> createState() => _ThreadGalleryPageState();
+}
+
+class _ThreadGalleryPageState extends State<ThreadGalleryPage> {
+  MediaFilter _filter = MediaFilter.all;
+
+  /// Swiping in the viewer stays within what's shown here.
+  void _open(List<Post> shown, int index) {
+    Navigator.of(
+      context,
+    ).push<int>(ThreadMediaViewerRoute(mediaPosts: shown, initialIndex: index));
   }
 
   @override
   Widget build(BuildContext context) {
     final bool isDark = context.isDark;
+    final List<Post> mediaPosts = widget.mediaPosts;
     final int videos = mediaPosts.where((post) => post.isVideo).length;
     final int images = mediaPosts.length - videos;
+    final List<Post> shown = mediaPosts
+        .where((post) => _filter.shows(isVideo: post.isVideo))
+        .toList();
     final double width = MediaQuery.sizeOf(context).width;
     final int columns = (width / 130).floor().clamp(3, 8);
     final int decodeWidth =
@@ -36,6 +49,18 @@ class ThreadGalleryPage extends StatelessWidget {
         if (videos > 0) '$videos ${videos == 1 ? 'video' : 'videos'}',
       ].join(' · '),
       slivers: [
+        // With only one kind, there's nothing to choose between.
+        if (images > 0 && videos > 0)
+          SliverToBoxAdapter(
+            child: MediaFilterPills(
+              filter: _filter,
+              images: images,
+              videos: videos,
+              sidePadding: 8,
+              onChanged: (MediaFilter filter) =>
+                  setState(() => _filter = filter),
+            ),
+          ),
         if (mediaPosts.isEmpty)
           SliverFillRemaining(
             hasScrollBody: false,
@@ -50,16 +75,17 @@ class ThreadGalleryPage extends StatelessWidget {
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(8, 4, 8, 16),
             sliver: SliverGrid.builder(
-              itemCount: mediaPosts.length,
+              itemCount: shown.length,
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: columns,
                 crossAxisSpacing: 4,
                 mainAxisSpacing: 4,
               ),
               itemBuilder: (context, index) {
-                final Post post = mediaPosts[index];
+                final Post post = shown[index];
                 return GestureDetector(
-                  onTap: () => _open(context, index),
+                  key: ValueKey<int>(post.no),
+                  onTap: () => _open(shown, index),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: Stack(
