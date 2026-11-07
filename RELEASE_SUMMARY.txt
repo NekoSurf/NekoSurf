@@ -1,1 +1,1 @@
-Board cards show new replies and grid cards have a new frosted look, a thread's gallery can show only images or videos, and the pull to refresh ring no longer gets stuck on screen.
+All of Settings is now on one page, a thread's gallery can show only images or videos, board cards show new replies, and the pull to refresh ring no longer gets stuck on screen.

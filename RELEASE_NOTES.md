@@ -1,5 +1,10 @@
 ## What's new
 
+### ⚙️ All of Settings on one page
+- Every setting is now on the Settings tab itself, grouped into Boards, Threads, Media, Hidden threads, History and Storage, with no pages to open
+- Choices between two options, like Grid or List, switch right in the row, and each setting explains itself next to its switch
+- Clearing watched posts or recently visited threads now asks first
+
 ### 🖼️ Filter a thread's gallery
 - In a thread's gallery, show only images or only videos; swiping in the fullscreen viewer stays within what you picked
 

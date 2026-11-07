@@ -1,5 +1,10 @@
 WHAT'S NEW
 
+⚙️ All of Settings on one page
+• Every setting is now on the Settings tab itself, grouped into Boards, Threads, Media, Hidden threads, History and Storage, with no pages to open
+• Choices between two options, like Grid or List, switch right in the row, and each setting explains itself next to its switch
+• Clearing watched posts or recently visited threads now asks first
+
 🖼️ Filter a thread's gallery
 • In a thread's gallery, show only images or only videos; swiping in the fullscreen viewer stays within what you picked
 
@@ -17,7 +22,7 @@ WHAT'S FIXED
 
 Please also try what couldn't be checked on a simulator:
 • Pull to refresh with a real finger: short pulls let go slowly and quickly, on iPhone and on Android; the ring should always leave, and only a full pull should refresh
-• VoiceOver or TalkBack: the new reply count on a grid card, which should read as "2 new"
-• Largest text size with Larger Accessibility Sizes on: grid cards, with a thread number that has to wrap under a Sticky label
+• VoiceOver or TalkBack: the Grid/List, Desc/Asc and Nested/Flat choices in Settings, and the new reply count on a grid card, which should read as "2 new"
+• Largest text size with Larger Accessibility Sizes on: Settings and grid cards, with a thread number that has to wrap under a Sticky label
 • Small phones: list and grid cards with a large reply count and a new reply count at once
 • Scrolling a board in grid view on an older phone, especially Android: it should stay smooth with the frosted number, bookmark button and reply counts on every card

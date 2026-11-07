@@ -1,15 +1,10 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_chan/settings/data_settings.dart';
-import 'package:flutter_chan/settings/privacy_settings.dart';
-import 'package:flutter_chan/settings/settings_model.dart';
-import 'package:flutter_chan/settings/settings_widgets.dart';
-import 'package:flutter_chan/settings/threads_settings.dart';
-import 'package:flutter_chan/ui/back_swipe_route.dart';
+import 'package:flutter_chan/settings/browsing_settings.dart';
+import 'package:flutter_chan/settings/storage_settings.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/open_url.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:provider/provider.dart';
 
 class Settings extends StatefulWidget {
   const Settings({super.key});
@@ -21,51 +16,15 @@ class Settings extends StatefulWidget {
 class _SettingsState extends State<Settings> {
   late final Future<PackageInfo> _version = PackageInfo.fromPlatform();
 
-  void _push(Widget page) {
-    Navigator.of(context).push(BackSwipePageRoute(builder: (_) => page));
-  }
-
   @override
   Widget build(BuildContext context) {
-    final settings = Provider.of<SettingsProvider>(context);
-
     return SliverToBoxAdapter(
       child: Column(
         children: [
           _AboutCard(version: _version),
           const SizedBox(height: 22),
-          SettingsGroup(
-            title: 'Preferences',
-            children: [
-              SettingsRow(
-                icon: CupertinoIcons.list_bullet,
-                color: DashColors.accent2,
-                title: 'Threads',
-                subtitle:
-                    '${settings.boardViewMode.value == ViewMode.grid ? 'Grid' : 'List'} view, sorting, ${settings.threadLayout.value == ThreadLayout.nested ? 'nested' : 'flat'} threads',
-                showChevron: true,
-                onTap: () => _push(const ThreadsSettings()),
-              ),
-              SettingsRow(
-                icon: CupertinoIcons.hand_raised_fill,
-                color: const Color(0xFF34D399),
-                title: 'Privacy',
-                subtitle: settings.allowNSFW.value
-                    ? 'NSFW boards are visible'
-                    : 'NSFW boards are hidden',
-                showChevron: true,
-                onTap: () => _push(const PrivacySettings()),
-              ),
-              SettingsRow(
-                icon: CupertinoIcons.tray_full_fill,
-                color: const Color(0xFFFBBF24),
-                title: 'Data',
-                subtitle: 'Watched posts, history, caches',
-                showChevron: true,
-                onTap: () => _push(const DataSettings()),
-              ),
-            ],
-          ),
+          const BrowsingSettings(),
+          const StorageSettings(),
         ],
       ),
     );

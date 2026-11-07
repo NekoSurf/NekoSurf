@@ -49,7 +49,7 @@ class SettingsGroup extends StatelessWidget {
                   if (i > 0)
                     Divider(
                       height: 1,
-                      indent: 68,
+                      indent: 58,
                       color: DashColors.border(isDark),
                     ),
                   children[i],
@@ -85,7 +85,6 @@ class SettingsRow extends StatelessWidget {
     this.value,
     this.trailing,
     this.onTap,
-    this.showChevron = false,
     this.destructive = false,
   });
 
@@ -96,7 +95,6 @@ class SettingsRow extends StatelessWidget {
   final String? value;
   final Widget? trailing;
   final VoidCallback? onTap;
-  final bool showChevron;
   final bool destructive;
 
   @override
@@ -107,19 +105,19 @@ class SettingsRow extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
         child: Row(
           children: [
             Container(
-              width: 40,
-              height: 40,
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(13),
+                borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon, size: 20, color: color),
+              child: Icon(icon, size: 17, color: color),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -127,8 +125,8 @@ class SettingsRow extends StatelessWidget {
                   Text(
                     title,
                     style: TextStyle(
-                      fontSize: 15.5,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
                       color: destructive
                           ? DashColors.danger
                           : DashColors.text(isDark),
@@ -163,15 +161,6 @@ class SettingsRow extends StatelessWidget {
               ),
             if (trailing != null)
               Padding(padding: const EdgeInsets.only(left: 8), child: trailing),
-            if (showChevron)
-              Padding(
-                padding: const EdgeInsets.only(left: 8),
-                child: Icon(
-                  CupertinoIcons.chevron_right,
-                  size: 14,
-                  color: DashColors.muted(isDark),
-                ),
-              ),
           ],
         ),
       ),
@@ -195,6 +184,52 @@ class SettingsSwitch extends StatelessWidget {
       value: value,
       activeTrackColor: DashColors.accent,
       onChanged: onChanged,
+    );
+  }
+}
+
+/// A choice between a few options, all in view.
+class SettingsSegments<T extends Object> extends StatelessWidget {
+  const SettingsSegments({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    required this.segments,
+  });
+
+  final T value;
+  final ValueChanged<T> onChanged;
+  final Map<T, String> segments;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isDark = context.isDark;
+    return CupertinoSlidingSegmentedControl<T>(
+      groupValue: value,
+      backgroundColor: DashColors.page(isDark),
+      thumbColor: DashColors.accent,
+      padding: const EdgeInsets.all(3),
+      onValueChanged: (T? chosen) {
+        if (chosen != null) {
+          onChanged(chosen);
+        }
+      },
+      children: {
+        for (final MapEntry<T, String> segment in segments.entries)
+          segment.key: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            child: Text(
+              segment.value,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: segment.key == value
+                    ? CupertinoColors.black
+                    : DashColors.text(isDark),
+              ),
+            ),
+          ),
+      },
     );
   }
 }
