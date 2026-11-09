@@ -123,7 +123,7 @@ class _AppWithThemeState extends State<AppWithTheme>
   Widget build(BuildContext context) {
     return CupertinoApp(
       debugShowCheckedModeBanner: false,
-      home: const AppShell(),
+      onGenerateInitialRoutes: (_) => [homeRoute(const AppShell())],
       onGenerateRoute: generateRoute,
       navigatorObservers: [_unfocusOnPush],
       // Beyond this, fixed-size cards and rows cut their text off.
