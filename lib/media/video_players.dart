@@ -14,6 +14,14 @@ const int _mediaBufferBytes = 8 * 1024 * 1024;
 /// decoder, threads and video surface; with a dozen alive (visible,
 /// preloaded and pooled), scrolling through videos lagged.
 ///
+/// On iOS, a player given back is kept and handed to the next video
+/// instead of being disposed. Creating an mpv player and tearing one down
+/// both block the UI thread (mpv starts up there, and its GL context is
+/// freed there), so with a new player for every video, scrolling stuttered
+/// each time a video came on screen once all were in use. Android's video
+/// output never reports a reused player's first frame, so there each video
+/// still gets a new one.
+///
 /// A holder gives its lease a [VideoLease.priority] while it plays or is
 /// about to: how much of the video is on screen, or more for fullscreen.
 /// When a new player is needed and none is free, the least recently used
@@ -47,6 +55,8 @@ class VideoPlayers extends ChangeNotifier {
 
   // Least recently wanted first.
   final List<VideoLease> _leases = <VideoLease>[];
+  // Players nobody holds, ready for the next video once stopped.
+  final List<_PooledPlayer> _free = <_PooledPlayer>[];
   bool _inBackground = false;
   bool _notifyScheduled = false;
   // Someone was refused a player and waits for a notification.
@@ -67,7 +77,8 @@ class VideoPlayers extends ChangeNotifier {
   /// A player for a video of [width] x [height] (when known) wanted with
   /// [priority] (see [VideoLease.priority]), or null if all [_maxPlayers]
   /// are wanted about as much or more (or the app is in the background).
-  /// [onEvicted] runs when the player is taken away; it's disposed after.
+  /// [onEvicted] runs when the player is taken away, before it's stopped
+  /// for the next video (or disposed).
   VideoLease? acquire({
     required VoidCallback onEvicted,
     required double priority,
@@ -81,28 +92,42 @@ class VideoPlayers extends ChangeNotifier {
       _victimFor(priority)!._evict();
     }
 
-    final Player player = Player(
-      configuration: const PlayerConfiguration(bufferSize: _mediaBufferBytes),
-    );
-    _waitForStreams(player);
     final bool knownSize = width != null && height != null;
-    final VideoController controller = VideoController(
-      player,
-      // Sized up front on iOS: media_kit's iOS video output otherwise works
-      // the size out while rendering, which can lock up.
-      configuration: VideoControllerConfiguration(
-        width: Platform.isIOS && knownSize ? width : null,
-        height: Platform.isIOS && knownSize ? height : null,
-      ),
-    );
+    final _PooledPlayer pooled;
+    final bool byOutput;
+    if (_free.isNotEmpty) {
+      // Only on iOS (see [_giveBack]).
+      pooled = _free.removeAt(0);
+      pooled.controller
+          .setSize(
+            width: knownSize ? width : null,
+            height: knownSize ? height : null,
+          )
+          .catchError((_) {});
+      // Its own first frame was reported long ago, for its first video.
+      byOutput = true;
+    } else {
+      final Player player = Player(
+        configuration: const PlayerConfiguration(bufferSize: _mediaBufferBytes),
+      );
+      _waitForStreams(player);
+      final VideoController controller = VideoController(
+        player,
+        // Sized up front on iOS: media_kit's iOS video output otherwise works
+        // the size out while rendering, which can lock up.
+        configuration: VideoControllerConfiguration(
+          width: Platform.isIOS && knownSize ? width : null,
+          height: Platform.isIOS && knownSize ? height : null,
+        ),
+      );
+      pooled = _PooledPlayer(player, controller);
+      byOutput = Platform.isIOS && knownSize;
+    }
     final VideoLease lease = VideoLease._(
       this,
-      player,
-      controller,
+      pooled,
       onEvicted,
-      Platform.isIOS && knownSize
-          ? _firstFrameOnIOS(player)
-          : controller.waitUntilFirstFrameRendered,
+      byOutput: byOutput,
     ).._priority = priority;
     _leases.add(lease);
     return lease;
@@ -121,26 +146,6 @@ class VideoPlayers extends ChangeNotifier {
       return null;
     }
     return victim;
-  }
-
-  /// When [player] shows its first frame. media_kit's iOS output reports
-  /// that as soon as it has a size, and it has one from the start (above):
-  /// before mpv has even opened the video, which then showed as a black
-  /// box instead of its thumbnail while loading. mpv configures its video
-  /// output for the first decoded frame, right before drawing it.
-  static Future<void> _firstFrameOnIOS(Player player) {
-    final Completer<void> shown = Completer<void>();
-    final PlatformPlayer platform = player.platform!;
-    if (platform is NativePlayer) {
-      platform
-          .observeProperty('vo-configured', (String value) async {
-            if (value == 'yes' && !shown.isCompleted) {
-              shown.complete();
-            }
-          })
-          .catchError((_) {});
-    }
-    return shown.future;
   }
 
   /// Lets [player] wait for a stream from VideoServer as long as mpv
@@ -179,6 +184,21 @@ class VideoPlayers extends ChangeNotifier {
     for (final VideoLease lease in List<VideoLease>.of(_leases)) {
       lease._evict();
     }
+    for (final _PooledPlayer pooled in _free) {
+      unawaited(pooled.dispose());
+    }
+    _free.clear();
+  }
+
+  /// Keeps [pooled] for the next video on iOS, or disposes it: on Android,
+  /// in the background (where there are no players) or when it [broke].
+  void _giveBack(_PooledPlayer pooled, {required bool broke}) {
+    if (!Platform.isIOS || _inBackground || broke) {
+      unawaited(pooled.dispose());
+      return;
+    }
+    pooled.recycle();
+    _free.add(pooled);
   }
 
   // Leases are often released from dispose(), where listeners must not
@@ -200,20 +220,52 @@ class VideoPlayers extends ChangeNotifier {
 class VideoLease {
   VideoLease._(
     this._manager,
-    this.player,
-    this.controller,
-    this._onEvicted,
-    this.firstFrame,
-  );
+    this._pooled,
+    this._onEvicted, {
+    required bool byOutput,
+  }) : _byOutput = byOutput;
 
   final VideoPlayers _manager;
-  final Player player;
-  final VideoController controller;
+  final _PooledPlayer _pooled;
   final VoidCallback _onEvicted;
 
-  final Future<void> firstFrame;
+  // The first frame is when mpv configures its video output for the video
+  // opened here (see [_PooledPlayer.watchOutput]); otherwise media_kit's.
+  final bool _byOutput;
+  final Completer<void> _output = Completer<void>();
   double _priority = 0;
   bool _released = false;
+
+  Player get player => _pooled.player;
+  VideoController get controller => _pooled.controller;
+
+  /// Completes when the video [open] opened shows its first frame.
+  Future<void> get firstFrame => _byOutput
+      ? _output.future
+      : _pooled.controller.waitUntilFirstFrameRendered;
+
+  /// Opens [media] paused, after [setUp]. A reused player first finishes
+  /// what its last holder still had running and stops that video. Skipped
+  /// (false) once this lease is given back: the player may be another
+  /// video's by then.
+  Future<bool> open(
+    Media media, {
+    required Future<void> Function(Player player) setUp,
+  }) async {
+    bool opened = false;
+    await _pooled.run(() async {
+      if (_released) {
+        return;
+      }
+      opened = true;
+      await setUp(player);
+      if (_byOutput) {
+        _pooled.watchOutput(_output);
+      }
+      await player.open(media, play: false);
+    });
+    return opened;
+  }
 
   /// How much the holder wants it: 0 when it doesn't play it and isn't
   /// about to, otherwise how much of the video is on screen (0 to 1, more
@@ -237,13 +289,15 @@ class VideoLease {
 
   bool get wanted => _priority > 0;
 
-  void release() {
+  /// Gives the player back; if it [broke] (it showed nothing), it's
+  /// disposed rather than handed to the next video.
+  void release({bool broke = false}) {
     if (_released) {
       return;
     }
     _released = true;
     _manager._forget(this);
-    unawaited(_dispose());
+    _manager._giveBack(_pooled, broke: broke);
   }
 
   void _evict() {
@@ -253,11 +307,82 @@ class VideoLease {
     _released = true;
     _manager._forget(this);
     _onEvicted();
-    unawaited(_dispose());
+    _manager._giveBack(_pooled, broke: false);
+  }
+}
+
+/// A player and its video output, kept alive across the videos it plays.
+///
+/// What a holder does to set it up and open its video ([VideoLease.open])
+/// and stopping that video for the next one ([recycle]) run one after
+/// another ([run]): a holder that lost the player while still opening its
+/// video would otherwise open it into the next one's.
+class _PooledPlayer {
+  _PooledPlayer(this.player, this.controller) {
+    final PlatformPlayer platform = player.platform!;
+    if (platform is NativePlayer) {
+      platform
+          .observeProperty('vo-configured', (String value) async {
+            _configured = value == 'yes';
+            final Completer<void>? waiting = _configured ? _output : _cleared;
+            if (waiting != null && !waiting.isCompleted) {
+              waiting.complete();
+            }
+          })
+          .catchError((_) {});
+    }
+  }
+
+  // How long a stopped player may take to tear down its video output.
+  static const Duration _clearTimeout = Duration(seconds: 2);
+
+  final Player player;
+  final VideoController controller;
+
+  bool _configured = false;
+  Completer<void>? _output;
+  Completer<void>? _cleared;
+  Future<void> _last = Future<void>.value();
+
+  /// Runs [step] once every step before it is done.
+  Future<void> run(Future<void> Function() step) {
+    final Future<void> done = _last.then((_) => step());
+    _last = done.catchError((Object _) {});
+    return done;
+  }
+
+  /// Completes [output] when mpv next configures its video output: for the
+  /// first decoded frame of the video opened next, right before drawing
+  /// it. media_kit's iOS output reports a first frame as soon as it has a
+  /// size, which it has from the start when sized up front: before mpv has
+  /// even opened the video, which then showed as a black box instead of
+  /// its thumbnail while loading.
+  void watchOutput(Completer<void> output) {
+    _output = output;
+  }
+
+  /// Stops the video it played, once its holder's steps are done. mpv,
+  /// idle without a file, tears down its video output; until it has, the
+  /// last video's output would count as the next one's first frame.
+  void recycle() {
+    _output = null;
+    unawaited(
+      run(() async {
+        final Completer<void> cleared = Completer<void>();
+        _cleared = cleared;
+        try {
+          await player.pause();
+          await player.stop();
+        } catch (_) {}
+        if (_configured) {
+          await cleared.future.timeout(_clearTimeout, onTimeout: () {});
+        }
+      }),
+    );
   }
 
   // Pausing first stops mpv's playback threads before the teardown.
-  Future<void> _dispose() async {
+  Future<void> dispose() async {
     try {
       await player.pause();
     } catch (_) {}

@@ -17,7 +17,8 @@ import 'package:media_kit_video/media_kit_video.dart';
 ///
 /// Places that show the video say whether they want it playing ([want],
 /// [unwant]); it plays while anyone does and the user hasn't paused it. The
-/// player comes from [VideoPlayers] (three at most, app-wide) and plays
+/// player comes from [VideoPlayers] (three at most, app-wide, reused from
+/// video to video) and plays
 /// 4chan videos through [VideoServer], which streams them while it caches
 /// them. When the player is taken for another video, or the app goes to
 /// the background, it continues later where it was.
@@ -313,9 +314,11 @@ class MediaVideo extends ChangeNotifier {
     return value;
   }
 
+  double get _volume =>
+      _demands.values.any((audible) => audible) || !_muted ? 100 : 0;
+
   void _applyVolume() {
-    final bool audible = _demands.values.any((audible) => audible);
-    _lease?.player.setVolume(audible || !_muted ? 100 : 0).catchError((_) {});
+    _lease?.player.setVolume(_volume).catchError((_) {});
   }
 
   /// Brings the player in line with who wants the video. Also runs when
@@ -408,22 +411,23 @@ class MediaVideo extends ChangeNotifier {
       _attach(lease, token);
       notifyListeners();
 
-      final Player player = lease.player;
-      _applyVolume();
-      await player.setRate(_rate);
-      await player.setPlaylistMode(_playlistMode);
-      // mpv starts there itself: a seek right after open() is dropped while
-      // the stream is still loading, which restarted videos from the top.
-      await player.open(
+      final bool opened = await lease.open(
+        // mpv starts there itself: a seek right after open() is dropped
+        // while the stream is still loading, which restarted videos from
+        // the top.
         Media(media, start: _resumeAt > Duration.zero ? _resumeAt : null),
-        play: false,
+        setUp: (Player player) async {
+          await player.setVolume(_volume);
+          await player.setRate(_rate);
+          await player.setPlaylistMode(_playlistMode);
+        },
       );
-      if (token != _token) {
+      if (!opened || token != _token) {
         return;
       }
       _opened = true;
       if (_demands.isNotEmpty && !_userPaused && _resumePlaying) {
-        await player.play();
+        await lease.player.play();
       }
       _resumePlaying = true;
     } catch (error) {
@@ -564,7 +568,8 @@ class MediaVideo extends ChangeNotifier {
   void _fail() {
     final VideoLease? lease = _lease;
     _dropPlayer();
-    lease?.release();
+    // Not kept for the next video: it may be what broke.
+    lease?.release(broke: true);
 
     if (!_retried) {
       _retried = true;

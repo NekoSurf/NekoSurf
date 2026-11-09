@@ -126,6 +126,11 @@ class _InlineVideoState extends State<InlineVideo> {
   }
 
   void _handleVisibility(VisibilityInfo info) {
+    // VisibilityDetector reports once more after the post scrolled away and
+    // was disposed; dispose already gave the video back.
+    if (!mounted) {
+      return;
+    }
     _inViewport = info.visibleFraction;
     _measure();
   }
