@@ -9,11 +9,3 @@ WHAT'S FIXED
 • On iPhone, scrolling through a thread with many videos no longer stutters each time a new video starts playing
 • Videos in a thread start sooner as they scroll into view, and up to four play at once instead of three
 • When 4chan limits downloads for a while, videos say so and play by themselves once it lets up, instead of showing the retry button; meanwhile the app stops asking 4chan over and over, and saving says why it didn't work
-
-Please also try what couldn't be checked on a simulator:
-• With a real finger, swipe back slowly from a board to the home screen, stop halfway, then let go: the home screen should move along with the board the whole time and settle without a jump
-• On Android, go back from a board to the home screen, with the back button and with a swipe: the home screen should slide into place, as a board does when going back from a thread
-• On iPhone, scroll quickly through a thread with dozens of videos (for example on /wsg/) with a real finger: it should stay smooth, and every video should start playing soon after it appears, not stay on its picture, with up to four playing at once
-• Open a video full screen from the thread and swipe between videos, then go back: the inline videos should play again
-• Leave the app with videos playing and come back: they should continue
-• On Android, scroll through a thread with many videos the same way: every video should start playing, with up to four at once

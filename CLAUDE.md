@@ -120,16 +120,13 @@ Markdown, for users, in this shape:
 
 ### WHAT_TO_TEST.txt: TestFlight's "What to Test"
 
-- The same content as `RELEASE_NOTES.md`, in plain text: the same headings,
-  in the same order, with the same lines. TestFlight shows Markdown as typed,
-  so drop the `#` marks, links and `-` bullets: headings become plain lines
-  (`WHAT'S NEW`, `WHAT'S FIXED`, then each feature's emoji and title), bullets
-  become `•`. Change a line in one file and change it in the other.
+- Only the content of `RELEASE_NOTES.md`, in plain text, with nothing added:
+  the same headings, in the same order, with the same lines. TestFlight shows
+  Markdown as typed, so drop the `#` marks, links and `-` bullets: headings
+  become plain lines (`WHAT'S NEW`, `WHAT'S FIXED`, then each feature's emoji
+  and title), bullets become `•`. Change a line in one file and change it in
+  the other.
 - At most 4000 characters (the workflow checks). If it's too long, shorten
   the wording in both files, not just this one.
-- End with a "Please also try what couldn't be checked on a simulator:" list
-  of `•` lines for what only a phone shows (VoiceOver, a real finger, a bad
-  connection, Android differences). It's the only part with no counterpart
-  in the release notes.
 - The release commit writes it to `ios/TestFlight/WhatToTest.en-US.txt`,
   which Xcode Cloud reads; don't edit that file directly.
