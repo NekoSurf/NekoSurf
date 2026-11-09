@@ -1,3 +1,8 @@
+WHAT'S NEW
+
+🔖 A summary card on the Bookmarks tab
+• The Bookmarks tab now starts with a card like the Saved tab's: how many threads you've bookmarked, from how many boards, which order they're sorted in, and the pictures of the newest ones
+
 WHAT'S FIXED
 
 • Swiping back to the home screen follows your finger like everywhere else, instead of the home screen jumping into place when you let go; on Android it now slides back like the other pages instead of standing still

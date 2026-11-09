@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_chan/bookmarks/bookmark.dart';
 import 'package:flutter_chan/bookmarks/bookmarks_model.dart';
 import 'package:flutter_chan/bookmarks/bookmarks_post.dart';
+import 'package:flutter_chan/bookmarks/bookmarks_summary.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_menu.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
@@ -40,6 +41,7 @@ class _BookmarksState extends State<Bookmarks> {
   @override
   Widget build(BuildContext context) {
     final bookmarks = Provider.of<BookmarksProvider>(context);
+    final List<Bookmark> items = bookmarks.bookmarks;
 
     return DashScaffold(
       title: 'Bookmarks',
@@ -72,7 +74,18 @@ class _BookmarksState extends State<Bookmarks> {
           ],
         ),
       ],
-      slivers: [_list(bookmarks.bookmarks)],
+      slivers: [
+        if (items.isNotEmpty) ...[
+          SliverToBoxAdapter(
+            child: BookmarksSummary(
+              bookmarks: items,
+              newestFirst: bookmarks.newestFirst,
+            ),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 8)),
+        ],
+        _list(items),
+      ],
     );
   }
 
