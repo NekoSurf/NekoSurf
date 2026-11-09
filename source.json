@@ -24,6 +24,15 @@
       ],
       "versions": [
         {
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.12.1%2B300/Runner.ipa",
+          "size": 33419927,
+          "version": "0.12.1",
+          "buildVersion": "300",
+          "date": "2026-11-09T20:33:00+00:00",
+          "localizedDescription": "Videos in threads start sooner and up to four play at once, they wait out 4chan's download limits and say so, and on iPhone scrolling no longer stutters when the next one starts; swiping back to the home screen no longer jumps, and the Bookmarks tab starts with a summary card.",
+          "minOSVersion": "17.0"
+        },
+        {
           "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.12.1%2B299/Runner.ipa",
           "size": 33410748,
           "version": "0.12.1",
