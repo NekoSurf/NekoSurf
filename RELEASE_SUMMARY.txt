@@ -1,1 +1,1 @@
-On iPhone, scrolling through threads full of videos no longer stutters when the next video starts.
+Videos in threads start sooner as they scroll into view and up to four play at once; on iPhone, scrolling no longer stutters when the next one starts.

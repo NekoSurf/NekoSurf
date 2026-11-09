@@ -17,7 +17,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 ///
 /// Places that show the video say whether they want it playing ([want],
 /// [unwant]); it plays while anyone does and the user hasn't paused it. The
-/// player comes from [VideoPlayers] (three at most, app-wide, reused from
+/// player comes from [VideoPlayers] (four at most, app-wide, reused from
 /// video to video) and plays
 /// 4chan videos through [VideoServer], which streams them while it caches
 /// them. When the player is taken for another video, or the app goes to
@@ -328,14 +328,19 @@ class MediaVideo extends ChangeNotifier {
     final bool wanted = _demands.isNotEmpty;
 
     if (!wanted) {
-      if ((_watched || (lease?.wanted ?? false)) && !_pauseTimerActive) {
+      final bool active = _watched || (lease?.wanted ?? false);
+      // The next video may take the player right away: a video scrolled
+      // away otherwise held it through the grace, while the one scrolling
+      // in waited on its thumbnail. It keeps playing meanwhile, so closing
+      // fullscreen hands it to the post without a hitch.
+      lease?.priority = 0;
+      if (active && !_pauseTimerActive) {
         _pauseTimer = Timer(_pauseGrace, () {
           if (_demands.isNotEmpty) {
             return;
           }
           _setWatched(false);
           if (lease != null && _lease == lease) {
-            lease.priority = 0;
             lease.player.pause().catchError((_) {});
           }
         });

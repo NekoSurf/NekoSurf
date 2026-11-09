@@ -47,7 +47,8 @@ class VideoPlayers extends ChangeNotifier {
 
   static final VideoPlayers instance = VideoPlayers._();
 
-  static const int _maxPlayers = 3;
+  // Four, so a thread showing four short videos at once plays them all.
+  static const int _maxPlayers = 4;
 
   // How much more a video must be wanted to take a wanted player, so two
   // videos about as visible don't take it from each other while scrolling.
@@ -267,10 +268,10 @@ class VideoLease {
     return opened;
   }
 
-  /// How much the holder wants it: 0 when it doesn't play it and isn't
-  /// about to, otherwise how much of the video is on screen (0 to 1, more
-  /// for fullscreen). A wanted lease is only taken for a video wanted
-  /// clearly more.
+  /// How much the holder wants it: 0 once nothing shows the video (it may
+  /// play on briefly, but is free to take), otherwise how much of the
+  /// video is on screen (0 to 1, more for fullscreen). A wanted lease is
+  /// only taken for a video wanted clearly more.
   set priority(double value) {
     final double was = _priority;
     _priority = value;
