@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_chan/chan/file_server_limit.dart';
 import 'package:flutter_chan/media/video_players.dart';
 import 'package:flutter_chan/media/video_server.dart';
 import 'package:media_kit/media_kit.dart';
@@ -21,10 +22,15 @@ import 'package:media_kit_video/media_kit_video.dart';
 /// video to video) and plays
 /// 4chan videos through [VideoServer], which streams them while it caches
 /// them. When the player is taken for another video, or the app goes to
-/// the background, it continues later where it was.
+/// the background, it continues later where it was. While 4chan refuses
+/// full-size files ([FileServerLimit]), it waits for its download and says
+/// so ([waitingForServer]), then plays by itself once 4chan lets up.
 class MediaVideo extends ChangeNotifier {
   MediaVideo._(this.source, this._width, this._height) {
     VideoPlayers.instance.addListener(_sync);
+    if (_served) {
+      FileServerLimit.instance.addListener(_limitChanged);
+    }
   }
 
   static final Map<String, MediaVideo> _all = <String, MediaVideo>{};
@@ -123,6 +129,16 @@ class MediaVideo extends ChangeNotifier {
       (_starting || _lease != null);
   Duration get duration => _duration;
   bool get muted => _muted;
+
+  /// Waiting for its download while 4chan refuses full-size files: to
+  /// start, or to go on once what has arrived has played.
+  bool get waitingForServer =>
+      _served &&
+      !_failed &&
+      _demands.isNotEmpty &&
+      FileServerLimit.instance.limited &&
+      (!_hasFirstFrame || _buffering) &&
+      (downloadProgress?.value ?? 0) < 1;
 
   // 4chan videos, which stream through VideoServer.
   bool get _served => source.startsWith('http');
@@ -235,6 +251,9 @@ class MediaVideo extends ChangeNotifier {
     }
     _all.remove(source);
     VideoPlayers.instance.removeListener(_sync);
+    if (_served) {
+      FileServerLimit.instance.removeListener(_limitChanged);
+    }
     _token++;
     _pauseTimer?.cancel();
     _setWatched(false);
@@ -380,6 +399,20 @@ class MediaVideo extends ChangeNotifier {
   Future<String> _mediaSource() async =>
       _served ? VideoServer.instance.source(source) : source;
 
+  void _limitChanged() {
+    if (!FileServerLimit.instance.limited) {
+      // mpv waits a minute at most for a stream, so one opened while 4chan
+      // refused it may have given up: it opens again, now that it loads.
+      final VideoLease? lease = _lease;
+      if (lease != null && !_hasFirstFrame) {
+        _dropPlayer();
+        lease.release();
+      }
+      _sync();
+    }
+    notifyListeners();
+  }
+
   Future<void> _start() async {
     if (_starting || _failed || _lease != null || _demands.isEmpty) {
       return;
@@ -395,6 +428,13 @@ class MediaVideo extends ChangeNotifier {
     try {
       final String media = await _mediaSource();
       if (token != _token || _demands.isEmpty) {
+        return;
+      }
+      // Not streamed while 4chan refuses it: mpv would give up on the
+      // stream. Its download waits meanwhile; _limitChanged starts it.
+      if (media.startsWith('http') && FileServerLimit.instance.limited) {
+        _starting = false;
+        notifyListeners();
         return;
       }
       // Not before the first await: want() runs during builds.
@@ -524,6 +564,11 @@ class MediaVideo extends ChangeNotifier {
       if (_lease != lease || _hasFirstFrame || _demands.isEmpty) {
         return;
       }
+      // Not broken: 4chan refuses it for now (see _limitChanged).
+      if (_served && FileServerLimit.instance.limited) {
+        _armFirstFrameTimer(lease);
+        return;
+      }
       // Still arriving over a slow connection: give it another round.
       final double? progress = downloadProgress?.value;
       if (progress != null && progress != _progressMark && progress < 1) {
@@ -645,7 +690,9 @@ class MediaVideoView extends StatelessWidget {
                   pauseUponEnteringBackgroundMode: false,
                 ),
               ),
-            if (video.failed)
+            if (video.waitingForServer)
+              Center(child: _ServerLimitLabel(size: indicatorSize))
+            else if (video.failed)
               Center(
                 child: GestureDetector(
                   onTap: video.retry,
@@ -669,6 +716,49 @@ class MediaVideoView extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// Why a video doesn't start or stopped to load: 4chan refuses full-size
+/// files for now. It plays by itself once 4chan lets up.
+class _ServerLimitLabel extends StatelessWidget {
+  const _ServerLimitLabel({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              CupertinoIcons.hourglass,
+              color: Colors.white,
+              size: size * 0.6,
+            ),
+            SizedBox(width: size * 0.25),
+            Flexible(
+              child: Text(
+                '4chan is limiting downloads',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: size * 0.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

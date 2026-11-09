@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:flutter_chan/chan/http_client.dart';
 import 'package:path_provider/path_provider.dart';
 
 // Images are kept on disk as well as in memory, so ones seen before show
@@ -26,6 +27,8 @@ final CacheManager _images = CacheManager(
     _imagesKey,
     stalePeriod: const Duration(days: 3),
     maxNrOfCacheObjects: 150,
+    // Not asking while 4chan limits full-size files (FileServerLimit).
+    fileService: HttpFileService(httpClient: imageClient),
   ),
 );
 

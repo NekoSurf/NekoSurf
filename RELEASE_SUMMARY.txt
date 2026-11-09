@@ -1,1 +1,1 @@
-Videos in threads start sooner as they scroll into view and up to four play at once; on iPhone, scrolling no longer stutters when the next one starts.
+Videos in threads start sooner and up to four play at once, they wait out 4chan's download limits and say so, and on iPhone scrolling no longer stutters when the next one starts.

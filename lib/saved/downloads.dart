@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_chan/chan/file_server_limit.dart';
 import 'package:flutter_chan/chan/http_client.dart';
 import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/media/video_server.dart';
@@ -304,7 +305,9 @@ Future<void> deleteSaveLeftoversIn(Directory temp) async {
 /// Puts [url] into [folder] as [fileName]: copied from the video cache when
 /// it was watched already, or once the player's download of it is done,
 /// otherwise downloaded. [onProgress] hears how far along either download
-/// is, in whole percent.
+/// is, in whole percent. Fails at once ([FileServerLimitedException]) while
+/// 4chan refuses full-size files and it isn't here yet: the save would only
+/// sit at 0% until 4chan lets up.
 @visibleForTesting
 Future<File> downloadInto(
   Directory folder,
@@ -314,6 +317,10 @@ Future<File> downloadInto(
 }) async {
   void report(double? progress) => onProgress?.call(_wholePercent(progress));
   final File file = File('${folder.path}/$fileName');
+  if (FileServerLimit.instance.limited &&
+      await VideoServer.instance.cachedFile(url) == null) {
+    throw FileServerLimitedException(Uri.parse(url));
+  }
   final File? cached = await VideoServer.instance.downloadedFile(
     url,
     onProgress: report,
@@ -354,6 +361,9 @@ Future<void> _download(
       final bool retryable = status == null
           ? e is! FileSystemException
           : status == 429 || status >= 500;
+      if (status == 429 && attempt >= _downloadAttempts) {
+        throw FileServerLimitedException(Uri.parse(url));
+      }
       if (!retryable || attempt >= _downloadAttempts) {
         rethrow;
       }

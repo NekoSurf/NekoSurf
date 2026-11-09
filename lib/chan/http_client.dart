@@ -1,9 +1,17 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_chan/chan/file_server_limit.dart';
 import 'package:http/http.dart';
 
-/// One client for every 4chan API call, so requests reuse the keep-alive
-/// connection to a.4cdn.org instead of opening a new one each time.
-final Client httpClient = TimeoutClient(Client());
+final Client _client = TimeoutClient(Client());
+
+/// One client for every 4chan request, so they reuse the keep-alive
+/// connections to a.4cdn.org and i.4cdn.org instead of opening new ones.
+/// Full-size files wait while 4chan limits them ([FileServerLimit]).
+final Client httpClient = FileServerClient(_client);
+
+/// For images in view: while 4chan limits full-size files, these fail at
+/// once instead of waiting, so the thumbnail shows instead of a spinner.
+final Client imageClient = FileServerClient(_client, waitWhileLimited: false);
 
 /// Gives up on a connection that goes quiet, rather than leaving whoever asked
 /// waiting until the system does: [stall] without an answer, or without more of

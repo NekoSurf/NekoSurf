@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_chan/chan/file_server_limit.dart';
 import 'package:flutter_chan/chan/http_client.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -27,7 +28,9 @@ import 'package:path_provider/path_provider.dart';
 /// video on screen gets all of it instead of a sixth.
 ///
 /// A dropped download continues from where it stopped (HTTP ranges), with
-/// a longer back-off when 4chan's image server rate-limits (429).
+/// a longer back-off when 4chan's image server rate-limits (429). While it
+/// refuses full-size files for a while ([FileServerLimit]), downloads wait
+/// for it to let up instead of giving up.
 class VideoServer {
   VideoServer._() {
     // iOS may close listening sockets in the background, and no player
@@ -670,17 +673,22 @@ class _Download {
         }
         await _fetch(from);
       } catch (error) {
-        if (_cancelled || ++attempt >= _attempts) {
-          break;
-        }
         // 4chan's image server answers bursts with 429; back off longer.
         final bool limited = error is _HttpStatus && error.status == 429;
+        // While it refuses full-size files for a while, the next request
+        // waits its turn (FileServerLimit): no try is used up.
+        final bool waits = limited && FileServerLimit.instance.limited;
+        if (_cancelled || (!waits && ++attempt >= _attempts)) {
+          break;
+        }
         if (error is _HttpStatus && !error.retryable) {
           break;
         }
-        await Future<void>.delayed(
-          Duration(seconds: limited ? 4 * attempt : attempt),
-        );
+        if (!waits) {
+          await Future<void>.delayed(
+            Duration(seconds: limited ? 4 * attempt : attempt),
+          );
+        }
       }
     }
 
