@@ -25,6 +25,17 @@ class ThreadPosts {
   /// The posts with something attached, oldest first.
   List<Post> get media => posts.where((Post post) => post.hasFile).toList();
 
+  /// Each poster ID's posts, oldest first, on boards that give posters one.
+  late final Map<String, List<Post>> postsById = () {
+    final Map<String, List<Post>> byId = <String, List<Post>>{};
+    for (final Post post in posts) {
+      if (post.id case final String id) {
+        byId.putIfAbsent(id, () => <Post>[]).add(post);
+      }
+    }
+    return byId;
+  }();
+
   Post? post(int no) {
     final int? place = places[no];
     return place == null ? null : posts[place];

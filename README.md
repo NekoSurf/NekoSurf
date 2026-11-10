@@ -41,6 +41,7 @@
 ### 📖 Read
 
 - Threads read like comments: replies nested under the post they answer, and folded away with a tap; or a flat list in the order they were posted, if you prefer
+- Tap a poster's ID to see all their posts in the thread
 - Bookmarks that show when a thread is archived or deleted
 - Threads can open where you left off, with new replies marked until you've seen them, and a history keeps the ones you visited
 - Swipe right anywhere on a page to go back

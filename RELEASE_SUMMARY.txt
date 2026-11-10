@@ -1,1 +1,1 @@
-Pick Light, Dark or Auto and one of 16 color themes.
+Pick Light, Dark or Auto and one of 16 color themes, and tap an ID to see all its posts.

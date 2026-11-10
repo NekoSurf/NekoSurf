@@ -26,6 +26,9 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
 
   late final ThreadLayout _layout;
 
+  /// How posts are listed: as chosen in Settings, unless a page knows better.
+  ThreadLayout get layout => _layout;
+
   /// The folded rows, by [ThreadRow.path].
   final Set<String> collapsedRows = <String>{};
 
@@ -475,7 +478,7 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
     required Map<int, List<Post>> children,
     Set<int>? treePosts,
     int opReplyCount = 0,
-  }) => _layout == ThreadLayout.flat
+  }) => layout == ThreadLayout.flat
       ? buildFlatRows(
           posts,
           replyCounts: thread.replyCounts,
@@ -496,7 +499,7 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
   /// The list of [rows]. Replies at its top level answer [rootPost], the post
   /// the list is about; the opening post if not said.
   Widget buildRowList({int? rootPost, Set<int> preloadVideos = const <int>{}}) {
-    final bool isFlat = _layout == ThreadLayout.flat;
+    final bool isFlat = layout == ThreadLayout.flat;
 
     return PullToRefresh(
       onRefresh: onPulled,

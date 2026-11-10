@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:country_flags/country_flags.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/chan/post_text.dart';
@@ -11,6 +12,7 @@ import 'package:flutter_chan/media/post_thumbnail.dart';
 import 'package:flutter_chan/media/spoiler_cover.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/thread/media_viewer_route.dart';
+import 'package:flutter_chan/thread/posts_by_id_page.dart';
 import 'package:flutter_chan/thread/thread_post_comment.dart';
 import 'package:flutter_chan/thread/thread_posts.dart';
 import 'package:flutter_chan/thread/thread_replies.dart';
@@ -79,6 +81,27 @@ class ThreadPagePost extends StatefulWidget {
 
 class _ThreadPagePostState extends State<ThreadPagePost> {
   final GlobalKey _mediaBoxKey = GlobalKey();
+
+  late final TapGestureRecognizer _idTap = TapGestureRecognizer()
+    ..onTap = _openPostsById;
+
+  @override
+  void dispose() {
+    _idTap.dispose();
+    super.dispose();
+  }
+
+  void _openPostsById() {
+    final String? id = widget.post.id;
+    if (id == null) {
+      return;
+    }
+    Navigator.of(context).push(
+      BackSwipePageRoute<void>(
+        builder: (context) => PostsByIdPage(id: id, thread: widget.thread),
+      ),
+    );
+  }
 
   /// Where the viewer zooms the media from: its box in the post, below the
   /// thread's title bar (the body's top padding).
@@ -334,6 +357,10 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     final bool isPreview = fold != null && widget.isPreview;
     final bool opensReplies = fold == null || widget.countOpensReplies;
     final bool isHidden = folded || isPreview;
+    final String? id = post.id;
+    final int idPosts = id == null
+        ? 0
+        : widget.thread.postsById[id]?.length ?? 0;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -372,14 +399,19 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                               color: DashColors.danger,
                             ),
                           ),
-                        if (post.id != null)
+                        if (id != null) ...[
+                          const TextSpan(text: '   '),
+                          // Opens the poster's other posts, with how many
+                          // there are.
                           TextSpan(
-                            text: '   ID:${post.id}',
+                            text: idPosts > 1 ? 'ID:$id ($idPosts)' : 'ID:$id',
+                            recognizer: _idTap,
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
-                              color: _idColor(post.id!, isDark),
+                              color: _idColor(id, isDark),
                             ),
                           ),
+                        ],
                         if (time != null)
                           TextSpan(
                             text:
