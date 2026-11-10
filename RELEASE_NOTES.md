@@ -11,6 +11,9 @@
 - A hidden post becomes one line saying why, with its replies folded away under it in the nested layout; tap the line to see the post anyway, or hold it to show the post again
 - Add your own keyword or regex filters for replies in Settings, under Hidden posts, where you can also remove them
 
+### 💬 Feedback and privacy policy
+- Settings now ends with links to send feedback and to read the privacy policy
+
 ## What's fixed
 
 - Menus that open from near the bottom of the screen, like Video cache limit in Settings, now open upwards instead of being squeezed into the space below

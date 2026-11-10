@@ -71,6 +71,8 @@ void main() {
       'Video cache limit',
       'Clear video cache',
       'Clear image cache',
+      'Send feedback',
+      'Privacy policy',
     ]) {
       expect(find.text(title), findsOneWidget, reason: title);
     }

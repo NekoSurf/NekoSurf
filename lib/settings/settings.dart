@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/settings/appearance_settings.dart';
 import 'package:flutter_chan/settings/browsing_settings.dart';
+import 'package:flutter_chan/settings/settings_widgets.dart';
 import 'package:flutter_chan/settings/storage_settings.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/open_url.dart';
@@ -27,6 +28,7 @@ class _SettingsState extends State<Settings> {
           const AppearanceSettings(),
           const BrowsingSettings(),
           const StorageSettings(),
+          const _AboutLinks(),
         ],
       ),
     );
@@ -132,6 +134,48 @@ class _AboutCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Where to say what's wrong or missing, and what the app does with data.
+class _AboutLinks extends StatelessWidget {
+  const _AboutLinks();
+
+  static const String feedbackUrl =
+      'https://github.com/NekoSurf/NekoSurf/issues/new';
+  static const String privacyPolicyUrl =
+      'https://github.com/NekoSurf/NekoSurf/blob/main/privacy_policy.md';
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget opensOutside = Icon(
+      CupertinoIcons.arrow_up_right,
+      size: 14,
+      color: DashColors.muted(context.isDark),
+    );
+
+    return SettingsGroup(
+      title: 'About',
+      footer: 'Both open on GitHub, in your browser.',
+      children: [
+        SettingsRow(
+          icon: CupertinoIcons.chat_bubble_text_fill,
+          color: const Color(0xFF60A5FA),
+          title: 'Send feedback',
+          subtitle: 'Report a bug or suggest an idea',
+          trailing: opensOutside,
+          onTap: () => openUrl(feedbackUrl),
+        ),
+        SettingsRow(
+          icon: CupertinoIcons.hand_raised_fill,
+          color: const Color(0xFF34D399),
+          title: 'Privacy policy',
+          subtitle: 'What the app keeps, and what it connects to',
+          trailing: opensOutside,
+          onTap: () => openUrl(privacyPolicyUrl),
+        ),
+      ],
     );
   }
 }
