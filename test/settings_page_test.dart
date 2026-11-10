@@ -148,6 +148,25 @@ void main() {
     expect(find.text('Cyan'), findsNothing);
   });
 
+  testWidgets('OLED says it is always dark', (tester) async {
+    await pumpSettings(tester);
+
+    await tester.tap(
+      find.byWidgetPredicate(
+        (widget) => widget is ThemeSwatch && widget.theme == ThemeColor.oled,
+      ),
+    );
+    await tester.pump();
+    expect(settings.themeColor.value, ThemeColor.oled);
+    expect(find.text('OLED'), findsOneWidget);
+    expect(find.text('OLED is always dark'), findsOneWidget);
+
+    // Nothing to choose: it's dark either way.
+    await tester.tap(find.text('Appearance'));
+    await tester.pumpAndSettle();
+    expect(find.text('Light'), findsNothing);
+  });
+
   testWidgets('clearing watched posts asks first', (tester) async {
     await pumpSettings(tester);
     watched.noteThreadPosts(1, const <int>[1, 2]);

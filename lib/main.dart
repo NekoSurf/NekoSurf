@@ -126,12 +126,14 @@ class _AppWithThemeState extends State<AppWithTheme>
 
   @override
   Widget build(BuildContext context) {
-    final Brightness brightness = context
-        .select<SettingsProvider, Appearance>((s) => s.appearance.value)
-        .brightness(_phoneBrightness);
     final ThemeColor themeColor = context.select<SettingsProvider, ThemeColor>(
       (s) => s.themeColor.value,
     );
+    final Brightness brightness = themeColor.isAlwaysDark
+        ? Brightness.dark
+        : context
+              .select<SettingsProvider, Appearance>((s) => s.appearance.value)
+              .brightness(_phoneBrightness);
     final bool isDark = brightness == Brightness.dark;
 
     return DashTheme(

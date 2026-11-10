@@ -30,28 +30,39 @@ class AppearanceSettings extends StatelessWidget {
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
 
+    final bool isAlwaysDark = settings.themeColor.value.isAlwaysDark;
+
     return SettingsGroup(
       title: 'Theme',
       footer: "Auto follows your phone's light or dark mode.",
       children: [
-        DashMenuAnchor(
-          menuChildren: [
-            for (final Appearance appearance in Appearance.values)
-              DashMenuEntry(
-                title: _titles[appearance]!,
-                icon: _icons[appearance],
-                isSelected: settings.appearance.value == appearance,
-                onPressed: () => settings.appearance.set(appearance),
-              ),
-          ],
-          builder: (context, open) => SettingsRow(
+        if (isAlwaysDark)
+          const SettingsRow(
             icon: CupertinoIcons.circle_lefthalf_fill,
-            color: const Color(0xFF60A5FA),
+            color: Color(0xFF60A5FA),
             title: 'Appearance',
-            value: _titles[settings.appearance.value],
-            onTap: open,
+            subtitle: 'OLED is always dark',
+            value: 'Dark',
+          )
+        else
+          DashMenuAnchor(
+            menuChildren: [
+              for (final Appearance appearance in Appearance.values)
+                DashMenuEntry(
+                  title: _titles[appearance]!,
+                  icon: _icons[appearance],
+                  isSelected: settings.appearance.value == appearance,
+                  onPressed: () => settings.appearance.set(appearance),
+                ),
+            ],
+            builder: (context, open) => SettingsRow(
+              icon: CupertinoIcons.circle_lefthalf_fill,
+              color: const Color(0xFF60A5FA),
+              title: 'Appearance',
+              value: _titles[settings.appearance.value],
+              onTap: open,
+            ),
           ),
-        ),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -131,21 +142,36 @@ class ThemeSwatch extends StatelessWidget {
               width: 2,
             ),
           ),
+          // OLED's is its black, with a gleam of its accent and an edge to see
+          // it by on a dark card.
           child: DecoratedBox(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
+              border: theme.isAlwaysDark
+                  ? Border.all(color: const Color(0x40FFFFFF))
+                  : null,
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [theme.accent, theme.accent, theme.accent2],
-                stops: const [0, 0.45, 1],
+                colors: theme.isAlwaysDark
+                    ? [
+                        CupertinoColors.black,
+                        CupertinoColors.black,
+                        theme.accent,
+                      ]
+                    : [theme.accent, theme.accent, theme.accent2],
+                stops: theme.isAlwaysDark
+                    ? const [0, 0.6, 1.4]
+                    : const [0, 0.45, 1],
               ),
             ),
             child: selected
-                ? const Icon(
+                ? Icon(
                     CupertinoIcons.check_mark,
                     size: 14,
-                    color: CupertinoColors.black,
+                    color: theme.isAlwaysDark
+                        ? CupertinoColors.white
+                        : CupertinoColors.black,
                   )
                 : null,
           ),

@@ -33,11 +33,14 @@ enum ThemeColor {
   red('Red', Color(0xFFF87171), Color(0xFFFB923C), Color(0xFFB91C1C)),
   orange('Orange', Color(0xFFFB923C), Color(0xFFF472B6), Color(0xFFC2410C)),
   amber('Amber', Color(0xFFFBBF24), Color(0xFFFB7185), Color(0xFFB45309)),
-  yellow('Yellow', Color(0xFFFACC15), Color(0xFF4ADE80), Color(0xFFA16207)),
   lime('Lime', Color(0xFFA3E635), Color(0xFF2DD4BF), Color(0xFF4D7C0F)),
   green('Green', Color(0xFF4ADE80), Color(0xFF60A5FA), Color(0xFF15803D)),
   emerald('Emerald', Color(0xFF34D399), Color(0xFF818CF8), Color(0xFF047857)),
-  teal('Teal', Color(0xFF2DD4BF), Color(0xFFA78BFA), Color(0xFF0F766E));
+  teal('Teal', Color(0xFF2DD4BF), Color(0xFFA78BFA), Color(0xFF0F766E)),
+
+  /// Pure black, for OLED screens, which then light no pixels there: always
+  /// dark, with Cyan's colors on it.
+  oled('OLED', Color(0xFF6DD4EC), Color(0xFFA78BFA), Color(0xFF0E7C9B));
 
   const ThemeColor(this.title, this.accent, this.accent2, this.ink);
 
@@ -53,13 +56,19 @@ enum ThemeColor {
   /// [accent] dark enough to read as text on a light background.
   final Color ink;
 
+  /// Whether the app is dark in this theme, whatever the appearance is.
+  bool get isAlwaysDark => this == ThemeColor.oled;
+
   /// The pages, cards and text, light or dark: tinted with [accent]'s hue,
-  /// except Cyan's, which are the app's colors from before there were themes.
+  /// except Cyan's, which are the app's colors from before there were themes,
+  /// and OLED's, which are black either way.
   DashPalette palette(Brightness brightness) => _palettes.putIfAbsent(
     (this, brightness),
-    () => this == ThemeColor.cyan
-        ? DashPalette.classic(brightness)
-        : DashPalette.tinted(HSLColor.fromColor(accent).hue, brightness),
+    () => switch (this) {
+      ThemeColor.cyan => DashPalette.classic(brightness),
+      ThemeColor.oled => DashPalette.black(),
+      _ => DashPalette.tinted(HSLColor.fromColor(accent).hue, brightness),
+    },
   );
 }
 
@@ -95,6 +104,15 @@ class DashPalette {
           muted: const Color(0xFF6B7085),
           text: const Color(0xFF14161F),
         );
+
+  /// Pure black pages, with cards just off it so they still stand out.
+  factory DashPalette.black() => DashPalette(
+    page: const Color(0xFF000000),
+    card: const Color(0xFF0E0E10),
+    border: Colors.white.withValues(alpha: 0.08),
+    muted: const Color(0xFF8C8C93),
+    text: const Color(0xFFECECEF),
+  );
 
   /// Colors of [hue]: dark ones deep and tinted, light ones pale. Text is
   /// near black or white, and [muted] still reads on the page and cards.

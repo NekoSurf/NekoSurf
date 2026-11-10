@@ -90,9 +90,26 @@ void main() {
       final Set<Color> accents = <Color>{};
       for (final ThemeColor theme in ThemeColor.values) {
         expect(theme.accent2, isNot(theme.accent), reason: theme.name);
-        expect(accents.add(theme.accent), isTrue, reason: theme.name);
+        // OLED is Cyan's colors on black.
+        if (theme != ThemeColor.oled) {
+          expect(accents.add(theme.accent), isTrue, reason: theme.name);
+        }
       }
     });
+  });
+
+  test('OLED is pure black, light or dark', () {
+    for (final Brightness brightness in Brightness.values) {
+      expect(ThemeColor.oled.palette(brightness).page, const Color(0xFF000000));
+    }
+    expect(ThemeColor.oled.isAlwaysDark, isTrue);
+    expect(
+      [
+        for (final ThemeColor theme in ThemeColor.values)
+          if (theme.isAlwaysDark) theme,
+      ],
+      [ThemeColor.oled],
+    );
   });
 
   test('Cyan keeps the colors from before there were themes', () {
@@ -156,5 +173,14 @@ void main() {
     await settings.appearance.set(Appearance.system);
     await tester.pump();
     expect(_Probe.isDark, isFalse);
+
+    // OLED stays dark on a light phone, whatever the appearance.
+    await settings.themeColor.set(ThemeColor.oled);
+    await tester.pump();
+    expect(_Probe.isDark, isTrue);
+    expect(_Probe.page, const Color(0xFF000000));
+    await settings.appearance.set(Appearance.light);
+    await tester.pump();
+    expect(_Probe.isDark, isTrue);
   });
 }
