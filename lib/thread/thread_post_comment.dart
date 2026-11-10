@@ -391,9 +391,9 @@ class _ThreadPostCommentState extends State<ThreadPostComment> {
         extractQuotedPostIds(widget.com).contains(repliedTo);
   }
 
-  // The app's accent is too pale to read as text on a light background.
+  // The theme's accent is too pale to read as text on a light background.
   Color _quoteColor(bool isDark) =>
-      isDark ? DashColors.accent : const Color(0xFF0E7C9B);
+      isDark ? context.accent : context.themeColor.ink;
 
   TextStyle _bodyStyle(bool isDark) => TextStyle(
     color: DashColors.text(isDark),

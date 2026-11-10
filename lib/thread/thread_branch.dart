@@ -28,10 +28,8 @@ class ThreadBranch extends StatelessWidget {
   static double indentFor(int depth) =>
       depth == 0 ? 0 : 13 * pow(depth, 0.6).toDouble();
 
-  static Color colorFor(int depth) =>
-      (depth.isOdd ? DashColors.accent : DashColors.accent2).withValues(
-        alpha: 0.55,
-      );
+  static Color colorFor(int depth, ThemeColor theme) =>
+      (depth.isOdd ? theme.accent : theme.accent2).withValues(alpha: 0.55);
 
   final List<int> ancestors;
 
@@ -61,7 +59,7 @@ class ThreadBranch extends StatelessWidget {
             width: barWidth,
             top: 0,
             bottom: 0,
-            child: ColoredBox(color: colorFor(depth)),
+            child: ColoredBox(color: colorFor(depth, context.themeColor)),
           ),
         ],
         if (previous != null)

@@ -45,7 +45,7 @@ class NewRepliesBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: DashColors.accent,
+        color: context.accent,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(

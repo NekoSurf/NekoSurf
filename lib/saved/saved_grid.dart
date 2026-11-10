@@ -318,7 +318,7 @@ class _SummaryCard extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [
             _amber.withValues(alpha: isDark ? 0.22 : 0.35),
-            DashColors.accent2.withValues(alpha: isDark ? 0.18 : 0.28),
+            context.accent2.withValues(alpha: isDark ? 0.18 : 0.28),
           ],
         ),
         border: Border.all(color: _amber.withValues(alpha: 0.22)),
@@ -436,11 +436,11 @@ class _Tile extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onLongPress;
 
-  Color get _typeColor => isGif
+  Color _typeColor(BuildContext context) => isGif
       ? _amber
       : isVideo
-      ? DashColors.accent2
-      : DashColors.accent;
+      ? context.accent2
+      : context.accent;
 
   String get _typeLabel => isGif
       ? 'GIF'
@@ -448,7 +448,7 @@ class _Tile extends StatelessWidget {
       ? 'Video'
       : 'Image';
 
-  Widget _media(bool isDark) {
+  Widget _media(BuildContext context, bool isDark) {
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -487,7 +487,7 @@ class _Tile extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: selected
-                    ? DashColors.accent
+                    ? context.accent
                     : Colors.black.withValues(alpha: 0.35),
                 border: Border.all(color: Colors.white, width: 1.5),
               ),
@@ -504,13 +504,13 @@ class _Tile extends StatelessWidget {
     );
   }
 
-  Widget _card(bool isDark) {
+  Widget _card(BuildContext context, bool isDark) {
     return Container(
       decoration: BoxDecoration(
         color: DashColors.card(isDark),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: selected ? DashColors.accent : DashColors.border(isDark),
+          color: selected ? context.accent : DashColors.border(isDark),
           width: selected ? 2.5 : 1,
         ),
       ),
@@ -521,7 +521,7 @@ class _Tile extends StatelessWidget {
           Expanded(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(18),
-              child: _media(isDark),
+              child: _media(context, isDark),
             ),
           ),
           Padding(
@@ -548,7 +548,7 @@ class _Tile extends StatelessWidget {
                         vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        color: _typeColor.withValues(alpha: 0.16),
+                        color: _typeColor(context).withValues(alpha: 0.16),
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
@@ -556,7 +556,7 @@ class _Tile extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
-                          color: _typeColor,
+                          color: _typeColor(context),
                         ),
                       ),
                     ),
@@ -589,7 +589,7 @@ class _Tile extends StatelessWidget {
         scale: selected ? 0.95 : 1,
         duration: const Duration(milliseconds: 140),
         curve: Curves.easeOutCubic,
-        child: _card(context.isDark),
+        child: _card(context, context.isDark),
       ),
     );
   }
@@ -623,12 +623,12 @@ class _EmptyState extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              tile(-0.14, DashColors.accent, CupertinoIcons.photo_fill),
+              tile(-0.14, context.accent, CupertinoIcons.photo_fill),
               Transform.translate(
                 offset: const Offset(0, -12),
                 child: tile(0, _amber, CupertinoIcons.paperclip),
               ),
-              tile(0.14, DashColors.accent2, CupertinoIcons.play_fill),
+              tile(0.14, context.accent2, CupertinoIcons.play_fill),
             ],
           ),
           const SizedBox(height: 28),

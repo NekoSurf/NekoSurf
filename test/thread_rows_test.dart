@@ -2,6 +2,7 @@ import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/thread/thread_branch.dart';
 import 'package:flutter_chan/thread/thread_posts.dart';
 import 'package:flutter_chan/thread/thread_rows.dart';
+import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// A reply's comment quoting [ids], as 4chan marks quotes up.
@@ -469,12 +470,15 @@ void main() {
       expect(ThreadBranch.indentFor(30), lessThan(120));
     });
 
-    test('gives neighbouring levels different colours', () {
-      for (int depth = 1; depth < 40; depth++) {
-        expect(
-          ThreadBranch.colorFor(depth),
-          isNot(ThreadBranch.colorFor(depth + 1)),
-        );
+    test('gives neighbouring levels different colours, in every theme', () {
+      for (final ThemeColor theme in ThemeColor.values) {
+        for (int depth = 1; depth < 40; depth++) {
+          expect(
+            ThreadBranch.colorFor(depth, theme),
+            isNot(ThreadBranch.colorFor(depth + 1, theme)),
+            reason: theme.name,
+          );
+        }
       }
     });
   });

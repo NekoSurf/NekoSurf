@@ -4,12 +4,27 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_chan/chan/catalog.dart';
 import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/chan/post_text.dart';
+import 'package:flutter_chan/ui/colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Bytes in the unit [SettingsProvider.videoCacheMegabytes] is in.
 const int megabyte = 1024 * 1024;
 
 enum ViewMode { grid, list }
+
+/// Whether the app is light or dark.
+enum Appearance {
+  system,
+  light,
+  dark;
+
+  /// How the app looks, given how the phone does.
+  Brightness brightness(Brightness phone) => switch (this) {
+    Appearance.system => phone,
+    Appearance.light => Brightness.light,
+    Appearance.dark => Brightness.dark,
+  };
+}
 
 enum ThreadLayout { nested, flat }
 
@@ -41,6 +56,16 @@ class SettingsProvider with ChangeNotifier {
   final SharedPreferences _prefs;
 
   late final Setting<bool> allowNSFW = _bool('allowNSFW', false);
+  late final Setting<Appearance> appearance = _enum(
+    'appearance',
+    Appearance.values,
+    Appearance.system,
+  );
+  late final Setting<ThemeColor> themeColor = _enum(
+    'themeColor',
+    ThemeColor.values,
+    ThemeColor.cyan,
+  );
   late final Setting<Sort> boardSort = _enum(
     'boardSort',
     Sort.values,

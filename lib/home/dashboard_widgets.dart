@@ -32,15 +32,15 @@ class DashHero extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: isDark
               ? [
-                  DashColors.accent.withValues(alpha: 0.22),
-                  DashColors.accent2.withValues(alpha: 0.18),
+                  context.accent.withValues(alpha: 0.22),
+                  context.accent2.withValues(alpha: 0.18),
                 ]
               : [
-                  DashColors.accent.withValues(alpha: 0.35),
-                  DashColors.accent2.withValues(alpha: 0.28),
+                  context.accent.withValues(alpha: 0.35),
+                  context.accent2.withValues(alpha: 0.28),
                 ],
         ),
-        border: Border.all(color: DashColors.accent.withValues(alpha: 0.2)),
+        border: Border.all(color: context.accent.withValues(alpha: 0.2)),
       ),
       clipBehavior: Clip.antiAlias,
       child: Stack(
@@ -55,7 +55,7 @@ class DashHero extends StatelessWidget {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    DashColors.accent2.withValues(alpha: 0.35),
+                    context.accent2.withValues(alpha: 0.35),
                     Colors.transparent,
                   ],
                 ),
@@ -69,8 +69,8 @@ class DashHero extends StatelessWidget {
                 Container(
                   width: 7,
                   height: 7,
-                  decoration: const BoxDecoration(
-                    color: DashColors.accent,
+                  decoration: BoxDecoration(
+                    color: context.accent,
                     shape: BoxShape.circle,
                   ),
                 ),

@@ -47,7 +47,7 @@ class ListPost extends StatelessWidget {
           : swipeActions(
               label: 'Add',
               icon: CupertinoIcons.bookmark_fill,
-              color: DashColors.accent,
+              color: context.accent,
               foregroundColor: Colors.black,
               onPressed: () => bookmarks.addBookmark(bookmark),
             ),

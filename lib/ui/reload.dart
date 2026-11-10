@@ -76,10 +76,10 @@ class ReloadWidget extends StatelessWidget {
                 width: 64,
                 height: 64,
                 decoration: BoxDecoration(
-                  color: DashColors.accent.withValues(alpha: 0.14),
+                  color: context.accent.withValues(alpha: 0.14),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, size: 28, color: DashColors.accent),
+                child: Icon(icon, size: 28, color: context.accent),
               ),
               const SizedBox(height: 16),
               Text(
@@ -103,7 +103,7 @@ class ReloadWidget extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               CupertinoButton(
-                color: DashColors.accent,
+                color: context.accent,
                 borderRadius: BorderRadius.circular(999),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 22,
@@ -135,10 +135,10 @@ class ReloadWidget extends StatelessWidget {
                   onPressed: onSecondary,
                   child: Text(
                     secondaryLabel!,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
-                      color: DashColors.accent,
+                      color: context.accent,
                     ),
                   ),
                 ),

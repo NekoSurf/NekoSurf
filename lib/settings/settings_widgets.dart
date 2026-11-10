@@ -152,10 +152,10 @@ class SettingsRow extends StatelessWidget {
                 padding: const EdgeInsets.only(left: 8),
                 child: Text(
                   value!,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: DashColors.accent,
+                    color: context.accent,
                   ),
                 ),
               ),
@@ -182,7 +182,7 @@ class SettingsSwitch extends StatelessWidget {
   Widget build(BuildContext context) {
     return CupertinoSwitch(
       value: value,
-      activeTrackColor: DashColors.accent,
+      activeTrackColor: context.accent,
       onChanged: onChanged,
     );
   }
@@ -207,7 +207,7 @@ class SettingsSegments<T extends Object> extends StatelessWidget {
     return CupertinoSlidingSegmentedControl<T>(
       groupValue: value,
       backgroundColor: DashColors.page(isDark),
-      thumbColor: DashColors.accent,
+      thumbColor: context.accent,
       padding: const EdgeInsets.all(3),
       onValueChanged: (T? chosen) {
         if (chosen != null) {

@@ -175,9 +175,7 @@ class _MenuRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool isDark = context.isDark;
-    final Color tint = entry.isDestructive
-        ? DashColors.danger
-        : DashColors.accent;
+    final Color tint = entry.isDestructive ? DashColors.danger : context.accent;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -190,7 +188,7 @@ class _MenuRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
           color: entry.isSelected
-              ? DashColors.accent.withValues(alpha: 0.12)
+              ? context.accent.withValues(alpha: 0.12)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(15),
         ),
@@ -216,10 +214,10 @@ class _MenuRow extends StatelessWidget {
               ),
             ),
             if (entry.isSelected)
-              const Icon(
+              Icon(
                 CupertinoIcons.checkmark_alt,
                 size: 18,
-                color: DashColors.accent,
+                color: context.accent,
               ),
           ],
         ),

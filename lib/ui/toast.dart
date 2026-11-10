@@ -87,7 +87,7 @@ class _ToastState extends State<_Toast> with SingleTickerProviderStateMixin {
               radius: 999,
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
               color: Frosted.panel(isDark),
-              borderColor: DashColors.accent.withValues(alpha: 0.25),
+              borderColor: context.accent.withValues(alpha: 0.25),
               child: FadeTransition(
                 opacity: _fade,
                 child: Text(

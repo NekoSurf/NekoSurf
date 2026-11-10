@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/history/history_model.dart';
 import 'package:flutter_chan/history/watched_posts_model.dart';
+import 'package:flutter_chan/settings/appearance_settings.dart';
 import 'package:flutter_chan/settings/settings.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
+import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -50,6 +52,8 @@ void main() {
     await pumpSettings(tester);
 
     for (final String title in const [
+      'Appearance',
+      'Color',
       'Sort by',
       'Direction',
       'View',
@@ -83,6 +87,29 @@ void main() {
     await tester.tap(find.text('Flat'));
     await tester.pumpAndSettle();
     expect(settings.threadLayout.value, ThreadLayout.flat);
+  });
+
+  testWidgets('the theme is chosen right there', (tester) async {
+    await pumpSettings(tester);
+    expect(find.text('Cyan'), findsOneWidget);
+    expect(find.byType(ThemeSwatch), findsNWidgets(ThemeColor.values.length));
+
+    await tester.tap(find.text('Appearance'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Dark'));
+    await tester.pumpAndSettle();
+    expect(settings.appearance.value, Appearance.dark);
+    expect(find.text('Dark'), findsOneWidget);
+
+    await tester.tap(
+      find.byWidgetPredicate(
+        (widget) => widget is ThemeSwatch && widget.theme == ThemeColor.red,
+      ),
+    );
+    await tester.pump();
+    expect(settings.themeColor.value, ThemeColor.red);
+    expect(find.text('Red'), findsOneWidget);
+    expect(find.text('Cyan'), findsNothing);
   });
 
   testWidgets('clearing watched posts asks first', (tester) async {

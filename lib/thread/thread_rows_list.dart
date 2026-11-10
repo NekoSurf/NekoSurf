@@ -530,8 +530,8 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
               duration: const Duration(milliseconds: 400),
               curve: Curves.easeOut,
               color: row.path == _highlightedRow
-                  ? DashColors.accent.withValues(alpha: 0.16)
-                  : DashColors.accent.withValues(
+                  ? context.accent.withValues(alpha: 0.16)
+                  : context.accent.withValues(
                       alpha: _newThisVisit.contains(post.no) ? 0.07 : 0,
                     ),
               child: ThreadBranch(

@@ -104,7 +104,7 @@ class BrowsingSettings extends StatelessWidget {
             ),
             SettingsRow(
               icon: CupertinoIcons.square_grid_2x2_fill,
-              color: DashColors.accent,
+              color: context.accent,
               title: 'View',
               trailing: SettingsSegments<ViewMode>(
                 value: settings.boardViewMode.value,
@@ -222,7 +222,7 @@ class BrowsingSettings extends StatelessWidget {
               ),
             SettingsRow(
               icon: CupertinoIcons.add_circled_solid,
-              color: DashColors.accent,
+              color: context.accent,
               title: 'Add filter',
               subtitle: 'Keyword or regex',
               onTap: () => _showAddFilter(context, settings),

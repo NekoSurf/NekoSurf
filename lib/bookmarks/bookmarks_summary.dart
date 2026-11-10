@@ -47,7 +47,7 @@ class BookmarksSummary extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [
             color.withValues(alpha: isDark ? 0.22 : 0.35),
-            DashColors.accent2.withValues(alpha: isDark ? 0.18 : 0.28),
+            context.accent2.withValues(alpha: isDark ? 0.18 : 0.28),
           ],
         ),
         border: Border.all(color: color.withValues(alpha: 0.22)),

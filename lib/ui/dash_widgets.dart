@@ -86,7 +86,7 @@ class DashPageHeader extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [
             color.withValues(alpha: isDark ? 0.22 : 0.3),
-            DashColors.accent2.withValues(alpha: isDark ? 0.12 : 0.18),
+            context.accent2.withValues(alpha: isDark ? 0.12 : 0.18),
           ],
         ),
         border: Border.all(color: color.withValues(alpha: 0.22)),

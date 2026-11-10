@@ -53,6 +53,10 @@
 - Save to the Saved tab or to Photos, or share, several at once, with a ring showing how far along each is
 - Reverse image search with Google Lens, Bing, Yandex or SauceNAO
 
+### 🎨 Make it yours
+
+- Light, dark or following your phone, in 16 color themes
+
 ### 🔒 Private
 
 - No account, no ads, no analytics: NekoSurf talks to 4chan, and to GitHub to check for updates

@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_chan/settings/appearance_settings.dart';
 import 'package:flutter_chan/settings/browsing_settings.dart';
 import 'package:flutter_chan/settings/storage_settings.dart';
 import 'package:flutter_chan/ui/colors.dart';
@@ -23,6 +24,7 @@ class _SettingsState extends State<Settings> {
         children: [
           _AboutCard(version: _version),
           const SizedBox(height: 22),
+          const AppearanceSettings(),
           const BrowsingSettings(),
           const StorageSettings(),
         ],
@@ -48,11 +50,11 @@ class _AboutCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            DashColors.accent.withValues(alpha: isDark ? 0.22 : 0.35),
-            DashColors.accent2.withValues(alpha: isDark ? 0.18 : 0.28),
+            context.accent.withValues(alpha: isDark ? 0.22 : 0.35),
+            context.accent2.withValues(alpha: isDark ? 0.18 : 0.28),
           ],
         ),
-        border: Border.all(color: DashColors.accent.withValues(alpha: 0.2)),
+        border: Border.all(color: context.accent.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [

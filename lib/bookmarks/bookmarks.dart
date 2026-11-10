@@ -101,7 +101,7 @@ class _BookmarksState extends State<Bookmarks> {
               Icon(
                 CupertinoIcons.bookmark,
                 size: 44,
-                color: DashColors.accent.withValues(alpha: 0.8),
+                color: context.accent.withValues(alpha: 0.8),
               ),
               const SizedBox(height: 16),
               Text(

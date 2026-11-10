@@ -844,8 +844,8 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
               child: Container(
                 width: 40,
                 height: 40,
-                decoration: const BoxDecoration(
-                  color: DashColors.accent,
+                decoration: BoxDecoration(
+                  color: context.accent,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -870,7 +870,7 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
                       SliderTheme(
                         data: SliderTheme.of(context).copyWith(
                           trackHeight: 4,
-                          activeTrackColor: DashColors.accent,
+                          activeTrackColor: context.accent,
                           inactiveTrackColor: Colors.white.withValues(
                             alpha: 0.22,
                           ),
@@ -941,7 +941,7 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
                 decoration: BoxDecoration(
                   color: widget.rate == 1.0
                       ? Colors.white.withValues(alpha: 0.12)
-                      : DashColors.accent.withValues(alpha: 0.25),
+                      : context.accent.withValues(alpha: 0.25),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -967,7 +967,7 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
                   semanticLabel: widget.autoAdvance
                       ? 'Plays the next one after this'
                       : 'Plays on repeat',
-                  color: widget.autoAdvance ? DashColors.accent : Colors.white,
+                  color: widget.autoAdvance ? context.accent : Colors.white,
                 ),
               ),
             ),

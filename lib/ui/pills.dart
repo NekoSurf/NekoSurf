@@ -33,9 +33,9 @@ class RepliesRow extends StatelessWidget {
 
     return Row(
       children: [
-        buildChip(CupertinoIcons.reply, replies, DashColors.accent),
+        buildChip(CupertinoIcons.reply, replies, context.accent),
         const SizedBox(width: 8),
-        buildChip(CupertinoIcons.camera, imageReplies, DashColors.accent2),
+        buildChip(CupertinoIcons.camera, imageReplies, context.accent2),
       ],
     );
   }
@@ -191,10 +191,10 @@ class _FilterPill extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? DashColors.accent : DashColors.card(isDark),
+          color: selected ? context.accent : DashColors.card(isDark),
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
-            color: selected ? DashColors.accent : DashColors.border(isDark),
+            color: selected ? context.accent : DashColors.border(isDark),
           ),
         ),
         child: Row(

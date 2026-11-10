@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_chan/board/favorite_model.dart';
 import 'package:flutter_chan/bookmarks/bookmarks_model.dart';
 import 'package:flutter_chan/history/history_model.dart';
@@ -14,6 +15,7 @@ import 'package:flutter_chan/media/video_server.dart';
 import 'package:flutter_chan/saved/downloads.dart';
 import 'package:flutter_chan/saved/saved_attachments_model.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
+import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/fast_page_transitions.dart';
 import 'package:flutter_chan/ui/unfocus_on_push.dart';
 import 'package:media_kit/media_kit.dart';
@@ -85,7 +87,10 @@ class MyApp extends StatelessWidget {
 }
 
 class AppWithTheme extends StatefulWidget {
-  const AppWithTheme({super.key});
+  const AppWithTheme({super.key, this.home = const AppShell()});
+
+  /// The page the app opens on.
+  final Widget home;
 
   @override
   State<AppWithTheme> createState() => _AppWithThemeState();
@@ -96,7 +101,7 @@ class _AppWithThemeState extends State<AppWithTheme>
   // Stays with the app's one navigator; an observer can't watch two.
   final UnfocusOnPushObserver _unfocusOnPush = UnfocusOnPushObserver();
 
-  Brightness _brightness =
+  Brightness _phoneBrightness =
       WidgetsBinding.instance.platformDispatcher.platformBrightness;
 
   @override
@@ -114,16 +119,38 @@ class _AppWithThemeState extends State<AppWithTheme>
   @override
   void didChangePlatformBrightness() {
     setState(() {
-      _brightness =
+      _phoneBrightness =
           WidgetsBinding.instance.platformDispatcher.platformBrightness;
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final Brightness brightness = context
+        .select<SettingsProvider, Appearance>((s) => s.appearance.value)
+        .brightness(_phoneBrightness);
+    final ThemeColor themeColor = context.select<SettingsProvider, ThemeColor>(
+      (s) => s.themeColor.value,
+    );
+    final bool isDark = brightness == Brightness.dark;
+
+    return DashTheme(
+      color: themeColor,
+      // The app can be dark on a light phone: the status bar goes by the app.
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle(
+          statusBarBrightness: brightness,
+          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        ),
+        child: _buildApp(brightness, themeColor),
+      ),
+    );
+  }
+
+  Widget _buildApp(Brightness brightness, ThemeColor themeColor) {
     return CupertinoApp(
       debugShowCheckedModeBanner: false,
-      onGenerateInitialRoutes: (_) => [homeRoute(const AppShell())],
+      onGenerateInitialRoutes: (_) => [homeRoute(widget.home)],
       onGenerateRoute: generateRoute,
       navigatorObservers: [_unfocusOnPush],
       // Beyond this, fixed-size cards and rows cut their text off.
@@ -145,7 +172,13 @@ class _AppWithThemeState extends State<AppWithTheme>
           child: child!,
         ),
       ),
-      theme: CupertinoThemeData(brightness: _brightness),
+      // Text cursors and selection, and buttons without a color of their own.
+      theme: CupertinoThemeData(
+        brightness: brightness,
+        primaryColor: brightness == Brightness.dark
+            ? themeColor.accent
+            : themeColor.ink,
+      ),
       localizationsDelegates: const [
         DefaultCupertinoLocalizations.delegate,
         DefaultMaterialLocalizations.delegate,

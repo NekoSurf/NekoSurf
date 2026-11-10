@@ -55,7 +55,7 @@ class DashDialog extends StatelessWidget {
             radius: 28,
             padding: const EdgeInsets.fromLTRB(20, 22, 20, 16),
             color: Frosted.panel(isDark),
-            borderColor: DashColors.accent.withValues(alpha: 0.18),
+            borderColor: context.accent.withValues(alpha: 0.18),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -129,7 +129,7 @@ class DashDialogAction extends StatelessWidget {
     final Color background = isDestructiveAction
         ? DashColors.danger.withValues(alpha: 0.16)
         : isDefaultAction
-        ? DashColors.accent
+        ? context.accent
         : DashColors.muted(isDark).withValues(alpha: 0.14);
     final Color foreground = isDestructiveAction
         ? DashColors.danger

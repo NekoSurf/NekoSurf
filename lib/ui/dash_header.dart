@@ -109,7 +109,7 @@ class DashHeader extends StatelessWidget {
               border: Border(
                 bottom: BorderSide(
                   color: elevated
-                      ? DashColors.accent.withValues(alpha: 0.18)
+                      ? context.accent.withValues(alpha: 0.18)
                       : Colors.transparent,
                 ),
               ),
@@ -129,13 +129,13 @@ class DashHeader extends StatelessWidget {
                           child: Frosted(
                             radius: 14,
                             blur: 16,
-                            color: DashColors.accent.withValues(alpha: 0.14),
-                            child: const Center(
+                            color: context.accent.withValues(alpha: 0.14),
+                            child: Center(
                               child: Icon(
                                 semanticLabel: 'Back',
                                 CupertinoIcons.chevron_left,
                                 size: 18,
-                                color: DashColors.accent,
+                                color: context.accent,
                               ),
                             ),
                           ),
@@ -238,8 +238,8 @@ class DashTabBar extends StatelessWidget {
                           gradient: i == selectedIndex
                               ? LinearGradient(
                                   colors: [
-                                    DashColors.accent.withValues(alpha: 0.24),
-                                    DashColors.accent2.withValues(alpha: 0.2),
+                                    context.accent.withValues(alpha: 0.24),
+                                    context.accent2.withValues(alpha: 0.2),
                                   ],
                                 )
                               : null,
@@ -251,7 +251,7 @@ class DashTabBar extends StatelessWidget {
                               tabs[i].icon,
                               size: 21,
                               color: i == selectedIndex
-                                  ? DashColors.accent
+                                  ? context.accent
                                   : DashColors.muted(isDark),
                             ),
                             const SizedBox(height: 2),

@@ -217,7 +217,7 @@ class _Ring extends StatelessWidget {
               value: spinning ? null : progress,
               strokeWidth: 3,
               strokeCap: StrokeCap.round,
-              color: DashColors.accent,
+              color: context.accent,
               backgroundColor: DashColors.border(isDark),
             ),
           ),

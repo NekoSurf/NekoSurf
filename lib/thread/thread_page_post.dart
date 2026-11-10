@@ -413,10 +413,10 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                     padding: const EdgeInsets.only(left: 10),
                     child: Text(
                       '${widget.newReplies} new',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: DashColors.accent,
+                        color: context.accent,
                       ),
                     ),
                   ),
