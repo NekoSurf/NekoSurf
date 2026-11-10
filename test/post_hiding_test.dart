@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/history/watched_posts_model.dart';
+import 'package:flutter_chan/media/inline_video.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/thread/post_hiding.dart';
 import 'package:flutter_chan/thread/posts_by_id_page.dart';
@@ -10,6 +11,7 @@ import 'package:flutter_chan/thread/thread_rows.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 
 String _quoteOf(int id) => '<a href="#p$id" class="quotelink">&gt;&gt;$id</a>';
 
@@ -261,6 +263,66 @@ void main() {
       await tester.pump(const Duration(seconds: 3));
       await tester.pumpAndSettle();
     }
+
+    testWidgets("a lifted post's video is the one playing in the list", (
+      tester,
+    ) async {
+      // Thumbnails only, so no player starts here.
+      await settings.dataSaver.set(true);
+      // Videos check what's on screen at once, not on a timer that outlives
+      // the test.
+      final Duration interval =
+          VisibilityDetectorController.instance.updateInterval;
+      VisibilityDetectorController.instance.updateInterval = Duration.zero;
+      addTearDown(
+        () => VisibilityDetectorController.instance.updateInterval = interval,
+      );
+      final Post video = Post(
+        board: 'g',
+        no: 3,
+        time: 1700000000,
+        name: 'Filmer',
+        com: '${_quoteOf(2)}<br>Watch this',
+        tim: 1700000000000,
+        ext: '.webm',
+        w: 640,
+        h: 360,
+      );
+      await tester.binding.setSurfaceSize(const Size(400, 1600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<SettingsProvider>.value(value: settings),
+            ChangeNotifierProvider<WatchedPostsProvider>.value(value: watched),
+          ],
+          child: MaterialApp(
+            home: ThreadReplies(
+              post: root,
+              thread: ThreadPosts(
+                board: 'g',
+                number: 1,
+                posts: [posts[0], root, video],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(find.byType(InlineVideo), findsOneWidget);
+
+      await hold(tester, 'Filmer');
+      // The same video, shared, not a still of it.
+      final List<InlineVideo> shown = tester
+          .widgetList<InlineVideo>(find.byType(InlineVideo))
+          .toList();
+      expect(shown, hasLength(2));
+      expect(shown.last.videoUrl, shown.first.videoUrl);
+
+      await tester.tapAt(const Offset(390, 1590));
+      await tester.pumpAndSettle();
+      expect(find.byType(InlineVideo), findsOneWidget);
+    });
 
     testWidgets('holding a post lifts it off the list, with its menu', (
       tester,

@@ -43,7 +43,6 @@ class ThreadPagePost extends StatefulWidget {
     this.onReveal,
     this.revealedBecause,
     this.onHideAgain,
-    this.isLifted = false,
   });
 
   final ThreadPosts thread;
@@ -90,10 +89,6 @@ class ThreadPagePost extends StatefulWidget {
   final String? revealedBecause;
   final VoidCallback? onHideAgain;
 
-  /// It's a copy lifted off the list while its menu is open: a video is a
-  /// still, as the post in the list already plays it.
-  final bool isLifted;
-
   @override
   State<ThreadPagePost> createState() => _ThreadPagePostState();
 }
@@ -110,6 +105,8 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
       context,
       post: widget.post,
       thread: widget.thread,
+      // Its video is the one playing here: every place that shows a video
+      // shares its player, so the copy goes on with it.
       preview: (_) => ThreadPagePost(
         post: widget.post,
         thread: widget.thread,
@@ -123,7 +120,6 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
         repliedTo: widget.repliedTo,
         hiddenBecause: widget.hiddenBecause,
         revealedBecause: widget.revealedBecause,
-        isLifted: true,
       ),
     );
     if (mounted) {
@@ -278,11 +274,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
   }
 
   Widget _buildMedia() {
-    final Widget media = !widget.post.isVideo
-        ? _buildImage()
-        : widget.isLifted
-        ? _buildStill()
-        : _buildVideo();
+    final Widget media = widget.post.isVideo ? _buildVideo() : _buildImage();
     final int? upload = widget.post.spoilerUpload;
     if (upload == null) {
       return media;
@@ -292,41 +284,6 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(mediaInlineRadius),
         child: SpoilerCover(upload: upload, child: media),
-      ),
-    );
-  }
-
-  /// A video's thumbnail, marked as one.
-  Widget _buildStill() {
-    return AspectRatio(
-      aspectRatio: _mediaAspectRatio(),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(mediaInlineRadius),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Image(
-              image: thumbnailImage(widget.post.thumbnailUrl),
-              fit: BoxFit.cover,
-              errorBuilder: imageErrorPlaceholder,
-            ),
-            Center(
-              child: Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.45),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  CupertinoIcons.play_fill,
-                  color: Colors.white,
-                  size: 18,
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
