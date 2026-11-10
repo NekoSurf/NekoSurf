@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/ui/colors.dart';
@@ -95,6 +97,9 @@ class _DashMenu extends StatelessWidget {
   static const double _width = 250;
   static const double _margin = 12;
 
+  /// Room below the anchor that's enough for most menus, so they open there.
+  static const double _enoughBelow = 240;
+
   @override
   Widget build(BuildContext context) {
     final bool isDark = context.isDark;
@@ -105,13 +110,19 @@ class _DashMenu extends StatelessWidget {
     final double left = (alignRight ? anchor.right - _width : anchor.left)
         .clamp(_margin, screen.width - _width - _margin);
     final double top = anchor.bottom + 8;
-    final double maxHeight = screen.height - top - safe.bottom - _margin;
+    final double roomBelow = screen.height - top - safe.bottom - _margin;
+    final double bottom = screen.height - anchor.top + 8;
+    final double roomAbove = screen.height - bottom - safe.top - _margin;
+    // Anchored low on the screen, like a post near the bottom, it opens above.
+    final bool opensAbove = roomBelow < _enoughBelow && roomAbove > roomBelow;
+    final double maxHeight = max(0, opensAbove ? roomAbove : roomBelow);
 
     return Stack(
       children: [
         Positioned(
           left: left,
-          top: top,
+          top: opensAbove ? null : top,
+          bottom: opensAbove ? bottom : null,
           width: _width,
           child: Material(
             color: Colors.transparent,
