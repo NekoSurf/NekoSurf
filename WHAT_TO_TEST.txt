@@ -4,7 +4,7 @@ WHAT'S NEW
 • Choose Light, Dark or Auto (following your phone) in Settings, and one of 16 color themes, from cyan to red, green or violet: it colors the whole app, its backgrounds, cards and text as well as what's highlighted
 
 🪪 Posts by ID
-• On boards that give posters an ID, it now says how many posts that poster made in the thread when there's more than one; tap the ID to see them all on one page
+• On boards that give posters an ID, it's now a button that says how many posts that poster made in the thread when there's more than one; tap it to see them all on one page
 
 🙈 Hide posts
 • Hold a post and it lifts off the thread, with a menu under it to hide it, or its poster's posts in that thread by their ID, or their posts everywhere by name, tripcode or country, or posts with the same text

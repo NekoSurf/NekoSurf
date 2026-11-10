@@ -98,4 +98,32 @@ void main() {
     }
     expect(find.text('Words of 4'), findsNothing);
   });
+
+  testWidgets('an ID is a button, around its letters too', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(400, 1600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<SettingsProvider>.value(value: settings),
+          ChangeNotifierProvider<WatchedPostsProvider>.value(value: watched),
+        ],
+        child: MaterialApp(
+          home: ThreadReplies(post: root, thread: thread),
+        ),
+      ),
+    );
+    await tester.pump();
+    final Finder letters = find.text('ID:Same (3)').first;
+    final Rect chip = tester.getRect(
+      find.ancestor(of: letters, matching: find.byType(GestureDetector)).first,
+    );
+    expect(chip.height, greaterThan(tester.getRect(letters).height));
+
+    // Beside the letters, on the chip's edge.
+    await tester.tapAt(chip.bottomLeft + const Offset(2, -1));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PostsByIdPage), findsOneWidget);
+  });
 }

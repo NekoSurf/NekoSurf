@@ -2,7 +2,6 @@ import 'dart:math';
 
 import 'package:country_flags/country_flags.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/chan/post_text.dart';
@@ -97,15 +96,6 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
 
   /// Lifted off the list with its menu: the copy over the page shows instead.
   bool _isLifted = false;
-
-  late final TapGestureRecognizer _idTap = TapGestureRecognizer()
-    ..onTap = _openPostsById;
-
-  @override
-  void dispose() {
-    _idTap.dispose();
-    super.dispose();
-  }
 
   Future<void> _showMenu() async {
     setState(() => _isLifted = true);
@@ -546,15 +536,14 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                             ),
                           ),
                         if (id != null) ...[
-                          const TextSpan(text: '   '),
-                          // Opens the poster's other posts, with how many
-                          // there are.
-                          TextSpan(
-                            text: idPosts > 1 ? 'ID:$id ($idPosts)' : 'ID:$id',
-                            recognizer: _idTap,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
+                          const TextSpan(text: '  '),
+                          WidgetSpan(
+                            alignment: PlaceholderAlignment.middle,
+                            child: _IdChip(
+                              id: id,
+                              posts: idPosts,
                               color: _idColor(id, isDark),
+                              onTap: _openPostsById,
                             ),
                           ),
                         ],
@@ -690,6 +679,51 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     );
     // Still taking its room, so nothing moves under the copy.
     return Opacity(opacity: _isLifted ? 0 : 1, child: row);
+  }
+}
+
+/// A poster's ID, as a button to their other posts in the thread, with how
+/// many there are when there's more than one.
+class _IdChip extends StatelessWidget {
+  const _IdChip({
+    required this.id,
+    required this.posts,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String id;
+  final int posts;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Posts by ID $id',
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(7),
+          ),
+          child: Text(
+            posts > 1 ? 'ID:$id ($posts)' : 'ID:$id',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.05,
+              color: color,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
