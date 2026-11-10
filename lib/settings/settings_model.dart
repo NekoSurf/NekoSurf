@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_chan/chan/catalog.dart';
 import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/chan/post_text.dart';
+import 'package:flutter_chan/thread/post_hiding.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -201,5 +202,40 @@ class SettingsProvider with ChangeNotifier {
     _hiddenRegexes = _compileAll(_hiddenPatterns);
     notifyListeners();
     await _prefs.setStringList(_hiddenPatternsKey, patterns);
+  }
+
+  static const String _postFiltersKey = 'postFilters';
+
+  late List<PostFilter> _postFilters =
+      List<PostFilter>.unmodifiable(<PostFilter>[
+        for (final String stored
+            in _prefs.getStringList(_postFiltersKey) ?? const <String>[])
+          ?PostFilter.parse(stored),
+      ]);
+
+  /// Filters that hide posts in every thread. A new list each time they change.
+  List<PostFilter> get postFilters => _postFilters;
+
+  Future<void> addPostFilter(PostFilter filter) async {
+    if (filter.value.isNotEmpty && !_postFilters.contains(filter)) {
+      await _setPostFilters([..._postFilters, filter]);
+    }
+  }
+
+  Future<void> removePostFilter(PostFilter filter) async {
+    if (_postFilters.contains(filter)) {
+      await _setPostFilters([
+        for (final PostFilter each in _postFilters)
+          if (each != filter) each,
+      ]);
+    }
+  }
+
+  Future<void> _setPostFilters(List<PostFilter> filters) async {
+    _postFilters = List<PostFilter>.unmodifiable(filters);
+    notifyListeners();
+    await _prefs.setStringList(_postFiltersKey, <String>[
+      for (final PostFilter filter in filters) filter.stored,
+    ]);
   }
 }

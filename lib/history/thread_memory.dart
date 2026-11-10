@@ -6,6 +6,8 @@ class ThreadMemory {
     Set<int>? unseen,
     Set<String>? folded,
     Map<int, int>? primaryParents,
+    Set<int>? hiddenPosts,
+    Set<String>? hiddenIds,
     this.topPost,
     this.topPath,
     this.topAlignment,
@@ -13,6 +15,8 @@ class ThreadMemory {
   }) : unseen = unseen ?? <int>{},
        folded = folded ?? <String>{},
        primaryParents = primaryParents ?? <int, int>{},
+       hiddenPosts = hiddenPosts ?? <int>{},
+       hiddenIds = hiddenIds ?? <String>{},
        lastRead = lastRead ?? DateTime.now();
 
   factory ThreadMemory.fromJson(Map<String, dynamic> json) {
@@ -25,6 +29,8 @@ class ThreadMemory {
         (String post, dynamic parent) =>
             MapEntry<int, int>(int.parse(post), parent as int),
       ),
+      hiddenPosts: (json['hidden'] as List<dynamic>?)?.cast<int>().toSet(),
+      hiddenIds: (json['hiddenIds'] as List<dynamic>?)?.cast<String>().toSet(),
       topPost: json['topPost'] as int?,
       topPath: json['topPath'] as String?,
       topAlignment: (json['topAlignment'] as num?)?.toDouble(),
@@ -45,6 +51,10 @@ class ThreadMemory {
   final Set<String> folded;
   final Map<int, int> primaryParents;
 
+  /// Posts hidden in it one by one, and the IDs whose posts are.
+  final Set<int> hiddenPosts;
+  final Set<String> hiddenIds;
+
   /// The row at the top of the screen, and how far down the screen it starts.
   int? topPost;
   String? topPath;
@@ -63,6 +73,8 @@ class ThreadMemory {
         for (final MapEntry<int, int> entry in primaryParents.entries)
           '${entry.key}': entry.value,
       },
+      if (hiddenPosts.isNotEmpty) 'hidden': hiddenPosts.toList(),
+      if (hiddenIds.isNotEmpty) 'hiddenIds': hiddenIds.toList(),
       if (topPost != null) 'topPost': topPost,
       if (topPath != null) 'topPath': topPath,
       if (topAlignment != null) 'topAlignment': topAlignment,

@@ -4,6 +4,7 @@ import 'package:flutter_chan/history/watched_posts_model.dart';
 import 'package:flutter_chan/settings/appearance_settings.dart';
 import 'package:flutter_chan/settings/settings.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
+import 'package:flutter_chan/thread/post_hiding.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -63,7 +64,6 @@ void main() {
       'Start feed videos muted',
       'Data saver',
       "Use 4chan's file names",
-      'Add filter',
       'Track history',
       'Keep watched posts',
       'Clear watched posts',
@@ -75,6 +75,40 @@ void main() {
       expect(find.text(title), findsOneWidget, reason: title);
     }
     expect(find.text('NekoSurf'), findsOneWidget);
+    // One for threads, one for posts.
+    expect(find.text('Add filter'), findsNWidgets(2));
+  });
+
+  testWidgets('post filters are listed, and come off with a tap', (
+    tester,
+  ) async {
+    await pumpSettings(tester);
+    await settings.addPostFilter(PostFilter(PostFilterKind.name, 'Bob'));
+    await settings.addPostFilter(PostFilter(PostFilterKind.country, 'France'));
+    await tester.pump();
+    expect(find.text('Bob'), findsOneWidget);
+    expect(find.text('From France'), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('Remove Bob'));
+    await tester.pump();
+    expect(find.text('Bob'), findsNothing);
+    expect(settings.postFilters, [
+      PostFilter(PostFilterKind.country, 'France'),
+    ]);
+  });
+
+  testWidgets('a post filter can be typed in', (tester) async {
+    await pumpSettings(tester);
+
+    await tester.tap(find.text('Add filter').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Hide posts matching'), findsOneWidget);
+    await tester.enterText(find.byType(EditableText), 'crypto');
+    await tester.tap(find.text('Add'));
+    await tester.pumpAndSettle();
+
+    expect(settings.postFilters, [PostFilter(PostFilterKind.text, 'crypto')]);
+    expect(find.text('“crypto”'), findsOneWidget);
   });
 
   testWidgets('choices change right there', (tester) async {

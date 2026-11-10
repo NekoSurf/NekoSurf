@@ -107,8 +107,9 @@ class _StorageSettingsState extends State<StorageSettings> {
               title: 'Clear watched posts',
               done: 'Watched posts history cleared!',
               confirm:
-                  'This forgets which posts you have seen, where you left off '
-                  'and what you folded, in every thread.',
+                  'This forgets which posts you have seen, where you left off, '
+                  'what you folded and the posts and IDs you hid, in every '
+                  'thread.',
               clear: Provider.of<WatchedPostsProvider>(
                 context,
                 listen: false,

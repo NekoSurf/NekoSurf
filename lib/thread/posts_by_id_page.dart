@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
+import 'package:flutter_chan/thread/post_hiding.dart';
 import 'package:flutter_chan/thread/thread_posts.dart';
 import 'package:flutter_chan/thread/thread_rows.dart';
 import 'package:flutter_chan/thread/thread_rows_list.dart';
@@ -33,6 +34,10 @@ class _PostsByIdPageState extends State<PostsByIdPage>
   // Replies to these are elsewhere: nesting them would only leave gaps.
   @override
   ThreadLayout get layout => ThreadLayout.flat;
+
+  // They were asked for, hidden or not.
+  @override
+  PostHiding get hiding => const PostHiding();
 
   @override
   List<ThreadRow> buildRows() => layOutRows(_posts, children: thread.replies);

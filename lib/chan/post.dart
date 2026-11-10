@@ -23,6 +23,7 @@ class Post {
     this.images,
     this.lastModified,
     this.country,
+    this.countryName,
     this.archived,
     this.id,
     this.trip,
@@ -51,6 +52,7 @@ class Post {
     images: json['images'] as int?,
     lastModified: json['last_modified'] as int?,
     country: json['country'] as String?,
+    countryName: json['country_name'] as String?,
     board: board,
     archived: json['archived'] as int?,
     id: json['id'] as String?,
@@ -104,6 +106,9 @@ class Post {
   final int? images;
   final int? lastModified;
   final String? country;
+
+  /// The name of [country], like "France".
+  final String? countryName;
   final int? archived;
 
   /// The poster's ID in this thread, on boards that show them.

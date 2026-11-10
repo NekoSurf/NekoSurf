@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/history/watched_posts_model.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
+import 'package:flutter_chan/thread/post_hiding.dart';
 import 'package:flutter_chan/thread/thread_branch.dart';
 import 'package:flutter_chan/thread/thread_page_post.dart';
 import 'package:flutter_chan/thread/thread_posts.dart';
@@ -32,6 +33,16 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
   /// The folded rows, by [ThreadRow.path].
   final Set<String> collapsedRows = <String>{};
 
+  /// Why each hidden post is, by its number; see [hiding].
+  Map<int, String> hiddenReasons = const <int, String>{};
+
+  /// Hidden posts tapped to show anyway, until the page is left.
+  final Set<int> revealedPosts = <int>{};
+
+  /// Whether [post] is hidden here at the moment.
+  bool isHidden(int post) =>
+      hiddenReasons.containsKey(post) && !revealedPosts.contains(post);
+
   /// Which parent each post was moved to show in full under, by tapping its
   /// preview there.
   final Map<int, int> primaryParents = <int, int>{};
@@ -57,14 +68,69 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
   ({int row, double alignment, Duration duration, double? distance})? _aim;
   Timer? _autoScrollTimer;
 
+  late final SettingsProvider _settings;
+  late final WatchedPostsProvider _watched;
+
+  // What hiding was last listed by: filters are a new list each time they
+  // change.
+  List<PostFilter>? _listedFilters;
+  int? _listedHidingChanges;
+
   @override
   void initState() {
     super.initState();
-    _layout = Provider.of<SettingsProvider>(
-      context,
-      listen: false,
-    ).threadLayout.value;
+    _settings = Provider.of<SettingsProvider>(context, listen: false);
+    _watched = Provider.of<WatchedPostsProvider>(context, listen: false);
+    _layout = _settings.threadLayout.value;
     itemPositionsListener.itemPositions.addListener(_onPositionsChanged);
+    _settings.addListener(_onHidingMaybeChanged);
+    _watched.addListener(_onHidingMaybeChanged);
+  }
+
+  /// What's hidden in [thread]: the posts and IDs hidden there, and the
+  /// filters from Settings.
+  PostHiding get hiding {
+    final memory = _watched.threadMemory(thread.number);
+    return PostHiding(
+      filters: _settings.postFilters,
+      posts: memory?.hiddenPosts ?? const <int>{},
+      ids: memory?.hiddenIds ?? const <String>{},
+    );
+  }
+
+  // A post or ID hidden here or on a page above, or a filter changed.
+  void _onHidingMaybeChanged() {
+    if (!mounted ||
+        (identical(_settings.postFilters, _listedFilters) &&
+            _watched.hidingChanges == _listedHidingChanges)) {
+      return;
+    }
+    // Rows may go above what's on screen: keep the top one where it is, or
+    // the post it's under if it went too.
+    final ItemPosition? top = _topPosition();
+    String? path = top != null && top.index < rows.length
+        ? rows[top.index].path
+        : null;
+    setState(rebuildRows);
+    while (path != null && !_rowByPath.containsKey(path)) {
+      final int parent = path.lastIndexOf('/');
+      path = parent < 0 ? null : path.substring(0, parent);
+    }
+    if (path != null && top != null && itemScrollController.isAttached) {
+      itemScrollController.jumpTo(
+        index: _rowByPath[path]!,
+        alignment: top.itemLeadingEdge,
+      );
+    }
+  }
+
+  void _reveal(ThreadRow row) {
+    final double? edge = _headerEdge(row.path);
+    setState(() {
+      revealedPosts.add(row.post.no);
+      rebuildRows();
+    });
+    _holdPlace(row.path, edge);
   }
 
   /// Whether the list is scrolling by itself: what passes by isn't being read.
@@ -96,6 +162,9 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
 
   void rebuildRows() {
     _newThisVisit.addAll(unseenPosts);
+    _listedFilters = _settings.postFilters;
+    _listedHidingChanges = _watched.hidingChanges;
+    hiddenReasons = hiding.reasonsIn(thread.posts);
     rows = buildRows();
     final Map<int, int> byPost = <int, int>{};
     final Map<String, int> byPath = <String, int>{};
@@ -107,7 +176,7 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
         continue;
       }
       byPost.putIfAbsent(row.post.no, () => index);
-      if (!row.collapsed) {
+      if (!row.collapsed && !row.hidden) {
         listed.putIfAbsent(row.post.no, () => row.post);
       }
     }
@@ -341,8 +410,8 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
     afterListMoved(_checkNewPosts);
   }
 
-  /// A new post counts as seen once it's on screen, unless it's folded away or
-  /// only a preview.
+  /// A new post counts as seen once it's on screen, unless it's folded away,
+  /// hidden or only a preview.
   void _checkNewPosts() {
     if (_isAutoScrolling || !isListSettled) {
       return;
@@ -353,6 +422,7 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
         for (final ItemPosition position in visiblePositions())
           if (position.index < rows.length &&
               !rows[position.index].collapsed &&
+              !rows[position.index].hidden &&
               !rows[position.index].isPreview &&
               unseen.contains(rows[position.index].post.no) &&
               position.itemTrailingEdge > belowHeader)
@@ -478,23 +548,31 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
     required Map<int, List<Post>> children,
     Set<int>? treePosts,
     int opReplyCount = 0,
-  }) => layout == ThreadLayout.flat
-      ? buildFlatRows(
-          posts,
-          replyCounts: thread.replyCounts,
-          collapsed: collapsedRows,
-          positions: thread.places,
-        )
-      : buildNestedRows(
-          posts,
-          children: children,
-          collapsed: collapsedRows,
-          primaryParents: primaryParents,
-          unseen: unseenPosts,
-          treePosts: treePosts,
-          opReplyCount: opReplyCount,
-          positions: thread.places,
-        );
+  }) {
+    final Set<int> hidden = <int>{
+      for (final int post in hiddenReasons.keys)
+        if (!revealedPosts.contains(post)) post,
+    };
+    return layout == ThreadLayout.flat
+        ? buildFlatRows(
+            posts,
+            replyCounts: thread.replyCounts,
+            collapsed: collapsedRows,
+            hidden: hidden,
+            positions: thread.places,
+          )
+        : buildNestedRows(
+            posts,
+            children: children,
+            collapsed: collapsedRows,
+            hidden: hidden,
+            primaryParents: primaryParents,
+            unseen: unseenPosts,
+            treePosts: treePosts,
+            opReplyCount: opReplyCount,
+            positions: thread.places,
+          );
+  }
 
   /// The list of [rows]. Replies at its top level answer [rootPost], the post
   /// the list is about; the opening post if not said.
@@ -556,6 +634,8 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
                       : () => _toggleRow(row.path),
                   folded: row.collapsed,
                   isPreview: row.isPreview,
+                  hiddenBecause: row.hidden ? hiddenReasons[post.no] : null,
+                  onReveal: () => _reveal(row),
                   countOpensReplies: isFlat,
                   newReplies: row.newReplies,
                   onTapQuote: _showQuotedPost,
@@ -579,6 +659,8 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
 
   @override
   void dispose() {
+    _settings.removeListener(_onHidingMaybeChanged);
+    _watched.removeListener(_onHidingMaybeChanged);
     _highlightTimer?.cancel();
     _autoScrollTimer?.cancel();
     itemPositionsListener.itemPositions.removeListener(_onPositionsChanged);

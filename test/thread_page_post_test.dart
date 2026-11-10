@@ -503,10 +503,14 @@ void main() {
           if ((at - y).abs() < 2) {
             return;
           }
+          // A few pixels over a second would be holding the post, which
+          // opens its menu.
           await tester.timedDrag(
             find.byType(ThreadReplies),
             Offset(0, y - at),
-            const Duration(seconds: 1),
+            (y - at).abs() < 30
+                ? const Duration(milliseconds: 400)
+                : const Duration(seconds: 1),
           );
         }
         await tester.pumpAndSettle();

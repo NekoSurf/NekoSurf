@@ -6,6 +6,11 @@
 ### 🪪 Posts by ID
 - On boards that give posters an ID, it now says how many posts that poster made in the thread when there's more than one; tap the ID to see them all on one page
 
+### 🙈 Hide posts
+- Hold a post to hide it, or its poster's posts in that thread by their ID, or their posts everywhere by name, tripcode or country, or posts with the same text
+- A hidden post becomes one line saying why, with its replies folded away under it in the nested layout; tap the line to see the post anyway, or hold it to show the post again
+- Add your own keyword or regex filters for replies in Settings, under Hidden posts, where you can also remove them
+
 ## What's fixed
 
 - Menus that open from near the bottom of the screen, like Video cache limit in Settings, now open upwards instead of being squeezed into the space below

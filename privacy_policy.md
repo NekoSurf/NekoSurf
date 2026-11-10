@@ -1,6 +1,6 @@
 # Privacy Policy
 
-_Last updated: 7 November 2026_
+_Last updated: 10 November 2026_
 
 NekoSurf is a free, open-source app for reading 4chan, made by wrngwrld. This policy explains what the app does with your data. In short:
 
@@ -12,8 +12,8 @@ NekoSurf is a free, open-source app for reading 4chan, made by wrngwrld. This po
 
 NekoSurf keeps these on your phone only:
 
-- Your settings, favorite boards, bookmarks and the filters you set to hide threads
-- The threads you've visited (you can turn this off in Settings → History → Track history) and, for each thread, the posts you've already seen or not yet, where you left off and what you folded (watched posts)
+- Your settings, favorite boards, bookmarks and the filters you set to hide threads and posts
+- The threads you've visited (you can turn this off in Settings → History → Track history) and, for each thread, the posts you've already seen or not yet, where you left off, what you folded and what you hid (watched posts)
 - What you save to the Saved tab: on iPhone in the app's folder (which you can see in the Files app), on Android in Download/4Chan
 - Images and videos you've viewed, cached so they load faster the next time
 

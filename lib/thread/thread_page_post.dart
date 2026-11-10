@@ -12,6 +12,7 @@ import 'package:flutter_chan/media/post_thumbnail.dart';
 import 'package:flutter_chan/media/spoiler_cover.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/thread/media_viewer_route.dart';
+import 'package:flutter_chan/thread/post_menu.dart';
 import 'package:flutter_chan/thread/posts_by_id_page.dart';
 import 'package:flutter_chan/thread/thread_post_comment.dart';
 import 'package:flutter_chan/thread/thread_posts.dart';
@@ -22,7 +23,7 @@ import 'package:provider/provider.dart';
 
 /// A post as a row: a one-line header, then its text, then its image or
 /// video. Tapping it folds it down to its header, along with any replies
-/// listed below it.
+/// listed below it; holding it offers to hide it, or posts like it.
 class ThreadPagePost extends StatefulWidget {
   const ThreadPagePost({
     super.key,
@@ -39,6 +40,8 @@ class ThreadPagePost extends StatefulWidget {
     this.newReplies = 0,
     this.onTapQuote,
     this.repliedTo,
+    this.hiddenBecause,
+    this.onReveal,
   });
 
   final ThreadPosts thread;
@@ -75,12 +78,21 @@ class ThreadPagePost extends StatefulWidget {
   /// See [ThreadPostComment.repliedTo].
   final int? repliedTo;
 
+  /// Why it's hidden, if it is: it's just this line then, until tapped to
+  /// [onReveal] it.
+  final String? hiddenBecause;
+  final VoidCallback? onReveal;
+
   @override
   State<ThreadPagePost> createState() => _ThreadPagePostState();
 }
 
 class _ThreadPagePostState extends State<ThreadPagePost> {
   final GlobalKey _mediaBoxKey = GlobalKey();
+
+  /// The header, which the menu from holding the post opens by: the post can
+  /// be taller than the screen.
+  final GlobalKey _headerKey = GlobalKey();
 
   late final TapGestureRecognizer _idTap = TapGestureRecognizer()
     ..onTap = _openPostsById;
@@ -91,6 +103,12 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     super.dispose();
   }
 
+  void _showMenu() => showPostMenu(
+    _headerKey.currentContext ?? context,
+    post: widget.post,
+    thread: widget.thread,
+  );
+
   void _openPostsById() {
     final String? id = widget.post.id;
     if (id == null) {
@@ -99,6 +117,64 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     Navigator.of(context).push(
       BackSwipePageRoute<void>(
         builder: (context) => PostsByIdPage(id: id, thread: widget.thread),
+      ),
+    );
+  }
+
+  /// The line in place of a hidden post, saying why; tapping shows the post.
+  Widget _buildHidden(String reason, bool isDark) {
+    final Color muted = DashColors.muted(isDark);
+    final TextStyle small = TextStyle(
+      fontSize: 12,
+      fontWeight: FontWeight.w500,
+      color: muted,
+    );
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: widget.onReveal,
+      onLongPress: _showMenu,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+        child: Row(
+          key: _headerKey,
+          children: [
+            Icon(CupertinoIcons.eye_slash, size: 13, color: muted),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                reason,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: small,
+              ),
+            ),
+            if (widget.newReplies > 0)
+              Padding(
+                padding: const EdgeInsets.only(left: 10),
+                child: Text(
+                  '${widget.newReplies} new',
+                  style: small.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: context.accent,
+                  ),
+                ),
+              ),
+            if (widget.replyCount > 0) ...[
+              const SizedBox(width: 10),
+              Text('${widget.replyCount}', style: small),
+              const SizedBox(width: 3),
+              Icon(CupertinoIcons.reply, size: 12, color: muted),
+            ],
+            const SizedBox(width: 12),
+            Text(
+              'Show',
+              style: small.copyWith(
+                fontWeight: FontWeight.w600,
+                color: context.accent,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -362,15 +438,21 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
         ? 0
         : widget.thread.postsById[id]?.length ?? 0;
 
+    if (widget.hiddenBecause case final String reason) {
+      return _buildHidden(reason, isDark);
+    }
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: fold,
+      onLongPress: _showMenu,
       child: Padding(
         padding: EdgeInsets.fromLTRB(14, 11, 14, folded ? 11 : 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              key: _headerKey,
               children: [
                 Expanded(
                   child: Text.rich(

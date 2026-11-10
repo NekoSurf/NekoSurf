@@ -155,6 +155,30 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
   /// What's remembered about [thread], if it's been open.
   ThreadMemory? threadMemory(int thread) => _threadMemory[thread];
 
+  /// Goes up each time a post or ID is hidden or shown again, in any thread.
+  int get hidingChanges => _hidingChanges;
+  int _hidingChanges = 0;
+
+  /// Hides [post] in [thread], or shows it again.
+  void setPostHidden(int thread, int post, {required bool hidden}) {
+    final Set<int> posts = _memoryOf(thread).hiddenPosts;
+    _changeHiding(hidden ? posts.add(post) : posts.remove(post));
+  }
+
+  /// Hides the posts by [id] in [thread], or shows them again.
+  void setIdHidden(int thread, String id, {required bool hidden}) {
+    final Set<String> ids = _memoryOf(thread).hiddenIds;
+    _changeHiding(hidden ? ids.add(id) : ids.remove(id));
+  }
+
+  void _changeHiding(bool changed) {
+    if (changed) {
+      _hidingChanges++;
+      _schedulePersist();
+      notifyListeners();
+    }
+  }
+
   /// The replies in [thread] not seen yet, given its current reply count: those
   /// known to be unseen, and any posted since it was last loaded. Null if it
   /// hasn't been open (or that's been forgotten), so unread threads don't show a

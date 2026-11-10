@@ -3,6 +3,7 @@ import 'package:flutter_chan/board/thread_order.dart';
 import 'package:flutter_chan/chan/catalog.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/settings/settings_widgets.dart';
+import 'package:flutter_chan/thread/post_hiding.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_dialogs.dart';
 import 'package:flutter_chan/ui/dash_menu.dart';
@@ -12,19 +13,30 @@ import 'package:provider/provider.dart';
 class BrowsingSettings extends StatelessWidget {
   const BrowsingSettings({super.key});
 
-  static void _showAddFilter(BuildContext context, SettingsProvider settings) {
+  static const Map<PostFilterKind, IconData> _postFilterIcons = {
+    PostFilterKind.text: CupertinoIcons.text_quote,
+    PostFilterKind.name: CupertinoIcons.person_fill,
+    PostFilterKind.trip: CupertinoIcons.lock_fill,
+    PostFilterKind.country: CupertinoIcons.flag_fill,
+  };
+
+  static void _showAddFilter(
+    BuildContext context, {
+    required String title,
+    required String matchedAgainst,
+    required ValueChanged<String> onAdd,
+  }) {
     final TextEditingController controller = TextEditingController();
     showDashDialog<void>(
       context: context,
       builder: (ctx) => DashDialog(
-        title: const Text('Hide threads matching'),
+        title: Text(title),
         content: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'A plain word hides as a keyword; regex works too. '
-              'Matching is case-insensitive against the thread title '
-              'and comment.',
+              'Matching is case-insensitive against $matchedAgainst.',
             ),
             const SizedBox(height: 12),
             DashDialogField(
@@ -38,14 +50,14 @@ class BrowsingSettings extends StatelessWidget {
           DashDialogAction(
             isDefaultAction: true,
             onPressed: () {
-              settings.addHiddenThreadPattern(controller.text);
+              onAdd(controller.text);
               controller.clear();
             },
             child: const Text('Add & add another'),
           ),
           DashDialogAction(
             onPressed: () {
-              settings.addHiddenThreadPattern(controller.text);
+              onAdd(controller.text);
               Navigator.of(ctx).pop();
             },
             child: const Text('Add'),
@@ -207,17 +219,9 @@ class BrowsingSettings extends StatelessWidget {
                 icon: CupertinoIcons.eye_slash_fill,
                 color: DashColors.danger,
                 title: pattern,
-                trailing: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
+                trailing: _RemoveButton(
+                  label: 'Remove $pattern',
                   onTap: () => settings.removeHiddenThreadPattern(pattern),
-                  child: const Padding(
-                    padding: EdgeInsets.all(4),
-                    child: Icon(
-                      CupertinoIcons.xmark_circle_fill,
-                      size: 20,
-                      color: CupertinoColors.systemGrey,
-                    ),
-                  ),
                 ),
               ),
             SettingsRow(
@@ -225,11 +229,74 @@ class BrowsingSettings extends StatelessWidget {
               color: context.accent,
               title: 'Add filter',
               subtitle: 'Keyword or regex',
-              onTap: () => _showAddFilter(context, settings),
+              onTap: () => _showAddFilter(
+                context,
+                title: 'Hide threads matching',
+                matchedAgainst: 'the thread title and comment',
+                onAdd: settings.addHiddenThreadPattern,
+              ),
+            ),
+          ],
+        ),
+        SettingsGroup(
+          title: 'Hidden posts',
+          footer:
+              'Hides replies in every thread, by their title and text. Hold a '
+              "post to hide it, or its poster's posts by ID, name or country. "
+              'Tap a hidden post to see it anyway.',
+          children: [
+            for (final PostFilter filter in settings.postFilters)
+              SettingsRow(
+                icon: _postFilterIcons[filter.kind]!,
+                color: DashColors.danger,
+                title: filter.label,
+                trailing: _RemoveButton(
+                  label: 'Remove ${filter.label}',
+                  onTap: () => settings.removePostFilter(filter),
+                ),
+              ),
+            SettingsRow(
+              icon: CupertinoIcons.add_circled_solid,
+              color: context.accent,
+              title: 'Add filter',
+              subtitle: 'Keyword or regex',
+              onTap: () => _showAddFilter(
+                context,
+                title: 'Hide posts matching',
+                matchedAgainst: "each reply's title and text",
+                onAdd: (String text) => settings.addPostFilter(
+                  PostFilter(PostFilterKind.text, text),
+                ),
+              ),
             ),
           ],
         ),
       ],
+    );
+  }
+}
+
+/// Takes a filter off the list.
+class _RemoveButton extends StatelessWidget {
+  const _RemoveButton({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: Icon(
+          CupertinoIcons.xmark_circle_fill,
+          size: 20,
+          color: CupertinoColors.systemGrey,
+          semanticLabel: label,
+        ),
+      ),
     );
   }
 }

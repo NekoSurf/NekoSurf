@@ -12,6 +12,7 @@ class ThreadRow {
     this.ancestors = const <int>[],
     this.collapsed = false,
     this.isPreview = false,
+    this.hidden = false,
     this.newReplies = 0,
   });
 
@@ -37,7 +38,12 @@ class ThreadRow {
   /// this is a short preview of it, and tapping moves all that here.
   final bool isPreview;
 
-  /// How many unseen posts are hidden below it, while it's folded or a preview.
+  /// The post is hidden: it's one line saying so, with its replies folded away
+  /// below it.
+  final bool hidden;
+
+  /// How many unseen posts are hidden below it, while it's folded, hidden or a
+  /// preview.
   final int newReplies;
 
   int get parent => ancestors.isEmpty ? topLevel : ancestors.last;
@@ -78,10 +84,14 @@ double _estimatedTextHeight(Post post) {
 ///
 /// A post can have several rows: each folds on its own, by the [ThreadRow.path]
 /// in [collapsed]. [unseen] are the posts to count as new when hidden.
+///
+/// Posts in [hidden] are a line saying so, with their replies folded away; the
+/// opening post never is.
 List<ThreadRow> buildNestedRows(
   List<Post> posts, {
   required Map<int, List<Post>> children,
   Set<String> collapsed = const <String>{},
+  Set<int> hidden = const <int>{},
   Map<int, int> primaryParents = const <int, int>{},
   Set<int> unseen = const <int>{},
   Set<int>? treePosts,
@@ -174,8 +184,10 @@ List<ThreadRow> buildNestedRows(
       id,
       ancestors.isEmpty ? ThreadRow.topLevel : ancestors.last,
     );
+    final bool isHidden = id != opId && hidden.contains(id);
     final bool isCollapsed =
-        !isPreview && id != opId && collapsed.contains(path);
+        !isPreview && !isHidden && id != opId && collapsed.contains(path);
+    final bool showsReplies = !isCollapsed && !isPreview && !isHidden;
 
     rows.add(
       ThreadRow(
@@ -185,14 +197,15 @@ List<ThreadRow> buildNestedRows(
         replyCount: id == opId ? opReplyCount : postsBelow(id).length,
         ancestors: ancestors,
         collapsed: isCollapsed,
-        isPreview: isPreview,
-        newReplies: isCollapsed || isPreview
-            ? postsBelow(id).where(unseen.contains).length
-            : 0,
+        isPreview: isPreview && !isHidden,
+        hidden: isHidden,
+        newReplies: showsReplies
+            ? 0
+            : postsBelow(id).where(unseen.contains).length,
       ),
     );
 
-    if (isCollapsed || isPreview) {
+    if (!showsReplies) {
       return;
     }
     final List<int> belowThis = <int>[...ancestors, id];
@@ -232,10 +245,12 @@ List<ThreadRow> buildNestedRows(
 /// listed, and [positions] where posts are in the thread, for when [posts] is
 /// only a part of it. A post in [collapsed] folds on its own, as its replies
 /// aren't below it here; the first one, the post the list is about, doesn't.
+/// Neither is it [hidden], whatever the others are.
 List<ThreadRow> buildFlatRows(
   List<Post> posts, {
   required Map<int, int> replyCounts,
   Set<String> collapsed = const <String>{},
+  Set<int> hidden = const <int>{},
   Map<int, int>? positions,
 }) {
   return <ThreadRow>[
@@ -245,7 +260,11 @@ List<ThreadRow> buildFlatRows(
         path: '${posts[index].no}',
         postIndex: positions?[posts[index].no] ?? index,
         replyCount: replyCounts[posts[index].no] ?? 0,
-        collapsed: index > 0 && collapsed.contains('${posts[index].no}'),
+        collapsed:
+            index > 0 &&
+            !hidden.contains(posts[index].no) &&
+            collapsed.contains('${posts[index].no}'),
+        hidden: index > 0 && hidden.contains(posts[index].no),
       ),
   ];
 }

@@ -489,7 +489,13 @@ class _ThreadPageState extends State<ThreadPage>
   void _openGallery() {
     Navigator.of(context).push(
       BackSwipePageRoute<void>(
-        builder: (_) => ThreadGalleryPage(mediaPosts: thread.media),
+        // What's hidden stays out of sight here too.
+        builder: (_) => ThreadGalleryPage(
+          mediaPosts: <Post>[
+            for (final Post post in thread.media)
+              if (!isHidden(post.no)) post,
+          ],
+        ),
       ),
     );
   }
