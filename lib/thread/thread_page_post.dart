@@ -42,6 +42,7 @@ class ThreadPagePost extends StatefulWidget {
     this.repliedTo,
     this.hiddenBecause,
     this.onReveal,
+    this.isLifted = false,
   });
 
   final ThreadPosts thread;
@@ -83,6 +84,10 @@ class ThreadPagePost extends StatefulWidget {
   final String? hiddenBecause;
   final VoidCallback? onReveal;
 
+  /// It's a copy lifted off the list while its menu is open: a video is a
+  /// still, as the post in the list already plays it.
+  final bool isLifted;
+
   @override
   State<ThreadPagePost> createState() => _ThreadPagePostState();
 }
@@ -90,9 +95,8 @@ class ThreadPagePost extends StatefulWidget {
 class _ThreadPagePostState extends State<ThreadPagePost> {
   final GlobalKey _mediaBoxKey = GlobalKey();
 
-  /// The header, which the menu from holding the post opens by: the post can
-  /// be taller than the screen.
-  final GlobalKey _headerKey = GlobalKey();
+  /// Lifted off the list with its menu: the copy over the page shows instead.
+  bool _isLifted = false;
 
   late final TapGestureRecognizer _idTap = TapGestureRecognizer()
     ..onTap = _openPostsById;
@@ -103,11 +107,31 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     super.dispose();
   }
 
-  void _showMenu() => showPostMenu(
-    _headerKey.currentContext ?? context,
-    post: widget.post,
-    thread: widget.thread,
-  );
+  Future<void> _showMenu() async {
+    setState(() => _isLifted = true);
+    await showPostMenu(
+      context,
+      post: widget.post,
+      thread: widget.thread,
+      preview: (_) => ThreadPagePost(
+        post: widget.post,
+        thread: widget.thread,
+        replyCount: widget.replyCount,
+        // Only to look the same: the copy takes no taps.
+        onToggleFold: widget.onToggleFold == null ? null : () {},
+        folded: widget.folded,
+        isPreview: widget.isPreview,
+        countOpensReplies: widget.countOpensReplies,
+        newReplies: widget.newReplies,
+        repliedTo: widget.repliedTo,
+        hiddenBecause: widget.hiddenBecause,
+        isLifted: true,
+      ),
+    );
+    if (mounted) {
+      setState(() => _isLifted = false);
+    }
+  }
 
   void _openPostsById() {
     final String? id = widget.post.id;
@@ -136,7 +160,6 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
         child: Row(
-          key: _headerKey,
           children: [
             Icon(CupertinoIcons.eye_slash, size: 13, color: muted),
             const SizedBox(width: 6),
@@ -255,7 +278,11 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
   }
 
   Widget _buildMedia() {
-    final Widget media = widget.post.isVideo ? _buildVideo() : _buildImage();
+    final Widget media = !widget.post.isVideo
+        ? _buildImage()
+        : widget.isLifted
+        ? _buildStill()
+        : _buildVideo();
     final int? upload = widget.post.spoilerUpload;
     if (upload == null) {
       return media;
@@ -265,6 +292,41 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(mediaInlineRadius),
         child: SpoilerCover(upload: upload, child: media),
+      ),
+    );
+  }
+
+  /// A video's thumbnail, marked as one.
+  Widget _buildStill() {
+    return AspectRatio(
+      aspectRatio: _mediaAspectRatio(),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(mediaInlineRadius),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image(
+              image: thumbnailImage(widget.post.thumbnailUrl),
+              fit: BoxFit.cover,
+              errorBuilder: imageErrorPlaceholder,
+            ),
+            Center(
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  CupertinoIcons.play_fill,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -439,10 +501,13 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
         : widget.thread.postsById[id]?.length ?? 0;
 
     if (widget.hiddenBecause case final String reason) {
-      return _buildHidden(reason, isDark);
+      return Opacity(
+        opacity: _isLifted ? 0 : 1,
+        child: _buildHidden(reason, isDark),
+      );
     }
 
-    return GestureDetector(
+    final Widget row = GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: fold,
       onLongPress: _showMenu,
@@ -452,7 +517,6 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              key: _headerKey,
               children: [
                 Expanded(
                   child: Text.rich(
@@ -624,6 +688,8 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
         ),
       ),
     );
+    // Still taking its room, so nothing moves under the copy.
+    return Opacity(opacity: _isLifted ? 0 : 1, child: row);
   }
 }
 

@@ -262,6 +262,35 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    testWidgets('holding a post lifts it off the list, with its menu', (
+      tester,
+    ) async {
+      await pumpThread(tester);
+      Opacity original() => tester.widget<Opacity>(
+        find
+            .ancestor(
+              of: find.text('Words of 4').first,
+              matching: find.byType(Opacity),
+            )
+            .first,
+      );
+
+      await hold(tester, 'Poster4');
+      // The copy over the blurred page, and the post in the list, out of sight.
+      expect(find.text('Words of 4'), findsNWidgets(2));
+      expect(original().opacity, 0);
+      expect(find.byType(BackdropFilter), findsWidgets);
+      expect(find.text('Hide this post'), findsOneWidget);
+
+      // Tapping beside it puts it back.
+      await tester.tapAt(const Offset(390, 1590));
+      await tester.pumpAndSettle();
+      expect(find.text('Hide this post'), findsNothing);
+      expect(find.text('Words of 4'), findsOneWidget);
+      expect(original().opacity, 1);
+      expect(watched.threadMemory(1)?.hiddenPosts ?? const <int>{}, isEmpty);
+    });
+
     testWidgets('holding a post hides it, and tapping it shows it', (
       tester,
     ) async {
@@ -270,7 +299,7 @@ void main() {
 
       await hold(tester, 'Poster4');
       await tester.tap(find.text('Hide this post'));
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(find.text('Words of 4'), findsNothing);
       expect(find.text('Hidden by you'), findsOneWidget);
       expect(watched.threadMemory(1)!.hiddenPosts, {4});
@@ -284,7 +313,7 @@ void main() {
 
       await hold(tester, 'Poster4');
       await tester.tap(find.text('Show this post'));
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(watched.threadMemory(1)!.hiddenPosts, isEmpty);
       await waitOutToast(tester);
     });
@@ -296,7 +325,7 @@ void main() {
 
       await hold(tester, 'Poster3');
       await tester.tap(find.text('Hide ID:Same'));
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       expect(find.text('Words of 3'), findsNothing);
       expect(find.text('Words of 5'), findsNothing);
@@ -312,13 +341,13 @@ void main() {
 
       await hold(tester, 'Bob');
       await tester.tap(find.text('Hide posts by Bob'));
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(find.text('Hidden · Bob'), findsOneWidget);
       await waitOutToast(tester);
 
       await hold(tester, 'Poster3');
       await tester.tap(find.text('Hide posts from France'));
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(find.text('Hidden · From France'), findsOneWidget);
       await waitOutToast(tester);
 

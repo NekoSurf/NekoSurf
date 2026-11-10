@@ -15,11 +15,15 @@ import 'package:provider/provider.dart';
 const int _textFilterLength = 80;
 
 /// What holding [post] offers: the other posts by its ID, and hiding it or
-/// posts like it, or showing them again. The menu opens by [anchor].
-void showPostMenu(
+/// posts like it, or showing them again. [anchor] is the post, which lifts
+/// off the page as [preview] builds it, with the menu under it.
+///
+/// Completes once the menu has gone.
+Future<void> showPostMenu(
   BuildContext anchor, {
   required Post post,
   required ThreadPosts thread,
+  required WidgetBuilder preview,
 }) {
   final SettingsProvider settings = Provider.of<SettingsProvider>(
     anchor,
@@ -61,8 +65,9 @@ void showPostMenu(
       id != null && (memory?.hiddenIds.contains(id) ?? false);
   final int idPosts = id == null ? 0 : thread.postsById[id]?.length ?? 0;
 
-  showDashMenu(
+  return showLiftedMenu(
     anchor,
+    preview: preview,
     entries: [
       if (id != null)
         DashMenuEntry(
