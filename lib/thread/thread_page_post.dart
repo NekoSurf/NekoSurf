@@ -41,6 +41,8 @@ class ThreadPagePost extends StatefulWidget {
     this.repliedTo,
     this.hiddenBecause,
     this.onReveal,
+    this.revealedBecause,
+    this.onHideAgain,
     this.isLifted = false,
   });
 
@@ -83,6 +85,11 @@ class ThreadPagePost extends StatefulWidget {
   final String? hiddenBecause;
   final VoidCallback? onReveal;
 
+  /// Why it's hidden, if it is but was tapped to show anyway: the line saying
+  /// so stays above it, to [onHideAgain] it.
+  final String? revealedBecause;
+  final VoidCallback? onHideAgain;
+
   /// It's a copy lifted off the list while its menu is open: a video is a
   /// still, as the post in the list already plays it.
   final bool isLifted;
@@ -115,6 +122,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
         newReplies: widget.newReplies,
         repliedTo: widget.repliedTo,
         hiddenBecause: widget.hiddenBecause,
+        revealedBecause: widget.revealedBecause,
         isLifted: true,
       ),
     );
@@ -136,7 +144,8 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
   }
 
   /// The line in place of a hidden post, saying why; tapping shows the post.
-  Widget _buildHidden(String reason, bool isDark) {
+  /// Over a post shown anyway ([revealed]), tapping hides it again.
+  Widget _buildHidden(String reason, {bool revealed = false}) {
     final Color muted = DashColors.muted(context);
     final TextStyle small = TextStyle(
       fontSize: 12,
@@ -145,10 +154,10 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     );
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: widget.onReveal,
+      onTap: revealed ? widget.onHideAgain : widget.onReveal,
       onLongPress: _showMenu,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+        padding: EdgeInsets.fromLTRB(14, 10, 14, revealed ? 0 : 10),
         child: Row(
           children: [
             Icon(CupertinoIcons.eye_slash, size: 13, color: muted),
@@ -161,7 +170,8 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                 style: small,
               ),
             ),
-            if (widget.newReplies > 0)
+            // Shown, the post says these itself.
+            if (!revealed && widget.newReplies > 0)
               Padding(
                 padding: const EdgeInsets.only(left: 10),
                 child: Text(
@@ -172,7 +182,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                   ),
                 ),
               ),
-            if (widget.replyCount > 0) ...[
+            if (!revealed && widget.replyCount > 0) ...[
               const SizedBox(width: 10),
               Text('${widget.replyCount}', style: small),
               const SizedBox(width: 3),
@@ -180,7 +190,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
             ],
             const SizedBox(width: 12),
             Text(
-              'Show',
+              revealed ? 'Hide' : 'Show',
               style: small.copyWith(
                 fontWeight: FontWeight.w600,
                 color: context.accent,
@@ -491,10 +501,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
         : widget.thread.postsById[id]?.length ?? 0;
 
     if (widget.hiddenBecause case final String reason) {
-      return Opacity(
-        opacity: _isLifted ? 0 : 1,
-        child: _buildHidden(reason, isDark),
-      );
+      return Opacity(opacity: _isLifted ? 0 : 1, child: _buildHidden(reason));
     }
 
     final Widget row = GestureDetector(
@@ -678,7 +685,16 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
       ),
     );
     // Still taking its room, so nothing moves under the copy.
-    return Opacity(opacity: _isLifted ? 0 : 1, child: row);
+    return Opacity(
+      opacity: _isLifted ? 0 : 1,
+      child: switch (widget.revealedBecause) {
+        final String reason => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [_buildHidden(reason, revealed: true), row],
+        ),
+        null => row,
+      },
+    );
   }
 }
 

@@ -15,7 +15,7 @@ import 'package:provider/provider.dart';
 const int _textFilterLength = 80;
 
 /// What holding [post] offers: the other posts by its ID, and hiding it or
-/// posts like it, or showing them again. [anchor] is the post, which lifts
+/// posts like it, or no longer hiding them. [anchor] is the post, which lifts
 /// off the page as [preview] builds it, with the menu under it.
 ///
 /// Completes once the menu has gone.
@@ -47,7 +47,7 @@ Future<void> showPostMenu(
   DashMenuEntry filterEntry(PostFilter filter, String what, IconData icon) {
     final bool isOn = settings.postFilters.contains(filter);
     return DashMenuEntry(
-      title: '${isOn ? 'Show' : 'Hide'} $what',
+      title: '${isOn ? 'Stop hiding' : 'Hide'} $what',
       icon: isOn ? CupertinoIcons.eye : icon,
       onPressed: () {
         if (isOn) {
@@ -84,7 +84,7 @@ Future<void> showPostMenu(
       // The opening post is the thread: that's hidden from its board.
       if (post.no != thread.number)
         DashMenuEntry(
-          title: isPostHidden ? 'Show this post' : 'Hide this post',
+          title: isPostHidden ? 'Stop hiding this post' : 'Hide this post',
           icon: isPostHidden ? CupertinoIcons.eye : CupertinoIcons.eye_slash,
           onPressed: () {
             if (!isPostHidden) {
@@ -99,7 +99,7 @@ Future<void> showPostMenu(
         ),
       if (id != null)
         DashMenuEntry(
-          title: '${isIdHidden ? 'Show' : 'Hide'} ID:$id',
+          title: '${isIdHidden ? 'Stop hiding' : 'Hide'} ID:$id',
           icon: isIdHidden
               ? CupertinoIcons.eye
               : CupertinoIcons.person_crop_circle_badge_xmark,

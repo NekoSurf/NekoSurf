@@ -308,13 +308,40 @@ void main() {
       await tester.tap(find.text('Hidden by you'));
       await tester.pump();
       expect(find.text('Words of 4'), findsOneWidget);
-      // Only for now: it's still hidden.
+      // Only for now: it's still hidden, and says so above it.
       expect(watched.threadMemory(1)!.hiddenPosts, {4});
+      expect(find.text('Hidden by you'), findsOneWidget);
+      expect(find.text('Hide'), findsOneWidget);
 
       await hold(tester, 'Poster4');
-      await tester.tap(find.text('Show this post'));
+      await tester.tap(find.text('Stop hiding this post'));
       await tester.pumpAndSettle();
       expect(watched.threadMemory(1)!.hiddenPosts, isEmpty);
+      expect(find.text('Hidden by you'), findsNothing);
+      await waitOutToast(tester);
+
+      // Hidden again later, it's hidden right away, not still shown.
+      await hold(tester, 'Poster4');
+      await tester.tap(find.text('Hide this post'));
+      await tester.pumpAndSettle();
+      expect(find.text('Words of 4'), findsNothing);
+      await waitOutToast(tester);
+    });
+
+    testWidgets('a post shown anyway can be hidden again', (tester) async {
+      await pumpThread(tester);
+      watched.setPostHidden(1, 4, hidden: true);
+      await tester.pump();
+
+      await tester.tap(find.text('Show'));
+      await tester.pump();
+      expect(find.text('Words of 4'), findsOneWidget);
+
+      await tester.tap(find.text('Hide'));
+      await tester.pump();
+      expect(find.text('Words of 4'), findsNothing);
+      expect(find.text('Show'), findsOneWidget);
+      expect(watched.threadMemory(1)!.hiddenPosts, {4});
       await waitOutToast(tester);
     });
 

@@ -9,7 +9,7 @@
 
 ### 🙈 Hide posts
 - Hold a post and it lifts off the thread, with a menu under it to hide it, or its poster's posts in that thread by their ID, or their posts everywhere by name, tripcode or country, or posts with the same text
-- A hidden post becomes one line saying why, with its replies folded away under it in the nested layout; tap the line to see the post anyway, or hold it to show the post again
+- A hidden post becomes one line saying why, with its replies folded away under it in the nested layout; tap the line to see the post anyway and again to hide it, or hold it to stop hiding it
 - Add your own keyword or regex filters for replies in Settings, under Hidden posts, where you can also remove them
 
 ### 💬 Feedback and privacy policy

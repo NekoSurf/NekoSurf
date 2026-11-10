@@ -124,10 +124,18 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
     }
   }
 
-  void _reveal(ThreadRow row) {
+  void _reveal(ThreadRow row) => _setRevealed(row, revealed: true);
+
+  void _hideAgain(ThreadRow row) => _setRevealed(row, revealed: false);
+
+  void _setRevealed(ThreadRow row, {required bool revealed}) {
     final double? edge = _headerEdge(row.path);
     setState(() {
-      revealedPosts.add(row.post.no);
+      if (revealed) {
+        revealedPosts.add(row.post.no);
+      } else {
+        revealedPosts.remove(row.post.no);
+      }
       rebuildRows();
     });
     _holdPlace(row.path, edge);
@@ -165,6 +173,8 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
     _listedFilters = _settings.postFilters;
     _listedHidingChanges = _watched.hidingChanges;
     hiddenReasons = hiding.reasonsIn(thread.posts);
+    // What isn't hidden any more starts out hidden if it's hidden again.
+    revealedPosts.retainWhere(hiddenReasons.containsKey);
     rows = buildRows();
     final Map<int, int> byPost = <int, int>{};
     final Map<String, int> byPath = <String, int>{};
@@ -636,6 +646,10 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
                   isPreview: row.isPreview,
                   hiddenBecause: row.hidden ? hiddenReasons[post.no] : null,
                   onReveal: () => _reveal(row),
+                  revealedBecause: revealedPosts.contains(post.no)
+                      ? hiddenReasons[post.no]
+                      : null,
+                  onHideAgain: () => _hideAgain(row),
                   countOpensReplies: isFlat,
                   newReplies: row.newReplies,
                   onTapQuote: _showQuotedPost,
