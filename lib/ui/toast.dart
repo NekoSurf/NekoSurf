@@ -70,7 +70,6 @@ class _ToastState extends State<_Toast> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = context.isDark;
     return IgnorePointer(
       child: Align(
         alignment: Alignment.bottomCenter,
@@ -86,7 +85,7 @@ class _ToastState extends State<_Toast> with SingleTickerProviderStateMixin {
               fade: _fade,
               radius: 999,
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-              color: Frosted.panel(isDark),
+              color: Frosted.panel(context),
               borderColor: context.accent.withValues(alpha: 0.25),
               child: FadeTransition(
                 opacity: _fade,
@@ -96,7 +95,7 @@ class _ToastState extends State<_Toast> with SingleTickerProviderStateMixin {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: DashColors.text(isDark),
+                    color: DashColors.text(context),
                   ),
                 ),
               ),

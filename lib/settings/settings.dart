@@ -79,7 +79,7 @@ class _AboutCard extends StatelessWidget {
                     fontSize: 24,
                     fontWeight: FontWeight.w900,
                     letterSpacing: -0.7,
-                    color: DashColors.text(isDark),
+                    color: DashColors.text(context),
                   ),
                 ),
                 FutureBuilder<PackageInfo>(
@@ -90,7 +90,7 @@ class _AboutCard extends StatelessWidget {
                         : ' ',
                     style: TextStyle(
                       fontSize: 13,
-                      color: DashColors.text(isDark).withValues(alpha: 0.65),
+                      color: DashColors.text(context).withValues(alpha: 0.65),
                     ),
                   ),
                 ),
@@ -114,7 +114,7 @@ class _AboutCard extends StatelessWidget {
                         Icon(
                           CupertinoIcons.chevron_left_slash_chevron_right,
                           size: 13,
-                          color: DashColors.text(isDark),
+                          color: DashColors.text(context),
                         ),
                         const SizedBox(width: 6),
                         Text(
@@ -122,7 +122,7 @@ class _AboutCard extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w700,
-                            color: DashColors.text(isDark),
+                            color: DashColors.text(context),
                           ),
                         ),
                       ],
@@ -152,7 +152,7 @@ class _AboutLinks extends StatelessWidget {
     final Widget opensOutside = Icon(
       CupertinoIcons.arrow_up_right,
       size: 14,
-      color: DashColors.muted(context.isDark),
+      color: DashColors.muted(context),
     );
 
     return SettingsGroup(

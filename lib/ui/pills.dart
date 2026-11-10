@@ -93,7 +93,7 @@ class PostNumberPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color muted = DashColors.muted(context.isDark);
+    final Color muted = DashColors.muted(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -181,7 +181,6 @@ class _FilterPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = context.isDark;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -191,10 +190,10 @@ class _FilterPill extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? context.accent : DashColors.card(isDark),
+          color: selected ? context.accent : DashColors.card(context),
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
-            color: selected ? context.accent : DashColors.border(isDark),
+            color: selected ? context.accent : DashColors.border(context),
           ),
         ),
         child: Row(
@@ -206,7 +205,7 @@ class _FilterPill extends StatelessWidget {
                 fontWeight: FontWeight.w700,
                 color: selected
                     ? CupertinoColors.black
-                    : DashColors.text(isDark),
+                    : DashColors.text(context),
               ),
             ),
             const SizedBox(width: 6),
@@ -217,7 +216,7 @@ class _FilterPill extends StatelessWidget {
                 fontWeight: FontWeight.w700,
                 color: selected
                     ? CupertinoColors.black.withValues(alpha: 0.6)
-                    : DashColors.muted(isDark),
+                    : DashColors.muted(context),
               ),
             ),
           ],

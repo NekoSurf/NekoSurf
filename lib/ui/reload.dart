@@ -62,10 +62,8 @@ class ReloadWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = context.isDark;
-
     return ColoredBox(
-      color: DashColors.page(isDark),
+      color: DashColors.page(context),
       child: Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
@@ -88,7 +86,7 @@ class ReloadWidget extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
-                  color: DashColors.text(isDark),
+                  color: DashColors.text(context),
                 ),
               ),
               const SizedBox(height: 6),
@@ -98,7 +96,7 @@ class ReloadWidget extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14,
                   height: 1.35,
-                  color: DashColors.muted(isDark),
+                  color: DashColors.muted(context),
                 ),
               ),
               const SizedBox(height: 20),

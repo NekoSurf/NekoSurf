@@ -19,12 +19,14 @@ class _Probe extends StatelessWidget {
   static bool? isDark;
   static Color? accent;
   static Color? primary;
+  static Color? page;
 
   @override
   Widget build(BuildContext context) {
     isDark = context.isDark;
     accent = context.accent;
     primary = CupertinoTheme.of(context).primaryColor;
+    page = DashColors.page(context);
     return const SizedBox.expand();
   }
 }
@@ -51,6 +53,39 @@ void main() {
       }
     });
 
+    test('has text that reads on its pages and cards, light and dark', () {
+      for (final ThemeColor theme in ThemeColor.values) {
+        for (final Brightness brightness in Brightness.values) {
+          final DashPalette palette = theme.palette(brightness);
+          final String which = '${theme.name} ${brightness.name}';
+          for (final Color under in [palette.page, palette.card]) {
+            expect(
+              _contrast(palette.text, under),
+              greaterThan(7),
+              reason: which,
+            );
+            // The usual bar is 4.5: Cyan's light grey, kept from before
+            // there were themes, is a hair under it on the page.
+            expect(
+              _contrast(palette.muted, under),
+              greaterThan(4.45),
+              reason: which,
+            );
+          }
+        }
+      }
+    });
+
+    test('has pages of its own', () {
+      for (final Brightness brightness in Brightness.values) {
+        final Set<Color> pages = <Color>{
+          for (final ThemeColor theme in ThemeColor.values)
+            theme.palette(brightness).page,
+        };
+        expect(pages, hasLength(ThemeColor.values.length));
+      }
+    });
+
     test('has two colors, and an accent of its own', () {
       final Set<Color> accents = <Color>{};
       for (final ThemeColor theme in ThemeColor.values) {
@@ -58,6 +93,19 @@ void main() {
         expect(accents.add(theme.accent), isTrue, reason: theme.name);
       }
     });
+  });
+
+  test('Cyan keeps the colors from before there were themes', () {
+    final DashPalette dark = ThemeColor.cyan.palette(Brightness.dark);
+    final DashPalette light = ThemeColor.cyan.palette(Brightness.light);
+    expect(dark.page, const Color(0xFF0B0D11));
+    expect(dark.card, const Color(0xFF141520));
+    expect(dark.text, const Color(0xFFE8EAF0));
+    expect(dark.muted, const Color(0xFF8A8FA8));
+    expect(light.page, const Color(0xFFF4F5F7));
+    expect(light.card, const Color(0xFFFFFFFF));
+    expect(light.text, const Color(0xFF14161F));
+    expect(light.muted, const Color(0xFF6B7085));
   });
 
   test('Auto follows the phone, the others stay put', () {
@@ -101,6 +149,8 @@ void main() {
     expect(_Probe.isDark, isTrue);
     expect(_Probe.accent, ThemeColor.red.accent);
     expect(_Probe.primary, ThemeColor.red.accent);
+    // The whole page takes the theme, not just what's highlighted.
+    expect(_Probe.page, ThemeColor.red.palette(Brightness.dark).page);
 
     // Back to the phone's.
     await settings.appearance.set(Appearance.system);

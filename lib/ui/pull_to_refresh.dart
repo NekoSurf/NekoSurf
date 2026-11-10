@@ -208,9 +208,9 @@ class _Ring extends StatelessWidget {
             height: 40,
             padding: const EdgeInsets.all(9),
             decoration: BoxDecoration(
-              color: DashColors.card(isDark),
+              color: DashColors.card(context),
               shape: BoxShape.circle,
-              border: Border.all(color: DashColors.border(isDark)),
+              border: Border.all(color: DashColors.border(context)),
               boxShadow: DashColors.cardShadow(isDark),
             ),
             child: CircularProgressIndicator(
@@ -218,7 +218,7 @@ class _Ring extends StatelessWidget {
               strokeWidth: 3,
               strokeCap: StrokeCap.round,
               color: context.accent,
-              backgroundColor: DashColors.border(isDark),
+              backgroundColor: DashColors.border(context),
             ),
           ),
         ),

@@ -16,8 +16,6 @@ class SettingsGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = context.isDark;
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 22),
       child: Column(
@@ -32,15 +30,15 @@ class SettingsGroup extends StatelessWidget {
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 1.1,
-                  color: DashColors.muted(isDark),
+                  color: DashColors.muted(context),
                 ),
               ),
             ),
           Container(
             decoration: BoxDecoration(
-              color: DashColors.card(isDark),
+              color: DashColors.card(context),
               borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: DashColors.border(isDark)),
+              border: Border.all(color: DashColors.border(context)),
             ),
             clipBehavior: Clip.antiAlias,
             child: Column(
@@ -50,7 +48,7 @@ class SettingsGroup extends StatelessWidget {
                     Divider(
                       height: 1,
                       indent: 58,
-                      color: DashColors.border(isDark),
+                      color: DashColors.border(context),
                     ),
                   children[i],
                 ],
@@ -65,7 +63,7 @@ class SettingsGroup extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12.5,
                   height: 1.35,
-                  color: DashColors.muted(isDark),
+                  color: DashColors.muted(context),
                 ),
               ),
             ),
@@ -99,8 +97,6 @@ class SettingsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = context.isDark;
-
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -129,7 +125,7 @@ class SettingsRow extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                       color: destructive
                           ? DashColors.danger
-                          : DashColors.text(isDark),
+                          : DashColors.text(context),
                     ),
                   ),
                   if (subtitle != null)
@@ -140,7 +136,7 @@ class SettingsRow extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 12.5,
                           height: 1.3,
-                          color: DashColors.muted(isDark),
+                          color: DashColors.muted(context),
                         ),
                       ),
                     ),
@@ -203,10 +199,9 @@ class SettingsSegments<T extends Object> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = context.isDark;
     return CupertinoSlidingSegmentedControl<T>(
       groupValue: value,
-      backgroundColor: DashColors.page(isDark),
+      backgroundColor: DashColors.page(context),
       thumbColor: context.accent,
       padding: const EdgeInsets.all(3),
       onValueChanged: (T? chosen) {
@@ -225,7 +220,7 @@ class SettingsSegments<T extends Object> extends StatelessWidget {
                 fontWeight: FontWeight.w700,
                 color: segment.key == value
                     ? CupertinoColors.black
-                    : DashColors.text(isDark),
+                    : DashColors.text(context),
               ),
             ),
           ),

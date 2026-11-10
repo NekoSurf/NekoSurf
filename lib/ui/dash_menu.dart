@@ -245,7 +245,7 @@ class _LiftedMenu extends StatelessWidget {
                 opacity: fades ? t : 1,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: DashColors.card(isDark).withValues(alpha: t),
+                    color: DashColors.card(context).withValues(alpha: t),
                     borderRadius: BorderRadius.circular(_radius * t),
                     boxShadow: [
                       BoxShadow(
@@ -395,15 +395,14 @@ class _MenuPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = context.isDark;
     return Material(
       color: Colors.transparent,
       child: Frosted(
         fadesWithRoute: true,
         radius: 22,
         padding: const EdgeInsets.all(_padding),
-        color: Frosted.panel(isDark),
-        borderColor: DashColors.border(isDark),
+        color: Frosted.panel(context),
+        borderColor: DashColors.border(context),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -418,7 +417,7 @@ class _MenuPanel extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
-                      color: DashColors.muted(isDark),
+                      color: DashColors.muted(context),
                     ),
                   ),
                 ),
@@ -429,7 +428,10 @@ class _MenuPanel extends StatelessWidget {
                       horizontal: 10,
                       vertical: (_dividerHeight - 1) / 2,
                     ),
-                    child: Divider(height: 1, color: DashColors.border(isDark)),
+                    child: Divider(
+                      height: 1,
+                      color: DashColors.border(context),
+                    ),
                   )
                 else
                   _MenuRow(
@@ -456,7 +458,6 @@ class _MenuRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = context.isDark;
     final Color tint = entry.isDestructive ? DashColors.danger : context.accent;
 
     return GestureDetector(
@@ -488,7 +489,7 @@ class _MenuRow extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                   color: entry.isDestructive
                       ? DashColors.danger
-                      : DashColors.text(isDark),
+                      : DashColors.text(context),
                 ),
               ),
             ),

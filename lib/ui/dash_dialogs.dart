@@ -42,8 +42,6 @@ class DashDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = context.isDark;
-
     return Center(
       child: Material(
         color: Colors.transparent,
@@ -54,7 +52,7 @@ class DashDialog extends StatelessWidget {
             fadesWithRoute: true,
             radius: 28,
             padding: const EdgeInsets.fromLTRB(20, 22, 20, 16),
-            color: Frosted.panel(isDark),
+            color: Frosted.panel(context),
             borderColor: context.accent.withValues(alpha: 0.18),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -66,7 +64,7 @@ class DashDialog extends StatelessWidget {
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.4,
-                      color: DashColors.text(isDark),
+                      color: DashColors.text(context),
                     ),
                     child: title!,
                   ),
@@ -77,7 +75,7 @@ class DashDialog extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 14.5,
                         height: 1.4,
-                        color: DashColors.muted(isDark),
+                        color: DashColors.muted(context),
                       ),
                       child: content!,
                     ),
@@ -124,18 +122,16 @@ class DashDialogAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = context.isDark;
-
     final Color background = isDestructiveAction
         ? DashColors.danger.withValues(alpha: 0.16)
         : isDefaultAction
         ? context.accent
-        : DashColors.muted(isDark).withValues(alpha: 0.14);
+        : DashColors.muted(context).withValues(alpha: 0.14);
     final Color foreground = isDestructiveAction
         ? DashColors.danger
         : isDefaultAction
         ? Colors.black
-        : DashColors.text(isDark);
+        : DashColors.text(context);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -179,7 +175,6 @@ class DashDialogField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = context.isDark;
     return CupertinoTextField(
       controller: controller,
       autofocus: isCode,
@@ -189,9 +184,9 @@ class DashDialogField extends StatelessWidget {
       smartQuotesType: isCode ? SmartQuotesType.disabled : null,
       placeholder: placeholder,
       padding: const EdgeInsets.all(14),
-      style: TextStyle(color: DashColors.text(isDark)),
+      style: TextStyle(color: DashColors.text(context)),
       decoration: BoxDecoration(
-        color: DashColors.muted(isDark).withValues(alpha: 0.14),
+        color: DashColors.muted(context).withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(14),
       ),
     );

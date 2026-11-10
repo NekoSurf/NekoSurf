@@ -26,10 +26,10 @@ class ListPost extends StatelessWidget {
   Widget build(BuildContext context) {
     final bookmarks = Provider.of<BookmarksProvider>(context);
     final bool isDark = context.isDark;
-    final Color cardColor = DashColors.card(isDark);
+    final Color cardColor = DashColors.card(context);
     final Color boardTint = boardColor(post.board);
-    final Color primaryText = DashColors.text(isDark);
-    final Color secondaryText = DashColors.muted(isDark);
+    final Color primaryText = DashColors.text(context);
+    final Color secondaryText = DashColors.muted(context);
     final String excerpt = post.commentText;
     final String headline = post.title;
     final String posterName = post.posterName;
@@ -61,7 +61,7 @@ class ListPost extends StatelessWidget {
             decoration: BoxDecoration(
               color: cardColor,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: DashColors.border(isDark)),
+              border: Border.all(color: DashColors.border(context)),
               boxShadow: DashColors.cardShadow(isDark),
             ),
             child: Column(

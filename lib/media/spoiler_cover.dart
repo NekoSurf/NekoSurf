@@ -40,10 +40,9 @@ class SpoilerCover extends StatelessWidget {
   }
 
   Widget _cover(BuildContext context) {
-    final bool isDark = context.isDark;
-    final Color color = DashColors.muted(isDark);
+    final Color color = DashColors.muted(context);
     final Widget cover = ColoredBox(
-      color: DashColors.card(isDark),
+      color: DashColors.card(context),
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,

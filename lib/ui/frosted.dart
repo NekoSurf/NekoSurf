@@ -19,8 +19,8 @@ class Frosted extends StatelessWidget {
   });
 
   /// The tint of a popup, solid enough to read over anything.
-  static Color panel(bool isDark) =>
-      DashColors.card(isDark).withValues(alpha: isDark ? 0.72 : 0.85);
+  static Color panel(BuildContext context) =>
+      DashColors.card(context).withValues(alpha: context.isDark ? 0.72 : 0.85);
 
   final double radius;
   final Color color;

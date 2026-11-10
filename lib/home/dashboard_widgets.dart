@@ -81,7 +81,7 @@ class DashHero extends StatelessWidget {
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.4,
-                    color: DashColors.text(isDark),
+                    color: DashColors.text(context),
                   ),
                 ),
               ],
@@ -105,7 +105,6 @@ class DashFeedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = context.isDark;
     const Color pink = DashColors.feed;
 
     return DashCard(
@@ -136,7 +135,7 @@ class DashFeedCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
-                    color: DashColors.text(isDark),
+                    color: DashColors.text(context),
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -144,7 +143,7 @@ class DashFeedCard extends StatelessWidget {
                   'Latest threads from $boardCount favorite ${boardCount == 1 ? 'board' : 'boards'}',
                   style: TextStyle(
                     fontSize: 12.5,
-                    color: DashColors.muted(isDark),
+                    color: DashColors.muted(context),
                   ),
                 ),
               ],
@@ -153,7 +152,7 @@ class DashFeedCard extends StatelessWidget {
           Icon(
             CupertinoIcons.chevron_right,
             size: 15,
-            color: DashColors.muted(isDark),
+            color: DashColors.muted(context),
           ),
         ],
       ),
@@ -183,7 +182,6 @@ class DashBoardRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = context.isDark;
     final color = nsfw ? DashColors.danger : boardColor(board);
 
     return GestureDetector(
@@ -231,7 +229,7 @@ class DashBoardRow extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 15.5,
                             fontWeight: FontWeight.w700,
-                            color: DashColors.text(isDark),
+                            color: DashColors.text(context),
                           ),
                         ),
                       ),
@@ -266,7 +264,7 @@ class DashBoardRow extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 12.5,
-                          color: DashColors.muted(isDark),
+                          color: DashColors.muted(context),
                         ),
                       ),
                     ),
@@ -283,7 +281,7 @@ class DashBoardRow extends StatelessWidget {
                     ? 'Remove from favorites'
                     : 'Add to favorites',
                 size: 20,
-                color: isFavorite ? DashColors.feed : DashColors.muted(isDark),
+                color: isFavorite ? DashColors.feed : DashColors.muted(context),
               ),
             ),
           ],

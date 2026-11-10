@@ -57,7 +57,7 @@
 
 ### 🎨 Make it yours
 
-- Light, dark or following your phone, in 16 color themes
+- Light, dark or following your phone, in 16 color themes that tint the whole app
 
 ### 🔒 Private
 

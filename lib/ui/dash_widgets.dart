@@ -19,16 +19,15 @@ class DashCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = context.isDark;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
         padding: padding,
         decoration: BoxDecoration(
-          color: DashColors.card(isDark),
+          color: DashColors.card(context),
           borderRadius: BorderRadius.circular(radius),
-          border: Border.all(color: DashColors.border(isDark)),
+          border: Border.all(color: DashColors.border(context)),
         ),
         child: child,
       ),
@@ -43,7 +42,6 @@ class DashSectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = context.isDark;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 28, 20, 12),
       child: Text(
@@ -52,7 +50,7 @@ class DashSectionHeader extends StatelessWidget {
           fontSize: 20,
           fontWeight: FontWeight.w800,
           letterSpacing: -0.4,
-          color: DashColors.text(isDark),
+          color: DashColors.text(context),
         ),
       ),
     );
@@ -116,7 +114,7 @@ class DashPageHeader extends StatelessWidget {
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.4,
-                    color: DashColors.text(isDark),
+                    color: DashColors.text(context),
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -126,7 +124,7 @@ class DashPageHeader extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 13,
-                    color: DashColors.muted(isDark),
+                    color: DashColors.muted(context),
                   ),
                 ),
               ],
@@ -152,13 +150,12 @@ class DashSearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = context.isDark;
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
       child: CupertinoSearchTextField(
         controller: controller,
         placeholder: placeholder,
-        backgroundColor: DashColors.card(isDark),
+        backgroundColor: DashColors.card(context),
         onChanged: onChanged,
       ),
     );

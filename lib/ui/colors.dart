@@ -16,7 +16,8 @@ extension ThemeColors on BuildContext {
   Color get accent2 => themeColor.accent2;
 }
 
-/// A theme to choose in Settings: the colors the app highlights with.
+/// A theme to choose in Settings: the colors the app highlights with, and the
+/// [palette] of the pages, cards and text they're on.
 ///
 /// Every [accent] is light enough for black text on it, like the selected
 /// segment of a choice.
@@ -51,6 +52,79 @@ enum ThemeColor {
 
   /// [accent] dark enough to read as text on a light background.
   final Color ink;
+
+  /// The pages, cards and text, light or dark: tinted with [accent]'s hue,
+  /// except Cyan's, which are the app's colors from before there were themes.
+  DashPalette palette(Brightness brightness) => _palettes.putIfAbsent(
+    (this, brightness),
+    () => this == ThemeColor.cyan
+        ? DashPalette.classic(brightness)
+        : DashPalette.tinted(HSLColor.fromColor(accent).hue, brightness),
+  );
+}
+
+final Map<(ThemeColor, Brightness), DashPalette> _palettes =
+    <(ThemeColor, Brightness), DashPalette>{};
+
+/// What everything in a theme sits on: the page, cards on it, lines between
+/// things, and text.
+@immutable
+class DashPalette {
+  const DashPalette({
+    required this.page,
+    required this.card,
+    required this.border,
+    required this.muted,
+    required this.text,
+  });
+
+  /// The app's colors from before there were themes.
+  factory DashPalette.classic(Brightness brightness) =>
+      brightness == Brightness.dark
+      ? DashPalette(
+          page: const Color(0xFF0B0D11),
+          card: const Color(0xFF141520),
+          border: Colors.white.withValues(alpha: 0.07),
+          muted: const Color(0xFF8A8FA8),
+          text: const Color(0xFFE8EAF0),
+        )
+      : DashPalette(
+          page: const Color(0xFFF4F5F7),
+          card: Colors.white,
+          border: Colors.black.withValues(alpha: 0.06),
+          muted: const Color(0xFF6B7085),
+          text: const Color(0xFF14161F),
+        );
+
+  /// Colors of [hue]: dark ones deep and tinted, light ones pale. Text is
+  /// near black or white, and [muted] still reads on the page and cards.
+  factory DashPalette.tinted(double hue, Brightness brightness) {
+    Color hsl(double saturation, double lightness, [double alpha = 1]) =>
+        HSLColor.fromAHSL(alpha, hue, saturation, lightness).toColor();
+    return brightness == Brightness.dark
+        ? DashPalette(
+            page: hsl(0.32, 0.06),
+            card: hsl(0.28, 0.115),
+            border: hsl(0.5, 0.85, 0.08),
+            muted: hsl(0.16, 0.64),
+            text: hsl(0.30, 0.93),
+          )
+        : DashPalette(
+            page: hsl(0.45, 0.95),
+            card: hsl(0.70, 0.995),
+            border: hsl(0.4, 0.25, 0.08),
+            muted: hsl(0.16, 0.38),
+            text: hsl(0.35, 0.10),
+          );
+  }
+
+  final Color page;
+  final Color card;
+  final Color border;
+
+  /// Text that matters less, like when something was posted.
+  final Color muted;
+  final Color text;
 }
 
 /// Hands the chosen [ThemeColor] down to everything below it.
@@ -68,19 +142,24 @@ class DashTheme extends InheritedWidget {
   bool updateShouldNotify(DashTheme oldWidget) => color != oldWidget.color;
 }
 
+/// The theme's colors where [context] is, light or dark as it is there.
 mixin DashColors {
   static const danger = Color(0xFFFF5D6C);
   static const feed = Color(0xFFF472B6);
 
-  static Color page(bool isDark) =>
-      isDark ? const Color(0xFF0B0D11) : const Color(0xFFF4F5F7);
+  static DashPalette palette(BuildContext context) =>
+      DashTheme.of(context).palette(CupertinoTheme.brightnessOf(context));
 
-  static Color card(bool isDark) =>
-      isDark ? const Color(0xFF141520) : Colors.white;
+  static Color page(BuildContext context) => palette(context).page;
 
-  static Color border(bool isDark) => isDark
-      ? Colors.white.withValues(alpha: 0.07)
-      : Colors.black.withValues(alpha: 0.06);
+  static Color card(BuildContext context) => palette(context).card;
+
+  static Color border(BuildContext context) => palette(context).border;
+
+  /// See [DashPalette.muted].
+  static Color muted(BuildContext context) => palette(context).muted;
+
+  static Color text(BuildContext context) => palette(context).text;
 
   /// What lifts a card off a light page.
   static List<BoxShadow> cardShadow(bool isDark) => isDark
@@ -92,12 +171,6 @@ mixin DashColors {
             offset: Offset(0, 4),
           ),
         ];
-
-  static Color muted(bool isDark) =>
-      isDark ? const Color(0xFF8A8FA8) : const Color(0xFF6B7085);
-
-  static Color text(bool isDark) =>
-      isDark ? const Color(0xFFE8EAF0) : const Color(0xFF14161F);
 }
 
 const _boardPalette = [

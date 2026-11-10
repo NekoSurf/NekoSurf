@@ -73,7 +73,7 @@ class ThreadBranch extends StatelessWidget {
             height: 0.5,
             child: ColoredBox(
               color: DashColors.muted(
-                context.isDark,
+                context,
               ).withValues(alpha: startsDiscussion ? 0.4 : 0.18),
             ),
           ),

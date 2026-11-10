@@ -75,7 +75,6 @@ class _HistoryPageState extends State<HistoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = context.isDark;
     final HistoryProvider history = Provider.of<HistoryProvider>(context);
     final bool tracking = Provider.of<SettingsProvider>(
       context,
@@ -114,7 +113,7 @@ class _HistoryPageState extends State<HistoryPage> {
                       ? 'Threads you open show up here.'
                       : 'History is turned off in Privacy settings.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: DashColors.muted(isDark)),
+                  style: TextStyle(color: DashColors.muted(context)),
                 ),
               ),
             ),
@@ -164,7 +163,6 @@ class _HistoryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = context.isDark;
     final Color tint = boardColor(thread.board);
     final String title = plainText(thread.title).trim();
     final String body = plainText(thread.com ?? '').trim();
@@ -248,7 +246,7 @@ class _HistoryRow extends StatelessWidget {
                               DateFormat('kk:mm').format(thread.visitedAt),
                               style: TextStyle(
                                 fontSize: 12,
-                                color: DashColors.muted(isDark),
+                                color: DashColors.muted(context),
                               ),
                             ),
                             if (isArchived) ...[
@@ -258,7 +256,7 @@ class _HistoryRow extends StatelessWidget {
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
-                                  color: DashColors.muted(isDark),
+                                  color: DashColors.muted(context),
                                 ),
                               ),
                             ],
@@ -276,7 +274,7 @@ class _HistoryRow extends StatelessWidget {
                             fontSize: 14.5,
                             fontWeight: FontWeight.w700,
                             height: 1.25,
-                            color: DashColors.text(isDark),
+                            color: DashColors.text(context),
                           ),
                         ),
                       ],

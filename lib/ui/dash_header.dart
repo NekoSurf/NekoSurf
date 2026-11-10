@@ -58,7 +58,7 @@ class _DashIconButtonState extends State<DashIconButton> {
                 child: Center(
                   child: IconTheme(
                     data: IconThemeData(
-                      color: DashColors.text(isDark),
+                      color: DashColors.text(context),
                       size: 19,
                     ),
                     child: widget.icon,
@@ -93,7 +93,6 @@ class DashHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = context.isDark;
     final double top = MediaQuery.paddingOf(context).top;
 
     // Like the tab bar, its text is sized to fit: it doesn't grow.
@@ -105,7 +104,7 @@ class DashHeader extends StatelessWidget {
           child: Container(
             padding: EdgeInsets.fromLTRB(16, top + 8, 12, 10),
             decoration: BoxDecoration(
-              color: DashColors.page(isDark).withValues(alpha: 0.82),
+              color: DashColors.page(context).withValues(alpha: 0.82),
               border: Border(
                 bottom: BorderSide(
                   color: elevated
@@ -161,7 +160,7 @@ class DashHeader extends StatelessWidget {
                             height: 1.1,
                             fontWeight: FontWeight.w800,
                             letterSpacing: -0.6,
-                            color: DashColors.text(isDark),
+                            color: DashColors.text(context),
                           ),
                         ),
                         if (subtitle != null)
@@ -171,7 +170,7 @@ class DashHeader extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 12.5,
-                              color: DashColors.muted(isDark),
+                              color: DashColors.muted(context),
                             ),
                           ),
                       ],
@@ -209,7 +208,6 @@ class DashTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = context.isDark;
     final double bottom = MediaQuery.paddingOf(context).bottom;
 
     return MediaQuery.withClampedTextScaling(
@@ -221,8 +219,8 @@ class DashTabBar extends StatelessWidget {
           child: Frosted(
             radius: 28,
             padding: const EdgeInsets.all(6),
-            color: DashColors.card(isDark).withValues(alpha: 0.82),
-            borderColor: DashColors.border(isDark),
+            color: DashColors.card(context).withValues(alpha: 0.82),
+            borderColor: DashColors.border(context),
             child: Row(
               children: [
                 for (int i = 0; i < tabs.length; i++)
@@ -252,7 +250,7 @@ class DashTabBar extends StatelessWidget {
                               size: 21,
                               color: i == selectedIndex
                                   ? context.accent
-                                  : DashColors.muted(isDark),
+                                  : DashColors.muted(context),
                             ),
                             const SizedBox(height: 2),
                             Text(
@@ -261,8 +259,8 @@ class DashTabBar extends StatelessWidget {
                                 fontSize: 10.5,
                                 fontWeight: FontWeight.w700,
                                 color: i == selectedIndex
-                                    ? DashColors.text(isDark)
-                                    : DashColors.muted(isDark),
+                                    ? DashColors.text(context)
+                                    : DashColors.muted(context),
                               ),
                             ),
                           ],

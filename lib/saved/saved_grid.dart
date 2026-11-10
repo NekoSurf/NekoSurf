@@ -158,7 +158,6 @@ class _SavedGridState extends State<SavedGrid> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = context.isDark;
     final SavedBrowsing browsing = widget.browsing;
     final provider = Provider.of<SavedAttachmentsProvider>(context);
 
@@ -174,7 +173,7 @@ class _SavedGridState extends State<SavedGrid> with WidgetsBindingObserver {
             for (int i = 0; i < 6; i++)
               DecoratedBox(
                 decoration: BoxDecoration(
-                  color: DashColors.muted(isDark).withValues(alpha: 0.1),
+                  color: DashColors.muted(context).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(24),
                 ),
               ),
@@ -233,7 +232,7 @@ class _SavedGridState extends State<SavedGrid> with WidgetsBindingObserver {
               child: Center(
                 child: Text(
                   'Nothing matches your search',
-                  style: TextStyle(color: DashColors.muted(isDark)),
+                  style: TextStyle(color: DashColors.muted(context)),
                 ),
               ),
             ),
@@ -336,7 +335,7 @@ class _SummaryCard extends StatelessWidget {
                     height: 1,
                     fontWeight: FontWeight.w900,
                     letterSpacing: -1.5,
-                    color: DashColors.text(isDark),
+                    color: DashColors.text(context),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -345,7 +344,7 @@ class _SummaryCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: DashColors.text(isDark).withValues(alpha: 0.7),
+                    color: DashColors.text(context).withValues(alpha: 0.7),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -356,7 +355,7 @@ class _SummaryCard extends StatelessWidget {
                     '${snapshot.hasData ? ' · ${format(snapshot.data!)}' : ''}',
                     style: TextStyle(
                       fontSize: 12.5,
-                      color: DashColors.text(isDark).withValues(alpha: 0.65),
+                      color: DashColors.text(context).withValues(alpha: 0.65),
                     ),
                   ),
                 ),
@@ -393,7 +392,7 @@ class _SummaryCard extends StatelessWidget {
                           fit: BoxFit.cover,
                           cacheWidth: 200,
                           errorBuilder: (_, _, _) => ColoredBox(
-                            color: DashColors.card(isDark),
+                            color: DashColors.card(context),
                             child: const Icon(
                               CupertinoIcons.photo,
                               color: _amber,
@@ -457,8 +456,8 @@ class _Tile extends StatelessWidget {
           fit: BoxFit.cover,
           cacheWidth: 500,
           errorBuilder: (_, _, _) => ColoredBox(
-            color: DashColors.muted(isDark).withValues(alpha: 0.12),
-            child: Icon(CupertinoIcons.photo, color: DashColors.muted(isDark)),
+            color: DashColors.muted(context).withValues(alpha: 0.12),
+            child: Icon(CupertinoIcons.photo, color: DashColors.muted(context)),
           ),
         ),
         if (isVideo && !isGif)
@@ -507,10 +506,10 @@ class _Tile extends StatelessWidget {
   Widget _card(BuildContext context, bool isDark) {
     return Container(
       decoration: BoxDecoration(
-        color: DashColors.card(isDark),
+        color: DashColors.card(context),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: selected ? context.accent : DashColors.border(isDark),
+          color: selected ? context.accent : DashColors.border(context),
           width: selected ? 2.5 : 1,
         ),
       ),
@@ -536,7 +535,7 @@ class _Tile extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w700,
-                    color: DashColors.text(isDark),
+                    color: DashColors.text(context),
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -566,7 +565,7 @@ class _Tile extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w600,
-                        color: DashColors.muted(isDark),
+                        color: DashColors.muted(context),
                       ),
                     ),
                   ],
@@ -600,7 +599,6 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = context.isDark;
     Widget tile(double angle, Color color, IconData icon) => Transform.rotate(
       angle: angle,
       child: Container(
@@ -639,7 +637,7 @@ class _EmptyState extends StatelessWidget {
               fontSize: 22,
               fontWeight: FontWeight.w800,
               letterSpacing: -0.5,
-              color: DashColors.text(isDark),
+              color: DashColors.text(context),
             ),
           ),
           const SizedBox(height: 8),
@@ -649,7 +647,7 @@ class _EmptyState extends StatelessWidget {
             style: TextStyle(
               fontSize: 14.5,
               height: 1.4,
-              color: DashColors.muted(isDark),
+              color: DashColors.muted(context),
             ),
           ),
         ],

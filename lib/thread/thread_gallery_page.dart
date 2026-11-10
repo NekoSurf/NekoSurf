@@ -30,7 +30,6 @@ class _ThreadGalleryPageState extends State<ThreadGalleryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = context.isDark;
     final List<Post> mediaPosts = widget.mediaPosts;
     final int videos = mediaPosts.where((post) => post.isVideo).length;
     final int images = mediaPosts.length - videos;
@@ -67,7 +66,7 @@ class _ThreadGalleryPageState extends State<ThreadGalleryPage> {
             child: Center(
               child: Text(
                 'No images or videos in this thread.',
-                style: TextStyle(color: DashColors.muted(isDark)),
+                style: TextStyle(color: DashColors.muted(context)),
               ),
             ),
           )
@@ -91,7 +90,7 @@ class _ThreadGalleryPageState extends State<ThreadGalleryPage> {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        ColoredBox(color: DashColors.border(isDark)),
+                        ColoredBox(color: DashColors.border(context)),
                         SpoilerCover(
                           upload: post.spoilerUpload,
                           canReveal: false,

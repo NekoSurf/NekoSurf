@@ -130,7 +130,7 @@ class _ThreadPostCommentState extends State<ThreadPostComment> {
                   child: _QuoteChip(
                     label: tag.label,
                     color: _isQuieter(tag.post)
-                        ? DashColors.muted(isDark)
+                        ? DashColors.muted(context)
                         : _quoteColor(isDark),
                     showArrow: !_isQuieter(tag.post),
                   ),
@@ -301,7 +301,7 @@ class _ThreadPostCommentState extends State<ThreadPostComment> {
               : plainText(linkText),
           style: TextStyle(
             color: isHere && _isQuieter(quoted)
-                ? DashColors.muted(isDark)
+                ? DashColors.muted(context)
                 : _quoteColor(isDark),
             fontWeight: FontWeight.w500,
           ),
@@ -396,7 +396,7 @@ class _ThreadPostCommentState extends State<ThreadPostComment> {
       isDark ? context.accent : context.themeColor.ink;
 
   TextStyle _bodyStyle(bool isDark) => TextStyle(
-    color: DashColors.text(isDark),
+    color: DashColors.text(context),
     fontSize: 14.5,
     height: 1.4,
     letterSpacing: -0.15,
@@ -439,20 +439,19 @@ class _CodeBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = context.isDark;
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(vertical: 4),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: DashColors.muted(isDark).withValues(alpha: 0.12),
+        color: DashColors.muted(context).withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(8),
       ),
       child: SelectableText(
         code,
         onTap: onTap,
         style: TextStyle(
-          color: DashColors.text(isDark),
+          color: DashColors.text(context),
           fontFamily: Platform.isIOS ? 'Menlo' : 'monospace',
           fontSize: 12.5,
           height: 1.35,

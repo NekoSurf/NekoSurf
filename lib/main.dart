@@ -178,6 +178,8 @@ class _AppWithThemeState extends State<AppWithTheme>
         primaryColor: brightness == Brightness.dark
             ? themeColor.accent
             : themeColor.ink,
+        scaffoldBackgroundColor: themeColor.palette(brightness).page,
+        barBackgroundColor: themeColor.palette(brightness).card,
       ),
       localizationsDelegates: const [
         DefaultCupertinoLocalizations.delegate,

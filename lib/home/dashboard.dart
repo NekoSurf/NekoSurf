@@ -89,7 +89,7 @@ class _DashboardState extends State<Dashboard> {
                 Divider(
                   height: 1,
                   indent: 68,
-                  color: DashColors.border(isDark),
+                  color: DashColors.border(context),
                 ),
               rows[i],
             ],
@@ -105,7 +105,7 @@ class _DashboardState extends State<Dashboard> {
       child: CupertinoSearchTextField(
         controller: _search,
         placeholder: 'Search boards',
-        backgroundColor: DashColors.card(isDark),
+        backgroundColor: DashColors.card(context),
         onChanged: (v) => setState(() => _query = v.trim()),
       ),
     );
@@ -217,7 +217,7 @@ class _DashboardState extends State<Dashboard> {
           child: Center(
             child: Text(
               'No boards match',
-              style: TextStyle(color: DashColors.muted(isDark)),
+              style: TextStyle(color: DashColors.muted(context)),
             ),
           ),
         )

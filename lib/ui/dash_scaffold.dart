@@ -53,7 +53,6 @@ class _DashScaffoldState extends State<DashScaffold> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = context.isDark;
     final double top = MediaQuery.paddingOf(context).top;
     final double bottom = MediaQuery.paddingOf(context).bottom;
     final double barSpace = !widget.reserveTabBarSpace
@@ -61,7 +60,7 @@ class _DashScaffoldState extends State<DashScaffold> {
         : kDashTabBarHeight + (bottom > 0 ? bottom : 12) + 12;
 
     return Material(
-      color: DashColors.page(isDark),
+      color: DashColors.page(context),
       child: Stack(
         children: [
           _refreshable(
@@ -122,11 +121,10 @@ class DashBarScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = context.isDark;
     final media = MediaQuery.of(context);
 
     return Material(
-      color: DashColors.page(isDark),
+      color: DashColors.page(context),
       child: Stack(
         children: [
           // Children keep using paddingOf(context).top to clear the header.

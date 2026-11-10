@@ -108,9 +108,9 @@ class _BookmarkCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool isDark = context.isDark;
-    final Color cardColor = DashColors.card(isDark);
-    final Color primaryText = DashColors.text(isDark);
-    final Color secondaryText = DashColors.muted(isDark);
+    final Color cardColor = DashColors.card(context);
+    final Color primaryText = DashColors.text(context);
+    final Color secondaryText = DashColors.muted(context);
 
     final String headline = bookmark.toPost().title;
     final String excerpt = bookmark.sub != null && bookmark.com != null
@@ -125,7 +125,7 @@ class _BookmarkCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: DashColors.border(isDark)),
+        border: Border.all(color: DashColors.border(context)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,

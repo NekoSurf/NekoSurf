@@ -27,7 +27,7 @@ class GridPost extends StatelessWidget {
   Widget build(BuildContext context) {
     final bookmarks = Provider.of<BookmarksProvider>(context);
     final bool isDark = context.isDark;
-    final Color cardColor = DashColors.card(isDark);
+    final Color cardColor = DashColors.card(context);
     final Color boardTint = boardColor(post.board);
     final String headline = post.title;
     final String excerpt = post.commentText;
@@ -42,7 +42,7 @@ class GridPost extends StatelessWidget {
         decoration: BoxDecoration(
           color: cardColor,
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: DashColors.border(isDark)),
+          border: Border.all(color: DashColors.border(context)),
           boxShadow: DashColors.cardShadow(isDark),
         ),
         child: ClipRRect(

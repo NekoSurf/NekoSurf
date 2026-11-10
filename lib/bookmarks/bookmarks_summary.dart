@@ -65,7 +65,7 @@ class BookmarksSummary extends StatelessWidget {
                     height: 1,
                     fontWeight: FontWeight.w900,
                     letterSpacing: -1.5,
-                    color: DashColors.text(isDark),
+                    color: DashColors.text(context),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -74,7 +74,7 @@ class BookmarksSummary extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: DashColors.text(isDark).withValues(alpha: 0.7),
+                    color: DashColors.text(context).withValues(alpha: 0.7),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -82,7 +82,7 @@ class BookmarksSummary extends StatelessWidget {
                   '$_boards · ${newestFirst ? 'newest' : 'oldest'} first',
                   style: TextStyle(
                     fontSize: 12.5,
-                    color: DashColors.text(isDark).withValues(alpha: 0.65),
+                    color: DashColors.text(context).withValues(alpha: 0.65),
                   ),
                 ),
               ],

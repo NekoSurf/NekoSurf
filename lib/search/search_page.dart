@@ -200,7 +200,7 @@ class _SearchPageState extends State<SearchPage> {
               placeholder: _scope == _SearchScope.favorites
                   ? 'Search threads'
                   : 'Search all posts',
-              backgroundColor: DashColors.card(isDark),
+              backgroundColor: DashColors.card(context),
               onChanged: (_) => setState(() {}),
               onSubmitted: (_) {
                 if (_scope == _SearchScope.everywhere) {
@@ -267,7 +267,7 @@ class _SearchPageState extends State<SearchPage> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(20),
                 child: ColoredBox(
-                  color: DashColors.card(isDark),
+                  color: DashColors.card(context),
                   child: Column(
                     children: [
                       Visibility(
@@ -282,7 +282,7 @@ class _SearchPageState extends State<SearchPage> {
                                   style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w700,
-                                    color: DashColors.text(isDark),
+                                    color: DashColors.text(context),
                                   ),
                                 ),
                               ),
@@ -386,7 +386,7 @@ class _SearchPageState extends State<SearchPage> {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: DashColors.muted(isDark),
+              color: DashColors.muted(context),
             ),
           ),
         ),
@@ -425,7 +425,7 @@ class _SearchPageState extends State<SearchPage> {
         child: Text(
           text,
           textAlign: TextAlign.center,
-          style: TextStyle(color: DashColors.muted(isDark)),
+          style: TextStyle(color: DashColors.muted(context)),
         ),
       ),
     );
@@ -457,7 +457,6 @@ class _SearchResultTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = context.isDark;
     final String board = post.board;
     final String excerpt = post.commentText;
     final String? subject = post.subject;
@@ -489,7 +488,7 @@ class _SearchResultTile extends StatelessWidget {
                           ].join(' · '),
                           style: TextStyle(
                             fontSize: 11,
-                            color: DashColors.muted(isDark),
+                            color: DashColors.muted(context),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -504,7 +503,7 @@ class _SearchResultTile extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
-                        color: DashColors.text(isDark),
+                        color: DashColors.text(context),
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -517,7 +516,7 @@ class _SearchResultTile extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 13,
                         height: 1.35,
-                        color: DashColors.muted(isDark),
+                        color: DashColors.muted(context),
                       ),
                       maxLines: 4,
                       overflow: TextOverflow.ellipsis,

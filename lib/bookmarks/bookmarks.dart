@@ -90,8 +90,6 @@ class _BookmarksState extends State<Bookmarks> {
   }
 
   Widget _list(List<Bookmark> items) {
-    final bool isDark = context.isDark;
-
     if (items.isEmpty) {
       return SliverToBoxAdapter(
         child: Padding(
@@ -109,14 +107,14 @@ class _BookmarksState extends State<Bookmarks> {
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
-                  color: DashColors.text(isDark),
+                  color: DashColors.text(context),
                 ),
               ),
               const SizedBox(height: 6),
               Text(
                 'Tap the bookmark icon on a thread to keep it here.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: DashColors.muted(isDark)),
+                style: TextStyle(color: DashColors.muted(context)),
               ),
             ],
           ),

@@ -158,7 +158,7 @@ class _ArchivePageState extends State<ArchivePage> {
             'No loaded thread matches. Scroll the archive to load more '
             'previews, then search again.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: DashColors.muted(isDark)),
+            style: TextStyle(color: DashColors.muted(context)),
           ),
         ),
       );
@@ -223,9 +223,9 @@ class _ArchiveRowState extends State<_ArchiveRow> {
   Widget _buildGridPlaceholder(bool isDark, bool failed) {
     return Container(
       decoration: BoxDecoration(
-        color: DashColors.card(isDark),
+        color: DashColors.card(context),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: DashColors.border(isDark)),
+        border: Border.all(color: DashColors.border(context)),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -233,14 +233,14 @@ class _ArchiveRowState extends State<_ArchiveRow> {
         children: [
           Expanded(
             child: ColoredBox(
-              color: DashColors.border(isDark),
+              color: DashColors.border(context),
               child: Center(
                 child: Icon(
                   failed
                       ? CupertinoIcons.exclamationmark_circle
                       : CupertinoIcons.archivebox,
                   size: 28,
-                  color: DashColors.muted(isDark),
+                  color: DashColors.muted(context),
                 ),
               ),
             ),
@@ -254,7 +254,7 @@ class _ArchiveRowState extends State<_ArchiveRow> {
                   'No.${widget.no}',
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
-                    color: DashColors.text(isDark),
+                    color: DashColors.text(context),
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -264,7 +264,7 @@ class _ArchiveRowState extends State<_ArchiveRow> {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 12,
-                    color: DashColors.muted(isDark),
+                    color: DashColors.muted(context),
                   ),
                 ),
               ],
@@ -283,9 +283,9 @@ class _ArchiveRowState extends State<_ArchiveRow> {
       // viewport don't push what you're reading down the screen.
       height: 190,
       decoration: BoxDecoration(
-        color: DashColors.card(isDark),
+        color: DashColors.card(context),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: DashColors.border(isDark)),
+        border: Border.all(color: DashColors.border(context)),
       ),
       child: Row(
         children: [
@@ -293,14 +293,14 @@ class _ArchiveRowState extends State<_ArchiveRow> {
             width: 100,
             height: 100,
             decoration: BoxDecoration(
-              color: DashColors.border(isDark),
+              color: DashColors.border(context),
               borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(
               failed
                   ? CupertinoIcons.exclamationmark_circle
                   : CupertinoIcons.archivebox,
-              color: DashColors.muted(isDark),
+              color: DashColors.muted(context),
             ),
           ),
           const SizedBox(width: 14),
@@ -313,7 +313,7 @@ class _ArchiveRowState extends State<_ArchiveRow> {
                   'No.${widget.no}',
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
-                    color: DashColors.text(isDark),
+                    color: DashColors.text(context),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -321,7 +321,7 @@ class _ArchiveRowState extends State<_ArchiveRow> {
                   _status(failed),
                   style: TextStyle(
                     fontSize: 13,
-                    color: DashColors.muted(isDark),
+                    color: DashColors.muted(context),
                   ),
                 ),
               ],

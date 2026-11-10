@@ -147,7 +147,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
 
   /// The line in place of a hidden post, saying why; tapping shows the post.
   Widget _buildHidden(String reason, bool isDark) {
-    final Color muted = DashColors.muted(isDark);
+    final Color muted = DashColors.muted(context);
     final TextStyle small = TextStyle(
       fontSize: 12,
       fontWeight: FontWeight.w500,
@@ -486,7 +486,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     final bool isDark = context.isDark;
     final Post post = widget.post;
     final int? place = widget.thread.places[post.no];
-    final Color muted = DashColors.muted(isDark);
+    final Color muted = DashColors.muted(context);
     final int? time = post.time;
     final String? country = post.country;
     // What's interactive inside, like media or links, takes its own taps.
@@ -533,7 +533,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                             letterSpacing: -0.1,
-                            color: DashColors.text(isDark),
+                            color: DashColors.text(context),
                           ),
                         ),
                         if (post.trip != null) TextSpan(text: ' ${post.trip}'),
@@ -664,7 +664,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  color: DashColors.text(isDark),
+                  color: DashColors.text(context),
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,

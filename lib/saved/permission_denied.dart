@@ -10,8 +10,6 @@ class PermissionDenied extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = context.isDark;
-
     return Material(
       color: Colors.transparent,
       child: Padding(
@@ -41,7 +39,7 @@ class PermissionDenied extends StatelessWidget {
                   fontSize: 21,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.4,
-                  color: DashColors.text(isDark),
+                  color: DashColors.text(context),
                 ),
               ),
               const SizedBox(height: 8),
@@ -51,7 +49,7 @@ class PermissionDenied extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14.5,
                   height: 1.4,
-                  color: DashColors.muted(isDark),
+                  color: DashColors.muted(context),
                 ),
               ),
               const SizedBox(height: 20),
