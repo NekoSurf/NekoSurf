@@ -239,7 +239,8 @@ class _CloudSyncSettingsState extends State<CloudSyncSettings> {
       ),
     );
     if ((turnOn ?? false) && mounted) {
-      await _while(() => _turnOn(context));
+      // Not _while: joining shows it, and the Sync log stays open to it.
+      await _turnOn(context);
     }
   }
 
@@ -323,16 +324,19 @@ class _CloudSyncSettingsState extends State<CloudSyncSettings> {
     });
   }
 
-  Future<void> _syncNow() async {
-    await _while(() async {
-      try {
-        await _sync.syncNow();
-      } on SyncFailed catch (e) {
-        if (mounted) {
-          showToast(context, "Couldn't sync. $e");
-        }
-      }
-    });
+  /// Starts sending and fetching; the row shows how it goes. Not waited
+  /// on: saved files take minutes to go up, and the menu stays usable.
+  void _syncNow() {
+    unawaited(
+      _sync.syncNow().then<void>(
+        (_) {},
+        onError: (Object e) {
+          if (e is SyncFailed && mounted) {
+            showToast(context, "Couldn't sync. $e");
+          }
+        },
+      ),
+    );
   }
 
   void _openLog() {
@@ -428,24 +432,28 @@ class _CloudSyncSettingsState extends State<CloudSyncSettings> {
         'Your $_whatSyncs, the same on all your devices with iCloud sync '
             'on.',
     };
+    // Always opens, for the Sync log; what can't be done while it's being
+    // turned on is left out until then.
     return DashMenuAnchor(
       menuChildren: [
-        DashMenuEntry(
-          title: 'Sync now',
-          icon: CupertinoIcons.arrow_2_circlepath,
-          onPressed: _syncNow,
-        ),
+        if (!_sync.joining)
+          DashMenuEntry(
+            title: 'Sync now',
+            icon: CupertinoIcons.arrow_2_circlepath,
+            onPressed: _syncNow,
+          ),
         DashMenuEntry(
           title: 'Sync log',
           icon: CupertinoIcons.doc_text,
           onPressed: _openLog,
         ),
-        DashMenuEntry(
-          title: 'Turn off iCloud sync',
-          icon: CupertinoIcons.xmark_circle,
-          isDestructive: true,
-          onPressed: _confirmTurnOff,
-        ),
+        if (!_sync.joining)
+          DashMenuEntry(
+            title: 'Turn off iCloud sync',
+            icon: CupertinoIcons.xmark_circle,
+            isDestructive: true,
+            onPressed: _confirmTurnOff,
+          ),
       ],
       builder: (context, open) => SettingsRow(
         icon: icon,
@@ -460,7 +468,7 @@ class _CloudSyncSettingsState extends State<CloudSyncSettings> {
             ? '${status.pending} waiting'
             : (last == null ? 'On' : _ago(last)),
         trailing: spinner,
-        onTap: _working || _sync.joining ? null : open,
+        onTap: _working ? null : open,
       ),
     );
   }

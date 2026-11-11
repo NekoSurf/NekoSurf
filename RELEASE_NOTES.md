@@ -7,4 +7,5 @@
 
 - With iCloud sync on, bookmarks, settings and history no longer wait to reach your other devices until the videos you just saved are in iCloud
 - iCloud sync in Settings says how many saved files and changes are still going up to iCloud, instead of showing them as synced, and tells you when iCloud didn't take a change
+- Sync now no longer locks the iCloud sync menu in Settings until everything has gone up
 - Turning iCloud sync off and on again while it was sending no longer leaves it spinning in Settings

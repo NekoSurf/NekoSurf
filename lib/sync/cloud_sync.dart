@@ -625,11 +625,15 @@ class CloudSync extends ChangeNotifier {
   /// stand now: to see why something hasn't reached another device.
   Future<String> log() async => await _invoke('log') as String? ?? '';
 
-  /// Sends what's waiting and fetches what's new; throws [SyncFailed].
+  /// Sends what's waiting and fetches what's new, at once, as fetching
+  /// needn't wait for saved files to go up; done when both are, and throws
+  /// [SyncFailed] as soon as either fails.
   Future<void> syncNow() async {
     await _flush();
-    await _invoke('send');
-    await _invoke('fetch');
+    await Future.wait(<Future<Object?>>[
+      _invoke('send'),
+      _invoke('fetch'),
+    ], eagerError: true);
   }
 
   /// The app is left: sends what's waiting while it still can.

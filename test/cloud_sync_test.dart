@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -31,6 +32,7 @@ void main() {
   late List<String> calls;
   String? fetchFails;
   bool signInOnStart = false;
+  Completer<void>? sending;
   int seq = 0;
 
   setUp(() {
@@ -48,6 +50,7 @@ void main() {
     calls = [];
     fetchFails = null;
     signInOnStart = false;
+    sending = null;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (MethodCall call) async {
           calls.add(call.method);
@@ -84,6 +87,10 @@ void main() {
                   'deleted': false,
                 });
               }
+              return null;
+            case 'send':
+              // Saved files can take minutes to go up.
+              await sending?.future;
               return null;
             case 'stop':
               inbox.clear();
@@ -427,6 +434,23 @@ void main() {
       expect(a.sync.takeAlert(), isNull);
     },
   );
+
+  test("Sync now fetches without waiting for what's going up", () async {
+    final a = await app(await prefsWith({}));
+    await a.sync.turnOn();
+    calls.clear();
+    sending = Completer<void>();
+
+    bool done = false;
+    final Future<void> syncing = a.sync.syncNow().then((_) => done = true);
+    await pumpEventQueue();
+    expect(calls, containsAll(<String>['send', 'fetch']));
+    expect(done, isFalse);
+
+    sending!.complete();
+    await syncing;
+    expect(done, isTrue);
+  });
 
   test('turning off can delete what is in iCloud', () async {
     final a = await app(await prefsWith({}));
