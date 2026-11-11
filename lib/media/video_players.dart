@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
+import 'package:media_kit/generated/libmpv/bindings.dart' show mpv_event_id;
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
@@ -230,8 +231,8 @@ class VideoLease {
   final _PooledPlayer _pooled;
   final VoidCallback _onEvicted;
 
-  // The first frame is when mpv configures its video output for the video
-  // opened here (see [_PooledPlayer.watchOutput]); otherwise media_kit's.
+  // The first frame is when mpv has drawn the video opened here (see
+  // [_PooledPlayer.watchOutput]); otherwise media_kit's.
   final bool _byOutput;
   final Completer<void> _output = Completer<void>();
   double _priority = 0;
@@ -259,6 +260,7 @@ class VideoLease {
         return;
       }
       opened = true;
+      await _pooled.listening;
       await setUp(player);
       if (_byOutput) {
         _pooled.watchOutput(_output);
@@ -321,28 +323,42 @@ class VideoLease {
 class _PooledPlayer {
   _PooledPlayer(this.player, this.controller) {
     _videoParams = player.stream.videoParams.listen(_onVideoParams);
+    final PlatformPlayer platform = player.platform!;
+    if (platform is NativePlayer) {
+      listening = platform
+          .observeEvent(mpv_event_id.MPV_EVENT_PLAYBACK_RESTART, (_) async {
+            _restarted = true;
+            _checkOutput();
+          })
+          .catchError((_) {});
+    }
   }
 
   final Player player;
   final VideoController controller;
 
   late final StreamSubscription<VideoParams> _videoParams;
+
+  /// Done once mpv's playback restarts reach this (see [watchOutput]).
+  Future<void> listening = Future<void>.value();
+
   Completer<void>? _output;
+  // Since [watchOutput]: mpv decoded the video's first frame, and restarted
+  // playback with it.
+  bool _decoded = false;
+  bool _restarted = false;
   Future<void> _last = Future<void>.value();
 
-  /// mpv sets video-params once the opened video's first frame is decoded,
-  /// as it sets up its video output for it, right before drawing it; the
-  /// stop before (and media_kit's open) only clear them.
-  ///
-  /// Not mpv's vo-configured, which flips at the same moment: media_kit
-  /// reads a property watched with observeProperty back from mpv, on the UI
-  /// thread, and mpv may only answer once a frame is drawn. On iOS
-  /// media_kit draws after a step on the UI thread, which was waiting for
-  /// mpv: the app froze until mpv gave up waiting (200 ms), often as a
-  /// video showed its first frame. video-params come with mpv's event.
   void _onVideoParams(VideoParams params) {
+    if ((params.dw ?? 0) > 0) {
+      _decoded = true;
+      _checkOutput();
+    }
+  }
+
+  void _checkOutput() {
     final Completer<void>? output = _output;
-    if ((params.dw ?? 0) > 0 && output != null && !output.isCompleted) {
+    if (output != null && _decoded && _restarted && !output.isCompleted) {
       output.complete();
     }
   }
@@ -354,20 +370,34 @@ class _PooledPlayer {
     return done;
   }
 
-  /// Completes [output] when mpv next sets up its video output: for the
-  /// first decoded frame of the video opened next, right before drawing
-  /// it (see [_onVideoParams]). media_kit's iOS output reports a first
-  /// frame as soon as it has a size, which it has from the start when
-  /// sized up front: before mpv has even opened the video, which then
-  /// showed as a black box instead of its thumbnail while loading.
+  /// Completes [output] once the video opened next shows its first frame:
+  /// mpv has decoded it (it has video-params) and restarted playback with
+  /// it (playback-restart), which it does only once that frame is drawn,
+  /// paused or not. Both come with mpv's events, in either order.
+  ///
+  /// Not video-params alone: mpv sets them as the first frame leaves the
+  /// decoder, which can be well before it's drawn (a resumed video is
+  /// decoded on to where it was, and mpv's output is set up and drawn
+  /// through the UI thread, busy while scrolling). Shown by then, the
+  /// player was black, or still showed the video it played before.
+  ///
+  /// Not media_kit's first frame either: its iOS output reports one as soon
+  /// as it has a size, which it has from the start when sized up front,
+  /// before mpv has even opened the video.
+  ///
+  /// Nor by reading mpv's state from Dart (as observeProperty does), which
+  /// waits for mpv on the UI thread while mpv may wait on it to draw: on
+  /// iPhone, that froze the app for 200 ms.
   void watchOutput(Completer<void> output) {
     _output = output;
+    _decoded = false;
+    _restarted = false;
   }
 
   /// Stops the video it played, once its holder's steps are done. What
-  /// mpv still has to say about that video arrives while the next one is
-  /// set up (its setup waits on mpv), before its first frame is watched
-  /// for.
+  /// mpv still has to say about that video arrives before the next one's
+  /// first frame is watched for: setting the next one up waits for mpv's
+  /// replies, which come after it.
   void recycle() {
     _output = null;
     unawaited(
