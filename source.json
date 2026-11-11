@@ -24,6 +24,15 @@
       ],
       "versions": [
         {
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.13.0%2B301/Runner.ipa",
+          "size": 34058205,
+          "version": "0.13.0",
+          "buildVersion": "301",
+          "date": "2026-11-11T18:44:29+01:00",
+          "localizedDescription": "Pick Light, Dark or Auto and one of 15 color themes or pure black OLED, hide posts or a poster's posts by ID, name, tripcode, country or text, tap an ID to see all its posts, send feedback or read the privacy policy from Settings, and sync your saved media, bookmarks, history and settings between iPhone and iPad with iCloud, or back them up to a file; scrolling a thread of videos on iPhone no longer freezes for a moment.",
+          "minOSVersion": "17.0"
+        },
+        {
           "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.12.1%2B300/Runner.ipa",
           "size": 33419927,
           "version": "0.12.1",
