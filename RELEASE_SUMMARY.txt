@@ -1,1 +1,0 @@
-With iCloud sync on, saved files go up much faster and bookmarks no longer wait for them; the Saved tab and Settings show what's still going up, and a sync log shows what sync did.
