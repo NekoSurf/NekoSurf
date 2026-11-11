@@ -9,6 +9,7 @@ import 'package:flutter_chan/saved/saved_attachments_model.dart';
 import 'package:flutter_chan/saved/saved_browsing.dart';
 import 'package:flutter_chan/saved/saved_folders.dart';
 import 'package:flutter_chan/saved/saved_media_viewer_page.dart';
+import 'package:flutter_chan/sync/cloud_sync.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/pills.dart';
 import 'package:provider/provider.dart';
@@ -252,6 +253,7 @@ class _SavedGridState extends State<SavedGrid> with WidgetsBindingObserver {
                 final String key = a.fileName;
                 return _Tile(
                   key: ValueKey(key),
+                  syncKey: a.id,
                   thumb: File(folders.thumbnailPath(a)),
                   title: _title(a),
                   ext: key.contains('.')
@@ -414,6 +416,7 @@ class _SummaryCard extends StatelessWidget {
 class _Tile extends StatelessWidget {
   const _Tile({
     super.key,
+    required this.syncKey,
     required this.thumb,
     required this.title,
     required this.ext,
@@ -425,6 +428,8 @@ class _Tile extends StatelessWidget {
     required this.onLongPress,
   });
 
+  /// Its key in iCloud sync, to show whether it has gone up yet.
+  final String syncKey;
   final File thumb;
   final String title;
   final String ext;
@@ -476,6 +481,7 @@ class _Tile extends StatelessWidget {
               ),
             ),
           ),
+        Positioned(left: 8, top: 8, child: _UploadBadge(syncKey: syncKey)),
         if (selecting)
           Positioned(
             right: 8,
@@ -589,6 +595,79 @@ class _Tile extends StatelessWidget {
         duration: const Duration(milliseconds: 140),
         curve: Curves.easeOutCubic,
         child: _card(context, context.isDark),
+      ),
+    );
+  }
+}
+
+/// With iCloud sync on, on a saved file that isn't in iCloud yet: a cloud
+/// while it waits its turn, then a ring filling as it goes up.
+class _UploadBadge extends StatelessWidget {
+  const _UploadBadge({required this.syncKey});
+
+  final String syncKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final CloudSync sync = CloudSync.instance;
+    return ListenableBuilder(
+      listenable: sync,
+      builder: (context, _) {
+        final FileUpload? upload = sync.fileUpload(syncKey);
+        final double? progress = upload?.progress;
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: upload == null
+              ? const SizedBox.shrink()
+              : Semantics(
+                  label: progress == null
+                      ? 'Waiting to go up to iCloud'
+                      : 'Going up to iCloud, ${(progress * 100).round()}%',
+                  child: Container(
+                    width: 26,
+                    height: 26,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: progress == null
+                          ? const Icon(
+                              CupertinoIcons.cloud_upload,
+                              color: Colors.white,
+                              size: 14,
+                            )
+                          : _UploadRing(value: progress),
+                    ),
+                  ),
+                ),
+        );
+      },
+    );
+  }
+}
+
+class _UploadRing extends StatelessWidget {
+  const _UploadRing({required this.value});
+
+  final double value;
+
+  @override
+  Widget build(BuildContext context) {
+    // Eases between updates, which come about twice a second.
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(end: value),
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOut,
+      builder: (context, value, _) => SizedBox.square(
+        dimension: 16,
+        child: CircularProgressIndicator(
+          value: value,
+          strokeWidth: 2.2,
+          strokeCap: StrokeCap.round,
+          color: Colors.white,
+          backgroundColor: Colors.white.withValues(alpha: 0.25),
+        ),
       ),
     );
   }

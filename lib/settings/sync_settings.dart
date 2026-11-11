@@ -82,6 +82,19 @@ Future<void> _turnOn(BuildContext context) async {
 
 String _things(int n) => n == 1 ? '1 thing' : '$n things';
 
+/// How far the saved file going up is, as " 42 % of 1.8 MB.".
+String _uploading(SyncStatus status) {
+  final double? progress = status.uploadProgress;
+  final int? bytes = status.uploadBytes;
+  if (progress == null || bytes == null) {
+    return '';
+  }
+  final String size = bytes >= 1024 * 1024
+      ? '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB'
+      : '${(bytes / 1024).ceil()} KB';
+  return ' ${(progress * 100).floor()} % of $size.';
+}
+
 /// What's waiting to go up, as "2 saved files and 1 change".
 String _waiting(SyncStatus status) {
   final int files = status.pendingMedia;
@@ -422,8 +435,7 @@ class _CloudSyncSettingsState extends State<CloudSyncSettings> {
         'Bringing in from iCloud… ${_things(_sync.broughtIn)}',
       // Until iCloud has taken it, it's not on the other devices.
       _ when status.pending > 0 && status.syncing =>
-        '${_waiting(status)} going up to iCloud…'
-            '${status.pendingMedia > 0 ? ' Saved files take a while.' : ''}',
+        '${_waiting(status)} going up to iCloud…${_uploading(status)}',
       _ when status.pending > 0 =>
         '${_waiting(status)} waiting to go up to iCloud, when there is a '
             'connection.',

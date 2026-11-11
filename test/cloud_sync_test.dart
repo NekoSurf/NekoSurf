@@ -429,7 +429,26 @@ void main() {
       await swiftSays({'pending': 3, 'problem': 'failed', 'error': 'Bad'});
       expect(a.sync.takeAlert(), isNull);
 
+      await swiftSays({
+        'pending': 1,
+        'pendingMedia': 1,
+        'syncing': true,
+        'uploadProgress': 0.42,
+        'uploadBytes': 1900000,
+        'uploadKey': '111',
+        'pendingFileKeys': ['111', '222'],
+      });
+      expect(a.sync.status.uploadProgress, 0.42);
+      expect(a.sync.status.uploadBytes, 1900000);
+      // On the Saved tab: going up, waiting its turn, in iCloud.
+      expect(a.sync.fileUpload('111')?.progress, 0.42);
+      expect(a.sync.fileUpload('222'), isNotNull);
+      expect(a.sync.fileUpload('222')?.progress, isNull);
+      expect(a.sync.fileUpload('333'), isNull);
+
       await swiftSays({'pending': 0});
+      expect(a.sync.status.uploadProgress, isNull);
+      expect(a.sync.fileUpload('111'), isNull);
       expect(a.sync.needsAttention, isFalse);
       expect(a.sync.takeAlert(), isNull);
     },

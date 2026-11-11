@@ -57,6 +57,10 @@ class SyncStatus {
     this.error,
     this.pending = 0,
     this.pendingMedia = 0,
+    this.uploadProgress,
+    this.uploadBytes,
+    this.uploadKey,
+    this.pendingFileKeys = const <String>{},
   });
 
   factory SyncStatus.fromChannel(Map<Object?, Object?> map) {
@@ -70,6 +74,13 @@ class SyncStatus {
       error: map['error'] as String?,
       pending: (map['pending'] as num?)?.toInt() ?? 0,
       pendingMedia: (map['pendingMedia'] as num?)?.toInt() ?? 0,
+      uploadProgress: (map['uploadProgress'] as num?)?.toDouble(),
+      uploadBytes: (map['uploadBytes'] as num?)?.toInt(),
+      uploadKey: map['uploadKey'] as String?,
+      pendingFileKeys: <String>{
+        for (final Object? key in map['pendingFileKeys'] as List? ?? const [])
+          if (key is String) key,
+      },
     );
   }
 
@@ -87,6 +98,24 @@ class SyncStatus {
   /// them are saved files, which take a while to go up.
   final int pending;
   final int pendingMedia;
+
+  /// How far the saved file going up now is (0 to 1), and its size; null
+  /// when none is.
+  final double? uploadProgress;
+  final int? uploadBytes;
+
+  /// The saved file going up now, and those that aren't in iCloud yet, by
+  /// their keys (a saved attachment's id).
+  final String? uploadKey;
+  final Set<String> pendingFileKeys;
+}
+
+/// A saved file iCloud doesn't have yet: waiting its turn to go up, or
+/// going up, [progress] (0 to 1) of the way.
+class FileUpload {
+  const FileUpload([this.progress]);
+
+  final double? progress;
 }
 
 /// Keeps saved media, bookmarks, history, favorite boards, filters and
@@ -155,6 +184,18 @@ class CloudSync extends ChangeNotifier {
   int _lastBroughtIn = 0;
 
   SyncStatus get status => _status;
+
+  /// How the saved file of [key] (its attachment id) stands with iCloud:
+  /// null if it's there, or sync is off.
+  FileUpload? fileUpload(String key) {
+    if (!isOn) {
+      return null;
+    }
+    if (_status.uploadKey == key) {
+      return FileUpload(_status.uploadProgress ?? 0);
+    }
+    return _status.pendingFileKeys.contains(key) ? const FileUpload() : null;
+  }
 
   /// Why iCloud sync turned itself off, if it did since launch.
   String? get notice => _notice;

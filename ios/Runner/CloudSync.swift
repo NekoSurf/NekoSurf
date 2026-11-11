@@ -34,6 +34,12 @@ enum CloudSyncChannel {
   }
 }
 
+/// What CloudKit said of a saved file going up, kept from its per-record
+/// callback for the one after all of them, which it calls after.
+private final class SaveResult: @unchecked Sendable {
+  var result: Result<CKRecord, Error>?
+}
+
 /// A change made on this device, waiting to be sent.
 private struct Outgoing: Codable {
   var kind: String
@@ -89,6 +95,8 @@ private final class BackgroundTask {
       self?.end()
     }
   }
+
+  var isRunning: Bool { id != .invalid }
 
   func end() {
     guard id != .invalid else { return }
@@ -154,6 +162,31 @@ final actor CloudSync: CKSyncEngineDelegate {
 
   private lazy var container = CKContainer(identifier: Self.containerID)
 
+  /// An operation group for a send or fetch the app starts itself, to run
+  /// at once. CloudKit's default lets iOS hold it back and throttle it as it
+  /// likes (and pause it in Low Power Mode): a 3 MB video took a minute.
+  private static func soon(_ name: String) -> CKOperationGroup {
+    let group = CKOperationGroup()
+    group.name = name
+    group.defaultConfiguration.qualityOfService = .userInitiated
+    return group
+  }
+
+  /// Sends what's waiting, at once (see soon). Records that weren't saved
+  /// are handled one by one in sent(), so CloudKit's "partial failure" for
+  /// them isn't the send failing.
+  private static func send(_ engine: CKSyncEngine, _ name: String) async throws {
+    do {
+      try await engine.sendChanges(CKSyncEngine.SendChangesOptions(operationGroup: soon(name)))
+    } catch let error as CKError where error.code == .partialFailure {
+      return
+    }
+  }
+
+  private static func fetchSoon(_ name: String) -> CKSyncEngine.FetchChangesOptions {
+    CKSyncEngine.FetchChangesOptions(operationGroup: soon(name))
+  }
+
   /// Errors CKSyncEngine sends the change again after, by itself.
   static func retriedByEngine(_ code: CKError.Code) -> Bool {
     switch code {
@@ -214,14 +247,15 @@ final actor CloudSync: CKSyncEngineDelegate {
       delete(arguments as? [String] ?? [])
       return nil
     case "fetch":
-      try await engineOrThrow().fetchChanges()
+      try await engineOrThrow().fetchChanges(Self.fetchSoon("Fetch"))
       return nil
     case "send":
       // What failed before goes again too ("Sync now").
       let engine = try engineOrThrow()
-      requeueOutbox(engine)
+      uploadAfter = nil
+      requeueOutbox(engine, includingRefused: true)
       log("Sync now: \(waitingSummary(engine))")
-      try await engine.sendChanges()
+      try await Self.send(engine, "Sync now")
       return nil
     case "flush":
       await flush()
@@ -284,19 +318,35 @@ final actor CloudSync: CKSyncEngineDelegate {
   }
 
   /// Adds what's in the outbox to what [engine] is to send, where it's not,
-  /// and isn't on its way already.
-  private func requeueOutbox(_ engine: CKSyncEngine) {
+  /// and isn't on its way already; saved files go to uploadNext instead.
+  private func requeueOutbox(_ engine: CKSyncEngine, includingRefused: Bool = false) {
+    // An engine state from before files went up apart may still have them.
+    let files = engine.state.pendingRecordZoneChanges.filter { change in
+      if case .saveRecord(let recordID) = change { return isFile(recordID.recordName) }
+      return false
+    }
+    engine.state.remove(pendingRecordZoneChanges: files)
     let pending = Set(engine.state.pendingRecordZoneChanges)
-    let missing = outbox.keys.filter { inFlight[$0] == nil }
+    let missing = outbox.keys.filter { inFlight[$0] == nil && !isFile($0) }
       .map { CKSyncEngine.PendingRecordZoneChange.saveRecord(Self.recordID($0)) }
       .filter { !pending.contains($0) }
     engine.state.add(pendingRecordZoneChanges: missing)
+    uploadNext(includingRefused: includingRefused)
+  }
+
+  /// Whether [id] is a change with a saved file, which goes up apart.
+  private func isFile(_ id: String) -> Bool {
+    outbox[id]?.media != nil
   }
 
   /// Forgets everything about syncing on this device: the engine, what was
   /// waiting to go, and (unless [keepingInbox]) what came in.
   private func reset(keepingInbox: Bool) {
     log("Reset: \(outbox.count) waiting to go dropped")
+    upload?.operation.cancel()
+    upload = nil
+    uploadAfter = nil
+    uploadTimer?.cancel()
     engine = nil
     // The old engine's events are ignored from now, its "did" ones too.
     busy = 0
@@ -352,16 +402,22 @@ final actor CloudSync: CKSyncEngineDelegate {
           ?? Date().timeIntervalSince1970 * 1000,
         media: item["media"] as? String, thumbnail: item["thumbnail"] as? String,
         version: nextVersion)
-      changes.append(.saveRecord(Self.recordID(id)))
+      if !isFile(id) { changes.append(.saveRecord(Self.recordID(id))) }
     }
     persistOutbox()
     engine.state.add(pendingRecordZoneChanges: changes)
     log("Changed here: \(Self.kinds(items.compactMap { $0["id"] as? String }))")
     sendStatus()
+    if !changes.isEmpty { sendSoon() }
+    uploadNext()
   }
 
   private func delete(_ ids: [String]) {
     guard let engine = try? engineOrThrow() else { return }
+    if let upload, ids.contains(upload.id) {
+      // Finished anyway, it's deleted after (see finishUpload).
+      upload.operation.cancel()
+    }
     for id in ids { outbox[id] = nil }
     persistOutbox()
     let recordIDs = ids.map(Self.recordID)
@@ -369,18 +425,48 @@ final actor CloudSync: CKSyncEngineDelegate {
     engine.state.add(pendingRecordZoneChanges: recordIDs.map { .deleteRecord($0) })
     log("Removed here: \(Self.kinds(ids))")
     sendStatus()
+    sendSoon()
+  }
+
+  private var sendAsked = false
+
+  /// Sends what changed here at once, rather than when the engine's own
+  /// schedule gets to it; changes made in the meantime go with it, and
+  /// those made while it's on its way, after it.
+  private func sendSoon() {
+    guard let engine, !sendAsked else { return }
+    sendAsked = true
+    Task {
+      sendAsked = false
+      guard engine === self.engine else { return }
+      do {
+        try await Self.send(engine, "Changed here")
+      } catch {
+        log("Sending what changed here stopped: \(Self.describe(error))")
+      }
+    }
   }
 
   /// Sends what's waiting, with the time iOS gives an app that's just been
   /// left.
   private func flush() async {
-    guard let engine, !engine.state.pendingRecordZoneChanges.isEmpty else { return }
+    guard let engine else { return }
+    let changes = !engine.state.pendingRecordZoneChanges.isEmpty
+    guard changes || upload != nil else { return }
     let task = await MainActor.run { BackgroundTask(named: "iCloud sync") }
     log("App left: sending what's waiting; \(waitingSummary(engine))")
-    do {
-      try await engine.sendChanges()
-    } catch {
-      log("Sending on leaving stopped: \(Self.describe(error))")
+    if changes {
+      do {
+        try await Self.send(engine, "App left")
+      } catch {
+        log("Sending on leaving stopped: \(Self.describe(error))")
+      }
+    }
+    // Saved files go on while iOS lets the app run, about half a minute;
+    // what's cut off goes again next time.
+    let until = Date().addingTimeInterval(25)
+    while upload != nil, Date() < until, await MainActor.run(body: { task.isRunning }) {
+      try? await Task.sleep(for: .milliseconds(500))
     }
     await MainActor.run { task.end() }
   }
@@ -399,14 +485,21 @@ final actor CloudSync: CKSyncEngineDelegate {
 
   private func status() -> [String: Any] {
     var map: [String: Any] = [
-      "syncing": busy > 0,
+      "syncing": busy > 0 || upload != nil,
       // What changed here and iCloud hasn't confirmed yet: the outbox, as
       // the engine drops what failed and start() or "send" adds it back.
       "pending": outbox.count,
       "pendingMedia": outbox.values.filter { $0.media != nil }.count,
+      // Which saved files aren't in iCloud yet, for the Saved tab.
+      "pendingFileKeys": outbox.values.filter { $0.media != nil }.map(\.key),
     ]
     map["problem"] = problem
     map["error"] = lastError
+    if let upload {
+      map["uploadProgress"] = uploadProgress
+      map["uploadBytes"] = upload.bytes
+      map["uploadKey"] = outbox[upload.id]?.key
+    }
     let last = UserDefaults.standard.double(forKey: "cloudSync.lastSynced")
     if last > 0 { map["lastSynced"] = last }
     return map
@@ -461,8 +554,9 @@ final actor CloudSync: CKSyncEngineDelegate {
       }
     case .willFetchChanges, .willSendChanges:
       busy += 1
-      if case .willSendChanges = event, let engine {
-        log("Sending; \(waitingSummary(engine))")
+      if case .willSendChanges(let will) = event, let engine {
+        let why = will.context.reason == .manual ? "asked" : "on the engine's schedule"
+        log("Sending (\(why)); \(waitingSummary(engine))")
       }
       sendStatus()
     case .didFetchChanges, .didSendChanges:
@@ -479,53 +573,21 @@ final actor CloudSync: CKSyncEngineDelegate {
   func nextRecordZoneChangeBatch(
     _ context: CKSyncEngine.SendChangesContext, syncEngine: CKSyncEngine
   ) async -> CKSyncEngine.RecordZoneChangeBatch? {
-    let changes = syncEngine.state.pendingRecordZoneChanges.filter {
-      context.options.scope.contains($0)
+    // Saved files go up apart (see uploadNext): a batch's records are saved
+    // once all its files are up, so a bookmark waited behind a video.
+    let changes = syncEngine.state.pendingRecordZoneChanges.filter { change in
+      if case .saveRecord(let recordID) = change, isFile(recordID.recordName) { return false }
+      return context.options.scope.contains(change)
     }
-    // A batch's records are saved once all its files are up, so the small
-    // changes (a bookmark, a setting) go first, on their own; then saved
-    // files, a few at a time, so each is in iCloud as soon as it's up.
-    let small = changes.filter { mediaPath(of: $0) == nil }
-    let batch = small.isEmpty ? mediaBatch(changes) : small
+    let batch = changes
     if !batch.isEmpty {
-      log(
-        small.isEmpty
-          ? "Batch: \(batch.count) saved file(s), \(Self.megabytes(batch.compactMap(mediaPath(of:)))) (\(changes.count) waiting)"
-          : "Batch: up to 250 of \(small.count) change(s) without a file (\(changes.count) waiting)")
+      log("Batch: up to 250 of \(batch.count) change(s)")
     }
     // A batch takes up to 250 of them: each record is built as it's taken,
     // not all that are waiting, for every batch.
     return await CKSyncEngine.RecordZoneChangeBatch(pendingChanges: batch) { recordID in
       await self.batchRecord(for: recordID, engine: syncEngine)
     }
-  }
-
-  /// Bytes of saved files to send in one batch: at least one file, more
-  /// only while they come to this together.
-  private static let mediaBatchBytes: Int64 = 20 * 1024 * 1024
-
-  /// The saved file [change] sends, if it sends one.
-  private func mediaPath(of change: CKSyncEngine.PendingRecordZoneChange) -> String? {
-    guard case .saveRecord(let recordID) = change else { return nil }
-    return outbox[recordID.recordName]?.media
-  }
-
-  /// The first of [changes] (all with a saved file), up to mediaBatchBytes.
-  private func mediaBatch(
-    _ changes: [CKSyncEngine.PendingRecordZoneChange]
-  ) -> [CKSyncEngine.PendingRecordZoneChange] {
-    var batch: [CKSyncEngine.PendingRecordZoneChange] = []
-    var bytes: Int64 = 0
-    for change in changes {
-      let path = mediaPath(of: change) ?? ""
-      let size =
-        (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? NSNumber)?
-        .int64Value ?? 0
-      if !batch.isEmpty && bytes + size > Self.mediaBatchBytes { break }
-      batch.append(change)
-      bytes += size
-    }
-    return batch
   }
 
   /// The record [recordID] is to be sent as; nil, and no longer waiting to
@@ -563,14 +625,16 @@ final actor CloudSync: CKSyncEngineDelegate {
   }
 
   private func fetched(_ event: CKSyncEngine.Event.FetchedRecordZoneChanges, engine: CKSyncEngine) {
-    // What's changed here and not sent yet wins over what came in.
-    let pending = Set(
+    // What's changed here and not sent yet wins over what came in, saved
+    // files waiting to go up too.
+    var pending = Set(
       engine.state.pendingRecordZoneChanges.map { change -> String in
         switch change {
         case .saveRecord(let id), .deleteRecord(let id): return id.recordName
         @unknown default: return ""
         }
       })
+    pending.formUnion(outbox.keys.filter(isFile))
     var received: [Incoming] = []
     for modification in event.modifications {
       let record = modification.record
@@ -625,7 +689,7 @@ final actor CloudSync: CKSyncEngineDelegate {
       let recordID = failure.record.recordID
       let id = recordID.recordName
       inFlight[id] = nil
-      log("Not saved: \(Self.tag(id)): \(Self.describe(failure.error))")
+      let next: String
       switch failure.error.code {
       case .serverRecordChanged:
         // Changed elsewhere since: what changed here is newer.
@@ -633,29 +697,48 @@ final actor CloudSync: CKSyncEngineDelegate {
           serverRecords[id] = Self.encodeSystemFields(server)
         }
         retry.append(.saveRecord(recordID))
+        next = "sending again over it"
       case .zoneNotFound:
         zones.append(.saveZone(CKRecordZone(zoneID: recordID.zoneID)))
         serverRecords[id] = nil
         retry.append(.saveRecord(recordID))
+        next = "making the zone, sending again"
       case .unknownItem:
         serverRecords[id] = nil
         retry.append(.saveRecord(recordID))
+        next = "sending again as new"
       case .quotaExceeded:
         // Kept in the outbox, and tried again from start() or "send".
         full = true
+        next = "kept till there's room"
       case let code where Self.retriedByEngine(code):
-        break
+        next = "the engine sends it again"
       default:
         // Kept in the outbox too; said, not dropped.
         refused = failure.error
         refusedIDs.insert(id)
+        next = "refused; kept for Sync now"
       }
+      log("Not saved: \(Self.tag(id)): \(Self.describe(failure.error)); \(next)")
     }
     for (recordID, error) in event.failedRecordDeletes {
       log("Not deleted: \(Self.tag(recordID.recordName)): \(Self.describe(error))")
       serverRecords[recordID.recordName] = nil
       if !Self.retriedByEngine(error.code) { refused = error }
     }
+    settle(refused: refused, full: full, saved: !event.savedRecords.isEmpty)
+    for recordID in event.deletedRecordIDs {
+      serverRecords[recordID.recordName] = nil
+    }
+    persistOutbox()
+    persistRecords()
+    engine.state.add(pendingDatabaseChanges: zones)
+    engine.state.add(pendingRecordZoneChanges: retry)
+    sendStatus()
+  }
+
+  /// Brings problem and lastError up to what a send just found.
+  private func settle(refused: CKError?, full: Bool, saved: Bool) {
     if let refused {
       lastError = "\(refused.localizedDescription) (CloudKit error \(refused.code.rawValue))"
     }
@@ -668,17 +751,160 @@ final actor CloudSync: CKSyncEngineDelegate {
       problem = "failed"
     } else if full {
       problem = "quotaExceeded"
-    } else if problem == "failed" || (problem == "quotaExceeded" && !event.savedRecords.isEmpty) {
+    } else if problem == "failed" || (problem == "quotaExceeded" && saved) {
       problem = nil
     }
-    for recordID in event.deletedRecordIDs {
-      serverRecords[recordID.recordName] = nil
+  }
+
+  // MARK: Saved files
+
+  /// The saved file going up now. Saved files go up apart from the engine,
+  /// one at a time: it sends a batch at a time, so a bookmark waited behind
+  /// a video, and its uploads ran at a tenth of the connection's speed,
+  /// whatever priority it was asked for.
+  private var upload: (id: String, operation: CKModifyRecordsOperation, bytes: Int64)?
+  private var uploadProgress = 0.0
+  private var progressSent = Date.distantPast
+  /// When to try again after iCloud couldn't take one; Sync now doesn't
+  /// wait. distantFuture: not till Sync now or the next launch.
+  private var uploadAfter: Date?
+  private var uploadTimer: Task<Void, Never>?
+
+  /// Starts the next saved file going up, oldest change first, unless one
+  /// is going up or it's waiting to try again; refused ones only for Sync
+  /// now.
+  private func uploadNext(includingRefused: Bool = false) {
+    guard upload == nil, engine != nil else { return }
+    if let after = uploadAfter, after > Date() { return }
+    uploadAfter = nil
+    let waiting = outbox.filter { $0.value.media != nil }
+      .filter { includingRefused || !refusedIDs.contains($0.key) }
+      .sorted { $0.value.version < $1.value.version }
+    for (id, item) in waiting {
+      // Nil when its file is gone, which takes it out of the outbox.
+      guard let record = record(for: id), let path = item.media else { continue }
+      let bytes =
+        (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? NSNumber)?
+        .int64Value ?? 0
+      let operation = CKModifyRecordsOperation(recordsToSave: [record], recordIDsToDelete: nil)
+      operation.group = Self.soon("Saved file")
+      operation.configuration.qualityOfService = .userInitiated
+      let saved = SaveResult()
+      // Called on CloudKit's queue, not the actor's.
+      operation.perRecordProgressBlock = { @Sendable _, progress in
+        Task { await self.progressed(id, progress) }
+      }
+      operation.perRecordSaveBlock = { @Sendable _, result in saved.result = result }
+      operation.modifyRecordsResultBlock = { @Sendable whole in
+        Task { await self.finishUpload(id, saved.result, whole) }
+      }
+      upload = (id, operation, bytes)
+      uploadProgress = 0
+      log("Uploading \(Self.tag(id)): \(Self.megabytes([path]))")
+      sendStatus()
+      container.privateCloudDatabase.add(operation)
+      return
+    }
+    persistOutbox()
+    sendStatus()
+  }
+
+  private func progressed(_ id: String, _ progress: Double) {
+    guard upload?.id == id else { return }
+    uploadProgress = progress
+    if progress >= 1 || Date().timeIntervalSince(progressSent) > 0.5 {
+      progressSent = Date()
+      sendStatus()
+    }
+  }
+
+  private func finishUpload(
+    _ id: String, _ saved: Result<CKRecord, Error>?, _ whole: Result<Void, Error>
+  ) {
+    guard let current = upload, current.id == id else { return }
+    upload = nil
+    let error: Error?
+    switch (saved, whole) {
+    case (.success(let record)?, _):
+      log("Saved in iCloud: \(Self.tag(id)), \(String(format: "%.1f MB", Double(current.bytes) / 1_048_576))")
+      serverRecords[id] = Self.encodeSystemFields(record)
+      if let sentVersion = inFlight.removeValue(forKey: id), outbox[id]?.version == sentVersion {
+        outbox[id] = nil
+      } else if outbox[id] == nil, let engine {
+        // Deleted here while it went up: deleted there too.
+        engine.state.add(pendingRecordZoneChanges: [.deleteRecord(Self.recordID(id))])
+        sendSoon()
+      }
+      settle(refused: nil, full: false, saved: true)
+      error = nil
+    case (.failure(let failed)?, _):
+      error = failed
+    case (nil, .failure(let failed)):
+      error = failed
+    case (nil, .success):
+      error = CKError(.internalError)
+    }
+    if let error {
+      inFlight[id] = nil
+      handleUploadFailure(id, error)
     }
     persistOutbox()
     persistRecords()
-    engine.state.add(pendingDatabaseChanges: zones)
-    engine.state.add(pendingRecordZoneChanges: retry)
     sendStatus()
+    if let after = uploadAfter, after > Date() {
+      uploadTimer?.cancel()
+      if after != .distantFuture {
+        uploadTimer = Task {
+          try? await Task.sleep(for: .seconds(max(1, after.timeIntervalSinceNow)))
+          if !Task.isCancelled { uploadNext() }
+        }
+      }
+    } else {
+      uploadNext()
+    }
+  }
+
+  private func handleUploadFailure(_ id: String, _ error: Error) {
+    let ckError = error as? CKError ?? CKError(.internalError)
+    var refused: CKError?
+    var full = false
+    let next: String
+    switch ckError.code {
+    case .operationCancelled where outbox[id] == nil:
+      next = "deleted here meanwhile"
+    case .serverRecordChanged:
+      if let server = ckError.serverRecord {
+        serverRecords[id] = Self.encodeSystemFields(server)
+      }
+      next = "sending again over it"
+    case .unknownItem:
+      serverRecords[id] = nil
+      next = "sending again as new"
+    case .zoneNotFound:
+      serverRecords[id] = nil
+      engine?.state.add(pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: Self.zoneID))])
+      sendSoon()
+      uploadAfter = Date().addingTimeInterval(5)
+      next = "making the zone, sending again"
+    case .quotaExceeded:
+      full = true
+      uploadAfter = .distantFuture
+      next = "kept till there's room"
+    case .operationCancelled:
+      // As when iOS stopped the app running after it was left.
+      uploadAfter = Date().addingTimeInterval(5)
+      next = "trying again"
+    case let code where Self.retriedByEngine(code):
+      let wait = ckError.retryAfterSeconds ?? 30
+      uploadAfter = Date().addingTimeInterval(wait)
+      next = "trying again in \(Int(wait)) s"
+    default:
+      refused = ckError
+      refusedIDs.insert(id)
+      next = "refused; kept for Sync now"
+    }
+    log("Not saved: \(Self.tag(id)): \(Self.describe(ckError)); \(next)")
+    settle(refused: refused, full: full, saved: false)
   }
 
   // MARK: Log
@@ -729,17 +955,32 @@ final actor CloudSync: CKSyncEngineDelegate {
       if case .saveRecord = change { saves += 1 } else { deletes += 1 }
     }
     let files = outbox.values.filter { $0.media != nil }.count
+    let going = upload.map { " Uploading \(Self.tag($0.id)), \(Int(uploadProgress * 100)) %." } ?? ""
     return "\(outbox.count) not in iCloud yet (\(files) with a file); engine to send: "
       + "\(saves) save(s), \(deletes) delete(s), "
-      + "\(engine.state.pendingDatabaseChanges.count) zone change(s); on the way: \(inFlight.count)"
+      + "\(engine.state.pendingDatabaseChanges.count) zone change(s); on the way: \(inFlight.count)."
+      + going
   }
 
   static func describe(_ error: Error) -> String {
     if let error = error as? CKError {
-      return "CloudKit error \(error.code.rawValue): \(error.localizedDescription)"
+      let name = codeNames[error.code].map { " (\($0))" } ?? ""
+      return "CloudKit error \(error.code.rawValue)\(name): \(error.localizedDescription)"
     }
     return "\(error.localizedDescription)"
   }
+
+  private static let codeNames: [CKError.Code: String] = [
+    .internalError: "internal error", .networkUnavailable: "no network",
+    .networkFailure: "network failure", .serviceUnavailable: "iCloud unavailable",
+    .requestRateLimited: "too many requests", .notAuthenticated: "not signed in",
+    .unknownItem: "not found", .invalidArguments: "invalid arguments",
+    .serverRecordChanged: "changed elsewhere", .serverRejectedRequest: "rejected",
+    .operationCancelled: "cancelled", .zoneBusy: "iCloud busy", .quotaExceeded: "iCloud full",
+    .zoneNotFound: "zone not found", .limitExceeded: "too big",
+    .accountTemporarilyUnavailable: "account unavailable",
+    .assetFileNotFound: "file not found", .assetFileModified: "file changed while going up",
+  ]
 
   /// [id]'s kind and a short code for it, the same each time.
   static func tag(_ id: String) -> String {
