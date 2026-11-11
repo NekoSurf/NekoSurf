@@ -1,1 +1,1 @@
-With iCloud sync on, bookmarks and settings no longer wait for saved videos to reach your other devices, and Settings shows what's still going up to iCloud.
+With iCloud sync on, bookmarks and settings no longer wait for saved videos to reach your other devices, Settings shows what's still going up to iCloud, and a sync log shows what sync did.

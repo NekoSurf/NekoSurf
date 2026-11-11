@@ -621,6 +621,10 @@ class CloudSync extends ChangeNotifier {
   /// Deletes NekoSurf's data from iCloud, while sync is off here.
   Future<void> deleteFromICloud() => _invoke('deleteCloud');
 
+  /// What sync did lately, as the Swift side logs it, after how things
+  /// stand now: to see why something hasn't reached another device.
+  Future<String> log() async => await _invoke('log') as String? ?? '';
+
   /// Sends what's waiting and fetches what's new; throws [SyncFailed].
   Future<void> syncNow() async {
     await _flush();

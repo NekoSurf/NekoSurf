@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_chan/settings/settings_widgets.dart';
+import 'package:flutter_chan/settings/sync_log_page.dart';
 import 'package:flutter_chan/sync/cloud_sync.dart';
 import 'package:flutter_chan/ui/app_restart.dart';
+import 'package:flutter_chan/ui/back_swipe_route.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_dialogs.dart';
 import 'package:flutter_chan/ui/dash_menu.dart';
@@ -333,6 +335,12 @@ class _CloudSyncSettingsState extends State<CloudSyncSettings> {
     });
   }
 
+  void _openLog() {
+    Navigator.of(
+      context,
+    ).push(BackSwipePageRoute<void>(builder: (_) => const SyncLogPage()));
+  }
+
   Widget _row(SyncAvailability? availability) {
     const IconData icon = CupertinoIcons.cloud_fill;
     const Color color = Color(0xFF38BDF8);
@@ -366,6 +374,11 @@ class _CloudSyncSettingsState extends State<CloudSyncSettings> {
             title: 'Turn on iCloud sync',
             icon: CupertinoIcons.cloud,
             onPressed: _confirmTurnOn,
+          ),
+          DashMenuEntry(
+            title: 'Sync log',
+            icon: CupertinoIcons.doc_text,
+            onPressed: _openLog,
           ),
           DashMenuEntry(
             title: 'Delete NekoSurf data from iCloud',
@@ -421,6 +434,11 @@ class _CloudSyncSettingsState extends State<CloudSyncSettings> {
           title: 'Sync now',
           icon: CupertinoIcons.arrow_2_circlepath,
           onPressed: _syncNow,
+        ),
+        DashMenuEntry(
+          title: 'Sync log',
+          icon: CupertinoIcons.doc_text,
+          onPressed: _openLog,
         ),
         DashMenuEntry(
           title: 'Turn off iCloud sync',

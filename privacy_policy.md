@@ -17,6 +17,7 @@ NekoSurf keeps these on your phone only:
 - What you save to the Saved tab: on iPhone in the app's folder (which you can see in the Files app), on Android in Download/4Chan
 - Images and videos you've viewed, cached so they load faster the next time
 - A backup you make with Settings → Backup → Back up to a file goes where you choose to keep it, such as the Files app
+- If you use iCloud sync, a log of what it did lately: when it sent and fetched, how many of each kind of thing (not what they are) and what iCloud answered. It leaves your phone only if you share it from Settings → iCloud sync → Sync log
 
 ## What leaves your phone
 

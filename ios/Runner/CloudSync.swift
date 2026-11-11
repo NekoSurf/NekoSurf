@@ -180,6 +180,15 @@ final actor CloudSync: CKSyncEngineDelegate {
   // MARK: Calls from Dart
 
   func handle(_ method: String, _ arguments: Any?) async throws -> Any? {
+    do {
+      return try await perform(method, arguments)
+    } catch {
+      log("\(method) failed: \(Self.describe(error))")
+      throw error
+    }
+  }
+
+  private func perform(_ method: String, _ arguments: Any?) async throws -> Any? {
     switch method {
     case "available":
       return await available()
@@ -188,10 +197,12 @@ final actor CloudSync: CKSyncEngineDelegate {
       return nil
     case "stop":
       let delete = (arguments as? [String: Any])?["delete"] as? Bool ?? false
+      log(delete ? "Turned off, deleting NekoSurf's data from iCloud" : "Turned off")
       if delete { try await deleteZone() }
       reset(keepingInbox: false)
       return nil
     case "deleteCloud":
+      log("Deleting NekoSurf's data from iCloud")
       try await deleteZone()
       return nil
     case "hasCloudData":
@@ -209,6 +220,7 @@ final actor CloudSync: CKSyncEngineDelegate {
       // What failed before goes again too ("Sync now").
       let engine = try engineOrThrow()
       requeueOutbox(engine)
+      log("Sync now: \(waitingSummary(engine))")
       try await engine.sendChanges()
       return nil
     case "flush":
@@ -217,10 +229,15 @@ final actor CloudSync: CKSyncEngineDelegate {
     case "takeInbox":
       return inbox.map(\.asMap)
     case "ackInbox":
-      ack(upTo: arguments as? Int ?? -1)
+      let seq = arguments as? Int ?? -1
+      let applied = inbox.filter { $0.seq <= seq }.count
+      ack(upTo: seq)
+      if applied > 0 { log("Applied \(applied) from elsewhere") }
       return nil
     case "status":
       return status()
+    case "log":
+      return logText()
     default:
       return FlutterMethodNotImplemented
     }
@@ -262,6 +279,7 @@ final actor CloudSync: CKSyncEngineDelegate {
     }
     // Whatever's waiting to go, in case it was dropped (see sent).
     requeueOutbox(engine)
+    log("Started, \(state == nil ? "new" : "from saved state"); \(waitingSummary(engine))")
     DispatchQueue.main.async { UIApplication.shared.registerForRemoteNotifications() }
   }
 
@@ -278,7 +296,10 @@ final actor CloudSync: CKSyncEngineDelegate {
   /// Forgets everything about syncing on this device: the engine, what was
   /// waiting to go, and (unless [keepingInbox]) what came in.
   private func reset(keepingInbox: Bool) {
+    log("Reset: \(outbox.count) waiting to go dropped")
     engine = nil
+    // The old engine's events are ignored from now, its "did" ones too.
+    busy = 0
     outbox = [:]
     inFlight = [:]
     serverRecords = [:]
@@ -335,6 +356,7 @@ final actor CloudSync: CKSyncEngineDelegate {
     }
     persistOutbox()
     engine.state.add(pendingRecordZoneChanges: changes)
+    log("Changed here: \(Self.kinds(items.compactMap { $0["id"] as? String }))")
     sendStatus()
   }
 
@@ -345,6 +367,7 @@ final actor CloudSync: CKSyncEngineDelegate {
     let recordIDs = ids.map(Self.recordID)
     engine.state.remove(pendingRecordZoneChanges: recordIDs.map { .saveRecord($0) })
     engine.state.add(pendingRecordZoneChanges: recordIDs.map { .deleteRecord($0) })
+    log("Removed here: \(Self.kinds(ids))")
     sendStatus()
   }
 
@@ -353,7 +376,12 @@ final actor CloudSync: CKSyncEngineDelegate {
   private func flush() async {
     guard let engine, !engine.state.pendingRecordZoneChanges.isEmpty else { return }
     let task = await MainActor.run { BackgroundTask(named: "iCloud sync") }
-    try? await engine.sendChanges()
+    log("App left: sending what's waiting; \(waitingSummary(engine))")
+    do {
+      try await engine.sendChanges()
+    } catch {
+      log("Sending on leaving stopped: \(Self.describe(error))")
+    }
     await MainActor.run { task.end() }
   }
 
@@ -400,6 +428,7 @@ final actor CloudSync: CKSyncEngineDelegate {
     case .accountChange(let event):
       switch event.changeType {
       case .signIn:
+        log("Account: signed in")
         // The engine starts over, dropping what it was to send: the zone,
         // and what's waiting, go again.
         syncEngine.state.add(
@@ -407,12 +436,16 @@ final actor CloudSync: CKSyncEngineDelegate {
         requeueOutbox(syncEngine)
         receive([Incoming(seq: 0, event: "signedIn")])
       case .signOut, .switchAccounts:
+        log("Account: signed out or switched")
         reset(keepingInbox: true)
         receive([Incoming(seq: 0, event: "signedOut")])
       @unknown default:
         break
       }
     case .fetchedDatabaseChanges(let event):
+      if !event.modifications.isEmpty || !event.deletions.isEmpty {
+        log("Zones changed: \(event.modifications.count), deleted: \(event.deletions.count)")
+      }
       if event.deletions.contains(where: { $0.zoneID == Self.zoneID }) {
         reset(keepingInbox: true)
         receive([Incoming(seq: 0, event: "zoneDeleted")])
@@ -421,11 +454,20 @@ final actor CloudSync: CKSyncEngineDelegate {
       fetched(event, engine: syncEngine)
     case .sentRecordZoneChanges(let event):
       sent(event, engine: syncEngine)
+    case .sentDatabaseChanges(let event):
+      for zone in event.savedZones { log("Zone saved: \(zone.zoneID.zoneName)") }
+      for failure in event.failedZoneSaves {
+        log("Zone save failed: \(Self.describe(failure.error))")
+      }
     case .willFetchChanges, .willSendChanges:
       busy += 1
+      if case .willSendChanges = event, let engine {
+        log("Sending; \(waitingSummary(engine))")
+      }
       sendStatus()
     case .didFetchChanges, .didSendChanges:
       busy = max(0, busy - 1)
+      if case .didSendChanges = event { log("Sending done; \(outbox.count) not in iCloud yet") }
       UserDefaults.standard.set(
         Date().timeIntervalSince1970 * 1000, forKey: "cloudSync.lastSynced")
       sendStatus()
@@ -445,6 +487,12 @@ final actor CloudSync: CKSyncEngineDelegate {
     // files, a few at a time, so each is in iCloud as soon as it's up.
     let small = changes.filter { mediaPath(of: $0) == nil }
     let batch = small.isEmpty ? mediaBatch(changes) : small
+    if !batch.isEmpty {
+      log(
+        small.isEmpty
+          ? "Batch: \(batch.count) saved file(s), \(Self.megabytes(batch.compactMap(mediaPath(of:)))) (\(changes.count) waiting)"
+          : "Batch: up to 250 of \(small.count) change(s) without a file (\(changes.count) waiting)")
+    }
     // A batch takes up to 250 of them: each record is built as it's taken,
     // not all that are waiting, for every batch.
     return await CKSyncEngine.RecordZoneChangeBatch(pendingChanges: batch) { recordID in
@@ -484,6 +532,7 @@ final actor CloudSync: CKSyncEngineDelegate {
   /// go, if it's not to be sent any more.
   private func batchRecord(for recordID: CKRecord.ID, engine: CKSyncEngine) -> CKRecord? {
     if let record = record(for: recordID.recordName) { return record }
+    log("Not sent, no longer to be: \(Self.tag(recordID.recordName))")
     engine.state.remove(pendingRecordZoneChanges: [.saveRecord(recordID)])
     return nil
   }
@@ -543,12 +592,23 @@ final actor CloudSync: CKSyncEngineDelegate {
       received.append(Incoming(seq: 0, id: id, deleted: true))
     }
     persistRecords()
+    let skipped = event.modifications.count + event.deletions.count - received.count
+    log(
+      "Fetched: \(event.modifications.count) changed, \(event.deletions.count) deleted"
+        + (skipped > 0 ? ", \(skipped) changed here since, kept" : "")
+        + (received.isEmpty ? "" : "; \(Self.kinds(received.compactMap(\.id)))"))
     receive(received)
   }
 
   private func sent(_ event: CKSyncEngine.Event.SentRecordZoneChanges, engine: CKSyncEngine) {
     var retry: [CKSyncEngine.PendingRecordZoneChange] = []
     var zones: [CKSyncEngine.PendingDatabaseChange] = []
+    if !event.savedRecords.isEmpty {
+      log("Saved in iCloud: \(Self.kinds(event.savedRecords.map(\.recordID.recordName)))")
+    }
+    if !event.deletedRecordIDs.isEmpty {
+      log("Deleted in iCloud: \(Self.kinds(event.deletedRecordIDs.map(\.recordName)))")
+    }
     for record in event.savedRecords {
       let id = record.recordID.recordName
       serverRecords[id] = Self.encodeSystemFields(record)
@@ -565,6 +625,7 @@ final actor CloudSync: CKSyncEngineDelegate {
       let recordID = failure.record.recordID
       let id = recordID.recordName
       inFlight[id] = nil
+      log("Not saved: \(Self.tag(id)): \(Self.describe(failure.error))")
       switch failure.error.code {
       case .serverRecordChanged:
         // Changed elsewhere since: what changed here is newer.
@@ -591,12 +652,12 @@ final actor CloudSync: CKSyncEngineDelegate {
       }
     }
     for (recordID, error) in event.failedRecordDeletes {
+      log("Not deleted: \(Self.tag(recordID.recordName)): \(Self.describe(error))")
       serverRecords[recordID.recordName] = nil
       if !Self.retriedByEngine(error.code) { refused = error }
     }
     if let refused {
       lastError = "\(refused.localizedDescription) (CloudKit error \(refused.code.rawValue))"
-      NSLog("iCloud sync: iCloud refused a change: %@", lastError ?? "")
     }
     // Refused ones that were saved since, or are no longer to be.
     refusedIDs = refusedIDs.filter { outbox[$0] != nil }
@@ -618,6 +679,97 @@ final actor CloudSync: CKSyncEngineDelegate {
     engine.state.add(pendingDatabaseChanges: zones)
     engine.state.add(pendingRecordZoneChanges: retry)
     sendStatus()
+  }
+
+  // MARK: Log
+
+  /// What sync did lately, for the Sync log in Settings: kinds, counts and
+  /// errors, each item as its kind and a short code, never what it is.
+  private var logLines: [String]?
+  private static let logLimit = 400
+  private static let timeStyle = Date.ISO8601FormatStyle(
+    includingFractionalSeconds: true, timeZone: .current)
+
+  private func log(_ message: String) {
+    var lines = logLines ?? Self.loadLog()
+    lines.append("\(Self.timeStyle.format(Date())) \(message)")
+    if lines.count > Self.logLimit { lines.removeFirst(lines.count - Self.logLimit) }
+    logLines = lines
+    try? lines.joined(separator: "\n").write(
+      to: Self.file("log.txt"), atomically: true, encoding: .utf8)
+  }
+
+  private static func loadLog() -> [String] {
+    guard let text = try? String(contentsOf: file("log.txt"), encoding: .utf8) else { return [] }
+    return text.split(separator: "\n").map(String.init)
+  }
+
+  /// The log, after how things stand now.
+  private func logText() -> String {
+    load()
+    var head = [
+      "NekoSurf iCloud sync log, \(Self.timeStyle.format(Date()))",
+      "Signed for iCloud: \(Self.entitled ? "yes" : "no")",
+      engine.map { "Engine: running; \(waitingSummary($0))" }
+        ?? "Engine: not running; \(outbox.count) not in iCloud yet",
+      "Running sends and fetches: \(busy)",
+      "Waiting to be applied here: \(inbox.count)",
+    ]
+    if let problem { head.append("Problem: \(problem)") }
+    if let lastError { head.append("iCloud said: \(lastError)") }
+    if !refusedIDs.isEmpty { head.append("Refused: \(Self.kinds(Array(refusedIDs)))") }
+    return (head + ["", "Newest last:"] + (logLines ?? Self.loadLog())).joined(separator: "\n")
+  }
+
+  /// What's waiting to go, as the outbox and [engine] each see it.
+  private func waitingSummary(_ engine: CKSyncEngine) -> String {
+    var saves = 0
+    var deletes = 0
+    for change in engine.state.pendingRecordZoneChanges {
+      if case .saveRecord = change { saves += 1 } else { deletes += 1 }
+    }
+    let files = outbox.values.filter { $0.media != nil }.count
+    return "\(outbox.count) not in iCloud yet (\(files) with a file); engine to send: "
+      + "\(saves) save(s), \(deletes) delete(s), "
+      + "\(engine.state.pendingDatabaseChanges.count) zone change(s); on the way: \(inFlight.count)"
+  }
+
+  static func describe(_ error: Error) -> String {
+    if let error = error as? CKError {
+      return "CloudKit error \(error.code.rawValue): \(error.localizedDescription)"
+    }
+    return "\(error.localizedDescription)"
+  }
+
+  /// [id]'s kind and a short code for it, the same each time.
+  static func tag(_ id: String) -> String {
+    var hash: UInt32 = 2_166_136_261
+    for byte in id.utf8 {
+      hash = (hash ^ UInt32(byte)) &* 16_777_619
+    }
+    return "\(kind(of: id))#\(String(format: "%06x", hash & 0xFFFFFF))"
+  }
+
+  private static func kind(of id: String) -> String {
+    String(id.prefix { $0 != "." && $0 != ":" })
+  }
+
+  /// How many of each kind [ids] are, as "2 saved, 1 bookmark".
+  static func kinds(_ ids: [String]) -> String {
+    var counts: [String: Int] = [:]
+    for id in ids { counts[kind(of: id), default: 0] += 1 }
+    if counts.isEmpty { return "nothing" }
+    return counts.sorted { $0.key < $1.key }.map { "\($0.value) \($0.key)" }
+      .joined(separator: ", ")
+  }
+
+  static func megabytes(_ paths: [String]) -> String {
+    let bytes = paths.reduce(Int64(0)) { sum, path in
+      sum
+        + ((try? FileManager.default.attributesOfItem(atPath: path)[.size] as? NSNumber)?
+          .int64Value ?? 0)
+    }
+    return String(format: "%.1f MB", Double(bytes) / 1_048_576)
   }
 
   // MARK: Storage
