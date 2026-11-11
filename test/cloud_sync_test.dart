@@ -395,6 +395,39 @@ void main() {
     },
   );
 
+  test(
+    "a change iCloud refuses is told once, and marked until it's taken",
+    () async {
+      final a = await app(await prefsWith({}));
+      await a.sync.turnOn();
+      Future<void> swiftSays(Map<String, Object?> status) =>
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+              .handlePlatformMessage(
+                channel.name,
+                channel.codec.encodeMethodCall(MethodCall('status', status)),
+                (_) {},
+              );
+
+      await swiftSays({
+        'pending': 3,
+        'pendingMedia': 2,
+        'problem': 'failed',
+        'error': 'Bad request (CloudKit error 12)',
+      });
+      expect(a.sync.status.pending, 3);
+      expect(a.sync.status.pendingMedia, 2);
+      expect(a.sync.needsAttention, isTrue);
+      expect(a.sync.takeAlert()?.message, contains('CloudKit error 12'));
+      // Still refused on the next send: not told again.
+      await swiftSays({'pending': 3, 'problem': 'failed', 'error': 'Bad'});
+      expect(a.sync.takeAlert(), isNull);
+
+      await swiftSays({'pending': 0});
+      expect(a.sync.needsAttention, isFalse);
+      expect(a.sync.takeAlert(), isNull);
+    },
+  );
+
   test('turning off can delete what is in iCloud', () async {
     final a = await app(await prefsWith({}));
     await a.sync.turnOn();

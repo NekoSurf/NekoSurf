@@ -54,7 +54,9 @@ class SyncStatus {
     this.syncing = false,
     this.lastSynced,
     this.problem,
+    this.error,
     this.pending = 0,
+    this.pendingMedia = 0,
   });
 
   factory SyncStatus.fromChannel(Map<Object?, Object?> map) {
@@ -65,18 +67,26 @@ class SyncStatus {
           ? null
           : DateTime.fromMillisecondsSinceEpoch(last.toInt()),
       problem: map['problem'] as String?,
+      error: map['error'] as String?,
       pending: (map['pending'] as num?)?.toInt() ?? 0,
+      pendingMedia: (map['pendingMedia'] as num?)?.toInt() ?? 0,
     );
   }
 
   final bool syncing;
   final DateTime? lastSynced;
 
-  /// Why changes can't go out now (a [SyncFailed.code]).
+  /// Why changes can't go out now: "quotaExceeded", or "failed" when
+  /// iCloud refused them (see [error]).
   final String? problem;
 
-  /// Changes made here, not sent yet.
+  /// What iCloud said when it refused a change.
+  final String? error;
+
+  /// Changes made here that iCloud hasn't confirmed yet, and how many of
+  /// them are saved files, which take a while to go up.
   final int pending;
+  final int pendingMedia;
 }
 
 /// Keeps saved media, bookmarks, history, favorite boards, filters and
@@ -149,11 +159,11 @@ class CloudSync extends ChangeNotifier {
   /// Why iCloud sync turned itself off, if it did since launch.
   String? get notice => _notice;
 
-  /// Whether the Settings tab should show a dot: iCloud is full, or sync
-  /// turned itself off and Settings hasn't been looked at since.
+  /// Whether the Settings tab should show a dot: iCloud is full or refused
+  /// a change, or sync turned itself off and Settings hasn't been looked
+  /// at since.
   bool get needsAttention =>
-      (isOn && _status.problem == 'quotaExceeded') ||
-      (_notice != null && !_noticeSeen);
+      (isOn && _status.problem != null) || (_notice != null && !_noticeSeen);
 
   /// The Settings tab was looked at.
   void markNoticeSeen() {
@@ -209,16 +219,25 @@ class CloudSync extends ChangeNotifier {
         _status = SyncStatus.fromChannel(
           call.arguments as Map<Object?, Object?>? ?? const {},
         );
-        if (isOn &&
-            _status.problem == 'quotaExceeded' &&
-            was != 'quotaExceeded') {
-          _alert = (
-            title: 'iCloud storage is full',
-            message:
-                "What's changed on this device can't go to iCloud until "
-                'there is room: free up iCloud storage, or get more in the '
-                'Settings app. It goes up by itself then.',
-          );
+        if (isOn && _status.problem != was) {
+          _alert = switch (_status.problem) {
+            'quotaExceeded' => (
+              title: 'iCloud storage is full',
+              message:
+                  "What's changed on this device can't go to iCloud until "
+                  'there is room: free up iCloud storage, or get more in the '
+                  'Settings app, then tap iCloud sync › Sync now.',
+            ),
+            'failed' => (
+              title: "iCloud didn't take a change",
+              message:
+                  "Something changed on this device that iCloud wouldn't "
+                  'save, so your other devices may not have it. It is tried '
+                  'again with iCloud sync › Sync now, and whenever NekoSurf '
+                  'opens. iCloud said: ${_status.error ?? 'nothing more'}',
+            ),
+            _ => _alert,
+          };
         }
         notifyListeners();
     }

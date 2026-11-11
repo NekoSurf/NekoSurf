@@ -80,6 +80,16 @@ Future<void> _turnOn(BuildContext context) async {
 
 String _things(int n) => n == 1 ? '1 thing' : '$n things';
 
+/// What's waiting to go up, as "2 saved files and 1 change".
+String _waiting(SyncStatus status) {
+  final int files = status.pendingMedia;
+  final int others = status.pending - files;
+  return [
+    if (files == 1) '1 saved file' else if (files > 1) '$files saved files',
+    if (others == 1) '1 change' else if (others > 1) '$others changes',
+  ].join(' and ');
+}
+
 /// While iCloud sync is being turned on, a pill above the tab bar saying
 /// how far it's got, wherever in the app you are: saved media takes a while
 /// to come down.
@@ -386,13 +396,21 @@ class _CloudSyncSettingsState extends State<CloudSyncSettings> {
     final String subtitle = switch (status.problem) {
       'quotaExceeded' =>
         "Your iCloud storage is full: what's changed here waits until "
-            'there is room.',
+            'there is room. Then tap Sync now.',
+      'failed' =>
+        "iCloud didn't take some changes from here, so your other devices "
+            "may not have them. They're tried again with Sync now. iCloud "
+            'said: ${status.error ?? 'nothing more'}',
       _ when _sync.joining =>
         'Bringing in from iCloud… ${_things(_sync.broughtIn)}',
-      _ when status.syncing => 'Syncing…',
+      // Until iCloud has taken it, it's not on the other devices.
+      _ when status.pending > 0 && status.syncing =>
+        '${_waiting(status)} going up to iCloud…'
+            '${status.pendingMedia > 0 ? ' Saved files take a while.' : ''}',
       _ when status.pending > 0 =>
-        'Your $_whatSyncs, the same on all your devices. Changes made here '
-            'go up when there is a connection.',
+        '${_waiting(status)} waiting to go up to iCloud, when there is a '
+            'connection.',
+      _ when status.syncing => 'Syncing…',
       _ =>
         'Your $_whatSyncs, the same on all your devices with iCloud sync '
             'on.',
@@ -416,7 +434,13 @@ class _CloudSyncSettingsState extends State<CloudSyncSettings> {
         color: color,
         title: title,
         subtitle: subtitle,
-        value: busy ? null : (last == null ? 'On' : _ago(last)),
+        value: busy
+            ? null
+            : status.problem != null
+            ? 'Not synced'
+            : status.pending > 0
+            ? '${status.pending} waiting'
+            : (last == null ? 'On' : _ago(last)),
         trailing: spinner,
         onTap: _working || _sync.joining ? null : open,
       ),

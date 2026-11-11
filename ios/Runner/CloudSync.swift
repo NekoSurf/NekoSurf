@@ -113,6 +113,11 @@ final actor CloudSync: CKSyncEngineDelegate {
 
   private var busy = 0
   private var problem: String?
+  /// What iCloud said, when it took a change from here but wouldn't save
+  /// it (problem "failed"), and which changes those are, till they're
+  /// saved or no longer to be.
+  private var lastError: String?
+  private var refusedIDs = Set<String>()
 
   init(notify: @escaping @Sendable (String, Any?) -> Void) {
     self.notify = notify
@@ -148,6 +153,17 @@ final actor CloudSync: CKSyncEngineDelegate {
   }()
 
   private lazy var container = CKContainer(identifier: Self.containerID)
+
+  /// Errors CKSyncEngine sends the change again after, by itself.
+  static func retriedByEngine(_ code: CKError.Code) -> Bool {
+    switch code {
+    case .networkFailure, .networkUnavailable, .serviceUnavailable, .requestRateLimited,
+      .zoneBusy, .notAuthenticated, .operationCancelled, .accountTemporarilyUnavailable:
+      return true
+    default:
+      return false
+    }
+  }
 
   static func code(of error: Error) -> String {
     if error is NotEntitled { return "notEntitled" }
@@ -190,7 +206,10 @@ final actor CloudSync: CKSyncEngineDelegate {
       try await engineOrThrow().fetchChanges()
       return nil
     case "send":
-      try await engineOrThrow().sendChanges()
+      // What failed before goes again too ("Sync now").
+      let engine = try engineOrThrow()
+      requeueOutbox(engine)
+      try await engine.sendChanges()
       return nil
     case "flush":
       await flush()
@@ -246,10 +265,12 @@ final actor CloudSync: CKSyncEngineDelegate {
     DispatchQueue.main.async { UIApplication.shared.registerForRemoteNotifications() }
   }
 
-  /// Adds what's in the outbox to what [engine] is to send, where it's not.
+  /// Adds what's in the outbox to what [engine] is to send, where it's not,
+  /// and isn't on its way already.
   private func requeueOutbox(_ engine: CKSyncEngine) {
     let pending = Set(engine.state.pendingRecordZoneChanges)
-    let missing = outbox.keys.map { CKSyncEngine.PendingRecordZoneChange.saveRecord(Self.recordID($0)) }
+    let missing = outbox.keys.filter { inFlight[$0] == nil }
+      .map { CKSyncEngine.PendingRecordZoneChange.saveRecord(Self.recordID($0)) }
       .filter { !pending.contains($0) }
     engine.state.add(pendingRecordZoneChanges: missing)
   }
@@ -262,6 +283,8 @@ final actor CloudSync: CKSyncEngineDelegate {
     inFlight = [:]
     serverRecords = [:]
     problem = nil
+    lastError = nil
+    refusedIDs = []
     for name in ["state.json", "outbox.json", "records.plist"] {
       try? FileManager.default.removeItem(at: Self.file(name))
     }
@@ -312,6 +335,7 @@ final actor CloudSync: CKSyncEngineDelegate {
     }
     persistOutbox()
     engine.state.add(pendingRecordZoneChanges: changes)
+    sendStatus()
   }
 
   private func delete(_ ids: [String]) {
@@ -321,6 +345,7 @@ final actor CloudSync: CKSyncEngineDelegate {
     let recordIDs = ids.map(Self.recordID)
     engine.state.remove(pendingRecordZoneChanges: recordIDs.map { .saveRecord($0) })
     engine.state.add(pendingRecordZoneChanges: recordIDs.map { .deleteRecord($0) })
+    sendStatus()
   }
 
   /// Sends what's waiting, with the time iOS gives an app that's just been
@@ -347,9 +372,13 @@ final actor CloudSync: CKSyncEngineDelegate {
   private func status() -> [String: Any] {
     var map: [String: Any] = [
       "syncing": busy > 0,
-      "pending": engine?.state.pendingRecordZoneChanges.count ?? 0,
+      // What changed here and iCloud hasn't confirmed yet: the outbox, as
+      // the engine drops what failed and start() or "send" adds it back.
+      "pending": outbox.count,
+      "pendingMedia": outbox.values.filter { $0.media != nil }.count,
     ]
     map["problem"] = problem
+    map["error"] = lastError
     let last = UserDefaults.standard.double(forKey: "cloudSync.lastSynced")
     if last > 0 { map["lastSynced"] = last }
     return map
@@ -411,11 +440,44 @@ final actor CloudSync: CKSyncEngineDelegate {
     let changes = syncEngine.state.pendingRecordZoneChanges.filter {
       context.options.scope.contains($0)
     }
+    // A batch's records are saved once all its files are up, so the small
+    // changes (a bookmark, a setting) go first, on their own; then saved
+    // files, a few at a time, so each is in iCloud as soon as it's up.
+    let small = changes.filter { mediaPath(of: $0) == nil }
+    let batch = small.isEmpty ? mediaBatch(changes) : small
     // A batch takes up to 250 of them: each record is built as it's taken,
     // not all that are waiting, for every batch.
-    return await CKSyncEngine.RecordZoneChangeBatch(pendingChanges: changes) { recordID in
+    return await CKSyncEngine.RecordZoneChangeBatch(pendingChanges: batch) { recordID in
       await self.batchRecord(for: recordID, engine: syncEngine)
     }
+  }
+
+  /// Bytes of saved files to send in one batch: at least one file, more
+  /// only while they come to this together.
+  private static let mediaBatchBytes: Int64 = 20 * 1024 * 1024
+
+  /// The saved file [change] sends, if it sends one.
+  private func mediaPath(of change: CKSyncEngine.PendingRecordZoneChange) -> String? {
+    guard case .saveRecord(let recordID) = change else { return nil }
+    return outbox[recordID.recordName]?.media
+  }
+
+  /// The first of [changes] (all with a saved file), up to mediaBatchBytes.
+  private func mediaBatch(
+    _ changes: [CKSyncEngine.PendingRecordZoneChange]
+  ) -> [CKSyncEngine.PendingRecordZoneChange] {
+    var batch: [CKSyncEngine.PendingRecordZoneChange] = []
+    var bytes: Int64 = 0
+    for change in changes {
+      let path = mediaPath(of: change) ?? ""
+      let size =
+        (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? NSNumber)?
+        .int64Value ?? 0
+      if !batch.isEmpty && bytes + size > Self.mediaBatchBytes { break }
+      batch.append(change)
+      bytes += size
+    }
+    return batch
   }
 
   /// The record [recordID] is to be sent as; nil, and no longer waiting to
@@ -497,9 +559,8 @@ final actor CloudSync: CKSyncEngineDelegate {
         retry.append(.saveRecord(record.recordID))
       }
     }
-    if !event.savedRecords.isEmpty, problem == "quotaExceeded" {
-      problem = nil
-    }
+    var refused: CKError?
+    var full = false
     for failure in event.failedRecordSaves {
       let recordID = failure.record.recordID
       let id = recordID.recordName
@@ -519,15 +580,35 @@ final actor CloudSync: CKSyncEngineDelegate {
         serverRecords[id] = nil
         retry.append(.saveRecord(recordID))
       case .quotaExceeded:
-        // Kept in the outbox, and tried again from start().
-        problem = "quotaExceeded"
-      default:
-        // The engine tries again by itself after network trouble.
+        // Kept in the outbox, and tried again from start() or "send".
+        full = true
+      case let code where Self.retriedByEngine(code):
         break
+      default:
+        // Kept in the outbox too; said, not dropped.
+        refused = failure.error
+        refusedIDs.insert(id)
       }
     }
-    for (recordID, _) in event.failedRecordDeletes {
+    for (recordID, error) in event.failedRecordDeletes {
       serverRecords[recordID.recordName] = nil
+      if !Self.retriedByEngine(error.code) { refused = error }
+    }
+    if let refused {
+      lastError = "\(refused.localizedDescription) (CloudKit error \(refused.code.rawValue))"
+      NSLog("iCloud sync: iCloud refused a change: %@", lastError ?? "")
+    }
+    // Refused ones that were saved since, or are no longer to be.
+    refusedIDs = refusedIDs.filter { outbox[$0] != nil }
+    if refused == nil, refusedIDs.isEmpty {
+      lastError = nil
+    }
+    if refused != nil || !refusedIDs.isEmpty {
+      problem = "failed"
+    } else if full {
+      problem = "quotaExceeded"
+    } else if problem == "failed" || (problem == "quotaExceeded" && !event.savedRecords.isEmpty) {
+      problem = nil
     }
     for recordID in event.deletedRecordIDs {
       serverRecords[recordID.recordName] = nil
