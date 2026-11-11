@@ -24,6 +24,15 @@
       ],
       "versions": [
         {
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.13.0%2B302/Runner.ipa",
+          "size": 34105935,
+          "version": "0.13.0",
+          "buildVersion": "302",
+          "date": "2026-11-11T21:10:42+00:00",
+          "localizedDescription": "With iCloud sync on, saved files go up much faster and bookmarks no longer wait for them; the Saved tab and Settings show what's still going up, and a sync log shows what sync did.",
+          "minOSVersion": "17.0"
+        },
+        {
           "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.13.0%2B301/Runner.ipa",
           "size": 34058205,
           "version": "0.13.0",
