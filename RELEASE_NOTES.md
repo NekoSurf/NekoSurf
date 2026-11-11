@@ -17,4 +17,5 @@
 
 ## What's fixed
 
+- Scrolling a thread full of videos on iPhone no longer freezes for a moment every so often as a video starts playing
 - Menus that open from near the bottom of the screen, like Video cache limit in Settings, now open upwards instead of being squeezed into the space below

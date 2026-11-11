@@ -320,30 +320,32 @@ class VideoLease {
 /// video would otherwise open it into the next one's.
 class _PooledPlayer {
   _PooledPlayer(this.player, this.controller) {
-    final PlatformPlayer platform = player.platform!;
-    if (platform is NativePlayer) {
-      platform
-          .observeProperty('vo-configured', (String value) async {
-            _configured = value == 'yes';
-            final Completer<void>? waiting = _configured ? _output : _cleared;
-            if (waiting != null && !waiting.isCompleted) {
-              waiting.complete();
-            }
-          })
-          .catchError((_) {});
-    }
+    _videoParams = player.stream.videoParams.listen(_onVideoParams);
   }
-
-  // How long a stopped player may take to tear down its video output.
-  static const Duration _clearTimeout = Duration(seconds: 2);
 
   final Player player;
   final VideoController controller;
 
-  bool _configured = false;
+  late final StreamSubscription<VideoParams> _videoParams;
   Completer<void>? _output;
-  Completer<void>? _cleared;
   Future<void> _last = Future<void>.value();
+
+  /// mpv sets video-params once the opened video's first frame is decoded,
+  /// as it sets up its video output for it, right before drawing it; the
+  /// stop before (and media_kit's open) only clear them.
+  ///
+  /// Not mpv's vo-configured, which flips at the same moment: media_kit
+  /// reads a property watched with observeProperty back from mpv, on the UI
+  /// thread, and mpv may only answer once a frame is drawn. On iOS
+  /// media_kit draws after a step on the UI thread, which was waiting for
+  /// mpv: the app froze until mpv gave up waiting (200 ms), often as a
+  /// video showed its first frame. video-params come with mpv's event.
+  void _onVideoParams(VideoParams params) {
+    final Completer<void>? output = _output;
+    if ((params.dw ?? 0) > 0 && output != null && !output.isCompleted) {
+      output.complete();
+    }
+  }
 
   /// Runs [step] once every step before it is done.
   Future<void> run(Future<void> Function() step) {
@@ -352,38 +354,35 @@ class _PooledPlayer {
     return done;
   }
 
-  /// Completes [output] when mpv next configures its video output: for the
+  /// Completes [output] when mpv next sets up its video output: for the
   /// first decoded frame of the video opened next, right before drawing
-  /// it. media_kit's iOS output reports a first frame as soon as it has a
-  /// size, which it has from the start when sized up front: before mpv has
-  /// even opened the video, which then showed as a black box instead of
-  /// its thumbnail while loading.
+  /// it (see [_onVideoParams]). media_kit's iOS output reports a first
+  /// frame as soon as it has a size, which it has from the start when
+  /// sized up front: before mpv has even opened the video, which then
+  /// showed as a black box instead of its thumbnail while loading.
   void watchOutput(Completer<void> output) {
     _output = output;
   }
 
-  /// Stops the video it played, once its holder's steps are done. mpv,
-  /// idle without a file, tears down its video output; until it has, the
-  /// last video's output would count as the next one's first frame.
+  /// Stops the video it played, once its holder's steps are done. What
+  /// mpv still has to say about that video arrives while the next one is
+  /// set up (its setup waits on mpv), before its first frame is watched
+  /// for.
   void recycle() {
     _output = null;
     unawaited(
       run(() async {
-        final Completer<void> cleared = Completer<void>();
-        _cleared = cleared;
         try {
           await player.pause();
           await player.stop();
         } catch (_) {}
-        if (_configured) {
-          await cleared.future.timeout(_clearTimeout, onTimeout: () {});
-        }
       }),
     );
   }
 
   // Pausing first stops mpv's playback threads before the teardown.
   Future<void> dispose() async {
+    unawaited(_videoParams.cancel());
     try {
       await player.pause();
     } catch (_) {}
