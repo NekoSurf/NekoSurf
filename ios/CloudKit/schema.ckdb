@@ -1,0 +1,44 @@
+// The CloudKit schema iCloud sync needs (ios/Runner/CloudSync.swift), in
+// the container iCloud.com.wrngwrld.Chanyan. Import it into the development
+// environment with:
+//
+//   xcrun cktool import-schema --team-id 8D46H8STFW \
+//     --container-id iCloud.com.wrngwrld.Chanyan \
+//     --environment development --file ios/CloudKit/schema.ckdb
+//
+// then deploy it to production in the CloudKit Console, before a TestFlight
+// build uses it.
+
+DEFINE SCHEMA
+
+    RECORD TYPE Users (
+        "___createTime" TIMESTAMP,
+        "___createdBy" REFERENCE,
+        "___etag" STRING,
+        "___modTime" TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID" REFERENCE,
+        roles LIST<INT64>,
+        GRANT WRITE TO "_creator",
+        GRANT READ TO "_world"
+    );
+
+    // One thing kept in sync: its kind and key, what it is (JSON), and a
+    // saved file with its thumbnail.
+    RECORD TYPE Item (
+        "___createTime" TIMESTAMP,
+        "___createdBy" REFERENCE,
+        "___etag" STRING,
+        "___modTime" TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID" REFERENCE QUERYABLE,
+        data STRING,
+        key STRING,
+        kind STRING,
+        media ASSET,
+        modifiedAt TIMESTAMP,
+        thumbnail ASSET,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );

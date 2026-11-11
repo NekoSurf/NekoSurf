@@ -54,6 +54,7 @@
 - A grid of a thread's media that you can narrow to only images or only videos
 - Save to the Saved tab or to Photos, or share, several at once, with a ring showing how far along each is
 - Reverse image search with Google Lens, Bing, Yandex or SauceNAO
+- Turn on iCloud sync to keep your saved media, bookmarks, history, favorite boards, filters and settings the same on your iPhone and iPad, and get them back after reinstalling; or back them up to a file
 
 ### 🎨 Make it yours
 

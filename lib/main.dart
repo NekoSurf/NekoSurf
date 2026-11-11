@@ -14,7 +14,11 @@ import 'package:flutter_chan/media/image_cache.dart';
 import 'package:flutter_chan/media/video_server.dart';
 import 'package:flutter_chan/saved/downloads.dart';
 import 'package:flutter_chan/saved/saved_attachments_model.dart';
+import 'package:flutter_chan/settings/backup.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
+import 'package:flutter_chan/settings/synced_items.dart';
+import 'package:flutter_chan/sync/cloud_sync.dart';
+import 'package:flutter_chan/ui/app_restart.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/fast_page_transitions.dart';
 import 'package:flutter_chan/ui/unfocus_on_push.dart';
@@ -42,6 +46,8 @@ Future<void> main() async {
   // Loaded before the first frame, so it shows the saved settings,
   // favorites and bookmarks rather than defaults.
   final SharedPreferences prefs = await SharedPreferences.getInstance();
+  CloudSync.instance.storedItems = storedSyncItems;
+  unawaited(CloudSync.instance.load(prefs));
   final SettingsProvider settings = SettingsProvider(prefs);
   unawaited(
     VideoServer.instance.setMaxCacheBytes(
@@ -50,7 +56,174 @@ Future<void> main() async {
   );
   unawaited(deleteSaveLeftovers());
   unawaited(deleteOldImageCache());
-  runApp(MyApp(prefs: prefs, settings: settings));
+  runApp(AppRoot(prefs: prefs, settings: settings));
+}
+
+/// The app, taken down and built again for a restored backup
+/// ([AppRestart]). What iCloud sync has to send goes when it's left, and
+/// what changed elsewhere is fetched when it's back.
+class AppRoot extends StatefulWidget {
+  const AppRoot({super.key, required this.prefs, required this.settings});
+
+  final SharedPreferences prefs;
+  final SettingsProvider settings;
+
+  @override
+  State<AppRoot> createState() => _AppRootState();
+}
+
+class _AppRootState extends State<AppRoot> {
+  late SettingsProvider _settings = widget.settings;
+  Key _app = UniqueKey();
+  bool _down = false;
+  Object? _failure;
+  late final AppLifecycleListener _lifecycle;
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycle = AppLifecycleListener(
+      onHide: () => unawaited(CloudSync.instance.flush()),
+      onResume: () => unawaited(CloudSync.instance.fetchQuietly()),
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
+
+  Future<void> _restart(Future<void> Function() work) async {
+    setState(() => _down = true);
+    // The app is gone after this frame, and what it had loaded has written
+    // what it still had to: none of that can land on top of [work]'s.
+    await WidgetsBinding.instance.endOfFrame;
+    Object? failure;
+    try {
+      await work();
+    } catch (e) {
+      debugPrint('Restoring failed: $e');
+      failure = e;
+    }
+    final SettingsProvider old = _settings;
+    _settings = SettingsProvider(widget.prefs);
+    old.dispose();
+    unawaited(
+      VideoServer.instance.setMaxCacheBytes(
+        _settings.videoCacheMegabytes.value * megabyte,
+      ),
+    );
+    if (!mounted) {
+      return;
+    }
+    if (failure == null) {
+      _comeBack();
+    } else {
+      setState(() => _failure = failure);
+    }
+  }
+
+  void _comeBack() {
+    setState(() {
+      _down = false;
+      _failure = null;
+      _app = UniqueKey();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppRestart(
+      prefs: widget.prefs,
+      restart: _restart,
+      child: _down
+          ? _Restoring(failure: _failure, onDone: _comeBack)
+          : MyApp(key: _app, prefs: widget.prefs, settings: _settings),
+    );
+  }
+}
+
+/// While a backup is restored, and what went wrong if it didn't work.
+///
+/// Plain widgets, not an app: an app's navigator would take the focus, and
+/// the app's own navigator, coming back in the same frame, would find it in
+/// a page that's half gone (UnfocusOnPushObserver).
+class _Restoring extends StatelessWidget {
+  const _Restoring({required this.failure, required this.onDone});
+
+  final Object? failure;
+  final VoidCallback onDone;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isDark =
+        View.of(context).platformDispatcher.platformBrightness ==
+        Brightness.dark;
+    final Color text = isDark ? Colors.white : Colors.black;
+    final Object? failure = this.failure;
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: ColoredBox(
+        color: isDark ? Colors.black : Colors.white,
+        child: DefaultTextStyle(
+          style: TextStyle(
+            color: text,
+            fontSize: 15,
+            decoration: TextDecoration.none,
+          ),
+          textAlign: TextAlign.center,
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: failure == null
+                    ? [
+                        CupertinoActivityIndicator(radius: 14, color: text),
+                        const SizedBox(height: 16),
+                        const Text('Restoring your backup…'),
+                      ]
+                    : [
+                        const Text(
+                          "Couldn't restore the backup",
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          failure is NotABackup
+                              ? '$failure'
+                              : 'Nothing was changed. ($failure)',
+                        ),
+                        const SizedBox(height: 20),
+                        GestureDetector(
+                          onTap: onDone,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 28,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: text.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: const Text(
+                              'OK',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        ),
+                      ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -63,18 +236,24 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        // Not lazy: iCloud sync applies changes made elsewhere to all of
+        // them, once they're all there.
         ChangeNotifierProvider<BookmarksProvider>(
           create: (_) => BookmarksProvider(prefs),
+          lazy: false,
         ),
         ChangeNotifierProvider<FavoriteProvider>(
           create: (_) => FavoriteProvider(prefs),
+          lazy: false,
         ),
         ChangeNotifierProvider<SettingsProvider>.value(value: settings),
         ChangeNotifierProvider<HistoryProvider>(
           create: (_) => HistoryProvider(prefs, settings),
+          lazy: false,
         ),
         ChangeNotifierProvider<SavedAttachmentsProvider>(
           create: (_) => SavedAttachmentsProvider(prefs),
+          lazy: false,
         ),
         ChangeNotifierProvider<WatchedPostsProvider>(
           create: (_) => WatchedPostsProvider(prefs, settings),

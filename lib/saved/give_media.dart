@@ -138,6 +138,11 @@ Future<void> Function(ShareParams params) showShareSheet =
       await SharePlus.instance.share(params);
     };
 
+/// Opens the share sheet for [file] of [mimeType], once it's free; done
+/// when it's closed, by when what it was shared to has its own copy.
+Future<void> shareFile(File file, {String? mimeType}) =>
+    shareInTurn(ShareParams(files: [XFile(file.path, mimeType: mimeType)]));
+
 // Done when the share sheet is free: it shows one share at a time.
 Future<void> _shareSheetFree = Future<void>.value();
 

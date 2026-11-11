@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_chan/chan/catalog.dart';
 import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/chan/post_text.dart';
+import 'package:flutter_chan/sync/cloud_sync.dart';
+import 'package:flutter_chan/sync/sync_items.dart';
 import 'package:flutter_chan/thread/post_hiding.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -30,31 +32,104 @@ enum Appearance {
 enum ThreadLayout { nested, flat }
 
 class Setting<T> {
-  Setting._(this._key, this._value, this._store, this._onChanged);
+  Setting._(
+    this._key,
+    this._value,
+    this._store,
+    this._toStored,
+    this._fromStored,
+    this._provider,
+  );
 
   final String _key;
   T _value;
   final Future<bool> Function(String key, T value) _store;
-  final VoidCallback _onChanged;
+  final Object Function(T value) _toStored;
+  final T? Function(Object? stored) _fromStored;
+  final SettingsProvider _provider;
 
   T get value => _value;
 
   Future<void> set(T value) async {
     _value = value;
-    _onChanged();
+    _provider._changed(_key, _toStored(value));
+    await _store(_key, value);
+  }
+
+  /// Takes the value stored as [stored] on another device, if it's one.
+  Future<void> _applyStored(Object? stored) async {
+    final T? value = _fromStored(stored);
+    if (value == null || value == _value) {
+      return;
+    }
+    _value = value;
+    _provider._applied();
     await _store(_key, value);
   }
 }
 
+/// The setting [key], stored as [value], as iCloud sync keeps it.
+SyncItem settingSyncItem(String key, Object value) =>
+    SyncItem(SyncKind.setting, key, {'value': value});
+
+/// A thread filter, as iCloud sync keeps it.
+SyncItem threadFilterSyncItem(String pattern) =>
+    SyncItem(SyncKind.threadFilter, pattern, {'pattern': pattern});
+
+/// A post filter, as iCloud sync keeps it.
+SyncItem postFilterSyncItem(PostFilter filter) =>
+    SyncItem(SyncKind.postFilter, filter.stored, {'filter': filter.stored});
+
 /// A setting is one line here; loading and storing it follow from that.
-class SettingsProvider with ChangeNotifier {
-  SettingsProvider(this._prefs) {
+class SettingsProvider with ChangeNotifier implements SyncTarget {
+  SettingsProvider(this._prefs, {CloudSync? sync})
+    : _sync = sync ?? CloudSync.instance {
     // Settings that no longer exist.
     unawaited(_prefs.remove('useCachingOnVideos'));
     unawaited(_prefs.remove('inlineMediaInThreadFeed'));
+    _sync.attach(this);
   }
 
   final SharedPreferences _prefs;
+  final CloudSync _sync;
+
+  /// The settings iCloud sync keeps the same on every device; not those
+  /// that depend on the device, like how much it caches.
+  static const Set<String> syncedKeys = <String>{
+    'allowNSFW',
+    'appearance',
+    'themeColor',
+    'boardSort',
+    'boardSortDirection',
+    'boardViewMode',
+    'threadLayout',
+    'watchedPostsRetentionDays',
+    'autoScrollToLastSeen',
+    'showStickyThreads',
+    'feedVideosStartMuted',
+    'trackHistory',
+    'savedNewestFirst',
+    'fullscreenAutoAdvance',
+    'serverFileNames',
+  };
+
+  // Each setting, once it's been read (they're late).
+  final Map<String, Setting<Object>> _byKey = <String, Setting<Object>>{};
+
+  void _applied() => notifyListeners();
+
+  void _changed(String key, Object stored) {
+    notifyListeners();
+    if (syncedKeys.contains(key)) {
+      _sync.put(settingSyncItem(key, stored));
+    }
+  }
+
+  @override
+  void dispose() {
+    _sync.detach(this);
+    super.dispose();
+  }
 
   late final Setting<bool> allowNSFW = _bool('allowNSFW', false);
   late final Setting<Appearance> appearance = _enum(
@@ -122,34 +197,126 @@ class SettingsProvider with ChangeNotifier {
   /// Saved and shared files take 4chan's name for them, not the poster's.
   late final Setting<bool> serverFileNames = _bool('serverFileNames', false);
 
-  Setting<bool> _bool(String key, bool byDefault) => Setting<bool>._(
-    key,
-    _prefs.getBool(key) ?? byDefault,
-    _prefs.setBool,
-    notifyListeners,
+  Setting<T> _keep<T extends Object>(Setting<T> setting) {
+    _byKey[setting._key] = setting;
+    return setting;
+  }
+
+  Setting<bool> _bool(String key, bool byDefault) => _keep(
+    Setting<bool>._(
+      key,
+      _prefs.getBool(key) ?? byDefault,
+      _prefs.setBool,
+      (bool value) => value,
+      (Object? stored) => stored is bool ? stored : null,
+      this,
+    ),
   );
 
-  Setting<int> _int(String key, int byDefault) => Setting<int>._(
-    key,
-    _prefs.getInt(key) ?? byDefault,
-    _prefs.setInt,
-    notifyListeners,
+  Setting<int> _int(String key, int byDefault) => _keep(
+    Setting<int>._(
+      key,
+      _prefs.getInt(key) ?? byDefault,
+      _prefs.setInt,
+      (int value) => value,
+      (Object? stored) => stored is int ? stored : null,
+      this,
+    ),
   );
 
   Setting<T> _enum<T extends Enum>(String key, List<T> values, T byDefault) {
-    final String? stored = _prefs.getString(key);
-    return Setting<T>._(
-      key,
-      values.where((T value) => value.name == stored).firstOrNull ?? byDefault,
-      (String key, T value) => _prefs.setString(key, value.name),
-      notifyListeners,
+    T? named(Object? name) =>
+        values.where((T value) => value.name == name).firstOrNull;
+    return _keep(
+      Setting<T>._(
+        key,
+        named(_prefs.getString(key)) ?? byDefault,
+        (String key, T value) => _prefs.setString(key, value.name),
+        (T value) => value.name,
+        named,
+        this,
+      ),
     );
   }
 
-  static const String _hiddenPatternsKey = 'hiddenThreadPatterns';
+  @override
+  Set<SyncKind> get syncKinds => const <SyncKind>{
+    SyncKind.setting,
+    SyncKind.threadFilter,
+    SyncKind.postFilter,
+  };
+
+  @override
+  Future<void> applySync(List<SyncChange> changes) async {
+    List<String> patterns = _hiddenPatterns;
+    List<PostFilter> filters = _postFilters;
+    for (final SyncChange change in changes) {
+      switch (change.kind) {
+        case SyncKind.setting:
+          final String? key = change.key;
+          final Object? value = change.data['value'];
+          if (change.deleted || key == null || !syncedKeys.contains(key)) {
+            continue;
+          }
+          final Setting<Object>? setting = _byKey[key];
+          if (setting != null) {
+            await setting._applyStored(value);
+          } else {
+            // Not read yet: it reads this when it is.
+            await _storeRaw(key, value);
+          }
+        case SyncKind.threadFilter:
+          final String? pattern = change.data['pattern'] as String?;
+          patterns = change.deleted
+              ? [
+                  for (final String each in patterns)
+                    if (!change.isFor(each)) each,
+                ]
+              : [
+                  ...patterns,
+                  if (pattern != null && !patterns.contains(pattern)) pattern,
+                ];
+        case SyncKind.postFilter:
+          final PostFilter? filter = PostFilter.parse(
+            change.data['filter'] as String? ?? '',
+          );
+          filters = change.deleted
+              ? [
+                  for (final PostFilter each in filters)
+                    if (!change.isFor(each.stored)) each,
+                ]
+              : [
+                  ...filters,
+                  if (filter != null && !filters.contains(filter)) filter,
+                ];
+        default:
+          break;
+      }
+    }
+    if (!listEquals(patterns, _hiddenPatterns)) {
+      await _setHiddenPatterns(patterns);
+    }
+    if (!listEquals(filters, _postFilters)) {
+      await _setPostFilters(filters);
+    }
+  }
+
+  Future<void> _storeRaw(String key, Object? value) async {
+    switch (value) {
+      case bool():
+        await _prefs.setBool(key, value);
+      case int():
+        await _prefs.setInt(key, value);
+      case String():
+        await _prefs.setString(key, value);
+    }
+  }
+
+  /// Where the thread filters are kept in SharedPreferences.
+  static const String hiddenPatternsKey = 'hiddenThreadPatterns';
 
   late List<String> _hiddenPatterns = List<String>.unmodifiable(
-    _prefs.getStringList(_hiddenPatternsKey) ?? const <String>[],
+    _prefs.getStringList(hiddenPatternsKey) ?? const <String>[],
   );
   late List<RegExp> _hiddenRegexes = _compileAll(_hiddenPatterns);
 
@@ -184,12 +351,14 @@ class SettingsProvider with ChangeNotifier {
   Future<void> addHiddenThreadPattern(String pattern) async {
     final String trimmed = pattern.trim();
     if (trimmed.isNotEmpty && !_hiddenPatterns.contains(trimmed)) {
+      _sync.put(threadFilterSyncItem(trimmed));
       await _setHiddenPatterns([..._hiddenPatterns, trimmed]);
     }
   }
 
   Future<void> removeHiddenThreadPattern(String pattern) async {
     if (_hiddenPatterns.contains(pattern)) {
+      _sync.remove(SyncKind.threadFilter, pattern);
       await _setHiddenPatterns([
         for (final String p in _hiddenPatterns)
           if (p != pattern) p,
@@ -201,15 +370,16 @@ class SettingsProvider with ChangeNotifier {
     _hiddenPatterns = List<String>.unmodifiable(patterns);
     _hiddenRegexes = _compileAll(_hiddenPatterns);
     notifyListeners();
-    await _prefs.setStringList(_hiddenPatternsKey, patterns);
+    await _prefs.setStringList(hiddenPatternsKey, patterns);
   }
 
-  static const String _postFiltersKey = 'postFilters';
+  /// Where the post filters are kept in SharedPreferences.
+  static const String postFiltersKey = 'postFilters';
 
   late List<PostFilter> _postFilters =
       List<PostFilter>.unmodifiable(<PostFilter>[
         for (final String stored
-            in _prefs.getStringList(_postFiltersKey) ?? const <String>[])
+            in _prefs.getStringList(postFiltersKey) ?? const <String>[])
           ?PostFilter.parse(stored),
       ]);
 
@@ -218,12 +388,14 @@ class SettingsProvider with ChangeNotifier {
 
   Future<void> addPostFilter(PostFilter filter) async {
     if (filter.value.isNotEmpty && !_postFilters.contains(filter)) {
+      _sync.put(postFilterSyncItem(filter));
       await _setPostFilters([..._postFilters, filter]);
     }
   }
 
   Future<void> removePostFilter(PostFilter filter) async {
     if (_postFilters.contains(filter)) {
+      _sync.remove(SyncKind.postFilter, filter.stored);
       await _setPostFilters([
         for (final PostFilter each in _postFilters)
           if (each != filter) each,
@@ -234,7 +406,7 @@ class SettingsProvider with ChangeNotifier {
   Future<void> _setPostFilters(List<PostFilter> filters) async {
     _postFilters = List<PostFilter>.unmodifiable(filters);
     notifyListeners();
-    await _prefs.setStringList(_postFiltersKey, <String>[
+    await _prefs.setStringList(postFiltersKey, <String>[
       for (final PostFilter filter in filters) filter.stored,
     ]);
   }

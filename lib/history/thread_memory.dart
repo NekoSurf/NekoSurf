@@ -12,12 +12,14 @@ class ThreadMemory {
     this.topPath,
     this.topAlignment,
     DateTime? lastRead,
+    DateTime? changedAt,
   }) : unseen = unseen ?? <int>{},
        folded = folded ?? <String>{},
        primaryParents = primaryParents ?? <int, int>{},
        hiddenPosts = hiddenPosts ?? <int>{},
        hiddenIds = hiddenIds ?? <String>{},
-       lastRead = lastRead ?? DateTime.now();
+       lastRead = lastRead ?? DateTime.now(),
+       changedAt = changedAt ?? lastRead ?? DateTime.now();
 
   factory ThreadMemory.fromJson(Map<String, dynamic> json) {
     return ThreadMemory(
@@ -35,6 +37,7 @@ class ThreadMemory {
       topPath: json['topPath'] as String?,
       topAlignment: (json['topAlignment'] as num?)?.toDouble(),
       lastRead: DateTime.tryParse(json['lastRead'] as String? ?? ''),
+      changedAt: DateTime.tryParse(json['changedAt'] as String? ?? ''),
     );
   }
 
@@ -63,6 +66,10 @@ class ThreadMemory {
   /// When it was last open, to forget it after a while.
   DateTime lastRead;
 
+  /// When anything in it last changed, on any device: iCloud sync keeps the
+  /// newest.
+  DateTime changedAt;
+
   Map<String, dynamic> toJson() {
     return {
       if (newestPost != null) 'newest': newestPost,
@@ -79,6 +86,7 @@ class ThreadMemory {
       if (topPath != null) 'topPath': topPath,
       if (topAlignment != null) 'topAlignment': topAlignment,
       'lastRead': lastRead.toIso8601String(),
+      'changedAt': changedAt.toIso8601String(),
     };
   }
 }

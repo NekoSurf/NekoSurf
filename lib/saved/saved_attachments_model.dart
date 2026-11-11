@@ -9,13 +9,33 @@ import 'package:flutter_chan/saved/media_tasks.dart';
 import 'package:flutter_chan/saved/saved_attachment.dart';
 import 'package:flutter_chan/saved/saved_folders.dart';
 import 'package:flutter_chan/saved/saved_migrations.dart';
+import 'package:flutter_chan/sync/cloud_sync.dart';
+import 'package:flutter_chan/sync/sync_items.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+/// [attachment], as iCloud sync keeps it, with its file in [folders].
+SyncItem savedSyncItem(SavedAttachment attachment, SavedFolders folders) =>
+    SyncItem(
+      SyncKind.saved,
+      attachment.id,
+      attachment.withStoredId().toJson(),
+      media: folders.mediaPath(attachment),
+      thumbnail: attachment.hasOwnThumbnail
+          ? folders.thumbnailPath(attachment)
+          : null,
+    );
 
 /// What's in the Saved tab, oldest first. Whatever needs the files throws
 /// [StorageDenied] without access to them, and changes nothing.
-class SavedAttachmentsProvider with ChangeNotifier {
-  SavedAttachmentsProvider(this._prefs) {
-    final List<String> stored = _prefs.getStringList(_key) ?? const <String>[];
+class SavedAttachmentsProvider with ChangeNotifier implements SyncTarget {
+  SavedAttachmentsProvider(
+    this._prefs, {
+    CloudSync? sync,
+    Future<SavedFolders> Function()? syncFolders,
+  }) : _sync = sync ?? CloudSync.instance,
+       _syncFolders = syncFolders ?? (() => openSavedFolders(ask: false)) {
+    final List<String> stored =
+        _prefs.getStringList(storageKey) ?? const <String>[];
     _attachments = <SavedAttachment>[
       for (final String entry in stored) ?SavedAttachment.fromStored(entry),
     ];
@@ -23,11 +43,18 @@ class SavedAttachmentsProvider with ChangeNotifier {
       unawaited(_store());
     }
     saves.addListener(notifyListeners);
+    _sync.attach(this);
   }
 
-  static const String _key = 'savedAttachments';
+  /// Where the list is kept in SharedPreferences.
+  static const String storageKey = 'savedAttachments';
 
   final SharedPreferences _prefs;
+  final CloudSync _sync;
+
+  /// The folders what comes in from iCloud goes to, without asking for
+  /// access (iCloud sync is only on iPhone and iPad, which don't ask).
+  final Future<SavedFolders> Function() _syncFolders;
   late List<SavedAttachment> _attachments;
   bool _migrated = false;
 
@@ -46,7 +73,7 @@ class SavedAttachmentsProvider with ChangeNotifier {
       json.encode(attachment),
   ];
 
-  Future<void> _store() => _prefs.setStringList(_key, _encoded());
+  Future<void> _store() => _prefs.setStringList(storageKey, _encoded());
 
   /// Saves [post]'s upload in a file called [fileName].
   Future<void> save(Post post, {required String fileName}) async {
@@ -55,13 +82,15 @@ class SavedAttachmentsProvider with ChangeNotifier {
       return;
     }
     await saves.run(id, (SaveProgress onProgress) async {
+      final SavedFolders folders = await openSavedFolders();
       final SavedAttachment attachment = await downloadToSaved(
-        await openSavedFolders(),
+        folders,
         post,
         diskName: fileName,
         onProgress: onProgress,
       );
       _attachments.add(attachment);
+      _sync.put(savedSyncItem(attachment, folders));
       await _store();
     });
   }
@@ -77,6 +106,7 @@ class SavedAttachmentsProvider with ChangeNotifier {
     final SavedFolders folders = await openSavedFolders();
     final List<SavedAttachment> removed = _attachments.where(test).toList();
     _attachments.removeWhere(test);
+    _sync.removeAll(SyncKind.saved, [for (final a in removed) a.id]);
     notifyListeners();
     unawaited(_store());
 
@@ -143,13 +173,92 @@ class SavedAttachmentsProvider with ChangeNotifier {
 
     if (gone.isNotEmpty) {
       _attachments.removeWhere(gone.contains);
+      _sync.removeAll(SyncKind.saved, [for (final a in gone) a.id]);
       notifyListeners();
       await _store();
     }
   }
 
   @override
+  Set<SyncKind> get syncKinds => const <SyncKind>{SyncKind.saved};
+
+  /// Adds what was saved on another device, its file moved in from iCloud
+  /// (renamed if its name is taken here), and removes what was removed
+  /// there.
+  @override
+  Future<void> applySync(List<SyncChange> changes) async {
+    final SavedFolders folders = await _syncFolders();
+    bool changed = false;
+    for (final SyncChange change in changes) {
+      if (change.deleted) {
+        final List<SavedAttachment> removed = <SavedAttachment>[
+          for (final SavedAttachment a in _attachments)
+            if (change.isFor(a.id)) a,
+        ];
+        _attachments.removeWhere(removed.contains);
+        for (final SavedAttachment attachment in removed) {
+          changed = true;
+          try {
+            await _deleteFiles(folders, attachment);
+          } on FileSystemException catch (e) {
+            debugPrint('$e');
+          }
+        }
+        continue;
+      }
+      final SavedAttachment? remote = SavedAttachment.fromStored(
+        json.encode(change.data),
+      );
+      final String? media = change.media;
+      if (remote == null ||
+          contains(remote.id) ||
+          media == null ||
+          !await File(media).exists()) {
+        continue;
+      }
+      SavedAttachment added = remote;
+      if (await File(folders.mediaPath(remote)).exists()) {
+        final String name = remote.fileName;
+        final String ext = name.contains('.') ? '.${name.split('.').last}' : '';
+        final String? free = await uniqueSavedFileName(
+          folders.media,
+          getNameWithoutExtension(name),
+          ext,
+        );
+        if (free == null) {
+          continue;
+        }
+        added = remote.renamedTo(free);
+      }
+      await _moveFile(media, folders.mediaPath(added));
+      final String? thumbnail = change.thumbnail;
+      if (added.hasOwnThumbnail &&
+          thumbnail != null &&
+          await File(thumbnail).exists() &&
+          !await File(folders.thumbnailPath(added)).exists()) {
+        await _moveFile(thumbnail, folders.thumbnailPath(added));
+      }
+      _attachments.add(added);
+      changed = true;
+    }
+    if (changed) {
+      notifyListeners();
+      await _store();
+    }
+  }
+
+  static Future<void> _moveFile(String from, String to) async {
+    try {
+      await File(from).rename(to);
+    } on FileSystemException {
+      await File(from).copy(to);
+      await File(from).delete();
+    }
+  }
+
+  @override
   void dispose() {
+    _sync.detach(this);
     saves.dispose();
     super.dispose();
   }

@@ -188,10 +188,13 @@ class DashHeader extends StatelessWidget {
 }
 
 class DashTab {
-  const DashTab(this.icon, this.label);
+  const DashTab(this.icon, this.label, {this.badge = false});
 
   final IconData icon;
   final String label;
+
+  /// A dot on it: something there needs a look.
+  final bool badge;
 }
 
 class DashTabBar extends StatelessWidget {
@@ -245,12 +248,30 @@ class DashTabBar extends StatelessWidget {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
-                              tabs[i].icon,
-                              size: 21,
-                              color: i == selectedIndex
-                                  ? context.accent
-                                  : DashColors.muted(context),
+                            Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                Icon(
+                                  tabs[i].icon,
+                                  size: 21,
+                                  color: i == selectedIndex
+                                      ? context.accent
+                                      : DashColors.muted(context),
+                                ),
+                                if (tabs[i].badge)
+                                  Positioned(
+                                    top: -1,
+                                    right: -3,
+                                    child: Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: const BoxDecoration(
+                                        color: CupertinoColors.systemRed,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                             const SizedBox(height: 2),
                             Text(

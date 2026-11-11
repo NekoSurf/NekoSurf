@@ -12,6 +12,14 @@
 - A hidden post becomes one line saying why, with its replies folded away under it in the nested layout; tap the line to see the post anyway and again to hide it, or hold it to stop hiding it
 - Add your own keyword or regex filters for replies in Settings, under Hidden posts, where you can also remove them
 
+### ☁️ iCloud sync
+- On iPhone and iPad, turn on iCloud sync in Settings to keep your saved media, bookmarks, history, favorite boards, filters and settings the same on all your devices, along with which posts you've read and where you left off in each thread, with changes usually showing up on the others within moments
+- Turning it on merges what's on the device with what's in iCloud; after reinstalling, or on a new device, NekoSurf offers once to turn it on and bring everything back
+- Turn it off any time, keeping NekoSurf's data in iCloud or deleting it. It needs NekoSurf from TestFlight
+
+### 💾 Backups
+- Back up your saved media, bookmarks, history and settings to one file from Settings, and restore it later
+
 ### 💬 Feedback and privacy policy
 - Settings now ends with links to send feedback and to read the privacy policy
 

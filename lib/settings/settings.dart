@@ -1,9 +1,11 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/settings/appearance_settings.dart';
+import 'package:flutter_chan/settings/backup_settings.dart';
 import 'package:flutter_chan/settings/browsing_settings.dart';
 import 'package:flutter_chan/settings/settings_widgets.dart';
 import 'package:flutter_chan/settings/storage_settings.dart';
+import 'package:flutter_chan/settings/sync_settings.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/open_url.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -28,6 +30,8 @@ class _SettingsState extends State<Settings> {
           const AppearanceSettings(),
           const BrowsingSettings(),
           const StorageSettings(),
+          const CloudSyncSettings(),
+          const BackupSettings(),
           const _AboutLinks(),
         ],
       ),

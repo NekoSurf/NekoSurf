@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/chan/thread_status.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
+import 'package:flutter_chan/sync/cloud_sync.dart';
+import 'package:flutter_chan/sync/sync_items.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class HistoryThread {
@@ -56,21 +58,33 @@ class HistoryThread {
   };
 }
 
-class HistoryProvider with ChangeNotifier {
-  HistoryProvider(this._prefs, this._settings) {
+/// [thread], as iCloud sync keeps it.
+SyncItem historySyncItem(HistoryThread thread) => SyncItem(
+  SyncKind.history,
+  thread.key,
+  thread.toJson(),
+  modifiedAt: thread.visitedAt,
+);
+
+class HistoryProvider with ChangeNotifier implements SyncTarget {
+  HistoryProvider(this._prefs, this._settings, {CloudSync? sync})
+    : _sync = sync ?? CloudSync.instance {
     _threads = _decode(
-      _prefs.getStringList(_threadsKey),
+      _prefs.getStringList(storageKey),
       (m) => HistoryThread.fromJson(m),
     );
     // What older versions kept too, and nothing ever showed.
     unawaited(_prefs.remove('historyBoards'));
+    _sync.attach(this);
   }
 
-  static const String _threadsKey = 'historyThreads';
+  /// Where the visited threads are kept in SharedPreferences.
+  static const String storageKey = 'historyThreads';
   static const int _maxThreads = 100;
 
   final SharedPreferences _prefs;
   final SettingsProvider _settings;
+  final CloudSync _sync;
   List<HistoryThread> _threads = [];
   final Set<String> _archived = {};
   final Map<String, int> _replies = {};
@@ -83,7 +97,7 @@ class HistoryProvider with ChangeNotifier {
   int? replies(HistoryThread t) => _replies[t.key];
 
   Future<void> _saveThreads() => _prefs.setStringList(
-    _threadsKey,
+    storageKey,
     _threads.map((t) => json.encode(t.toJson())).toList(),
   );
 
@@ -118,9 +132,8 @@ class HistoryProvider with ChangeNotifier {
     _threads
       ..removeWhere((t) => t.key == visited.key)
       ..insert(0, visited);
-    if (_threads.length > _maxThreads) {
-      _threads = _threads.sublist(0, _maxThreads);
-    }
+    _sync.put(historySyncItem(visited));
+    _trim();
 
     notifyListeners();
     await _saveThreads();
@@ -167,6 +180,7 @@ class HistoryProvider with ChangeNotifier {
 
     if (deleted.isNotEmpty) {
       _threads.removeWhere((t) => deleted.contains(t.key));
+      _sync.removeAll(SyncKind.history, deleted);
     }
     notifyListeners();
 
@@ -185,13 +199,68 @@ class HistoryProvider with ChangeNotifier {
 
   Future<void> removeThread(HistoryThread thread) async {
     _threads.removeWhere((t) => t.key == thread.key);
+    _sync.remove(SyncKind.history, thread.key);
     notifyListeners();
     await _saveThreads();
   }
 
   Future<void> clear() async {
+    _sync.removeAll(SyncKind.history, [for (final t in _threads) t.key]);
     _threads = [];
     notifyListeners();
-    await _prefs.remove(_threadsKey);
+    await _prefs.remove(storageKey);
+  }
+
+  /// Keeps the newest [_maxThreads]; what goes, goes everywhere.
+  void _trim() {
+    if (_threads.length > _maxThreads) {
+      _sync.removeAll(SyncKind.history, [
+        for (final t in _threads.skip(_maxThreads)) t.key,
+      ]);
+      _threads = _threads.sublist(0, _maxThreads);
+    }
+  }
+
+  @override
+  Set<SyncKind> get syncKinds => const <SyncKind>{SyncKind.history};
+
+  /// A thread visited on another device takes its place by when it was
+  /// visited, unless it was visited here since.
+  @override
+  Future<void> applySync(List<SyncChange> changes) async {
+    for (final SyncChange change in changes) {
+      if (change.deleted) {
+        _threads.removeWhere((HistoryThread t) => change.isFor(t.key));
+        continue;
+      }
+      if (!_settings.trackHistory.value) {
+        continue;
+      }
+      final HistoryThread visited;
+      try {
+        visited = HistoryThread.fromJson(change.data.cast<String, dynamic>());
+      } catch (_) {
+        continue;
+      }
+      final HistoryThread? here = _threads
+          .where((t) => t.key == visited.key)
+          .firstOrNull;
+      if (here != null && !visited.visitedAt.isAfter(here.visitedAt)) {
+        continue;
+      }
+      _threads
+        ..removeWhere((t) => t.key == visited.key)
+        ..add(visited);
+    }
+    _threads.sort((a, b) => b.visitedAt.compareTo(a.visitedAt));
+    _trim();
+    notifyListeners();
+    await _saveThreads();
+  }
+
+  @override
+  void dispose() {
+    _sync.detach(this);
+    super.dispose();
   }
 }

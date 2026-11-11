@@ -5,17 +5,36 @@ import 'dart:math';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_chan/history/thread_memory.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
+import 'package:flutter_chan/sync/cloud_sync.dart';
+import 'package:flutter_chan/sync/sync_items.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
-  WatchedPostsProvider(this._prefs, this._settings) {
+/// What's remembered of [thread], as iCloud sync keeps it.
+SyncItem threadMemorySyncItem(int thread, ThreadMemory memory) => SyncItem(
+  SyncKind.threadMemory,
+  '$thread',
+  memory.toJson(),
+  modifiedAt: memory.changedAt,
+);
+
+class WatchedPostsProvider
+    with ChangeNotifier, WidgetsBindingObserver
+    implements SyncTarget {
+  WatchedPostsProvider(this._prefs, this._settings, {CloudSync? sync})
+    : _sync = sync ?? CloudSync.instance {
     _load();
 
     WidgetsBinding.instance.addObserver(this);
+    _sync.attach(this);
   }
 
   final SharedPreferences _prefs;
   final SettingsProvider _settings;
+  final CloudSync _sync;
+
+  // Threads changed since they were last stored: they go to iCloud then,
+  // not on every scroll.
+  final Set<int> _changed = <int>{};
   Timer? _saveDebounceTimer;
   bool _hasPendingSave = false;
 
@@ -50,6 +69,7 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
     }
     _saveDebounceTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
+    _sync.detach(this);
     super.dispose();
   }
 
@@ -70,26 +90,41 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
     // What older versions kept instead.
     unawaited(_prefs.remove('watchedPosts'));
 
-    final String? stored = _prefs.getString(_threadMemoryStorageKey);
-    if (stored != null) {
-      try {
-        final Map<String, dynamic> threads =
-            json.decode(stored) as Map<String, dynamic>;
-        threads.forEach((String thread, dynamic value) {
-          _threadMemory[int.parse(thread)] = ThreadMemory.fromJson(
-            value as Map<String, dynamic>,
-          );
-        });
-      } catch (e) {
-        debugPrint('Error parsing thread memory: $e');
-      }
+    for (final (int thread, ThreadMemory memory) in storedMemories(_prefs)) {
+      _threadMemory[thread] = memory;
     }
 
     _clearOldWatchedPosts();
   }
 
-  ThreadMemory _memoryOf(int thread) =>
-      _threadMemory.putIfAbsent(thread, ThreadMemory.new);
+  /// What's remembered of each thread, as it's stored in [prefs].
+  static List<(int, ThreadMemory)> storedMemories(SharedPreferences prefs) {
+    final String? stored = prefs.getString(_threadMemoryStorageKey);
+    if (stored == null) {
+      return const [];
+    }
+    try {
+      final Map<String, dynamic> threads =
+          json.decode(stored) as Map<String, dynamic>;
+      return <(int, ThreadMemory)>[
+        for (final MapEntry<String, dynamic> entry in threads.entries)
+          (
+            int.parse(entry.key),
+            ThreadMemory.fromJson(entry.value as Map<String, dynamic>),
+          ),
+      ];
+    } catch (e) {
+      debugPrint('Error parsing thread memory: $e');
+      return const [];
+    }
+  }
+
+  /// [thread]'s memory, to be changed now.
+  ThreadMemory _memoryOf(int thread) {
+    _changed.add(thread);
+    return _threadMemory.putIfAbsent(thread, ThreadMemory.new)
+      ..changedAt = DateTime.now();
+  }
 
   /// Takes note of the [posts] in [thread], oldest first: those posted since it
   /// was last open are unseen.
@@ -117,7 +152,11 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
       Set<int>.unmodifiable(_threadMemory[thread]?.unseen ?? const <int>{});
 
   void markPostsSeen(int thread, Iterable<int> posts) {
-    _threadMemory[thread]?.unseen.removeAll(posts);
+    final ThreadMemory? memory = _threadMemory[thread];
+    if (memory == null || !memory.unseen.any(posts.contains)) {
+      return;
+    }
+    _memoryOf(thread).unseen.removeAll(posts);
     _schedulePersist();
     notifyListeners();
   }
@@ -192,7 +231,19 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
     return memory.unseen.length + max(0, replies - knownReplies);
   }
 
-  Future<void> _save() => _prefs.setString(
+  Future<void> _save() {
+    if (_changed.isNotEmpty) {
+      _sync.putAll(<SyncItem>[
+        for (final int thread in _changed)
+          if (_threadMemory[thread] case final ThreadMemory memory)
+            threadMemorySyncItem(thread, memory),
+      ]);
+      _changed.clear();
+    }
+    return _store();
+  }
+
+  Future<void> _store() => _prefs.setString(
     _threadMemoryStorageKey,
     json.encode(<String, dynamic>{
       for (final MapEntry<int, ThreadMemory> entry in _threadMemory.entries)
@@ -201,7 +252,11 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
   );
 
   Future<void> clearAllWatchedPosts() async {
+    _sync.removeAll(SyncKind.threadMemory, [
+      for (final int thread in _threadMemory.keys) '$thread',
+    ]);
     _threadMemory.clear();
+    _changed.clear();
     await _save();
     notifyListeners();
   }
@@ -211,13 +266,62 @@ class WatchedPostsProvider with ChangeNotifier, WidgetsBindingObserver {
       Duration(days: _settings.watchedPostsRetentionDays.value),
     );
 
-    final int before = _threadMemory.length;
-    _threadMemory.removeWhere(
-      (_, ThreadMemory memory) => memory.lastRead.isBefore(cutoffDate),
-    );
-    if (_threadMemory.length != before) {
+    final List<int> old = <int>[
+      for (final MapEntry<int, ThreadMemory> entry in _threadMemory.entries)
+        if (entry.value.lastRead.isBefore(cutoffDate)) entry.key,
+    ];
+    if (old.isNotEmpty) {
+      old.forEach(_threadMemory.remove);
+      _changed.removeAll(old);
+      _sync.removeAll(SyncKind.threadMemory, [
+        for (final int thread in old) '$thread',
+      ]);
       notifyListeners();
       await _save();
+    }
+  }
+
+  @override
+  Set<SyncKind> get syncKinds => const <SyncKind>{SyncKind.threadMemory};
+
+  /// What's remembered of a thread on another device replaces what's here,
+  /// if it changed there since, unless it's older than this device keeps.
+  @override
+  Future<void> applySync(List<SyncChange> changes) async {
+    final DateTime cutoff = DateTime.now().subtract(
+      Duration(days: _settings.watchedPostsRetentionDays.value),
+    );
+    bool changed = false;
+    for (final SyncChange change in changes) {
+      final int? thread = int.tryParse(change.key ?? '');
+      if (thread == null) {
+        continue;
+      }
+      if (change.deleted) {
+        changed |= _threadMemory.remove(thread) != null;
+        _changed.remove(thread);
+        continue;
+      }
+      final ThreadMemory remote;
+      try {
+        remote = ThreadMemory.fromJson(change.data.cast<String, dynamic>());
+      } catch (_) {
+        continue;
+      }
+      final ThreadMemory? here = _threadMemory[thread];
+      if (remote.lastRead.isBefore(cutoff) ||
+          (here != null && !remote.changedAt.isAfter(here.changedAt))) {
+        continue;
+      }
+      _threadMemory[thread] = remote;
+      _changed.remove(thread);
+      changed = true;
+    }
+    if (changed) {
+      // What's hidden may have changed too.
+      _hidingChanges++;
+      notifyListeners();
+      await _store();
     }
   }
 }
