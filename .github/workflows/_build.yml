@@ -71,6 +71,34 @@ jobs:
           } > android/key.properties
         shell: bash
 
+      # The NDK android/build.gradle names is one the runner has; if
+      # an image ever drops it, it's installed here, where a failure says
+      # why (Gradle's own download broke the v0.13.0+301 release).
+      - name: Install the NDK
+        run: |
+          NDK=$(sed -nE 's/^ext\.ndkVersion = "([^"]+)".*/\1/p' android/build.gradle)
+          if [ -f "$ANDROID_HOME/ndk/$NDK/source.properties" ]; then
+            echo "NDK $NDK is on the runner"
+            exit 0
+          fi
+          echo "::warning::NDK $NDK isn't on the runner; installing it"
+          df -h "$ANDROID_HOME"
+          for try in 1 2 3; do
+            # yes complains of a broken pipe when sdkmanager stops reading.
+            if (yes 2> /dev/null || true) | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK" > "$RUNNER_TEMP/ndk.log" 2>&1 \
+              && [ -f "$ANDROID_HOME/ndk/$NDK/source.properties" ]; then
+              echo "NDK $NDK installed"
+              exit 0
+            fi
+            echo "::warning::Installing NDK $NDK failed (try $try)"
+            tr '\r' '\n' < "$RUNNER_TEMP/ndk.log" | grep -v '^\[' | tail -20
+            df -h "$ANDROID_HOME"
+            rm -rf "$ANDROID_HOME/ndk/$NDK"
+            sleep 15
+          done
+          exit 1
+        shell: bash
+
       - name: Build APK
         env:
           GRADLE_OPTS: -Xmx2048m
@@ -88,7 +116,7 @@ jobs:
           RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
-          for apk in build/app/outputs/apk/release/*.apk; do
+          for apk in build/app/outputs/flutter-apk/*.apk; do
             "$APKSIGNER" verify --print-certs "$apk" | grep -E "DN:|SHA-256" | sed "s|^|$(basename "$apk"): |"
             if [ -n "$RELEASE_TAG" ] && "$APKSIGNER" verify --print-certs "$apk" | grep -q "CN=Android Debug"; then
               echo "::error::$(basename "$apk") is debug-signed."
@@ -100,7 +128,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: nekosurf-apk
-          path: build/app/outputs/apk/release/*.apk
+          path: build/app/outputs/flutter-apk/*.apk
 
   build_ipa:
     name: Build iOS IPA

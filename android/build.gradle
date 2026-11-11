@@ -6,6 +6,20 @@ allprojects {
 }
 
 rootProject.buildDir = '../build'
+
+// One NDK for the app and every plugin: the one GitHub's Ubuntu runners
+// come with (their ANDROID_NDK), so a release build downloads none, as
+// that once broke one. NDKs are backward compatible.
+// .github/workflows/_build.yml reads it.
+ext.ndkVersion = "27.3.13750724"
+subprojects {
+    // After the plugin's own build script, which may name another.
+    plugins.withId('com.android.library') {
+        androidComponents.finalizeDsl { android ->
+            android.ndkVersion = rootProject.ext.ndkVersion
+        }
+    }
+}
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
     project.evaluationDependsOn(':app')
