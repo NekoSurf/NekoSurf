@@ -158,23 +158,32 @@ final actor CloudSync: CKSyncEngineDelegate {
   }
 
   /// Whether this build is signed to use the iCloud container: App Store
-  /// and TestFlight builds are; sideloaded ones, re-signed with a profile
-  /// of their own, aren't, and CloudKit would crash the app there.
+  /// and TestFlight builds are. Others aren't, and CloudKit would crash the
+  /// app there, at launch (offerCloudSyncOnLaunch asks if iCloud's
+  /// available): sideloaded ones, re-signed with a profile of their own,
+  /// and the unsigned IPA from GitHub run in LiveContainer, which has no
+  /// profile at all (#92). So both what the app was signed with and, when
+  /// there's one, the profile allowing it must name the container.
   static let entitled: Bool = {
-    guard
-      let url = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision")
-    else { return true }
-    guard let data = try? Data(contentsOf: url),
-      let text = String(data: data, encoding: .isoLatin1),
-      let start = text.range(of: "<?xml"),
-      let end = text.range(of: "</plist>")
-    else { return false }
-    let xml = Data(text[start.lowerBound..<end.upperBound].utf8)
-    guard
-      let plist = try? PropertyListSerialization.propertyList(from: xml, format: nil)
-        as? [String: Any],
-      let entitlements = plist["Entitlements"] as? [String: Any]
-    else { return false }
+    #if targetEnvironment(simulator)
+      return true
+    #else
+      guard let signed = signedEntitlements(), allowsContainer(signed) else { return false }
+      guard
+        let url = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision")
+      else { return true }
+      guard let data = try? Data(contentsOf: url),
+        let text = String(data: data, encoding: .isoLatin1),
+        let start = text.range(of: "<?xml"),
+        let end = text.range(of: "</plist>"),
+        let plist = plist(Data(text[start.lowerBound..<end.upperBound].utf8)),
+        let allowed = plist["Entitlements"] as? [String: Any]
+      else { return false }
+      return allowsContainer(allowed)
+    #endif
+  }()
+
+  private static func allowsContainer(_ entitlements: [String: Any]) -> Bool {
     func list(_ key: String) -> [String] {
       if let many = entitlements[key] as? [String] { return many }
       if let one = entitlements[key] as? String { return [one] }
@@ -184,7 +193,66 @@ final actor CloudSync: CKSyncEngineDelegate {
     let containers = list("com.apple.developer.icloud-container-identifiers")
     return (services.contains("CloudKit") || services.contains("*"))
       && (containers.contains(containerID) || containers.contains("*"))
-  }()
+  }
+
+  private static func plist(_ data: Data) -> [String: Any]? {
+    try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+  }
+
+  /// The entitlements in the app's own code signature (what `codesign -d
+  /// --entitlements` shows), or nil if it has none.
+  static func signedEntitlements() -> [String: Any]? {
+    guard let url = Bundle.main.executableURL,
+      let data = try? Data(contentsOf: url, options: .alwaysMapped)
+    else { return nil }
+    return entitlements(inMachO: data)
+  }
+
+  static func entitlements(inMachO data: Data) -> [String: Any]? {
+    func u32(_ at: Int, big: Bool) -> UInt32? {
+      guard at >= 0, at + 4 <= data.count else { return nil }
+      let value = data.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: at, as: UInt32.self) }
+      return big ? UInt32(bigEndian: value) : UInt32(littleEndian: value)
+    }
+    var base = 0
+    // A universal binary: the arm64 slice.
+    if u32(0, big: true) == 0xcafe_babe, let count = u32(4, big: true) {
+      base = -1
+      for slice in 0..<Int(min(count, 16)) {
+        let entry = 8 + slice * 20
+        if u32(entry, big: true) == 0x0100_000c, let offset = u32(entry + 8, big: true) {
+          base = Int(offset)
+          break
+        }
+      }
+      if base < 0 { return nil }
+    }
+    guard u32(base, big: false) == 0xfeed_facf, let commands = u32(base + 16, big: false)
+    else { return nil }
+    var command = base + 32
+    for _ in 0..<min(commands, 512) {
+      guard let kind = u32(command, big: false), let size = u32(command + 4, big: false),
+        size >= 8
+      else { return nil }
+      if kind == 0x1d {  // LC_CODE_SIGNATURE
+        guard let offset = u32(command + 8, big: false) else { return nil }
+        let blob = base + Int(offset)
+        guard u32(blob, big: true) == 0xfade_0cc0, let count = u32(blob + 8, big: true)
+        else { return nil }
+        for index in 0..<Int(min(count, 64)) {
+          guard let at = u32(blob + 12 + index * 8 + 4, big: true) else { return nil }
+          let entry = blob + Int(at)
+          guard u32(entry, big: true) == 0xfade_7171, let length = u32(entry + 4, big: true),
+            length >= 8, entry + Int(length) <= data.count
+          else { continue }
+          return plist(data.subdata(in: (entry + 8)..<(entry + Int(length))))
+        }
+        return nil
+      }
+      command += Int(size)
+    }
+    return nil
+  }
 
   private lazy var container = CKContainer(identifier: Self.containerID)
 
