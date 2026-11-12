@@ -1,8 +1,10 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_chan/media/image_size.dart';
 import 'package:flutter_chan/saved/permission_denied.dart';
 import 'package:flutter_chan/saved/saved_attachment.dart';
 import 'package:flutter_chan/saved/saved_attachments_model.dart';
@@ -11,11 +13,24 @@ import 'package:flutter_chan/saved/saved_folders.dart';
 import 'package:flutter_chan/saved/saved_media_viewer_page.dart';
 import 'package:flutter_chan/sync/cloud_sync.dart';
 import 'package:flutter_chan/ui/colors.dart';
+import 'package:flutter_chan/ui/image_frost.dart';
 import 'package:flutter_chan/ui/pills.dart';
 import 'package:flutter_chan/ui/toast.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:provider/provider.dart';
 
 const Color _amber = Color(0xFFFBBF24);
+// As on the cards of a board's grid.
+const Color _chipTint = Color(0x40000000);
+const double _radius = 22;
+const double _gap = 10;
+// Where the type chip and the button in the other corner sit on the tile.
+const double _chipInset = 10;
+
+// How tall and how wide a tile can be for its picture, width over height:
+// a long strip would leave no room for its chips and name.
+const double _tallest = 0.6;
+const double _widest = 1.1;
 
 class SavedGrid extends StatefulWidget {
   const SavedGrid({super.key, required this.browsing});
@@ -38,6 +53,64 @@ class _SavedGridState extends State<SavedGrid> with WidgetsBindingObserver {
   /// What the size was added up for: which files, and which of them were
   /// here, as a placeholder's file counts once it's come down.
   int? _sizeKey;
+
+  /// The width and height of each thumbnail measured so far, by its path;
+  /// kept while the app runs, so the tab lays out at once next time.
+  static final Map<String, (int, int)> _sizes = {};
+
+  /// How big each saved file is, by its path, from adding them up.
+  static final Map<String, int> _bytes = {};
+  final Set<String> _measuring = {};
+
+  /// The grid waits for the first measuring, so tiles don't jump about.
+  bool _measured = false;
+
+  /// Measures the thumbnails at [paths] not measured yet, from the start of
+  /// their files, and lays the grid out again once they all are.
+  Future<void> _measure(List<String> paths) async {
+    final List<String> todo = [
+      for (final String path in paths)
+        if (!_sizes.containsKey(path) && _measuring.add(path)) path,
+    ];
+    for (int i = 0; i < todo.length; i += 32) {
+      final List<String> batch = todo.skip(i).take(32).toList();
+      final List<(int, int)?> sizes = await Future.wait(
+        batch.map((path) => imageSize(File(path))),
+      );
+      for (int j = 0; j < batch.length; j++) {
+        if (sizes[j] case final (int, int) size) {
+          _sizes[batch[j]] = size;
+        }
+      }
+    }
+    // One that's missing is tried again when the files change.
+    _measuring.removeAll(todo);
+    if (mounted && (todo.isNotEmpty || !_measured)) {
+      setState(() => _measured = true);
+    }
+  }
+
+  double _ratio(String path) {
+    final (int, int)? size = _sizes[path];
+    return size == null ? 1 : (size.$1 / size.$2).clamp(_tallest, _widest);
+  }
+
+  /// What the line under a file's name says: its extension, its width and
+  /// height, and how big it is, as far as they're known.
+  String _details(SavedFolders folders, SavedAttachment a) {
+    final String name = a.fileName;
+    final int dot = name.lastIndexOf('.');
+    // A video's own thumbnail is smaller than the video.
+    final (int, int)? size = a.hasOwnThumbnail
+        ? null
+        : _sizes[folders.thumbnailPath(a)];
+    final int? bytes = _bytes[folders.mediaPath(a)];
+    return [
+      if (dot > 0) name.substring(dot + 1).toUpperCase(),
+      if (size != null) '${size.$1}×${size.$2}',
+      if (bytes != null) _formatBytes(bytes),
+    ].join(' · ');
+  }
 
   String _title(SavedAttachment a) {
     final String name = a.fileName;
@@ -126,11 +199,18 @@ class _SavedGridState extends State<SavedGrid> with WidgetsBindingObserver {
   ) async {
     int total = 0;
     for (final a in all) {
+      final String path = folders.mediaPath(a);
       try {
-        total += await File(folders.mediaPath(a)).length();
+        final int bytes = await File(path).length();
+        _bytes[path] = bytes;
+        total += bytes;
       } catch (_) {
         // Missing files count as zero.
       }
+    }
+    // For the line under each name.
+    if (mounted) {
+      setState(() {});
     }
     return total;
   }
@@ -166,25 +246,33 @@ class _SavedGridState extends State<SavedGrid> with WidgetsBindingObserver {
     final SavedBrowsing browsing = widget.browsing;
     final provider = Provider.of<SavedAttachmentsProvider>(context);
 
-    if (_isLoading) {
-      return SliverPadding(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        sliver: SliverGrid.count(
-          crossAxisCount: 2,
-          mainAxisSpacing: 8,
-          crossAxisSpacing: 8,
-          childAspectRatio: 0.78,
-          children: [
-            for (int i = 0; i < 6; i++)
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: DashColors.muted(context).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(24),
-                ),
-              ),
-          ],
+    // As many as fit, as on a board's grid: two on a phone, more on an iPad.
+    final int columns = max(
+      2,
+      (MediaQuery.sizeOf(context).width / 230).floor(),
+    );
+
+    final Widget placeholder = SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      sliver: SliverMasonryGrid.count(
+        crossAxisCount: columns,
+        mainAxisSpacing: _gap,
+        crossAxisSpacing: _gap,
+        childCount: 3 * columns,
+        itemBuilder: (context, i) => AspectRatio(
+          aspectRatio: const [0.75, 1.0, 1.25][i % 3],
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: DashColors.muted(context).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(_radius),
+            ),
+          ),
         ),
-      );
+      ),
+    );
+
+    if (_isLoading) {
+      return placeholder;
     }
 
     final SavedFolders? folders = _folders;
@@ -203,6 +291,10 @@ class _SavedGridState extends State<SavedGrid> with WidgetsBindingObserver {
     if (_sizeKey != sizeKey) {
       _sizeKey = sizeKey;
       _sizeFuture = _totalSize(folders, all);
+      _measure([for (final a in all) folders.thumbnailPath(a)]);
+    }
+    if (!_measured) {
+      return placeholder;
     }
 
     final List<SavedAttachment> visible = browsing.visible(all);
@@ -248,62 +340,62 @@ class _SavedGridState extends State<SavedGrid> with WidgetsBindingObserver {
         else
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
-            sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 8,
-                crossAxisSpacing: 8,
-                childAspectRatio: 0.78,
-              ),
-              delegate: SliverChildBuilderDelegate((context, index) {
+            sliver: SliverMasonryGrid.count(
+              crossAxisCount: columns,
+              mainAxisSpacing: _gap,
+              crossAxisSpacing: _gap,
+              childCount: visible.length,
+              itemBuilder: (context, index) {
                 final a = visible[index];
                 final String key = a.fileName;
                 final bool here = provider.hasFile(a);
-                return _Tile(
+                final String thumb = folders.thumbnailPath(a);
+                return AspectRatio(
                   key: ValueKey(key),
-                  syncKey: a.id,
-                  coming: here
-                      ? null
-                      : provider.isInICloud(a)
-                      ? _Coming.inICloud
-                      : _Coming.goingUpElsewhere,
-                  thumb: File(folders.thumbnailPath(a)),
-                  title: _title(a),
-                  ext: key.contains('.')
-                      ? key.split('.').last.toUpperCase()
-                      : '',
-                  isVideo: a.isVideo,
-                  isGif: key.toLowerCase().endsWith('.gif'),
-                  selecting: browsing.selecting,
-                  selected: browsing.selected.contains(key),
-                  onTap: () {
-                    if (browsing.selecting) {
+                  aspectRatio: _ratio(thumb),
+                  child: _Tile(
+                    syncKey: a.id,
+                    coming: here
+                        ? null
+                        : provider.isInICloud(a)
+                        ? _Coming.inICloud
+                        : _Coming.goingUpElsewhere,
+                    thumb: File(thumb),
+                    title: _title(a),
+                    details: _details(folders, a),
+                    isVideo: a.isVideo,
+                    isGif: key.toLowerCase().endsWith('.gif'),
+                    selecting: browsing.selecting,
+                    selected: browsing.selected.contains(key),
+                    onTap: () {
+                      if (browsing.selecting) {
+                        browsing.toggleSelected(key);
+                      } else if (!here) {
+                        showToast(
+                          context,
+                          provider.isInICloud(a) ||
+                                  CloudSync.instance.fileDownload(a.id) != null
+                              ? 'Still downloading from iCloud'
+                              : 'Still uploading from your other device',
+                        );
+                      } else {
+                        final List<SavedAttachment> openable = visible
+                            .where(provider.hasFile)
+                            .toList();
+                        _openViewer(folders, openable, openable.indexOf(a));
+                      }
+                    },
+                    onLongPress: () {
+                      if (browsing.selecting) {
+                        return;
+                      }
+                      HapticFeedback.selectionClick();
+                      browsing.setSelecting(true);
                       browsing.toggleSelected(key);
-                    } else if (!here) {
-                      showToast(
-                        context,
-                        provider.isInICloud(a) ||
-                                CloudSync.instance.fileDownload(a.id) != null
-                            ? 'Still downloading from iCloud'
-                            : 'Still uploading from your other device',
-                      );
-                    } else {
-                      final List<SavedAttachment> openable = visible
-                          .where(provider.hasFile)
-                          .toList();
-                      _openViewer(folders, openable, openable.indexOf(a));
-                    }
-                  },
-                  onLongPress: () {
-                    if (browsing.selecting) {
-                      return;
-                    }
-                    HapticFeedback.selectionClick();
-                    browsing.setSelecting(true);
-                    browsing.toggleSelected(key);
-                  },
+                    },
+                  ),
                 );
-              }, childCount: visible.length),
+              },
             ),
           ),
       ],
@@ -443,12 +535,11 @@ enum _Coming { goingUpElsewhere, inICloud }
 
 class _Tile extends StatelessWidget {
   const _Tile({
-    super.key,
     required this.syncKey,
     required this.coming,
     required this.thumb,
     required this.title,
-    required this.ext,
+    required this.details,
     required this.isVideo,
     required this.isGif,
     required this.selecting,
@@ -464,7 +555,7 @@ class _Tile extends StatelessWidget {
   final _Coming? coming;
   final File thumb;
   final String title;
-  final String ext;
+  final String details;
   final bool isVideo;
   final bool isGif;
   final bool selecting;
@@ -484,145 +575,155 @@ class _Tile extends StatelessWidget {
       ? 'Video'
       : 'Image';
 
-  Widget _media(BuildContext context, bool isDark) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Opacity(
-          // Dimmed till its file is here.
-          opacity: coming == null ? 1 : 0.55,
-          child: Image.file(
-            thumb,
-            fit: BoxFit.cover,
-            cacheWidth: 500,
-            errorBuilder: (_, _, _) => ColoredBox(
-              color: DashColors.muted(context).withValues(alpha: 0.12),
-              child: Icon(
-                CupertinoIcons.photo,
-                color: DashColors.muted(context),
-              ),
-            ),
-          ),
-        ),
-        if (isVideo && !isGif)
-          Center(
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.45),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                CupertinoIcons.play_fill,
-                color: Colors.white,
-                size: 18,
-              ),
-            ),
-          ),
-        Positioned(
-          left: 8,
-          top: 8,
-          child: _SyncBadge(syncKey: syncKey, coming: coming),
-        ),
-        if (selecting)
-          Positioned(
-            right: 8,
-            top: 8,
-            child: Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: selected
-                    ? context.accent
-                    : Colors.black.withValues(alpha: 0.35),
-                border: Border.all(color: Colors.white, width: 1.5),
-              ),
-              child: selected
-                  ? const Icon(
-                      CupertinoIcons.check_mark,
-                      color: Colors.black,
-                      size: 13,
-                    )
-                  : null,
-            ),
-          ),
-      ],
-    );
-  }
+  IconData get _typeIcon => isGif
+      ? CupertinoIcons.sparkles
+      : isVideo
+      ? CupertinoIcons.play_fill
+      : CupertinoIcons.photo_fill;
 
-  Widget _card(BuildContext context, bool isDark) {
+  Widget _card(BuildContext context) {
+    final bool isDark = context.isDark;
+    final Color cardColor = DashColors.card(context);
+    final ImageProvider frost = FileImage(thumb);
+
     return Container(
       decoration: BoxDecoration(
-        color: DashColors.card(context),
-        borderRadius: BorderRadius.circular(24),
+        color: cardColor,
+        borderRadius: BorderRadius.circular(_radius),
         border: Border.all(
           color: selected ? context.accent : DashColors.border(context),
           width: selected ? 2.5 : 1,
         ),
+        boxShadow: DashColors.cardShadow(isDark),
       ),
-      padding: const EdgeInsets.all(6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: _media(context, isDark),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 10, 8, 6),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: ClipRRect(
+        // Inside the border.
+        borderRadius: BorderRadius.circular(_radius - (selected ? 2.5 : 1)),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final Size card = constraints.biggest;
+            return Stack(
+              fit: StackFit.expand,
               children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w700,
-                    color: DashColors.text(context),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _typeColor(context).withValues(alpha: 0.16),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        _typeLabel,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: _typeColor(context),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      ext,
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
+                Opacity(
+                  // Dimmed till its file is here.
+                  opacity: coming == null ? 1 : 0.55,
+                  child: Image.file(
+                    thumb,
+                    fit: BoxFit.cover,
+                    cacheWidth: 500,
+                    errorBuilder: (_, _, _) => ColoredBox(
+                      color: DashColors.muted(context).withValues(alpha: 0.12),
+                      child: Icon(
+                        CupertinoIcons.photo,
                         color: DashColors.muted(context),
                       ),
                     ),
-                  ],
+                  ),
+                ),
+                Positioned(
+                  left: _chipInset,
+                  top: _chipInset,
+                  child: ImageFrost(
+                    image: frost,
+                    card: card,
+                    anchor: Alignment.topLeft,
+                    inset: const Offset(-_chipInset, -_chipInset),
+                    radius: 8,
+                    tint: _chipTint,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(_typeIcon, color: _typeColor(context), size: 12),
+                        const SizedBox(width: 4),
+                        Text(
+                          _typeLabel,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Where a board's card has its bookmark button: whether it's
+                // picked while picking files, or else how it stands with
+                // iCloud.
+                Positioned(
+                  right: _chipInset,
+                  top: _chipInset,
+                  child: selecting
+                      ? _CornerButton(
+                          frost: frost,
+                          card: card,
+                          child: Icon(
+                            selected
+                                ? CupertinoIcons.check_mark_circled_solid
+                                : CupertinoIcons.circle,
+                            color: selected ? context.accent : Colors.white,
+                            size: 18,
+                          ),
+                        )
+                      : _SyncBadge(
+                          syncKey: syncKey,
+                          coming: coming,
+                          frost: frost,
+                          card: card,
+                        ),
+                ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: ImageFrost(
+                    image: frost,
+                    card: card,
+                    anchor: Alignment.bottomCenter,
+                    inset: Offset.zero,
+                    radius: 0,
+                    tint: cardColor.withValues(alpha: isDark ? 0.7 : 0.85),
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 9),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w700,
+                            color: DashColors.text(context),
+                          ),
+                        ),
+                        if (details.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            details,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                              color: DashColors.muted(context),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
               ],
-            ),
-          ),
-        ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -637,7 +738,7 @@ class _Tile extends StatelessWidget {
         scale: selected ? 0.95 : 1,
         duration: const Duration(milliseconds: 140),
         curve: Curves.easeOutCubic,
-        child: _card(context, context.isDark),
+        child: _card(context),
       ),
     );
   }
@@ -649,10 +750,17 @@ class _Tile extends StatelessWidget {
 /// goes up from there, a cloud with an arrow while it waits to come down,
 /// then a ring filling as it does.
 class _SyncBadge extends StatelessWidget {
-  const _SyncBadge({required this.syncKey, required this.coming});
+  const _SyncBadge({
+    required this.syncKey,
+    required this.coming,
+    required this.frost,
+    required this.card,
+  });
 
   final String syncKey;
   final _Coming? coming;
+  final ImageProvider frost;
+  final Size card;
 
   @override
   Widget build(BuildContext context) {
@@ -670,18 +778,12 @@ class _SyncBadge extends StatelessWidget {
               : Semantics(
                   key: ValueKey(badge.label),
                   label: badge.label,
-                  child: Container(
-                    width: 26,
-                    height: 26,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.45),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: badge.progress == null
-                          ? Icon(badge.icon, color: Colors.white, size: 14)
-                          : _UploadRing(value: badge.progress!),
-                    ),
+                  child: _CornerButton(
+                    frost: frost,
+                    card: card,
+                    child: badge.progress == null
+                        ? Icon(badge.icon, color: Colors.white, size: 16)
+                        : _UploadRing(value: badge.progress!),
                   ),
                 ),
         );
@@ -723,6 +825,33 @@ class _SyncBadge extends StatelessWidget {
               : 'Coming down from iCloud, ${(progress * 100).round()}%',
         );
     }
+  }
+}
+
+/// A frosted square in a tile's top right corner, like a board card's
+/// bookmark button.
+class _CornerButton extends StatelessWidget {
+  const _CornerButton({
+    required this.frost,
+    required this.card,
+    required this.child,
+  });
+
+  final ImageProvider frost;
+  final Size card;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return ImageFrost(
+      image: frost,
+      card: card,
+      anchor: Alignment.topRight,
+      inset: const Offset(_chipInset, -_chipInset),
+      radius: 8,
+      tint: _chipTint,
+      child: SizedBox.square(dimension: 32, child: Center(child: child)),
+    );
   }
 }
 

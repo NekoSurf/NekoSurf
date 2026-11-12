@@ -6,6 +6,7 @@ import 'package:flutter_chan/bookmarks/bookmarks_model.dart';
 import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/history/watched_posts_model.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
+import 'package:flutter_chan/ui/image_frost.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -180,5 +181,36 @@ void main() {
 
     await pumpCard(tester, GridPost(post: withImage(spoiler: 1)));
     expect(tinyImages(), findsNothing);
+  });
+
+  testWidgets('a frosted bar is tinted all the way across, not just its text', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const Directionality(
+        textDirection: TextDirection.ltr,
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: SizedBox(
+            width: 200,
+            child: ImageFrost(
+              image: null,
+              card: Size(200, 260),
+              anchor: Alignment.bottomCenter,
+              inset: Offset.zero,
+              radius: 0,
+              tint: Color(0x80000000),
+              child: Text('a'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final Finder tint = find.descendant(
+      of: find.byType(ImageFrost),
+      matching: find.byType(Container),
+    );
+    expect(tester.getSize(tint).width, 200);
   });
 }

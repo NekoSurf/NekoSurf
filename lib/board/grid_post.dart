@@ -8,6 +8,7 @@ import 'package:flutter_chan/history/new_replies.dart';
 import 'package:flutter_chan/media/image_cache.dart';
 import 'package:flutter_chan/media/post_thumbnail.dart';
 import 'package:flutter_chan/ui/colors.dart';
+import 'package:flutter_chan/ui/image_frost.dart';
 import 'package:flutter_chan/ui/open.dart';
 import 'package:flutter_chan/ui/pills.dart';
 import 'package:provider/provider.dart';
@@ -34,6 +35,10 @@ class GridPost extends StatelessWidget {
 
     final Bookmark bookmark = Bookmark.fromPost(post);
     final bool isBookmarked = bookmarks.isBookmarked(bookmark);
+    // A spoiler's picture stays hidden, even this blurry.
+    final ImageProvider? frost = post.tim != null && post.spoilerUpload == null
+        ? thumbnailImage(post.thumbnailUrl)
+        : null;
 
     return GestureDetector(
       onTap: () => openThread(context, post),
@@ -79,8 +84,8 @@ class GridPost extends StatelessWidget {
                       runSpacing: 4,
                       children: [
                         // First, so that its place on the card is known.
-                        _FrostedChip(
-                          post: post,
+                        ImageFrost(
+                          image: frost,
                           card: card,
                           anchor: Alignment.topLeft,
                           inset: const Offset(-_chipInset, -_chipInset),
@@ -164,8 +169,8 @@ class GridPost extends StatelessWidget {
                     right: 10,
                     child: GestureDetector(
                       onTap: () => bookmarks.toggleBookmark(bookmark),
-                      child: _FrostedChip(
-                        post: post,
+                      child: ImageFrost(
+                        image: frost,
                         card: card,
                         anchor: Alignment.topRight,
                         inset: const Offset(_chipInset, -_chipInset),
@@ -224,8 +229,8 @@ class GridPost extends StatelessWidget {
                             ],
                           ),
                         ),
-                        _FrostedChip(
-                          post: post,
+                        ImageFrost(
+                          image: frost,
                           card: card,
                           anchor: Alignment.bottomCenter,
                           inset: Offset.zero,
@@ -269,80 +274,6 @@ class GridPost extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-/// Looks frosted, but isn't blurred: a blur of what's behind it has to be redone
-/// for each card in every frame, which makes scrolling a board stutter. So this
-/// shows a tiny copy of the card's image, stretched to the card and cut to the
-/// chip, which draws like any other image.
-class _FrostedChip extends StatelessWidget {
-  const _FrostedChip({
-    required this.post,
-    required this.card,
-    required this.anchor,
-    required this.inset,
-    required this.radius,
-    required this.tint,
-    required this.child,
-    this.padding,
-  });
-
-  final Post post;
-
-  /// The size of the card the image fills.
-  final Size card;
-
-  /// The corner or edge of the card this chip is measured from, and how far
-  /// that is from the same place on the chip.
-  final Alignment anchor;
-  final Offset inset;
-
-  final double radius;
-  final Color tint;
-  final EdgeInsetsGeometry? padding;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final BorderRadius corners = BorderRadius.circular(radius);
-    // A spoiler's picture stays hidden, even this blurry.
-    final bool showsImage = post.tim != null && post.spoilerUpload == null;
-
-    return Stack(
-      children: [
-        if (showsImage)
-          Positioned.fill(
-            child: ClipRRect(
-              borderRadius: corners,
-              child: OverflowBox(
-                alignment: anchor,
-                minWidth: card.width,
-                maxWidth: card.width,
-                minHeight: card.height,
-                maxHeight: card.height,
-                child: Transform.translate(
-                  offset: inset,
-                  child: Image(
-                    image: ResizeImage.resizeIfNeeded(
-                      16,
-                      null,
-                      thumbnailImage(post.thumbnailUrl),
-                    ),
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        Container(
-          padding: padding,
-          decoration: BoxDecoration(color: tint, borderRadius: corners),
-          child: child,
-        ),
-      ],
     );
   }
 }

@@ -1,1 +1,1 @@
-Files saved before version 0.13.0 are now in the same place in the Saved tab on all your devices with iCloud sync on.
+Saved files fill tiles shaped like their pictures in the Saved tab; files saved before version 0.13.0 are now in the same place on all your devices with iCloud sync on.
