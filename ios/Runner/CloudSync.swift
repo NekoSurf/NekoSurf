@@ -527,13 +527,14 @@ final actor CloudSync: CKSyncEngineDelegate {
     }
   }
 
+  /// Lists the zones rather than asking for ours by name: asked for by
+  /// name, a zone that isn't there is an error, which CloudKit's logs count
+  /// for every launch of everyone with sync off.
   private func hasCloudData() async -> Bool? {
     guard Self.entitled else { return false }
     do {
-      _ = try await container.privateCloudDatabase.recordZone(for: Self.zoneID)
-      return true
-    } catch let error as CKError where error.code == .zoneNotFound || error.code == .userDeletedZone {
-      return false
+      let zones = try await container.privateCloudDatabase.allRecordZones()
+      return zones.contains { $0.zoneID == Self.zoneID }
     } catch {
       return nil
     }
