@@ -1,0 +1,3 @@
+## What's fixed
+
+- With iCloud sync on, Sync now (Settings → iCloud sync) and coming back to NekoSurf bring in what changed on your other devices straight away; before, it could take minutes to show up

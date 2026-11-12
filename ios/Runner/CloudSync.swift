@@ -5,7 +5,8 @@ import UIKit
 /// iCloud sync (lib/sync/cloud_sync.dart): what's kept the same on every
 /// device with it on, as one CloudKit record per item, in a zone of the
 /// user's private database. CKSyncEngine sends and fetches them, and hears
-/// of changes by push.
+/// of changes by push; Sync now and coming back to the app ask iCloud too
+/// (askICloud), as pushes don't always come.
 ///
 /// Dart says what changed here ("save", "delete"); what changed elsewhere
 /// waits in an inbox on disk until Dart has applied it ("takeInbox",
@@ -247,7 +248,10 @@ final actor CloudSync: CKSyncEngineDelegate {
       delete(arguments as? [String] ?? [])
       return nil
     case "fetch":
+      // The engine's first, as when joining, so asking iCloud after finds
+      // what it brought in already here.
       try await engineOrThrow().fetchChanges(Self.fetchSoon("Fetch"))
+      try await askICloud()
       return nil
     case "send":
       // What failed before goes again too ("Sync now").
@@ -356,7 +360,8 @@ final actor CloudSync: CKSyncEngineDelegate {
     problem = nil
     lastError = nil
     refusedIDs = []
-    for name in ["state.json", "outbox.json", "records.plist"] {
+    askedToken = nil
+    for name in ["state.json", "outbox.json", "records.plist", "asked-token"] {
       try? FileManager.default.removeItem(at: Self.file(name))
     }
     if !keepingInbox {
@@ -625,8 +630,42 @@ final actor CloudSync: CKSyncEngineDelegate {
   }
 
   private func fetched(_ event: CKSyncEngine.Event.FetchedRecordZoneChanges, engine: CKSyncEngine) {
-    // What's changed here and not sent yet wins over what came in, saved
-    // files waiting to go up too.
+    let pending = pendingIDs(engine)
+    var received: [Incoming] = []
+    // What was sent from here, or brought in by asking iCloud, as it is.
+    var here = 0
+    for modification in event.modifications {
+      let record = modification.record
+      let id = record.recordID.recordName
+      if Self.haveAsNew(serverRecords[id], record) {
+        here += 1
+        continue
+      }
+      serverRecords[id] = Self.encodeSystemFields(record)
+      if pending.contains(id) { continue }
+      received.append(Self.incoming(record))
+    }
+    for deletion in event.deletions {
+      let id = deletion.recordID.recordName
+      serverRecords[id] = nil
+      if pending.contains(id) { continue }
+      received.append(Incoming(seq: 0, id: id, deleted: true))
+    }
+    let kept = event.modifications.count + event.deletions.count - received.count - here
+    log(
+      "Fetched: \(event.modifications.count) changed, \(event.deletions.count) deleted"
+        + (here > 0 ? ", \(here) already here" : "")
+        + (kept > 0 ? ", \(kept) changed here since, kept" : "")
+        + (received.isEmpty ? "" : "; \(Self.kinds(received.compactMap(\.id)))"))
+    // In the inbox before it's noted as here: if the app is ended between,
+    // it comes in twice rather than not at all.
+    receive(received)
+    persistRecords()
+  }
+
+  /// What's changed here and not sent yet, which wins over what comes in,
+  /// saved files waiting to go up too.
+  private func pendingIDs(_ engine: CKSyncEngine) -> Set<String> {
     var pending = Set(
       engine.state.pendingRecordZoneChanges.map { change -> String in
         switch change {
@@ -635,33 +674,149 @@ final actor CloudSync: CKSyncEngineDelegate {
         }
       })
     pending.formUnion(outbox.keys.filter(isFile))
-    var received: [Incoming] = []
-    for modification in event.modifications {
-      let record = modification.record
-      let id = record.recordID.recordName
-      serverRecords[id] = Self.encodeSystemFields(record)
-      if pending.contains(id) { continue }
-      received.append(
-        Incoming(
-          seq: 0, id: id, kind: record["kind"] as? String, key: record["key"] as? String,
-          data: record["data"] as? String,
-          modifiedAt: (record["modifiedAt"] as? Date).map { $0.timeIntervalSince1970 * 1000 },
-          media: Self.keep(record["media"] as? CKAsset),
-          thumbnail: Self.keep(record["thumbnail"] as? CKAsset)))
+    return pending
+  }
+
+  private static func incoming(_ record: CKRecord) -> Incoming {
+    Incoming(
+      seq: 0, id: record.recordID.recordName, kind: record["kind"] as? String,
+      key: record["key"] as? String, data: record["data"] as? String,
+      modifiedAt: (record["modifiedAt"] as? Date).map { $0.timeIntervalSince1970 * 1000 },
+      media: keep(record["media"] as? CKAsset),
+      thumbnail: keep(record["thumbnail"] as? CKAsset))
+  }
+
+  /// Whether [known], a record's system fields as kept here, are of
+  /// [record]'s version or a later one: a fetch that began before a save
+  /// from here, or before asking iCloud, can end after it.
+  private static func haveAsNew(_ known: Data?, _ record: CKRecord) -> Bool {
+    guard let known, let have = decodeRecord(known) else { return false }
+    if let tag = record.recordChangeTag, have.recordChangeTag == tag { return true }
+    guard let haveDate = have.modificationDate, let date = record.modificationDate else {
+      return false
     }
-    for deletion in event.deletions {
-      let id = deletion.recordID.recordName
-      serverRecords[id] = nil
-      if pending.contains(id) { continue }
-      received.append(Incoming(seq: 0, id: id, deleted: true))
+    return haveDate > date
+  }
+
+  // MARK: Asking iCloud
+
+  /// How far askICloud got through the zone's changes.
+  private var askedToken: CKServerChangeToken?
+  private var askedTokenLoaded = false
+  private var asking: Task<Void, Error>?
+
+  /// Asks iCloud what changed in the zone since it last did, and brings in
+  /// what isn't here yet. The engine's fetchChanges asks iCloud nothing
+  /// unless a push said something changed, and pushes don't always come:
+  /// Sync now on one iPhone found nothing of what another had just saved,
+  /// minutes after. Looks at the records' system fields only, and fetches
+  /// whole only those that aren't here as they are, so a video the engine
+  /// brought in already isn't downloaded again.
+  private func askICloud() async throws {
+    if let asking { return try await asking.value }
+    let task = Task { try await self.ask() }
+    asking = task
+    defer { asking = nil }
+    try await task.value
+  }
+
+  private func ask() async throws {
+    guard let engine else { return }
+    if !askedTokenLoaded {
+      askedTokenLoaded = true
+      askedToken = (try? Data(contentsOf: Self.file("asked-token"))).flatMap {
+        try? NSKeyedUnarchiver.unarchivedObject(ofClass: CKServerChangeToken.self, from: $0)
+      }
     }
-    persistRecords()
-    let skipped = event.modifications.count + event.deletions.count - received.count
+    let first = askedToken == nil
+    var changed = 0
+    var deleted = 0
+    var brought: [String] = []
+    var expired = false
+    while true {
+      let since = askedToken
+      let page: (
+        modificationResultsByID: [CKRecord.ID: Result<CKDatabase.RecordZoneChange.Modification, Error>],
+        deletions: [CKDatabase.RecordZoneChange.Deletion], changeToken: CKServerChangeToken,
+        moreComing: Bool
+      )
+      do {
+        page = try await container.privateCloudDatabase.configuredWith(group: Self.soon("Ask iCloud")) {
+          try await $0.recordZoneChanges(inZoneWith: Self.zoneID, since: since, desiredKeys: [])
+        }
+      } catch let error as CKError where error.code == .changeTokenExpired && !expired {
+        // From the start again, as when first asked.
+        expired = true
+        askedToken = nil
+        continue
+      } catch let error as CKError where error.code == .zoneNotFound || error.code == .userDeletedZone {
+        // Not made yet, or deleted elsewhere: the engine sees to both.
+        log("Asked iCloud: no NekoSurf data there")
+        return
+      }
+      // Turned off, or started over, meanwhile.
+      guard engine === self.engine else { return }
+      var wanted: [CKRecord.ID] = []
+      let changedHere = pendingIDs(engine)
+      for (recordID, result) in page.modificationResultsByID {
+        guard case .success(let modification) = result else { continue }
+        changed += 1
+        let id = recordID.recordName
+        if Self.haveAsNew(serverRecords[id], modification.record) { continue }
+        if changedHere.contains(id) {
+          serverRecords[id] = Self.encodeSystemFields(modification.record)
+        } else {
+          wanted.append(recordID)
+        }
+      }
+      // What's noted as here is passed on at once, each 100: should a later
+      // lot fail, this one isn't fetched again, nor by the engine.
+      for start in stride(from: 0, to: wanted.count, by: 100) {
+        let ids = Array(wanted[start..<min(start + 100, wanted.count)])
+        let results = try await container.privateCloudDatabase.configuredWith(
+          group: Self.soon("Ask iCloud")
+        ) { try await $0.records(for: ids) }
+        guard engine === self.engine else { return }
+        let pending = pendingIDs(engine)
+        var received: [Incoming] = []
+        for (recordID, result) in results {
+          // Deleted since, it's in the next changes.
+          guard case .success(let record) = result else { continue }
+          let id = recordID.recordName
+          // The engine may have brought it in meanwhile.
+          if Self.haveAsNew(serverRecords[id], record) { continue }
+          serverRecords[id] = Self.encodeSystemFields(record)
+          if pending.contains(id) { continue }
+          received.append(Self.incoming(record))
+          brought.append(id)
+        }
+        receive(received)
+        persistRecords()
+      }
+      // A deletion the engine brought in already isn't known here any more.
+      let pending = pendingIDs(engine)
+      var received: [Incoming] = []
+      for deletion in page.deletions {
+        deleted += 1
+        let id = deletion.recordID.recordName
+        if serverRecords.removeValue(forKey: id) == nil || pending.contains(id) { continue }
+        received.append(Incoming(seq: 0, id: id, deleted: true))
+        brought.append(id)
+      }
+      receive(received)
+      persistRecords()
+      askedToken = page.changeToken
+      if let data = try? NSKeyedArchiver.archivedData(
+        withRootObject: page.changeToken, requiringSecureCoding: true)
+      {
+        try? data.write(to: Self.file("asked-token"), options: .atomic)
+      }
+      if !page.moreComing { break }
+    }
+    let looked = first ? "first look, \(changed) there" : "\(changed) changed, \(deleted) deleted"
     log(
-      "Fetched: \(event.modifications.count) changed, \(event.deletions.count) deleted"
-        + (skipped > 0 ? ", \(skipped) changed here since, kept" : "")
-        + (received.isEmpty ? "" : "; \(Self.kinds(received.compactMap(\.id)))"))
-    receive(received)
+      "Asked iCloud: \(looked); "
+        + (brought.isEmpty ? "nothing new here" : "new here: \(Self.kinds(brought))"))
   }
 
   private func sent(_ event: CKSyncEngine.Event.SentRecordZoneChanges, engine: CKSyncEngine) {
