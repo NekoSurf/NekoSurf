@@ -1,1 +1,0 @@
-NekoSurf no longer closes right after opening in LiveContainer, and a saved video deleted and saved again on another device keeps the same place in the Saved tab everywhere.
