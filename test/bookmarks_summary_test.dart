@@ -1,9 +1,13 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/bookmarks/bookmark.dart';
 import 'package:flutter_chan/bookmarks/bookmarks_model.dart';
+import 'package:flutter_chan/history/watched_posts_model.dart';
 import 'package:flutter_chan/home/bookmarks.dart';
 import 'package:flutter_chan/home/bookmarks_summary.dart';
 import 'package:flutter_chan/media/post_thumbnail.dart';
+import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -96,5 +100,37 @@ void main() {
     );
     expect(find.text('No bookmarks yet'), findsOneWidget);
     expect(find.byType(BookmarksSummary), findsNothing);
+  });
+
+  testWidgets('clearing asks first, and Cancel keeps them', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'favoriteThreads': [jsonEncode(_bookmark('g', 1).toJson())],
+    });
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final SettingsProvider settings = SettingsProvider(prefs);
+    final WatchedPostsProvider watched = WatchedPostsProvider(prefs, settings);
+    addTearDown(watched.dispose);
+    final BookmarksProvider bookmarks = BookmarksProvider(prefs);
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<SettingsProvider>.value(value: settings),
+          ChangeNotifierProvider<WatchedPostsProvider>.value(value: watched),
+          ChangeNotifierProvider<BookmarksProvider>.value(value: bookmarks),
+        ],
+        child: const MaterialApp(home: Bookmarks()),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.bySemanticsLabel('More'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Clear bookmarks'));
+    await tester.pumpAndSettle();
+    expect(find.text('Clear all 1 bookmark?'), findsOneWidget);
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(bookmarks.bookmarks, hasLength(1));
   });
 }

@@ -14,4 +14,5 @@
 
 - With iCloud sync on, a file saved before version 0.13.0 is now in the same place in the Saved tab on all your devices
 - In Bookmarks, a thread opens straight away, without waiting to find out whether it's still up
+- Clear bookmarks asks first, and says when it clears them on all your devices
 - The ring on a saved file going to or from iCloud fills smoothly, instead of starting over with every percent

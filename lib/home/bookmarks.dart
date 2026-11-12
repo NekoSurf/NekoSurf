@@ -124,6 +124,17 @@ class _BookmarksState extends State<Bookmarks> {
     }
   }
 
+  Future<void> _clear(BookmarksProvider bookmarks) async {
+    final int n = bookmarks.bookmarks.length;
+    if (await _confirm(
+      'Clear all $n ${n == 1 ? 'bookmark' : 'bookmarks'}?',
+      'Every bookmark goes$_everywhere. This can’t be undone.',
+      'Clear',
+    )) {
+      await bookmarks.clearBookmarks();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final bookmarks = Provider.of<BookmarksProvider>(context);
@@ -169,7 +180,7 @@ class _BookmarksState extends State<Bookmarks> {
                 title: 'Clear bookmarks',
                 icon: CupertinoIcons.trash,
                 isDestructive: true,
-                onPressed: bookmarks.clearBookmarks,
+                onPressed: () => _clear(bookmarks),
               ),
             ],
           ),
