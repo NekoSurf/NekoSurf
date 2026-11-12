@@ -13,11 +13,9 @@ import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_dialogs.dart';
 import 'package:flutter_chan/ui/dash_menu.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
-import 'package:flutter_chan/ui/dash_widgets.dart';
 import 'package:provider/provider.dart';
 
-/// The Bookmarks tab: the bookmarked threads as a board shows its threads,
-/// those with new replies first.
+/// The Bookmarks tab: the bookmarked threads as a board shows its threads.
 class Bookmarks extends StatefulWidget {
   const Bookmarks({super.key});
 
@@ -223,7 +221,7 @@ void _report(BuildContext context, int count) {
   }
 }
 
-/// The threads, in two groups when some have new replies and some don't.
+/// The threads, in the order chosen.
 class _Threads extends StatelessWidget {
   const _Threads({required this.posts, required this.statusOf});
 
@@ -235,46 +233,25 @@ class _Threads extends StatelessWidget {
     final bool grid =
         Provider.of<SettingsProvider>(context).boardViewMode.value ==
         ViewMode.grid;
-    // Read positions change with every scroll in a thread; this only
-    // rebuilds when which threads have new replies does.
-    // A string, which compares by what it says.
-    final String which = context.select<WatchedPostsProvider, String>(
-      (watched) => [
-        for (int i = 0; i < posts.length; i++)
-          if ((watched.newReplies(posts[i].no, posts[i].replies ?? 0) ?? 0) > 0)
-            i,
-      ].join(','),
+    // For the tab's badge. Read positions change with every scroll in a
+    // thread; this only rebuilds when the count does.
+    _report(
+      context,
+      context.select<WatchedPostsProvider, int>(
+        (watched) => posts
+            .where(
+              (Post post) =>
+                  (watched.newReplies(post.no, post.replies ?? 0) ?? 0) > 0,
+            )
+            .length,
+      ),
     );
-    final List<int> updated = [
-      if (which.isNotEmpty)
-        for (final String i in which.split(',')) int.parse(i),
-    ];
 
-    _report(context, updated.length);
-
-    Widget threads(List<Post> posts) => ThreadsView(
+    return ThreadsView(
       threads: posts,
       grid: grid,
       showBoard: true,
       statusOf: statusOf,
-    );
-
-    if (updated.isEmpty || updated.length == posts.length) {
-      return threads(posts);
-    }
-    final Set<int> isUpdated = updated.toSet();
-    return SliverMainAxisGroup(
-      slivers: [
-        const SliverToBoxAdapter(child: DashSectionHeader(title: 'Unread')),
-        threads([for (final int i in updated) posts[i]]),
-        const SliverToBoxAdapter(
-          child: DashSectionHeader(title: 'Other bookmarks'),
-        ),
-        threads([
-          for (int i = 0; i < posts.length; i++)
-            if (!isUpdated.contains(i)) posts[i],
-        ]),
-      ],
     );
   }
 }

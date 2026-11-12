@@ -6,7 +6,6 @@
 
 ### 🔖 Bookmarks that look like a board
 - Bookmarked threads show as a board's threads do, in its grid or list, with the board, reply counts and unread posts on each
-- Threads with unread posts come first, under Unread
 - Archived and deleted threads say so on their card, and the ••• menu can remove them all at once
 
 ### 🖼️ A new look for the Saved tab
