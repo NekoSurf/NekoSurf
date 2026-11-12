@@ -104,6 +104,21 @@ jobs:
             echo "::error::TestFlight takes up to 4000 characters of What to Test, WHAT_TO_TEST.txt has ${#WHAT_TO_TEST}"
             exit 1
           fi
+          # Xcode Cloud left v0.13.0+301 and +302 without What to Test,
+          # "notes contains invalid characters", and App Store Connect took
+          # neither pasted in: emoji, and angle brackets and look-alikes.
+          REFUSED=$(printf '%s' "$WHAT_TO_TEST" | python3 -c '
+          import sys
+          for n, line in enumerate(sys.stdin.read().split("\n"), 1):
+              for c in line:
+                  o = ord(c)
+                  if c in "<>‹›«»" or o > 0xFFFF or 0x2600 <= o <= 0x27BF or o in (0xFE0E, 0xFE0F):
+                      print(f"{n}:{c}")
+          ')
+          if [ -n "$REFUSED" ]; then
+            echo "::error::WHAT_TO_TEST.txt has characters TestFlight refuses (line:character): $(echo $REFUSED). Headings go without their emoji there, and a path through the app takes →"
+            exit 1
+          fi
 
           printf '%s\n' "$WHAT_TO_TEST" > "$RUNNER_TEMP/what_to_test.txt"
           if [ -f RELEASE_NOTES.md ]; then

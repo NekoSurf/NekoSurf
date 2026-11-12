@@ -123,10 +123,15 @@ Markdown, for users, in this shape:
 - Only the content of `RELEASE_NOTES.md`, in plain text, with nothing added:
   the same headings, in the same order, with the same lines. TestFlight shows
   Markdown as typed, so drop the `#` marks, links and `-` bullets: headings
-  become plain lines (`WHAT'S NEW`, `WHAT'S FIXED`, then each feature's emoji
-  and title), bullets become `•`. Change a line in one file and change it in
-  the other.
+  become plain lines (`WHAT'S NEW`, `WHAT'S FIXED`, then each feature's
+  title, without its emoji), bullets become `•`. Change a line in one file
+  and change it in the other.
 - At most 4000 characters (the workflow checks). If it's too long, shorten
   the wording in both files, not just this one.
+- No emoji, and no `<`, `>`, `‹`, `›`, `«` or `»`: TestFlight refuses the
+  notes ("notes contains invalid characters", as for v0.13.0+301 and +302;
+  pasting +301's in by hand failed too), and the build has no What to Test.
+  Without emoji they went in, `•` and `→` with them. Write `→` for a path
+  through the app, in both files; the workflow checks.
 - The release commit writes it to `ios/TestFlight/WhatToTest.en-US.txt`,
   which Xcode Cloud reads; don't edit that file directly.
