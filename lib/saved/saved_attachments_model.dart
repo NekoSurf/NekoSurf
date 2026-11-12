@@ -314,16 +314,21 @@ class SavedAttachmentsProvider with ChangeNotifier implements SyncTarget {
         continue;
       }
       if (existing != null) {
-        if (hasFile(existing)) {
+        // When it was saved: the same on every device, for the same order.
+        final SavedAttachment current = _withAddedAtOf(existing, remote);
+        if (!identical(current, existing)) {
+          changed = true;
+        }
+        if (hasFile(current)) {
           continue;
         }
         if (change.media != null) {
           // Saved by an older NekoSurf, with its file in the record.
-          changed |= await _fileCame(folders, existing, change.media);
-        } else if (_placeholders[existing.id] != change.fileBytes) {
-          _placeholders[existing.id] = change.fileBytes;
+          changed |= await _fileCame(folders, current, change.media);
+        } else if (_placeholders[current.id] != change.fileBytes) {
+          _placeholders[current.id] = change.fileBytes;
           changed = true;
-          toDownload.add(existing.id);
+          toDownload.add(current.id);
         }
         continue;
       }
@@ -357,6 +362,24 @@ class SavedAttachmentsProvider with ChangeNotifier implements SyncTarget {
       await _storePlaceholders();
     }
     unawaited(_sync.downloadFiles(toDownload));
+  }
+
+  /// [existing], with when [remote] says it was saved, moved to where that
+  /// puts it; [existing] itself if that's the same.
+  SavedAttachment _withAddedAtOf(
+    SavedAttachment existing,
+    SavedAttachment remote,
+  ) {
+    final int? addedAt = remote.addedAt;
+    if (addedAt == null || addedAt == existing.addedAt) {
+      return existing;
+    }
+    final SavedAttachment updated = existing.addedAtTime(
+      DateTime.fromMillisecondsSinceEpoch(addedAt),
+    );
+    _attachments.remove(existing);
+    _insert(updated);
+    return updated;
   }
 
   /// [attachment] under a name that isn't taken here, by a file or by

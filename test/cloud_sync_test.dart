@@ -559,6 +559,36 @@ void main() {
     expect(prefs.getString(SavedAttachmentsProvider.placeholdersKey), '{}');
   });
 
+  test(
+    "a saved file that's here takes when it was saved from elsewhere",
+    () async {
+      File('${folders.media}/a.png').writeAsStringSync('a');
+      File('${folders.media}/b.png').writeAsStringSync('b');
+      final a = await app(
+        await prefsWith({
+          'savedAttachments': [
+            jsonEncode({...jsonDecode(savedEntry('a.png', '100')) as Map}),
+            jsonEncode({...jsonDecode(savedEntry('b.png', '200')) as Map}),
+          ],
+        }),
+      );
+      await a.sync.turnOn();
+      // Saved again on another device, after b.
+      inbox.add({
+        ...change(SyncKind.saved, '100', {
+          ...jsonDecode(savedEntry('a.png', '100')) as Map<String, Object?>,
+          'addedAt': 1800000000000,
+        }),
+        'seq': ++seq,
+      });
+      await a.sync.processInbox();
+
+      expect(a.saved.attachments.map((s) => s.id), ['200', '100']);
+      expect(a.saved.attachments.last.addedAt, 1800000000000);
+      expect(a.saved.hasFile(a.saved.attachments.last), isTrue);
+    },
+  );
+
   test('how a saved file from another device is coming down', () async {
     final a = await app(await prefsWith({}));
     await a.sync.turnOn();
