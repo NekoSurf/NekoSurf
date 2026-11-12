@@ -97,6 +97,20 @@ class BookmarksProvider with ChangeNotifier implements SyncTarget {
   Future<void> toggleBookmark(Bookmark bookmark) =>
       isBookmarked(bookmark) ? removeBookmark(bookmark) : addBookmark(bookmark);
 
+  /// Removes the bookmarks of the threads with these [keys] ([Bookmark.key]).
+  Future<void> removeBookmarks(Set<String> keys) async {
+    final List<String> removed = [
+      for (final Bookmark b in _bookmarks)
+        if (keys.contains(b.key)) b.key,
+    ];
+    if (removed.isEmpty) {
+      return;
+    }
+    _bookmarks.removeWhere((b) => keys.contains(b.key));
+    _sync.removeAll(SyncKind.bookmark, removed);
+    await _save();
+  }
+
   Future<void> clearBookmarks() async {
     _sync.removeAll(SyncKind.bookmark, [for (final b in _bookmarks) b.key]);
     _bookmarks.clear();

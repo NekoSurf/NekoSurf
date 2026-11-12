@@ -1,5 +1,10 @@
 ## What's new
 
+### 🔖 Bookmarks that look like a board
+- Bookmarked threads show as a board's threads do, in its grid or list, with the board, reply counts and new replies on each
+- Threads with new replies come first, under New replies
+- Archived and deleted threads say so on their card, and the ••• menu can remove them all at once
+
 ### 🖼️ A new look for the Saved tab
 - Each saved file fills a tile shaped like its picture, so tall and wide ones aren't cut off, with whether it's an image, video or GIF on the picture
 - Its name is on a frosted bar, with its file type, size and, for an image, resolution under it
@@ -8,4 +13,5 @@
 ## What's fixed
 
 - With iCloud sync on, a file saved before version 0.13.0 is now in the same place in the Saved tab on all your devices
+- In Bookmarks, a thread opens straight away, without waiting to find out whether it's still up
 - The ring on a saved file going to or from iCloud fills smoothly, instead of starting over with every percent

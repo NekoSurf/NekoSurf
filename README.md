@@ -43,7 +43,7 @@
 - Threads read like comments: replies nested under the post they answer, and folded away with a tap; or a flat list in the order they were posted, if you prefer
 - Hold a post to hide it, or a poster's posts by their ID, name, tripcode or country, and filter replies by keyword or regex
 - Tap a poster's ID to see all their posts in the thread
-- Bookmarks that show when a thread is archived or deleted
+- Bookmarks that show when a thread is archived or deleted, with the threads that have new replies first
 - Threads can open where you left off, with new replies marked until you've seen them, and a history keeps the ones you visited
 - Swipe right anywhere on a page to go back
 

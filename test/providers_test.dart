@@ -61,6 +61,21 @@ void main() {
 
       expect(bookmarks.bookmarks.map((b) => b.key), ['g/1', 'v/2']);
     });
+
+    test('removes several at once, leaving the rest', () async {
+      SharedPreferences.setMockInitialValues({
+        'favoriteThreads': [
+          _stored(Bookmark(board: 'g', no: 1)),
+          _stored(Bookmark(board: 'v', no: 2)),
+          _stored(Bookmark(board: 'g', no: 3)),
+        ],
+      });
+      final BookmarksProvider bookmarks = BookmarksProvider(
+        await SharedPreferences.getInstance(),
+      );
+      await bookmarks.removeBookmarks({'g/1', 'g/3', 'x/9'});
+      expect(bookmarks.bookmarks.map((b) => b.key), ['v/2']);
+    });
   });
 
   group('SettingsProvider', () {

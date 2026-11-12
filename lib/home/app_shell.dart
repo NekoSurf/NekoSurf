@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
-import 'package:flutter_chan/bookmarks/bookmarks.dart';
+import 'package:flutter_chan/home/bookmarks.dart';
 import 'package:flutter_chan/home/dashboard.dart';
 import 'package:flutter_chan/home/update_prompt.dart';
 import 'package:flutter_chan/saved/saved_tab.dart';

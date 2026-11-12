@@ -1,26 +1,35 @@
 import 'package:country_flags/country_flags.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_chan/board/grid_post.dart';
 import 'package:flutter_chan/board/post_time.dart';
 import 'package:flutter_chan/board/thread_filters.dart';
 import 'package:flutter_chan/bookmarks/bookmark.dart';
 import 'package:flutter_chan/bookmarks/bookmarks_model.dart';
 import 'package:flutter_chan/chan/post.dart';
+import 'package:flutter_chan/chan/thread_status.dart';
 import 'package:flutter_chan/history/new_replies.dart';
 import 'package:flutter_chan/media/post_thumbnail.dart';
 import 'package:flutter_chan/ui/back_swipe_route.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_widgets.dart';
-import 'package:flutter_chan/ui/open.dart';
 import 'package:flutter_chan/ui/pills.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:provider/provider.dart';
 
 class ListPost extends StatelessWidget {
-  const ListPost({super.key, required this.post, this.showBoard = false});
+  const ListPost({
+    super.key,
+    required this.post,
+    this.showBoard = false,
+    this.status = ThreadStatus.online,
+  });
 
   final Post post;
   final bool showBoard;
+
+  /// As on [GridPost].
+  final ThreadStatus status;
 
   @override
   Widget build(BuildContext context) {
@@ -53,7 +62,7 @@ class ListPost extends StatelessWidget {
             ),
       child: SlidableBackSwipe(
         child: GestureDetector(
-          onTap: () => openThread(context, post),
+          onTap: () => openThreadUnlessDeleted(context, post, status),
           onLongPress: () => showThreadFilterMenu(context, post),
           child: Container(
             margin: const EdgeInsets.fromLTRB(10, 6, 10, 6),
@@ -120,27 +129,19 @@ class ListPost extends StatelessWidget {
                                           ),
 
                                         if (post.isSticky)
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 2,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: CupertinoColors
-                                                  .systemOrange
-                                                  .withValues(alpha: 0.16),
-                                              borderRadius:
-                                                  BorderRadius.circular(999),
-                                            ),
-                                            child: const Text(
-                                              'Sticky',
-                                              style: TextStyle(
-                                                color: CupertinoColors
-                                                    .systemOrange,
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                            ),
+                                          const _Pill(
+                                            color: CupertinoColors.systemOrange,
+                                            label: 'Sticky',
+                                          ),
+                                        if (status case ThreadStatus.archived)
+                                          const _Pill(
+                                            color: CupertinoColors.systemGrey,
+                                            label: 'Archived',
+                                          ),
+                                        if (status case ThreadStatus.deleted)
+                                          const _Pill(
+                                            color: DashColors.danger,
+                                            label: 'Deleted',
                                           ),
 
                                         const Spacer(),
@@ -220,7 +221,12 @@ class ListPost extends StatelessWidget {
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
-                              PostThumbnail(post: post),
+                              Opacity(
+                                opacity: status == ThreadStatus.deleted
+                                    ? 0.45
+                                    : 1,
+                                child: PostThumbnail(post: post),
+                              ),
                               if (post.isVideo)
                                 const Center(
                                   child: Icon(
@@ -284,6 +290,34 @@ class ListPost extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A coloured label beside the poster's name, like Sticky.
+class _Pill extends StatelessWidget {
+  const _Pill({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(right: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );

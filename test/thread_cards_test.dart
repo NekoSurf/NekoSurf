@@ -4,6 +4,7 @@ import 'package:flutter_chan/board/list_post.dart';
 import 'package:flutter_chan/board/thread_views.dart';
 import 'package:flutter_chan/bookmarks/bookmarks_model.dart';
 import 'package:flutter_chan/chan/post.dart';
+import 'package:flutter_chan/chan/thread_status.dart';
 import 'package:flutter_chan/history/watched_posts_model.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/ui/image_frost.dart';
@@ -212,5 +213,66 @@ void main() {
       matching: find.byType(Container),
     );
     expect(tester.getSize(tint).width, 200);
+  });
+
+  testWidgets('a deleted thread says so, and is not opened', (tester) async {
+    final List<Object?> opened = [];
+    SharedPreferences.setMockInitialValues({});
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final SettingsProvider settings = SettingsProvider(prefs);
+    watched = WatchedPostsProvider(prefs, settings);
+    addTearDown(watched.dispose);
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<SettingsProvider>.value(value: settings),
+          ChangeNotifierProvider<WatchedPostsProvider>.value(value: watched),
+          ChangeNotifierProvider<BookmarksProvider>(
+            create: (_) => BookmarksProvider(prefs),
+          ),
+        ],
+        child: MaterialApp(
+          onGenerateRoute: (route) {
+            opened.add(route.arguments);
+            return MaterialPageRoute(builder: (_) => const SizedBox());
+          },
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 185,
+                height: 280,
+                child: GridPost(post: thread(), status: ThreadStatus.deleted),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Deleted'), findsOneWidget);
+
+    await tester.tap(find.byType(GridPost));
+    await tester.pump();
+    expect(opened, isEmpty);
+    expect(find.text('This thread was deleted'), findsOneWidget);
+    // Till the toast has gone.
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('an archived thread says so on its card, in the list too', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(400, 400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await pumpCard(
+      tester,
+      OverflowBox(
+        maxWidth: 380,
+        child: ListPost(post: thread(), status: ThreadStatus.archived),
+      ),
+    );
+    expect(find.text('Archived'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

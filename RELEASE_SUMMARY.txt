@@ -1,1 +1,1 @@
-Saved files fill tiles shaped like their pictures in the Saved tab; files saved before version 0.13.0 are now in the same place on all your devices with iCloud sync on.
+Bookmarks look like a board, with new replies first, and saved files fill tiles shaped like their pictures in the Saved tab; files saved before version 0.13.0 are now in the same place on all your devices with iCloud sync on.

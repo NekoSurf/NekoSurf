@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/bookmarks/bookmark.dart';
-import 'package:flutter_chan/bookmarks/bookmarks.dart';
 import 'package:flutter_chan/bookmarks/bookmarks_model.dart';
-import 'package:flutter_chan/bookmarks/bookmarks_summary.dart';
+import 'package:flutter_chan/home/bookmarks.dart';
+import 'package:flutter_chan/home/bookmarks_summary.dart';
 import 'package:flutter_chan/media/post_thumbnail.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';

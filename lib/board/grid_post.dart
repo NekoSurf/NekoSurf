@@ -4,6 +4,7 @@ import 'package:flutter_chan/board/thread_filters.dart';
 import 'package:flutter_chan/bookmarks/bookmark.dart';
 import 'package:flutter_chan/bookmarks/bookmarks_model.dart';
 import 'package:flutter_chan/chan/post.dart';
+import 'package:flutter_chan/chan/thread_status.dart';
 import 'package:flutter_chan/history/new_replies.dart';
 import 'package:flutter_chan/media/image_cache.dart';
 import 'package:flutter_chan/media/post_thumbnail.dart';
@@ -11,6 +12,7 @@ import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/image_frost.dart';
 import 'package:flutter_chan/ui/open.dart';
 import 'package:flutter_chan/ui/pills.dart';
+import 'package:flutter_chan/ui/toast.dart';
 import 'package:provider/provider.dart';
 
 const Color _chipTint = Color(0x40000000);
@@ -19,10 +21,19 @@ const Color _chipTint = Color(0x40000000);
 const double _chipInset = 10;
 
 class GridPost extends StatelessWidget {
-  const GridPost({super.key, required this.post, this.showBoard = false});
+  const GridPost({
+    super.key,
+    required this.post,
+    this.showBoard = false,
+    this.status = ThreadStatus.online,
+  });
 
   final Post post;
   final bool showBoard;
+
+  /// Whether the thread is still up, as far as is known; an archived or
+  /// deleted one says so on its card.
+  final ThreadStatus status;
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +52,7 @@ class GridPost extends StatelessWidget {
         : null;
 
     return GestureDetector(
-      onTap: () => openThread(context, post),
+      onTap: () => openThreadUnlessDeleted(context, post, status),
       onLongPress: () => showThreadFilterMenu(context, post),
       child: Container(
         decoration: BoxDecoration(
@@ -58,7 +69,10 @@ class GridPost extends StatelessWidget {
               return Stack(
                 fit: StackFit.expand,
                 children: [
-                  PostThumbnail(post: post),
+                  Opacity(
+                    opacity: status == ThreadStatus.deleted ? 0.45 : 1,
+                    child: PostThumbnail(post: post),
+                  ),
                   DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -127,39 +141,22 @@ class GridPost extends StatelessWidget {
                             ),
                           ),
                         if (post.isSticky)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: CupertinoColors.systemOrange.withValues(
-                                alpha: 0.65,
-                              ),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    CupertinoIcons.pin,
-                                    color: CupertinoColors.white,
-                                    size: 12,
-                                  ),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'Sticky',
-                                    style: TextStyle(
-                                      color: CupertinoColors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                          const _Tag(
+                            color: CupertinoColors.systemOrange,
+                            icon: CupertinoIcons.pin,
+                            label: 'Sticky',
+                          ),
+                        if (status case ThreadStatus.archived)
+                          const _Tag(
+                            color: CupertinoColors.systemGrey,
+                            icon: CupertinoIcons.archivebox,
+                            label: 'Archived',
+                          ),
+                        if (status case ThreadStatus.deleted)
+                          const _Tag(
+                            color: DashColors.danger,
+                            icon: CupertinoIcons.trash,
+                            label: 'Deleted',
                           ),
                       ],
                     ),
@@ -275,5 +272,56 @@ class GridPost extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// A coloured chip on a card's picture, like Sticky.
+class _Tag extends StatelessWidget {
+  const _Tag({required this.color, required this.icon, required this.label});
+
+  final Color color;
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.65),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: CupertinoColors.white, size: 12),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                color: CupertinoColors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Opens [post]'s thread, or says it's gone when it's been deleted.
+void openThreadUnlessDeleted(
+  BuildContext context,
+  Post post,
+  ThreadStatus status,
+) {
+  if (status == ThreadStatus.deleted) {
+    showToast(context, 'This thread was deleted');
+  } else {
+    openThread(context, post);
   }
 }

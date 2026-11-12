@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chan/board/grid_post.dart';
 import 'package:flutter_chan/board/list_post.dart';
 import 'package:flutter_chan/chan/post.dart';
+import 'package:flutter_chan/chan/thread_status.dart';
 
 /// How threads are laid out on a page, as a grid of tiles or a list of cards.
 class ThreadsLayout extends StatelessWidget {
@@ -63,11 +64,15 @@ class ThreadsView extends StatelessWidget {
     required this.threads,
     required this.grid,
     this.showBoard = false,
+    this.statusOf,
   });
 
   final List<Post> threads;
   final bool grid;
   final bool showBoard;
+
+  /// Whether each thread is still up, where that's been checked.
+  final ThreadStatus Function(Post post)? statusOf;
 
   @override
   Widget build(BuildContext context) {
@@ -77,9 +82,20 @@ class ThreadsView extends StatelessWidget {
       itemBuilder: (BuildContext context, int index) {
         final Post post = threads[index];
         final Key key = ValueKey('${post.board}-${post.no}');
+        final ThreadStatus status = statusOf?.call(post) ?? ThreadStatus.online;
         return grid
-            ? GridPost(key: key, post: post, showBoard: showBoard)
-            : ListPost(key: key, post: post, showBoard: showBoard);
+            ? GridPost(
+                key: key,
+                post: post,
+                showBoard: showBoard,
+                status: status,
+              )
+            : ListPost(
+                key: key,
+                post: post,
+                showBoard: showBoard,
+                status: status,
+              );
       },
     );
   }

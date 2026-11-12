@@ -4,8 +4,13 @@ import 'package:flutter_chan/chan/post.dart';
 
 enum ThreadStatus { deleted, archived, online }
 
-/// A thread's status and, when known, its current counts.
-typedef ThreadCheck = ({ThreadStatus status, int? replies, int? images});
+/// A thread's status and, when known, its current counts and opening post.
+typedef ThreadCheck = ({
+  ThreadStatus status,
+  int? replies,
+  int? images,
+  Post? op,
+});
 
 class _BoardSnapshot {
   _BoardSnapshot(this.live, this.archived);
@@ -70,10 +75,16 @@ Future<ThreadCheck?> checkThread(
         status: ThreadStatus.online,
         replies: op.replies,
         images: op.images,
+        op: op,
       );
     }
     if (!exact && (snapshot.archived?.contains(thread) ?? false)) {
-      return (status: ThreadStatus.archived, replies: null, images: null);
+      return (
+        status: ThreadStatus.archived,
+        replies: null,
+        images: null,
+        op: null,
+      );
     }
   } catch (_) {
     if (!exact) {
@@ -89,9 +100,15 @@ Future<ThreadCheck?> checkThread(
       status: op.archived == 1 ? ThreadStatus.archived : ThreadStatus.online,
       replies: op.replies,
       images: op.images,
+      op: op,
     );
   } on ThreadNotFound {
-    return (status: ThreadStatus.deleted, replies: null, images: null);
+    return (
+      status: ThreadStatus.deleted,
+      replies: null,
+      images: null,
+      op: null,
+    );
   } catch (_) {
     return null;
   }
