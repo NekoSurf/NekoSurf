@@ -253,7 +253,7 @@ class _SavedGridState extends State<SavedGrid> with WidgetsBindingObserver {
     );
 
     final Widget placeholder = SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       sliver: SliverMasonryGrid.count(
         crossAxisCount: columns,
         mainAxisSpacing: _gap,
@@ -339,7 +339,8 @@ class _SavedGridState extends State<SavedGrid> with WidgetsBindingObserver {
           )
         else
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+            // In line with the summary card and the other tabs.
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
             sliver: SliverMasonryGrid.count(
               crossAxisCount: columns,
               mainAxisSpacing: _gap,

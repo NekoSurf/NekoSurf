@@ -13,10 +13,16 @@ class ThreadsLayout extends StatelessWidget {
     required this.grid,
     required this.itemCount,
     required this.itemBuilder,
+    this.sideInset = _cardInset,
   });
 
-  static const double _gridSideInset = 10;
+  /// How far list cards keep from the sides of their own.
+  static const double _cardInset = 10;
   static const double _gridSpacing = 10;
+
+  /// How far tiles and cards are from the sides of the page: a board's are
+  /// close to them, a tab's in line with its header.
+  final double sideInset;
 
   final bool grid;
   final int itemCount;
@@ -26,7 +32,12 @@ class ThreadsLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!grid) {
       return SliverPadding(
-        padding: const EdgeInsets.only(top: 6, bottom: 16),
+        padding: EdgeInsets.fromLTRB(
+          sideInset - _cardInset,
+          6,
+          sideInset - _cardInset,
+          16,
+        ),
         sliver: SliverList.builder(
           itemCount: itemCount,
           itemBuilder: itemBuilder,
@@ -36,10 +47,9 @@ class ThreadsLayout extends StatelessWidget {
     final double pageWidth = MediaQuery.sizeOf(context).width;
     final int columns = max(2, (pageWidth / 230).floor());
     final double tileWidth =
-        (pageWidth - 2 * _gridSideInset - (columns - 1) * _gridSpacing) /
-        columns;
+        (pageWidth - 2 * sideInset - (columns - 1) * _gridSpacing) / columns;
     return SliverPadding(
-      padding: const EdgeInsets.fromLTRB(_gridSideInset, 6, _gridSideInset, 18),
+      padding: EdgeInsets.fromLTRB(sideInset, 6, sideInset, 18),
       sliver: SliverGrid.builder(
         itemCount: itemCount,
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -65,7 +75,11 @@ class ThreadsView extends StatelessWidget {
     required this.grid,
     this.showBoard = false,
     this.statusOf,
+    this.sideInset = 10,
   });
+
+  /// See [ThreadsLayout.sideInset].
+  final double sideInset;
 
   final List<Post> threads;
   final bool grid;
@@ -78,6 +92,7 @@ class ThreadsView extends StatelessWidget {
   Widget build(BuildContext context) {
     return ThreadsLayout(
       grid: grid,
+      sideInset: sideInset,
       itemCount: threads.length,
       itemBuilder: (BuildContext context, int index) {
         final Post post = threads[index];

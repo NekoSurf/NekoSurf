@@ -252,6 +252,8 @@ class _Threads extends StatelessWidget {
       grid: grid,
       showBoard: true,
       statusOf: statusOf,
+      // In line with the card above, and the other tabs.
+      sideInset: 16,
     );
   }
 }
