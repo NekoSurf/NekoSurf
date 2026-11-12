@@ -97,15 +97,16 @@ class VideoPlayers extends ChangeNotifier {
     final bool knownSize = width != null && height != null;
     final _PooledPlayer pooled;
     final bool byOutput;
+    ({int? width, int? height})? resize;
     if (_free.isNotEmpty) {
       // Only on iOS (see [_giveBack]).
       pooled = _free.removeAt(0);
-      pooled.controller
-          .setSize(
-            width: knownSize ? width : null,
-            height: knownSize ? height : null,
-          )
-          .catchError((_) {});
+      // Sized when this lease opens its video, not now: the video it was
+      // taken from may still be on screen, showing it.
+      resize = (
+        width: knownSize ? width : null,
+        height: knownSize ? height : null,
+      );
       // Its own first frame was reported long ago, for its first video.
       byOutput = true;
     } else {
@@ -130,6 +131,7 @@ class VideoPlayers extends ChangeNotifier {
       pooled,
       onEvicted,
       byOutput: byOutput,
+      resize: resize,
     ).._priority = priority;
     _leases.add(lease);
     return lease;
@@ -225,7 +227,12 @@ class VideoLease {
     this._pooled,
     this._onEvicted, {
     required bool byOutput,
-  }) : _byOutput = byOutput;
+    ({int? width, int? height})? resize,
+  }) : _byOutput = byOutput,
+       _resize = resize;
+
+  /// The size a reused player takes for this lease's video, set as it opens.
+  final ({int? width, int? height})? _resize;
 
   final VideoPlayers _manager;
   final _PooledPlayer _pooled;
@@ -259,8 +266,19 @@ class VideoLease {
       if (_released) {
         return;
       }
-      opened = true;
       await _pooled.listening;
+      if (_resize case final ({int? width, int? height}) size) {
+        // Once the video it was taken from has drawn without it: resized
+        // sooner, that one flashed as it went, in the fullscreen viewer.
+        await WidgetsBinding.instance.endOfFrame;
+        if (_released) {
+          return;
+        }
+        await controller
+            .setSize(width: size.width, height: size.height)
+            .catchError((_) {});
+      }
+      opened = true;
       await setUp(player);
       if (_byOutput) {
         _pooled.watchOutput(_output);
