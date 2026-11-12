@@ -1,0 +1,3 @@
+## What's fixed
+
+- With iCloud sync on, a file saved before version 0.13.0 is now in the same place in the Saved tab on all your devices

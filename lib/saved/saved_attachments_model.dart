@@ -365,18 +365,17 @@ class SavedAttachmentsProvider with ChangeNotifier implements SyncTarget {
   }
 
   /// [existing], with when [remote] says it was saved, moved to where that
-  /// puts it; [existing] itself if that's the same.
+  /// puts it; [existing] itself if that's the same. iCloud's goes, even
+  /// when it has none (saved before that was kept): keeping this one's
+  /// then would list it elsewhere than devices that don't have one.
   SavedAttachment _withAddedAtOf(
     SavedAttachment existing,
     SavedAttachment remote,
   ) {
-    final int? addedAt = remote.addedAt;
-    if (addedAt == null || addedAt == existing.addedAt) {
+    if (remote.addedAt == existing.addedAt) {
       return existing;
     }
-    final SavedAttachment updated = existing.addedAtTime(
-      DateTime.fromMillisecondsSinceEpoch(addedAt),
-    );
+    final SavedAttachment updated = existing.withAddedAt(remote.addedAt);
     _attachments.remove(existing);
     _insert(updated);
     return updated;

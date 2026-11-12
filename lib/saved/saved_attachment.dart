@@ -114,13 +114,17 @@ class SavedAttachment {
   );
 
   /// It, saved at [time].
-  SavedAttachment addedAtTime(DateTime time) => SavedAttachment(
+  SavedAttachment addedAtTime(DateTime time) =>
+      withAddedAt(time.millisecondsSinceEpoch);
+
+  /// It, saved at [addedAt]; with none if that's null.
+  SavedAttachment withAddedAt(int? addedAt) => SavedAttachment(
     type: type,
     fileName: fileName,
     thumbnail: thumbnail,
     originalName: originalName,
     id: _id,
-    addedAt: time.millisecondsSinceEpoch,
+    addedAt: addedAt,
   );
 
   SavedAttachment withStoredId() => SavedAttachment(

@@ -589,6 +589,38 @@ void main() {
     },
   );
 
+  test("a saved file that's here goes by iCloud's order when iCloud has no "
+      'save time for it', () async {
+    File('${folders.media}/a.png').writeAsStringSync('a');
+    File('${folders.media}/b.png').writeAsStringSync('b');
+    final a = await app(
+      await prefsWith({
+        'savedAttachments': [
+          jsonEncode({...jsonDecode(savedEntry('b.png', '200')) as Map}),
+          jsonEncode({
+            ...jsonDecode(savedEntry('a.png', '100')) as Map,
+            'addedAt': 1800000000000,
+          }),
+        ],
+      }),
+    );
+    await a.sync.turnOn();
+    // Sent from a device that has it from before save times were kept.
+    inbox.add({
+      ...change(
+        SyncKind.saved,
+        '100',
+        jsonDecode(savedEntry('a.png', '100')) as Map<String, Object?>,
+      ),
+      'seq': ++seq,
+    });
+    await a.sync.processInbox();
+
+    expect(a.saved.attachments.map((s) => s.id), ['100', '200']);
+    expect(a.saved.attachments.first.addedAt, isNull);
+    expect(a.saved.hasFile(a.saved.attachments.first), isTrue);
+  });
+
   test('how a saved file from another device is coming down', () async {
     final a = await app(await prefsWith({}));
     await a.sync.turnOn();
