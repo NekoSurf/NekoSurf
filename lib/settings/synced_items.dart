@@ -81,5 +81,19 @@ List<SyncItem> localSyncItems(
     SavedAttachmentsProvider.storageKey,
     SavedAttachment.fromStored,
   ))
-    savedSyncItem(attachment, folders),
+    // Not placeholders, whose files are still in iCloud.
+    if (!_placeholderIds(prefs).contains(attachment.id))
+      savedSyncItem(attachment, folders),
 ];
+
+/// Which saved attachments are placeholders (see SavedAttachmentsProvider).
+Set<String> _placeholderIds(SharedPreferences prefs) {
+  try {
+    final Object? decoded = jsonDecode(
+      prefs.getString(SavedAttachmentsProvider.placeholdersKey) ?? '{}',
+    );
+    return decoded is Map ? decoded.keys.cast<String>().toSet() : const {};
+  } on FormatException {
+    return const {};
+  }
+}

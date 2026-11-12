@@ -61,6 +61,10 @@ class SyncStatus {
     this.uploadBytes,
     this.uploadKey,
     this.pendingFileKeys = const <String>{},
+    this.uploadProgresses = const <String, double>{},
+    this.downloadId,
+    this.downloadProgress,
+    this.downloadIds = const <String>{},
   });
 
   factory SyncStatus.fromChannel(Map<Object?, Object?> map) {
@@ -80,6 +84,18 @@ class SyncStatus {
       pendingFileKeys: <String>{
         for (final Object? key in map['pendingFileKeys'] as List? ?? const [])
           if (key is String) key,
+      },
+      uploadProgresses: <String, double>{
+        for (final MapEntry<Object?, Object?> entry
+            in (map['uploadProgresses'] as Map? ?? const {}).entries)
+          if (entry.key case final String key)
+            if (entry.value case final num progress) key: progress.toDouble(),
+      },
+      downloadId: map['downloadId'] as String?,
+      downloadProgress: (map['downloadProgress'] as num?)?.toDouble(),
+      downloadIds: <String>{
+        for (final Object? id in map['downloadIds'] as List? ?? const [])
+          if (id is String) id,
       },
     );
   }
@@ -108,6 +124,16 @@ class SyncStatus {
   /// their keys (a saved attachment's id).
   final String? uploadKey;
   final Set<String> pendingFileKeys;
+
+  /// How far each saved file going up is, by its key: several go at once
+  /// once the app's left.
+  final Map<String, double> uploadProgresses;
+
+  /// The saved file coming down now, by its record's id, and how far it
+  /// is (0 to 1); and those waiting to.
+  final String? downloadId;
+  final double? downloadProgress;
+  final Set<String> downloadIds;
 }
 
 /// A saved file iCloud doesn't have yet: waiting its turn to go up, or
@@ -116,6 +142,19 @@ class FileUpload {
   const FileUpload([this.progress]);
 
   final double? progress;
+}
+
+/// A saved file from another device that isn't here yet: waiting its turn
+/// to come down, or coming down, [progress] (0 to 1) of the way.
+class FileDownload {
+  const FileDownload([this.progress]);
+
+  final double? progress;
+}
+
+/// Says when saved files may have gone up to iCloud from other devices.
+class _Signal extends ChangeNotifier {
+  void ping() => notifyListeners();
 }
 
 /// Keeps saved media, bookmarks, history, favorite boards, filters and
@@ -185,16 +224,56 @@ class CloudSync extends ChangeNotifier {
 
   SyncStatus get status => _status;
 
+  /// Notifies when saved files may have gone up from other devices since:
+  /// iCloud said so, or Sync now or coming back to the app fetched. A
+  /// file can be there before its record says so, as its device goes on
+  /// uploading after it's left.
+  Listenable get filesMayHaveCome => _filesMayHaveCome;
+  final _Signal _filesMayHaveCome = _Signal();
+
   /// How the saved file of [key] (its attachment id) stands with iCloud:
   /// null if it's there, or sync is off.
   FileUpload? fileUpload(String key) {
     if (!isOn) {
       return null;
     }
+    if (_status.uploadProgresses[key] case final double progress) {
+      return FileUpload(progress);
+    }
     if (_status.uploadKey == key) {
       return FileUpload(_status.uploadProgress ?? 0);
     }
     return _status.pendingFileKeys.contains(key) ? const FileUpload() : null;
+  }
+
+  /// How the saved file of [key] (its attachment id), saved on another
+  /// device, is coming down: null if it isn't, or sync is off.
+  FileDownload? fileDownload(String key) {
+    if (!isOn) {
+      return null;
+    }
+    final String id = syncId(SyncKind.saved, key);
+    if (_status.downloadId == id) {
+      return FileDownload(_status.downloadProgress ?? 0);
+    }
+    return _status.downloadIds.contains(id) ? const FileDownload() : null;
+  }
+
+  /// Downloads the saved files of [keys] (attachment ids), whose records
+  /// came without them, of those that are in iCloud; each comes in as a
+  /// change of its own ([SyncChange.fileOnly]).
+  Future<void> downloadFiles(Iterable<String> keys) async {
+    final List<String> ids = <String>[
+      for (final String key in keys) syncId(SyncKind.saved, key),
+    ];
+    if (!isOn || ids.isEmpty) {
+      return;
+    }
+    try {
+      await _invoke('download', ids);
+    } on SyncFailed catch (e) {
+      debugPrint('iCloud sync could not download saved files: $e');
+    }
   }
 
   /// Why iCloud sync turned itself off, if it did since launch.
@@ -255,6 +334,8 @@ class CloudSync extends ChangeNotifier {
     switch (call.method) {
       case 'inbox':
         unawaited(processInbox());
+      case 'filesChanged':
+        _filesMayHaveCome.ping();
       case 'status':
         final String? was = _status.problem;
         _status = SyncStatus.fromChannel(
@@ -675,6 +756,7 @@ class CloudSync extends ChangeNotifier {
       _invoke('send'),
       _invoke('fetch'),
     ], eagerError: true);
+    _filesMayHaveCome.ping();
   }
 
   /// The app is left: sends what's waiting while it still can.
@@ -698,6 +780,7 @@ class CloudSync extends ChangeNotifier {
     }
     try {
       await _invoke('fetch');
+      _filesMayHaveCome.ping();
     } on SyncFailed {
       // Fetched next time.
     }

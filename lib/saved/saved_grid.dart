@@ -12,6 +12,7 @@ import 'package:flutter_chan/saved/saved_media_viewer_page.dart';
 import 'package:flutter_chan/sync/cloud_sync.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/pills.dart';
+import 'package:flutter_chan/ui/toast.dart';
 import 'package:provider/provider.dart';
 
 const Color _amber = Color(0xFFFBBF24);
@@ -33,7 +34,10 @@ class _SavedGridState extends State<SavedGrid> with WidgetsBindingObserver {
   bool _hasPermissionError = false;
 
   Future<int>? _sizeFuture;
-  int _sizeKey = -1;
+
+  /// What the size was added up for: which files, and which of them were
+  /// here, as a placeholder's file counts once it's come down.
+  int? _sizeKey;
 
   String _title(SavedAttachment a) {
     final String name = a.fileName;
@@ -193,8 +197,11 @@ class _SavedGridState extends State<SavedGrid> with WidgetsBindingObserver {
       return const SliverToBoxAdapter(child: _EmptyState());
     }
 
-    if (_sizeKey != all.length) {
-      _sizeKey = all.length;
+    final int sizeKey = Object.hashAll(<Object>[
+      for (final SavedAttachment a in all) (a.fileName, provider.hasFile(a)),
+    ]);
+    if (_sizeKey != sizeKey) {
+      _sizeKey = sizeKey;
       _sizeFuture = _totalSize(folders, all);
     }
 
@@ -251,9 +258,15 @@ class _SavedGridState extends State<SavedGrid> with WidgetsBindingObserver {
               delegate: SliverChildBuilderDelegate((context, index) {
                 final a = visible[index];
                 final String key = a.fileName;
+                final bool here = provider.hasFile(a);
                 return _Tile(
                   key: ValueKey(key),
                   syncKey: a.id,
+                  coming: here
+                      ? null
+                      : provider.isInICloud(a)
+                      ? _Coming.inICloud
+                      : _Coming.goingUpElsewhere,
                   thumb: File(folders.thumbnailPath(a)),
                   title: _title(a),
                   ext: key.contains('.')
@@ -266,8 +279,19 @@ class _SavedGridState extends State<SavedGrid> with WidgetsBindingObserver {
                   onTap: () {
                     if (browsing.selecting) {
                       browsing.toggleSelected(key);
+                    } else if (!here) {
+                      showToast(
+                        context,
+                        provider.isInICloud(a) ||
+                                CloudSync.instance.fileDownload(a.id) != null
+                            ? 'Still downloading from iCloud'
+                            : 'Still uploading from your other device',
+                      );
                     } else {
-                      _openViewer(folders, visible, index);
+                      final List<SavedAttachment> openable = visible
+                          .where(provider.hasFile)
+                          .toList();
+                      _openViewer(folders, openable, openable.indexOf(a));
                     }
                   },
                   onLongPress: () {
@@ -413,10 +437,15 @@ class _SummaryCard extends StatelessWidget {
   }
 }
 
+/// Where the file of a saved attachment from another device is, while it
+/// isn't here.
+enum _Coming { goingUpElsewhere, inICloud }
+
 class _Tile extends StatelessWidget {
   const _Tile({
     super.key,
     required this.syncKey,
+    required this.coming,
     required this.thumb,
     required this.title,
     required this.ext,
@@ -430,6 +459,9 @@ class _Tile extends StatelessWidget {
 
   /// Its key in iCloud sync, to show whether it has gone up yet.
   final String syncKey;
+
+  /// Null when its file is here.
+  final _Coming? coming;
   final File thumb;
   final String title;
   final String ext;
@@ -456,13 +488,20 @@ class _Tile extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        Image.file(
-          thumb,
-          fit: BoxFit.cover,
-          cacheWidth: 500,
-          errorBuilder: (_, _, _) => ColoredBox(
-            color: DashColors.muted(context).withValues(alpha: 0.12),
-            child: Icon(CupertinoIcons.photo, color: DashColors.muted(context)),
+        Opacity(
+          // Dimmed till its file is here.
+          opacity: coming == null ? 1 : 0.55,
+          child: Image.file(
+            thumb,
+            fit: BoxFit.cover,
+            cacheWidth: 500,
+            errorBuilder: (_, _, _) => ColoredBox(
+              color: DashColors.muted(context).withValues(alpha: 0.12),
+              child: Icon(
+                CupertinoIcons.photo,
+                color: DashColors.muted(context),
+              ),
+            ),
           ),
         ),
         if (isVideo && !isGif)
@@ -481,7 +520,11 @@ class _Tile extends StatelessWidget {
               ),
             ),
           ),
-        Positioned(left: 8, top: 8, child: _UploadBadge(syncKey: syncKey)),
+        Positioned(
+          left: 8,
+          top: 8,
+          child: _SyncBadge(syncKey: syncKey, coming: coming),
+        ),
         if (selecting)
           Positioned(
             right: 8,
@@ -600,12 +643,16 @@ class _Tile extends StatelessWidget {
   }
 }
 
-/// With iCloud sync on, on a saved file that isn't in iCloud yet: a cloud
-/// while it waits its turn, then a ring filling as it goes up.
-class _UploadBadge extends StatelessWidget {
-  const _UploadBadge({required this.syncKey});
+/// With iCloud sync on, how a saved file stands with it. One saved here
+/// that isn't in iCloud yet: a cloud while it waits its turn, then a ring
+/// filling as it goes up. One saved on another device: a cloud while it
+/// goes up from there, a cloud with an arrow while it waits to come down,
+/// then a ring filling as it does.
+class _SyncBadge extends StatelessWidget {
+  const _SyncBadge({required this.syncKey, required this.coming});
 
   final String syncKey;
+  final _Coming? coming;
 
   @override
   Widget build(BuildContext context) {
@@ -613,16 +660,16 @@ class _UploadBadge extends StatelessWidget {
     return ListenableBuilder(
       listenable: sync,
       builder: (context, _) {
-        final FileUpload? upload = sync.fileUpload(syncKey);
-        final double? progress = upload?.progress;
+        final ({IconData icon, double? progress, String label})? badge = _badge(
+          sync,
+        );
         return AnimatedSwitcher(
           duration: const Duration(milliseconds: 200),
-          child: upload == null
+          child: badge == null
               ? const SizedBox.shrink()
               : Semantics(
-                  label: progress == null
-                      ? 'Waiting to go up to iCloud'
-                      : 'Going up to iCloud, ${(progress * 100).round()}%',
+                  key: ValueKey(badge.label),
+                  label: badge.label,
                   child: Container(
                     width: 26,
                     height: 26,
@@ -631,19 +678,51 @@ class _UploadBadge extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                     child: Center(
-                      child: progress == null
-                          ? const Icon(
-                              CupertinoIcons.cloud_upload,
-                              color: Colors.white,
-                              size: 14,
-                            )
-                          : _UploadRing(value: progress),
+                      child: badge.progress == null
+                          ? Icon(badge.icon, color: Colors.white, size: 14)
+                          : _UploadRing(value: badge.progress!),
                     ),
                   ),
                 ),
         );
       },
     );
+  }
+
+  ({IconData icon, double? progress, String label})? _badge(CloudSync sync) {
+    switch (coming) {
+      case null:
+        final FileUpload? upload = sync.fileUpload(syncKey);
+        if (upload == null) {
+          return null;
+        }
+        final double? progress = upload.progress;
+        return (
+          icon: CupertinoIcons.cloud_upload,
+          progress: progress,
+          label: progress == null
+              ? 'Waiting to go up to iCloud'
+              : 'Going up to iCloud, ${(progress * 100).round()}%',
+        );
+      case _Coming.goingUpElsewhere || _Coming.inICloud:
+        // Its file can be there, coming down, before its record says so.
+        final FileDownload? download = sync.fileDownload(syncKey);
+        if (download == null && coming == _Coming.goingUpElsewhere) {
+          return (
+            icon: CupertinoIcons.cloud,
+            progress: null,
+            label: 'Going up to iCloud from another device',
+          );
+        }
+        final double? progress = download?.progress;
+        return (
+          icon: CupertinoIcons.cloud_download,
+          progress: progress,
+          label: progress == null
+              ? 'Waiting to come down from iCloud'
+              : 'Coming down from iCloud, ${(progress * 100).round()}%',
+        );
+    }
   }
 }
 

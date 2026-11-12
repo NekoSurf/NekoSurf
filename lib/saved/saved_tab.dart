@@ -40,8 +40,12 @@ class _SavedTabState extends State<SavedTab> {
     super.dispose();
   }
 
-  Future<void> _saveSelectedToPhotos() async {
-    final List<String> names = browsing.selected.toList();
+  /// What's selected whose files are here: not ones still in iCloud.
+  List<String> _selectedHere(SavedAttachmentsProvider saved) =>
+      saved.filesHere(browsing.selected).toList();
+
+  Future<void> _saveSelectedToPhotos(SavedAttachmentsProvider saved) async {
+    final List<String> names = _selectedHere(saved);
     int failed = 0;
     final bool ran = await reportingFailure(context, () async {
       failed = await copySavedToPhotos(names);
@@ -105,19 +109,20 @@ class _SavedTabState extends State<SavedTab> {
 
   List<Widget> _selectingActions(SavedAttachmentsProvider saved) {
     final bool hasSelection = browsing.selected.isNotEmpty;
+    final bool hasFiles = saved.filesHere(browsing.selected).isNotEmpty;
     return [
       DashIconButton(
         label: 'Save to Photos',
         icon: const Icon(CupertinoIcons.arrow_down_to_line),
-        onPressed: hasSelection ? _saveSelectedToPhotos : null,
+        onPressed: hasFiles ? () => _saveSelectedToPhotos(saved) : null,
       ),
       DashIconButton(
         label: 'Share',
         icon: const Icon(CupertinoIcons.share),
-        onPressed: hasSelection
+        onPressed: hasFiles
             ? () => reportingFailure(
                 context,
-                () => shareSaved(browsing.selected.toList()),
+                () => shareSaved(_selectedHere(saved)),
                 message: "Couldn't share it",
               )
             : null,

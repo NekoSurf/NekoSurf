@@ -95,6 +95,10 @@ String _uploading(SyncStatus status) {
   return ' ${(progress * 100).floor()} % of $size.';
 }
 
+/// How many saved files from other devices are coming down, or waiting to.
+int _comingDown(SyncStatus status) =>
+    (status.downloadId == null ? 0 : 1) + status.downloadIds.length;
+
 /// What's waiting to go up, as "2 saved files and 1 change".
 String _waiting(SyncStatus status) {
   final int files = status.pendingMedia;
@@ -439,6 +443,10 @@ class _CloudSyncSettingsState extends State<CloudSyncSettings> {
       _ when status.pending > 0 =>
         '${_waiting(status)} waiting to go up to iCloud, when there is a '
             'connection.',
+      _ when _comingDown(status) == 1 =>
+        '1 saved file coming down from iCloud…',
+      _ when _comingDown(status) > 1 =>
+        '${_comingDown(status)} saved files coming down from iCloud…',
       _ when status.syncing => 'Syncing…',
       _ =>
         'Your $_whatSyncs, the same on all your devices with iCloud sync '

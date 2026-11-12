@@ -94,6 +94,8 @@ class SyncChange {
     this.modifiedAt,
     this.media,
     this.thumbnail,
+    this.fileBytes,
+    this.fileOnly = false,
     this.deleted = false,
   });
 
@@ -124,6 +126,8 @@ class SyncChange {
           : DateTime.fromMillisecondsSinceEpoch(modifiedAt.toInt()),
       media: map['media'] as String?,
       thumbnail: map['thumbnail'] as String?,
+      fileBytes: (map['fileBytes'] as num?)?.toInt(),
+      fileOnly: map['fileOnly'] == true,
       deleted: map['deleted'] == true,
     );
   }
@@ -135,6 +139,14 @@ class SyncChange {
   final DateTime? modifiedAt;
   final String? media;
   final String? thumbnail;
+
+  /// A saved file's record that came without its file, which is in iCloud
+  /// apart: how big it is there, or null while it's still going up from
+  /// the device it was saved on.
+  final int? fileBytes;
+
+  /// Just the file ([media]) of a saved file whose record came before.
+  final bool fileOnly;
   final bool deleted;
 
   /// Whether it's about [key] of its kind.

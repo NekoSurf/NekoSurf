@@ -8,6 +8,7 @@ import 'package:flutter_chan/bookmarks/bookmark.dart';
 import 'package:flutter_chan/bookmarks/bookmarks_model.dart';
 import 'package:flutter_chan/history/history_model.dart';
 import 'package:flutter_chan/history/watched_posts_model.dart';
+import 'package:flutter_chan/saved/saved_attachment.dart';
 import 'package:flutter_chan/saved/saved_attachments_model.dart';
 import 'package:flutter_chan/saved/saved_folders.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
@@ -30,6 +31,7 @@ void main() {
   late List<Map<Object?, Object?>> sent;
   late List<String> deleted;
   late List<String> calls;
+  late List<String> downloadsAsked;
   String? fetchFails;
   bool signInOnStart = false;
   Completer<void>? sending;
@@ -48,6 +50,7 @@ void main() {
     sent = [];
     deleted = [];
     calls = [];
+    downloadsAsked = [];
     fetchFails = null;
     signInOnStart = false;
     sending = null;
@@ -94,6 +97,9 @@ void main() {
               return null;
             case 'stop':
               inbox.clear();
+              return null;
+            case 'download':
+              downloadsAsked.addAll((call.arguments as List).cast());
               return null;
             case 'status':
               return <String, Object?>{};
@@ -446,6 +452,17 @@ void main() {
       expect(a.sync.fileUpload('222'), isNotNull);
       expect(a.sync.fileUpload('222')?.progress, isNull);
       expect(a.sync.fileUpload('333'), isNull);
+      // Several at once, once the app's left.
+      await swiftSays({
+        'pending': 2,
+        'pendingMedia': 2,
+        'uploadKey': '111',
+        'uploadProgress': 0.5,
+        'uploadProgresses': {'111': 0.5, '222': 0.25},
+        'pendingFileKeys': ['111', '222'],
+      });
+      expect(a.sync.fileUpload('111')?.progress, 0.5);
+      expect(a.sync.fileUpload('222')?.progress, 0.25);
 
       await swiftSays({'pending': 0});
       expect(a.sync.status.uploadProgress, isNull);
@@ -454,6 +471,110 @@ void main() {
       expect(a.sync.takeAlert(), isNull);
     },
   );
+
+  test('a saved file from another device shows up at once, as a '
+      'placeholder till its file comes down', () async {
+    final a = await app(await prefsWith({}));
+    await a.sync.turnOn();
+    final File thumbnail = File('${dir.path}/incoming-thumb')
+      ..writeAsStringSync('a frame');
+    Map<String, Object?> dog({int? fileBytes}) => {
+      ...change(SyncKind.saved, '333', {
+        'savedAttachmentType': 'video',
+        'fileName': 'dog.mp4',
+        'thumbnail': 'dog.jpg',
+        'id': '333',
+      }),
+      'thumbnail': thumbnail.existsSync() ? thumbnail.path : null,
+      'fileBytes': fileBytes,
+      'seq': ++seq,
+    };
+
+    // Still going up from the phone it was saved on.
+    inbox.add(dog());
+    await a.sync.processInbox();
+    final SavedAttachment placeholder = a.saved.attachments.single;
+    expect(a.saved.hasFile(placeholder), isFalse);
+    expect(a.saved.isInICloud(placeholder), isFalse);
+    expect(a.saved.contains('333'), isTrue);
+    expect(
+      File(folders.thumbnailPath(placeholder)).readAsStringSync(),
+      'a frame',
+    );
+    // Asked for anyway: it comes down if it's up already.
+    await pumpEventQueue();
+    expect(downloadsAsked, [syncId(SyncKind.saved, '333')]);
+    // Its file isn't missing, so it isn't taken out, nor deleted in iCloud.
+    await a.saved.reconcileWithDisk(folders);
+    expect(a.saved.attachments, hasLength(1));
+    await pumpEventQueue();
+    expect(deleted, isEmpty);
+
+    // Its phone went on uploading after it was left: iCloud tells of a
+    // file going up, before its record says so.
+    downloadsAsked.clear();
+    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .handlePlatformMessage(
+          channel.name,
+          channel.codec.encodeMethodCall(const MethodCall('filesChanged')),
+          (_) {},
+        );
+    await pumpEventQueue();
+    expect(downloadsAsked, [syncId(SyncKind.saved, '333')]);
+
+    // Its record says it's up.
+    downloadsAsked.clear();
+    inbox.add(dog(fileBytes: 4));
+    await a.sync.processInbox();
+    await pumpEventQueue();
+    expect(a.saved.isInICloud(a.saved.attachments.single), isTrue);
+    expect(downloadsAsked, [syncId(SyncKind.saved, '333')]);
+
+    // Asked for again on the next launch.
+    downloadsAsked.clear();
+    final again = await app(await SharedPreferences.getInstance());
+    await pumpEventQueue();
+    expect(again.saved.hasFile(again.saved.attachments.single), isFalse);
+    expect(downloadsAsked, [syncId(SyncKind.saved, '333')]);
+
+    final File media = File('${dir.path}/incoming-dog')
+      ..writeAsStringSync('woof');
+    inbox.add({
+      'id': syncId(SyncKind.saved, '333'),
+      'kind': 'saved',
+      'media': media.path,
+      'fileOnly': true,
+      'deleted': false,
+      'seq': ++seq,
+    });
+    await a.sync.processInbox();
+    expect(a.saved.hasFile(a.saved.attachments.single), isTrue);
+    expect(File('${folders.media}/dog.mp4').readAsStringSync(), 'woof');
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString(SavedAttachmentsProvider.placeholdersKey), '{}');
+  });
+
+  test('how a saved file from another device is coming down', () async {
+    final a = await app(await prefsWith({}));
+    await a.sync.turnOn();
+    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .handlePlatformMessage(
+          channel.name,
+          channel.codec.encodeMethodCall(
+            MethodCall('status', {
+              'downloadId': syncId(SyncKind.saved, '111'),
+              'downloadProgress': 0.3,
+              'downloadIds': [syncId(SyncKind.saved, '222')],
+            }),
+          ),
+          (_) {},
+        );
+
+    expect(a.sync.fileDownload('111')?.progress, 0.3);
+    expect(a.sync.fileDownload('222'), isNotNull);
+    expect(a.sync.fileDownload('222')?.progress, isNull);
+    expect(a.sync.fileDownload('333'), isNull);
+  });
 
   test('bookmarks are in the same order on every device', () async {
     final a = await app(

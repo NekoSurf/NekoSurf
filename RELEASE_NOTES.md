@@ -1,3 +1,10 @@
+## What's new
+
+### ☁️ Saved media from your other devices shows up at once
+- With iCloud sync on, what you save on one device shows up in the Saved tab on the others straight away, a video with its thumbnail, while its file is still on its way
+- Its file then downloads, with a ring on it showing how far along it is; until then, tapping it says it's still coming
+- Saved files keep going up to iCloud after you leave NekoSurf, so they reach your other devices without opening it again
+
 ## What's fixed
 
 - With iCloud sync on, Sync now (Settings → iCloud sync) and coming back to NekoSurf bring in what changed on your other devices straight away; before, it could take minutes to show up
