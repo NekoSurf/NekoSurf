@@ -12,12 +12,16 @@ import UIKit
 /// waits in an inbox on disk until Dart has applied it ("takeInbox",
 /// "ackInbox"), so none of it is lost if the app is killed meanwhile.
 enum CloudSyncChannel {
-  static func register(with registrar: FlutterPluginRegistrar) {
+  /// For the app delegate, to note in the log what iOS says of pushes.
+  @MainActor static var sync: CloudSync?
+
+  @MainActor static func register(with registrar: FlutterPluginRegistrar) {
     let channel = FlutterMethodChannel(
       name: "nekosurf/cloudsync", binaryMessenger: registrar.messenger())
     let sync = CloudSync { method, arguments in
       DispatchQueue.main.async { channel.invokeMethod(method, arguments: arguments) }
     }
+    Self.sync = sync
     channel.setMethodCallHandler { call, result in
       let arguments = call.arguments
       Task {
@@ -252,6 +256,31 @@ final actor CloudSync: CKSyncEngineDelegate {
       command += Int(size)
     }
     return nil
+  }
+
+  /// Which push service the build is signed for: "production" for
+  /// TestFlight and the App Store, which is where iCloud's Production
+  /// environment sends; "development" from Xcode; "none" without.
+  static let pushEnvironment: String = {
+    #if targetEnvironment(simulator)
+      return "simulator"
+    #else
+      return signedEntitlements()?["aps-environment"] as? String ?? "none"
+    #endif
+  }()
+
+  /// What iOS last said of registering for pushes, for the log's head.
+  private var pushRegistration = "not asked yet"
+
+  /// iOS registered the app for pushes, or couldn't ([error]).
+  func registeredForPushes(_ error: Error?) {
+    pushRegistration = error.map { "failed: \(Self.describe($0))" } ?? "registered"
+    log("Pushes: \(pushRegistration)")
+  }
+
+  /// A push came, from iCloud if [fromICloud].
+  func pushCame(fromICloud: Bool) {
+    log(fromICloud ? "Push from iCloud" : "Push, not from iCloud")
   }
 
   private lazy var container = CKContainer(identifier: Self.containerID)
@@ -1520,6 +1549,7 @@ final actor CloudSync: CKSyncEngineDelegate {
     var head = [
       "NekoSurf iCloud sync log, \(Self.timeStyle.format(Date()))",
       "Signed for iCloud: \(Self.entitled ? "yes" : "no")",
+      "Pushes: signed for \(Self.pushEnvironment); \(pushRegistration)",
       engine.map { "Engine: running; \(waitingSummary($0))" }
         ?? "Engine: not running; \(outbox.count) not in iCloud yet",
       "Running sends and fetches: \(busy)",

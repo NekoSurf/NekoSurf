@@ -1,3 +1,4 @@
+import CloudKit
 import Flutter
 import UIKit
 
@@ -8,6 +9,37 @@ import UIKit
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  // What iOS says of pushes, for the iCloud sync log; CKSyncEngine handles
+  // the pushes themselves.
+
+  override func application(
+    _ application: UIApplication,
+    didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+  ) {
+    super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
+    if let sync = CloudSyncChannel.sync { Task { await sync.registeredForPushes(nil) } }
+  }
+
+  override func application(
+    _ application: UIApplication,
+    didFailToRegisterForRemoteNotificationsWithError error: Error
+  ) {
+    super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
+    if let sync = CloudSyncChannel.sync { Task { await sync.registeredForPushes(error) } }
+  }
+
+  override func application(
+    _ application: UIApplication,
+    didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+    fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+  ) {
+    let fromICloud = CKNotification(fromRemoteNotificationDictionary: userInfo) != nil
+    if let sync = CloudSyncChannel.sync { Task { await sync.pushCame(fromICloud: fromICloud) } }
+    super.application(
+      application, didReceiveRemoteNotification: userInfo,
+      fetchCompletionHandler: completionHandler)
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
