@@ -1,1 +1,0 @@
-Media saved on another device shows up in the Saved tab at once and downloads with a progress ring, and keeps uploading after you leave the app; bookmarks and saved media are in the same order on every device, and Sync now brings in changes straight away.
