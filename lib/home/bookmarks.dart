@@ -189,7 +189,14 @@ class _BookmarksState extends State<Bookmarks> {
       ],
       slivers: [
         if (items.isEmpty)
-          const SliverToBoxAdapter(child: _EmptyState())
+          SliverToBoxAdapter(
+            child: Builder(
+              builder: (context) {
+                _report(context, 0);
+                return const _EmptyState();
+              },
+            ),
+          )
         else ...[
           SliverToBoxAdapter(
             child: BookmarksSummary(
@@ -201,6 +208,18 @@ class _BookmarksState extends State<Bookmarks> {
         ],
       ],
     );
+  }
+}
+
+/// Tells the tab bar's badge how many threads have new replies, once this
+/// frame is built, since it isn't part of this page.
+void _report(BuildContext context, int count) {
+  final ValueNotifier<int> badge = Provider.of<BookmarksProvider>(
+    context,
+    listen: false,
+  ).withNewReplies;
+  if (badge.value != count) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => badge.value = count);
   }
 }
 
@@ -230,6 +249,8 @@ class _Threads extends StatelessWidget {
       if (which.isNotEmpty)
         for (final String i in which.split(',')) int.parse(i),
     ];
+
+    _report(context, updated.length);
 
     Widget threads(List<Post> posts) => ThreadsView(
       threads: posts,

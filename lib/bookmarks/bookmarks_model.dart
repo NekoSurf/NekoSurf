@@ -72,6 +72,10 @@ class BookmarksProvider with ChangeNotifier implements SyncTarget {
   final List<Bookmark> _bookmarks = [];
   bool newestFirst;
 
+  /// How many bookmarked threads have new replies, as the Bookmarks tab last
+  /// counted them, for the badge on the tab.
+  final ValueNotifier<int> withNewReplies = ValueNotifier<int>(0);
+
   List<Bookmark> get bookmarks => newestFirst
       ? _bookmarks.reversed.toList(growable: false)
       : List.unmodifiable(_bookmarks);

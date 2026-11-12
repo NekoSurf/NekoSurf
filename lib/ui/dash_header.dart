@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/frosted.dart';
 
@@ -188,14 +189,20 @@ class DashHeader extends StatelessWidget {
 }
 
 class DashTab {
-  const DashTab(this.icon, this.label, {this.badge = false});
+  const DashTab(this.icon, this.label, {this.badge = false, this.count = 0});
 
   final IconData icon;
   final String label;
 
   /// A dot on it: something there needs a look.
   final bool badge;
+
+  /// A number on it, when above zero: how many things there are new.
+  final int count;
 }
+
+/// The width of each tab, so the bar is as wide as its tabs, not the page.
+const double _tabWidth = 76;
 
 class DashTabBar extends StatelessWidget {
   const DashTabBar({
@@ -207,6 +214,8 @@ class DashTabBar extends StatelessWidget {
 
   final List<DashTab> tabs;
   final int selectedIndex;
+
+  /// Called with the tab tapped, also when it's the one already shown.
   final ValueChanged<int> onSelected;
 
   @override
@@ -217,80 +226,166 @@ class DashTabBar extends StatelessWidget {
       maxScaleFactor: 1,
       child: Padding(
         padding: EdgeInsets.fromLTRB(16, 0, 16, bottom > 0 ? bottom : 12),
-        child: SizedBox(
-          height: kDashTabBarHeight,
-          child: Frosted(
-            radius: 28,
-            padding: const EdgeInsets.all(6),
-            color: DashColors.card(context).withValues(alpha: 0.82),
-            borderColor: DashColors.border(context),
-            child: Row(
-              children: [
-                for (int i = 0; i < tabs.length; i++)
-                  Expanded(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => onSelected(i),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 220),
-                        curve: Curves.easeOutCubic,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(22),
-                          gradient: i == selectedIndex
-                              ? LinearGradient(
-                                  colors: [
-                                    context.accent.withValues(alpha: 0.24),
-                                    context.accent2.withValues(alpha: 0.2),
-                                  ],
-                                )
-                              : null,
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                Icon(
-                                  tabs[i].icon,
-                                  size: 21,
-                                  color: i == selectedIndex
-                                      ? context.accent
-                                      : DashColors.muted(context),
-                                ),
-                                if (tabs[i].badge)
-                                  Positioned(
-                                    top: -1,
-                                    right: -3,
-                                    child: Container(
-                                      width: 8,
-                                      height: 8,
-                                      decoration: const BoxDecoration(
-                                        color: CupertinoColors.systemRed,
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              tabs[i].label,
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w700,
-                                color: i == selectedIndex
-                                    ? DashColors.text(context)
-                                    : DashColors.muted(context),
-                              ),
-                            ),
-                          ],
-                        ),
+        child: Center(
+          child: SizedBox(
+            width: tabs.length * _tabWidth + 12,
+            height: kDashTabBarHeight,
+            child: Frosted(
+              radius: 28,
+              padding: const EdgeInsets.all(6),
+              color: DashColors.card(context).withValues(alpha: 0.82),
+              borderColor: DashColors.border(context),
+              child: Row(
+                children: [
+                  for (int i = 0; i < tabs.length; i++)
+                    Expanded(
+                      child: _TabButton(
+                        tab: tabs[i],
+                        selected: i == selectedIndex,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          onSelected(i);
+                        },
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One tab, whose icon gives under a finger and springs back.
+class _TabButton extends StatefulWidget {
+  const _TabButton({
+    required this.tab,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final DashTab tab;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  State<_TabButton> createState() => _TabButtonState();
+}
+
+class _TabButtonState extends State<_TabButton> {
+  bool _pressed = false;
+
+  void _press(bool pressed) {
+    if (pressed != _pressed) {
+      setState(() => _pressed = pressed);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final DashTab tab = widget.tab;
+    final bool selected = widget.selected;
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: tab.count > 0 ? '${tab.label}, ${tab.count} new' : tab.label,
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => _press(true),
+        onTapUp: (_) => _press(false),
+        onTapCancel: () => _press(false),
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            gradient: selected
+                ? LinearGradient(
+                    colors: [
+                      context.accent.withValues(alpha: 0.24),
+                      context.accent2.withValues(alpha: 0.2),
+                    ],
+                  )
+                : null,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AnimatedScale(
+                scale: _pressed ? 0.82 : 1,
+                duration: Duration(milliseconds: _pressed ? 90 : 260),
+                curve: _pressed ? Curves.easeOut : Curves.easeOutBack,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Icon(
+                      tab.icon,
+                      size: 21,
+                      color: selected
+                          ? context.accent
+                          : DashColors.muted(context),
+                    ),
+                    if (tab.count > 0)
+                      Positioned(
+                        top: -5,
+                        left: 14,
+                        child: Container(
+                          constraints: const BoxConstraints(minWidth: 17),
+                          padding: const EdgeInsets.symmetric(horizontal: 5),
+                          decoration: BoxDecoration(
+                            color: context.accent,
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                              color: DashColors.card(context),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Text(
+                            tab.count > 99 ? '99+' : '${tab.count}',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 10.5,
+                              height: 1.35,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ),
+                      )
+                    else if (tab.badge)
+                      Positioned(
+                        top: -1,
+                        right: -3,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: CupertinoColors.systemRed,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                tab.label,
+                maxLines: 1,
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  color: selected
+                      ? DashColors.text(context)
+                      : DashColors.muted(context),
+                ),
+              ),
+            ],
           ),
         ),
       ),

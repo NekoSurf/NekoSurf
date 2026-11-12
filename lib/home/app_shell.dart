@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_chan/bookmarks/bookmarks_model.dart';
 import 'package:flutter_chan/home/bookmarks.dart';
 import 'package:flutter_chan/home/dashboard.dart';
 import 'package:flutter_chan/home/update_prompt.dart';
@@ -11,6 +12,7 @@ import 'package:flutter_chan/sync/cloud_sync.dart';
 import 'package:flutter_chan/ui/dash_dialogs.dart';
 import 'package:flutter_chan/ui/dash_header.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
+import 'package:provider/provider.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -33,11 +35,19 @@ class _AppShellState extends State<AppShell> {
 
   int _currentTab = 0;
 
-  /// Tabs are built on first visit and then kept alive, so switching back
-  /// keeps their scroll position and doesn't reload their data.
-  final Set<int> _builtTabs = <int>{0};
-
+  static const int _bookmarksTab = 2;
   static const int _settingsTab = 3;
+
+  /// Tabs are built on first visit and then kept alive, so switching back
+  /// keeps their scroll position and doesn't reload their data. Bookmarks
+  /// is built at once, so its tab can show how many threads have new
+  /// replies.
+  final Set<int> _builtTabs = <int>{0, _bookmarksTab};
+
+  /// Each tab's own, so tapping the tab shown takes just it to the top.
+  final List<ScrollController> _scrolls = [
+    for (int tab = 0; tab < _tabs.length; tab++) ScrollController(),
+  ];
 
   final CloudSync _sync = CloudSync.instance;
   bool _showingAlert = false;
@@ -58,6 +68,9 @@ class _AppShellState extends State<AppShell> {
 
   @override
   void dispose() {
+    for (final ScrollController scroll in _scrolls) {
+      scroll.dispose();
+    }
     _sync.removeListener(_syncChanged);
     super.dispose();
   }
@@ -101,6 +114,10 @@ class _AppShellState extends State<AppShell> {
   }
 
   void _selectTab(int tab) {
+    if (tab == _currentTab) {
+      _scrollToTop(_scrolls[tab]);
+      return;
+    }
     setState(() {
       _currentTab = tab;
       _builtTabs.add(tab);
@@ -110,8 +127,23 @@ class _AppShellState extends State<AppShell> {
     }
   }
 
+  void _scrollToTop(ScrollController scroll) {
+    if (scroll.hasClients && scroll.offset > 0) {
+      scroll.animateTo(
+        0,
+        duration: const Duration(milliseconds: 450),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final ValueNotifier<int> withNewReplies = Provider.of<BookmarksProvider>(
+      context,
+      listen: false,
+    ).withNewReplies;
+
     return Stack(
       children: [
         IndexedStack(
@@ -121,7 +153,11 @@ class _AppShellState extends State<AppShell> {
               TickerMode(
                 enabled: tab == _currentTab,
                 child: _builtTabs.contains(tab)
-                    ? _tabs[tab]
+                    // A page's list scrolls with the controller it's given.
+                    ? PrimaryScrollController(
+                        controller: _scrolls[tab],
+                        child: _tabs[tab],
+                      )
                     : const SizedBox.shrink(),
               ),
           ],
@@ -136,19 +172,26 @@ class _AppShellState extends State<AppShell> {
           left: 0,
           right: 0,
           bottom: 0,
-          child: DashTabBar(
-            selectedIndex: _currentTab,
-            onSelected: _selectTab,
-            tabs: [
-              const DashTab(CupertinoIcons.square_grid_2x2_fill, 'Boards'),
-              const DashTab(CupertinoIcons.paperclip, 'Saved'),
-              const DashTab(CupertinoIcons.bookmark_fill, 'Bookmarks'),
-              DashTab(
-                CupertinoIcons.settings,
-                'Settings',
-                badge: _sync.needsAttention,
-              ),
-            ],
+          child: ValueListenableBuilder<int>(
+            valueListenable: withNewReplies,
+            builder: (context, newReplies, _) => DashTabBar(
+              selectedIndex: _currentTab,
+              onSelected: _selectTab,
+              tabs: [
+                const DashTab(CupertinoIcons.square_grid_2x2_fill, 'Boards'),
+                const DashTab(CupertinoIcons.paperclip, 'Saved'),
+                DashTab(
+                  CupertinoIcons.bookmark_fill,
+                  'Bookmarks',
+                  count: newReplies,
+                ),
+                DashTab(
+                  CupertinoIcons.settings,
+                  'Settings',
+                  badge: _sync.needsAttention,
+                ),
+              ],
+            ),
           ),
         ),
       ],

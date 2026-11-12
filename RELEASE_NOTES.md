@@ -10,6 +10,11 @@
 - Its name is on a frosted bar, with its file type, size and, for an image, resolution under it
 - On iPad, as many columns as fit, as on a board
 
+### 🧭 A tidier tab bar
+- The tab bar is only as wide as its tabs, in the middle of the screen
+- Tapping a tab gives a little tap and bounce, and tapping the tab you're on goes back to the top of it
+- The Bookmarks tab shows how many bookmarked threads have new replies
+
 ## What's fixed
 
 - With iCloud sync on, a file saved before version 0.13.0 is now in the same place in the Saved tab on all your devices
