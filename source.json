@@ -24,6 +24,15 @@
       ],
       "versions": [
         {
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.13.0%2B304/Runner.ipa",
+          "size": 34172424,
+          "version": "0.13.0",
+          "buildVersion": "304",
+          "date": "2026-11-12T11:10:17+00:00",
+          "localizedDescription": "NekoSurf no longer closes right after opening in LiveContainer, and a saved video deleted and saved again on another device keeps the same place in the Saved tab everywhere.",
+          "minOSVersion": "17.0"
+        },
+        {
           "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.13.0%2B303/Runner.ipa",
           "size": 34170464,
           "version": "0.13.0",
