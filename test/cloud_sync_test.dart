@@ -32,6 +32,8 @@ void main() {
   late List<String> deleted;
   late List<String> calls;
   late List<String> downloadsAsked;
+  // What iCloud has, by record id; null as if it had no zone.
+  List<String>? cloudIds;
   String? fetchFails;
   bool signInOnStart = false;
   Completer<void>? sending;
@@ -51,6 +53,7 @@ void main() {
     deleted = [];
     calls = [];
     downloadsAsked = [];
+    cloudIds = null;
     fetchFails = null;
     signInOnStart = false;
     sending = null;
@@ -101,6 +104,8 @@ void main() {
             case 'download':
               downloadsAsked.addAll((call.arguments as List).cast());
               return null;
+            case 'cloudIds':
+              return cloudIds;
             case 'status':
               return <String, Object?>{};
           }
@@ -610,6 +615,48 @@ void main() {
     await a.sync.processInbox();
     await a.bookmarks.addBookmark(Bookmark(board: 'g', no: 3));
     expect(a.bookmarks.bookmarks.map((b) => b.key), ['g/1', 'g/5', 'g/3']);
+  });
+
+  test("Sync now sends what iCloud doesn't have, but not what was deleted "
+      'elsewhere', () async {
+    String stored(int no) => jsonEncode({...bookmark('g', no), 'addedAt': no});
+    final a = await app(
+      await prefsWith({
+        'favoriteThreads': [stored(1), stored(2), stored(3)],
+      }),
+    );
+    await a.sync.turnOn();
+    sent.clear();
+    // iCloud has g/1; g/2 was deleted on another device, g/3 lost there.
+    cloudIds = [syncId(SyncKind.bookmark, 'g/1')];
+    cloud = [deletion(SyncKind.bookmark, 'g/2')];
+
+    await a.sync.syncNow();
+    await pumpEventQueue();
+
+    expect(a.bookmarks.bookmarks.map((b) => b.key), isNot(contains('g/2')));
+    expect(sentIds(), {syncId(SyncKind.bookmark, 'g/3')});
+  });
+
+  test('once after updating, what iCloud lost goes up again', () async {
+    cloudIds = <String>[];
+    final SharedPreferences prefs = await prefsWith({
+      'sync.iCloud': true,
+      'sync.joined': true,
+      'favoriteThreads': [
+        jsonEncode({...bookmark('g', 1), 'addedAt': 1}),
+      ],
+    });
+    await app(prefs);
+    await pumpEventQueue();
+    expect(sentIds(), {syncId(SyncKind.bookmark, 'g/1')});
+    expect(prefs.getBool('sync.checkedICloud'), isTrue);
+
+    // Not again.
+    sent.clear();
+    await app(prefs);
+    await pumpEventQueue();
+    expect(sent, isEmpty);
   });
 
   test("Sync now fetches without waiting for what's going up", () async {

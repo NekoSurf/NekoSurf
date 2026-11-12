@@ -183,6 +183,7 @@ class CloudSync extends ChangeNotifier {
   static const String onKey = 'sync.iCloud';
   static const String _joinedKey = 'sync.joined';
   static const String _askedKey = 'sync.asked';
+  static const String _checkedKey = 'sync.checkedICloud';
 
   final bool _supported;
 
@@ -515,6 +516,9 @@ class CloudSync extends ChangeNotifier {
     }
     if (_prefs?.getBool(_joinedKey) ?? false) {
       await processInbox();
+      if (!(_prefs?.getBool(_checkedKey) ?? false)) {
+        unawaited(_checkICloudOnce());
+      }
       return;
     }
     _joining = true;
@@ -748,8 +752,8 @@ class CloudSync extends ChangeNotifier {
   Future<String> log() async => await _invoke('log') as String? ?? '';
 
   /// Sends what's waiting and fetches what's new, at once, as fetching
-  /// needn't wait for saved files to go up; done when both are, and throws
-  /// [SyncFailed] as soon as either fails.
+  /// needn't wait for saved files to go up; then sends what iCloud doesn't
+  /// have. Done when all is, and throws [SyncFailed] as soon as any fails.
   Future<void> syncNow() async {
     await _flush();
     await Future.wait(<Future<Object?>>[
@@ -757,6 +761,54 @@ class CloudSync extends ChangeNotifier {
       _invoke('fetch'),
     ], eagerError: true);
     _filesMayHaveCome.ping();
+    await processInbox();
+    await _sendWhatICloudLacks();
+  }
+
+  bool _checking = false;
+
+  /// Once, after updating to a NekoSurf that does it: what iCloud lost
+  /// before then goes up again (see [_sendWhatICloudLacks]).
+  Future<void> _checkICloudOnce() async {
+    if (_checking) {
+      return;
+    }
+    _checking = true;
+    try {
+      await _invoke('fetch');
+      await processInbox();
+      if (await _sendWhatICloudLacks()) {
+        await _prefs!.setBool(_checkedKey, true);
+      }
+    } on SyncFailed catch (e) {
+      debugPrint('iCloud sync could not check what iCloud has: $e');
+    } finally {
+      _checking = false;
+    }
+  }
+
+  /// Sends what's here that iCloud doesn't have: as when it never went up,
+  /// or was lost there, as older saved files were. Only after what changed
+  /// elsewhere is applied here, so what was deleted elsewhere is gone here
+  /// too, rather than sent back. False if iCloud has no data of NekoSurf's.
+  Future<bool> _sendWhatICloudLacks() async {
+    if (!isOn || _joining) {
+      return false;
+    }
+    final List<Object?>? ids = await _invoke('cloudIds') as List<Object?>?;
+    if (ids == null || !isOn) {
+      return false;
+    }
+    final Set<Object?> there = ids.toSet();
+    final List<SyncItem> lacking = <SyncItem>[
+      for (final SyncItem item in await snapshot())
+        if (!there.contains(item.id)) item,
+    ];
+    if (lacking.isNotEmpty) {
+      putAll(lacking);
+      await _flush();
+    }
+    return true;
   }
 
   /// The app is left: sends what's waiting while it still can.

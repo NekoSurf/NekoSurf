@@ -282,6 +282,9 @@ final actor CloudSync: CKSyncEngineDelegate {
       _ = try engineOrThrow()
       try await queueDownloads(arguments as? [String] ?? [])
       return nil
+    case "cloudIds":
+      _ = try engineOrThrow()
+      return try await cloudIDs()
     case "send":
       // What failed before goes again too ("Sync now").
       let engine = try engineOrThrow()
@@ -803,6 +806,36 @@ final actor CloudSync: CKSyncEngineDelegate {
   }
 
   // MARK: Asking iCloud
+
+  /// The ids of every record in the zone, from iCloud, with what's on its
+  /// way there: for Dart to send what iCloud doesn't have. Nil if there's
+  /// no zone, as when its data was deleted from iCloud.
+  private func cloudIDs() async throws -> [String]? {
+    var ids: [String] = []
+    var token: CKServerChangeToken?
+    while true {
+      let since = token
+      let page: (
+        modificationResultsByID: [CKRecord.ID: Result<CKDatabase.RecordZoneChange.Modification, Error>],
+        deletions: [CKDatabase.RecordZoneChange.Deletion], changeToken: CKServerChangeToken,
+        moreComing: Bool
+      )
+      do {
+        page = try await container.privateCloudDatabase.configuredWith(
+          group: Self.soon("What's in iCloud")
+        ) { try await $0.recordZoneChanges(inZoneWith: Self.zoneID, since: since, desiredKeys: []) }
+      } catch let error as CKError where error.code == .zoneNotFound || error.code == .userDeletedZone {
+        return nil
+      }
+      for (recordID, result) in page.modificationResultsByID {
+        if case .success = result { ids.append(recordID.recordName) }
+      }
+      token = page.changeToken
+      if !page.moreComing { break }
+    }
+    log("Looked at what's in iCloud: \(ids.count) there")
+    return ids + outbox.keys
+  }
 
   /// How far askICloud got through the zone's changes.
   private var askedToken: CKServerChangeToken?
