@@ -21,6 +21,7 @@
 ## What's fixed
 
 - With iCloud sync on, a file saved before version 0.13.0 is now in the same place in the Saved tab on all your devices
+- In the full-screen viewer, the shade and controls under a video stay at the bottom of the screen while you swipe between videos, instead of moving with each one
 - In Bookmarks, a thread opens straight away, without waiting to find out whether it's still up
 - Clear bookmarks asks first, and says when it clears them on all your devices
 - Bookmarks keeps the order you chose, and ticks it in the Sort menu

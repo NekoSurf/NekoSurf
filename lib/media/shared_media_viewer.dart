@@ -126,6 +126,9 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
   bool _isImageZoomed = false;
   bool _chromeVisible = true;
 
+  /// The video of the page shown, or last shown, for the controls.
+  MediaVideo? _activeVideo;
+
   static const List<double> _rates = [1.0, 1.25, 1.5, 2.0, 0.5];
 
   /// Playback speed for every video in this viewer session.
@@ -284,15 +287,15 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
                           key: ValueKey('shared-media-video-${item.id}'),
                           item: item,
                           isActive: _currentIndex == index,
-                          chromeVisible: _chromeVisible,
                           onTap: _toggleChrome,
                           rate: _rate,
-                          onCycleRate: _cycleRate,
                           autoAdvance: settings.fullscreenAutoAdvance.value,
-                          onToggleAutoAdvance: () => settings
-                              .fullscreenAutoAdvance
-                              .set(!settings.fullscreenAutoAdvance.value),
                           onCompleted: () => _advanceAfter(index),
+                          onActive: (video) {
+                            if (_activeVideo != video) {
+                              setState(() => _activeVideo = video);
+                            }
+                          },
                           onScrubStateChanged: (isScrubbing) {
                             if (!mounted || _isVideoScrubbing == isScrubbing) {
                               return;
@@ -325,6 +328,27 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
               ),
             ),
           ),
+          if (_activeVideo case final MediaVideo video)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: _Chrome(
+                visible: _chromeVisible && widget.items[_currentIndex].isVideo,
+                hiddenOffset: 0.3,
+                child: ListenableBuilder(
+                  listenable: video,
+                  builder: (context, _) => _VideoControls(
+                    video: video,
+                    rate: _rate,
+                    onCycleRate: _cycleRate,
+                    autoAdvance: settings.fullscreenAutoAdvance.value,
+                    onToggleAutoAdvance: () => settings.fullscreenAutoAdvance
+                        .set(!settings.fullscreenAutoAdvance.value),
+                  ),
+                ),
+              ),
+            ),
           Positioned(
             top: 0,
             left: 0,
@@ -644,26 +668,24 @@ class _SharedMediaVideoPage extends StatefulWidget {
     super.key,
     required this.item,
     required this.isActive,
-    required this.chromeVisible,
     required this.onTap,
     required this.onScrubStateChanged,
     required this.rate,
-    required this.onCycleRate,
     required this.autoAdvance,
-    required this.onToggleAutoAdvance,
     required this.onCompleted,
+    required this.onActive,
   });
 
   final double rate;
-  final VoidCallback onCycleRate;
   final bool autoAdvance;
-  final VoidCallback onToggleAutoAdvance;
+
+  /// It's the page shown, with this video for the controls.
+  final ValueChanged<MediaVideo> onActive;
 
   /// The video reached its end; only fires with [autoAdvance] on.
   final VoidCallback onCompleted;
   final SharedMediaViewerItem item;
   final bool isActive;
-  final bool chromeVisible;
   final VoidCallback onTap;
   final ValueChanged<bool> onScrubStateChanged;
 
@@ -715,6 +737,12 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
   }
 
   void _activate() {
+    // Not while the viewer is building.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && widget.isActive) {
+        widget.onActive(_video);
+      }
+    });
     _video
       ..setRate(widget.rate)
       ..setLoop(!widget.autoAdvance)
@@ -744,13 +772,6 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
     }
     _video.release(this);
     super.dispose();
-  }
-
-  String _formatRate(double rate) {
-    final String text = rate == rate.roundToDouble()
-        ? rate.toStringAsFixed(0)
-        : rate.toString();
-    return '$text×';
   }
 
   @override
@@ -791,26 +812,40 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
               child: SizedBox.expand(child: content),
             ),
           ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: _Chrome(
-              visible: widget.chromeVisible,
-              hiddenOffset: 0.3,
-              child: ListenableBuilder(
-                listenable: _video,
-                builder: (context, _) => _buildControls(context),
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildControls(BuildContext context) {
-    final Duration duration = _video.duration;
+String _formatRate(double rate) {
+  final String text = rate == rate.roundToDouble()
+      ? rate.toStringAsFixed(0)
+      : rate.toString();
+  return '$text×';
+}
+
+/// The bar under a video, with the shade behind it: the viewer's, at the
+/// bottom of the screen, so it stays put while videos are swiped past, and
+/// works the one shown.
+class _VideoControls extends StatelessWidget {
+  const _VideoControls({
+    required this.video,
+    required this.rate,
+    required this.onCycleRate,
+    required this.autoAdvance,
+    required this.onToggleAutoAdvance,
+  });
+
+  final MediaVideo video;
+  final double rate;
+  final VoidCallback onCycleRate;
+  final bool autoAdvance;
+  final VoidCallback onToggleAutoAdvance;
+
+  @override
+  Widget build(BuildContext context) {
+    final Duration duration = video.duration;
     final double max =
         (duration.inMilliseconds <= 0 ? 1 : duration.inMilliseconds).toDouble();
 
@@ -840,7 +875,7 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
         child: Row(
           children: [
             GestureDetector(
-              onTap: _video.togglePlay,
+              onTap: video.togglePlay,
               child: Container(
                 width: 40,
                 height: 40,
@@ -849,21 +884,21 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  _video.isPlaying
+                  video.isPlaying
                       ? CupertinoIcons.pause_fill
                       : CupertinoIcons.play_fill,
                   color: Colors.black,
                   size: 17,
-                  semanticLabel: _video.isPlaying ? 'Pause' : 'Play',
+                  semanticLabel: video.isPlaying ? 'Pause' : 'Play',
                 ),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: ListenableBuilder(
-                listenable: _video.progressChanged,
+                listenable: video.progressChanged,
                 builder: (context, _) {
-                  final Duration shown = _video.shownPosition;
+                  final Duration shown = video.shownPosition;
                   return Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -878,7 +913,7 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
                           secondaryActiveTrackColor: Colors.white.withValues(
                             alpha: 0.3,
                           ),
-                          trackShape: _LoadedTrackShape(_video.loaded.value),
+                          trackShape: _LoadedTrackShape(video.loaded.value),
                           thumbColor: Colors.white,
                           thumbShape: const RoundSliderThumbShape(
                             enabledThumbRadius: 6,
@@ -891,14 +926,14 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
                           max: max,
                           // Live: the picture follows the thumb.
                           onChangeStart: duration > Duration.zero
-                              ? (_) => _video.scrubStart()
+                              ? (_) => video.scrubStart()
                               : null,
                           onChanged: duration > Duration.zero
-                              ? (value) => _video.scrubTo(
+                              ? (value) => video.scrubTo(
                                   Duration(milliseconds: value.round()),
                                 )
                               : null,
-                          onChangeEnd: (_) => _video.scrubEnd(),
+                          onChangeEnd: (_) => video.scrubEnd(),
                         ),
                       ),
                       Padding(
@@ -933,19 +968,19 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
             const SizedBox(width: 8),
             GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: widget.onCycleRate,
+              onTap: onCycleRate,
               child: Container(
                 width: 46,
                 padding: const EdgeInsets.symmetric(vertical: 6),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: widget.rate == 1.0
+                  color: rate == 1.0
                       ? Colors.white.withValues(alpha: 0.12)
                       : context.accent.withValues(alpha: 0.25),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  _formatRate(widget.rate),
+                  _formatRate(rate),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 12.5,
@@ -956,18 +991,18 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
             ),
             GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: widget.onToggleAutoAdvance,
+              onTap: onToggleAutoAdvance,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(10, 6, 2, 6),
                 child: Icon(
-                  widget.autoAdvance
+                  autoAdvance
                       ? CupertinoIcons.forward_end_fill
                       : CupertinoIcons.repeat,
                   size: 20,
-                  semanticLabel: widget.autoAdvance
+                  semanticLabel: autoAdvance
                       ? 'Plays the next one after this'
                       : 'Plays on repeat',
-                  color: widget.autoAdvance ? context.accent : Colors.white,
+                  color: autoAdvance ? context.accent : Colors.white,
                 ),
               ),
             ),
