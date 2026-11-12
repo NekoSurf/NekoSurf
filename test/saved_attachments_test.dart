@@ -49,12 +49,33 @@ void main() {
       '{broken',
     ]);
 
-    final List<SavedAttachment> all = saved.attachments;
-    expect(all.first.id, '123');
-    expect(all.first.isVideo, isTrue);
-    expect(all.first.thumbnail, '123.jpg');
-    expect(all[1].fileName, '456.jpg');
-    expect(all[1].isVideo, isTrue);
+    final Map<String, SavedAttachment> all = {
+      for (final SavedAttachment a in saved.attachments) a.id: a,
+    };
+    expect(all.keys, unorderedEquals(['123', '456', 'not json {']));
+    expect(all['123']!.isVideo, isTrue);
+    expect(all['123']!.thumbnail, '123.jpg');
+    expect(all['456']!.fileName, '456.jpg');
+    expect(all['456']!.isVideo, isTrue);
+  });
+
+  test('lists what was saved by when, the same on every device', () async {
+    final SavedAttachmentsProvider saved = await provider([
+      jsonEncode({
+        ...jsonDecode(stored('new.jpg', id: '1500000000000')) as Map,
+        'addedAt': 1800000000000,
+      }),
+      // From before when it was saved was kept: when its post was made,
+      // its upload's tim, in milliseconds or microseconds.
+      stored('older.jpg', id: '1700000000000000'),
+      stored('oldest.jpg', id: '1600000000000'),
+    ]);
+
+    expect(saved.attachments.map((a) => a.fileName), [
+      'oldest.jpg',
+      'older.jpg',
+      'new.jpg',
+    ]);
   });
 
   test('drops entries whose file was deleted outside the app', () async {

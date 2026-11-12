@@ -231,9 +231,10 @@ void main() {
     expect(a.sync.lastBroughtIn, 3);
     expect(a.bookmarks.bookmarks.map((b) => b.key), {'wsg/1', 'g/2'});
     expect(a.settings.themeColor.value, ThemeColor.violet);
+    // Of an older post, iCloud's comes first, as on the other device.
     expect(a.saved.attachments.map((s) => s.fileName), [
-      'cat.png',
       'cat (2).png',
+      'cat.png',
     ]);
     expect(File('${folders.media}/cat (2).png').readAsStringSync(), 'meow');
     // What iCloud had stays as it was; this phone's own goes up.
@@ -454,6 +455,42 @@ void main() {
     },
   );
 
+  test('bookmarks are in the same order on every device', () async {
+    final a = await app(
+      await prefsWith({
+        'sync.iCloud': true,
+        'sync.joined': true,
+        // From before when they were bookmarked was kept.
+        'favoriteThreads': [
+          jsonEncode(bookmark('g', 5)),
+          jsonEncode(bookmark('g', 1)),
+        ],
+      }),
+    );
+    a.bookmarks.setNewestFirst(false);
+    await pumpEventQueue();
+
+    // Numbered in this phone's order, and sent, for the others to take.
+    expect(a.bookmarks.bookmarks.map((b) => b.key), ['g/5', 'g/1']);
+    expect(sent.map((s) => jsonDecode(s['data']! as String)['addedAt']), [
+      1,
+      2,
+    ]);
+
+    // Another device's numbers win once they come; new ones go last.
+    inbox.add({
+      ...change(SyncKind.bookmark, 'g/1', {...bookmark('g', 1), 'addedAt': 1}),
+      'seq': ++seq,
+    });
+    inbox.add({
+      ...change(SyncKind.bookmark, 'g/5', {...bookmark('g', 5), 'addedAt': 2}),
+      'seq': ++seq,
+    });
+    await a.sync.processInbox();
+    await a.bookmarks.addBookmark(Bookmark(board: 'g', no: 3));
+    expect(a.bookmarks.bookmarks.map((b) => b.key), ['g/1', 'g/5', 'g/3']);
+  });
+
   test("Sync now fetches without waiting for what's going up", () async {
     final a = await app(await prefsWith({}));
     await a.sync.turnOn();
@@ -484,8 +521,8 @@ void main() {
   test('a restored backup goes out as changes', () async {
     final SharedPreferences prefs = await prefsWith({
       'favoriteThreads': [
-        jsonEncode(bookmark('g', 1)),
-        jsonEncode(bookmark('g', 2)),
+        jsonEncode({...bookmark('g', 1), 'addedAt': 1}),
+        jsonEncode({...bookmark('g', 2), 'addedAt': 2}),
       ],
       'themeColor': 'cyan',
     });
@@ -495,8 +532,8 @@ void main() {
     final List<SyncItem> before = await a.sync.snapshot();
 
     await prefs.setStringList('favoriteThreads', [
-      jsonEncode(bookmark('g', 2)),
-      jsonEncode(bookmark('g', 3)),
+      jsonEncode({...bookmark('g', 2), 'addedAt': 2}),
+      jsonEncode({...bookmark('g', 3), 'addedAt': 3}),
     ]);
     await prefs.setString('themeColor', 'violet');
     await a.sync.pushChangesSince(before);

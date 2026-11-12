@@ -1,3 +1,4 @@
 WHAT'S FIXED
 
 • With iCloud sync on, Sync now (Settings → iCloud sync) and coming back to NekoSurf bring in what changed on your other devices straight away; before, it could take minutes to show up
+• Bookmarks and the Saved tab are in the same order on all your devices with iCloud sync

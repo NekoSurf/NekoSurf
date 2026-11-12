@@ -41,8 +41,10 @@ void main() {
 
       await bookmarks.removeBookmark(same);
       expect(bookmarks.bookmarks.map((b) => b.key), ['g/2']);
+      // Numbered in the order they were stored, from before when they were
+      // bookmarked was kept.
       expect(prefs.getStringList('favoriteThreads'), [
-        _stored(Bookmark(board: 'g', no: 2)),
+        _stored(Bookmark(board: 'g', no: 2, addedAt: 2)),
       ]);
     });
 

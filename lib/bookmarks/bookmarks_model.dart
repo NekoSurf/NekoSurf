@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -10,8 +11,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 SyncItem bookmarkSyncItem(Bookmark bookmark) =>
     SyncItem(SyncKind.bookmark, bookmark.key, bookmark.toJson());
 
-/// Bookmarked threads, one per thread (by board and number), oldest first
-/// as stored.
+/// Which of two goes first: the same on every device.
+int _byAddedAt(Bookmark a, Bookmark b) {
+  final int byTime = (a.addedAt ?? 0).compareTo(b.addedAt ?? 0);
+  return byTime != 0 ? byTime : a.key.compareTo(b.key);
+}
+
+/// Bookmarked threads, one per thread (by board and number), oldest first:
+/// by when each was bookmarked ([Bookmark.addedAt]), the same order on
+/// every device with iCloud sync.
 class BookmarksProvider with ChangeNotifier implements SyncTarget {
   BookmarksProvider(this._prefs, {CloudSync? sync})
     : _sync = sync ?? CloudSync.instance {
@@ -29,7 +37,27 @@ class BookmarksProvider with ChangeNotifier implements SyncTarget {
         // Skip corrupt entries.
       }
     }
+    _numberOlderOnes();
     _sync.attach(this);
+  }
+
+  /// Gives bookmarks from before [Bookmark.addedAt] was kept a number in
+  /// the order they're stored, and sends them, so every device has the same
+  /// numbers: the order of the last to send them.
+  void _numberOlderOnes() {
+    if (_bookmarks.every((b) => b.addedAt != null)) {
+      return;
+    }
+    final List<Bookmark> numbered = <Bookmark>[];
+    for (int i = 0; i < _bookmarks.length; i++) {
+      if (_bookmarks[i].addedAt == null) {
+        _bookmarks[i] = _bookmarks[i].addedAtTime(i + 1);
+        numbered.add(_bookmarks[i]);
+      }
+    }
+    _bookmarks.sort(_byAddedAt);
+    _sync.putAll(<SyncItem>[for (final b in numbered) bookmarkSyncItem(b)]);
+    unawaited(_save());
   }
 
   /// Where the bookmarks are kept in SharedPreferences.
@@ -51,8 +79,12 @@ class BookmarksProvider with ChangeNotifier implements SyncTarget {
     if (isBookmarked(bookmark)) {
       return;
     }
-    _bookmarks.add(bookmark);
-    _sync.put(bookmarkSyncItem(bookmark));
+    final Bookmark added = bookmark.addedAtTime(
+      DateTime.now().millisecondsSinceEpoch,
+    );
+    _bookmarks.add(added);
+    _bookmarks.sort(_byAddedAt);
+    _sync.put(bookmarkSyncItem(added));
     await _save();
   }
 
@@ -93,19 +125,28 @@ class BookmarksProvider with ChangeNotifier implements SyncTarget {
         _bookmarks.removeWhere((Bookmark b) => change.isFor(b.key));
         continue;
       }
-      final Bookmark bookmark;
+      Bookmark bookmark;
       try {
         bookmark = Bookmark.fromJson(change.data.cast<String, dynamic>());
       } catch (_) {
         continue;
       }
       final int at = _bookmarks.indexWhere((b) => b.key == bookmark.key);
+      // One from an older NekoSurf doesn't say when: as it was here, or now.
+      if (bookmark.addedAt == null) {
+        bookmark = bookmark.addedAtTime(
+          at < 0
+              ? DateTime.now().millisecondsSinceEpoch
+              : _bookmarks[at].addedAt ?? 0,
+        );
+      }
       if (at < 0) {
         _bookmarks.add(bookmark);
       } else {
         _bookmarks[at] = bookmark;
       }
     }
+    _bookmarks.sort(_byAddedAt);
     await _save();
   }
 

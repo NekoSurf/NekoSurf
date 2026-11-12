@@ -25,7 +25,18 @@ SyncItem savedSyncItem(SavedAttachment attachment, SavedFolders folders) =>
           : null,
     );
 
-/// What's in the Saved tab, oldest first. Whatever needs the files throws
+/// Which of two goes first in the Saved tab: the same on every device.
+int _bySortTime(SavedAttachment a, SavedAttachment b) {
+  final int byTime = a.sortTime.compareTo(b.sortTime);
+  if (byTime != 0) {
+    return byTime;
+  }
+  final int byId = a.id.compareTo(b.id);
+  return byId != 0 ? byId : a.fileName.compareTo(b.fileName);
+}
+
+/// What's in the Saved tab, oldest first, by when each was saved (see
+/// [SavedAttachment.sortTime]). Whatever needs the files throws
 /// [StorageDenied] without access to them, and changes nothing.
 class SavedAttachmentsProvider with ChangeNotifier implements SyncTarget {
   SavedAttachmentsProvider(
@@ -38,7 +49,7 @@ class SavedAttachmentsProvider with ChangeNotifier implements SyncTarget {
         _prefs.getStringList(storageKey) ?? const <String>[];
     _attachments = <SavedAttachment>[
       for (final String entry in stored) ?SavedAttachment.fromStored(entry),
-    ];
+    ]..sort(_bySortTime);
     if (!listEquals(stored, _encoded())) {
       unawaited(_store());
     }
@@ -68,6 +79,17 @@ class SavedAttachmentsProvider with ChangeNotifier implements SyncTarget {
   /// Whether the upload [id] (its `tim`) is saved.
   bool contains(String id) => _attachments.any((a) => a.id == id);
 
+  void _insert(SavedAttachment attachment) {
+    final int at = _attachments.indexWhere(
+      (SavedAttachment other) => _bySortTime(attachment, other) < 0,
+    );
+    if (at < 0) {
+      _attachments.add(attachment);
+    } else {
+      _attachments.insert(at, attachment);
+    }
+  }
+
   List<String> _encoded() => <String>[
     for (final SavedAttachment attachment in _attachments)
       json.encode(attachment),
@@ -83,13 +105,13 @@ class SavedAttachmentsProvider with ChangeNotifier implements SyncTarget {
     }
     await saves.run(id, (SaveProgress onProgress) async {
       final SavedFolders folders = await openSavedFolders();
-      final SavedAttachment attachment = await downloadToSaved(
+      final SavedAttachment attachment = (await downloadToSaved(
         folders,
         post,
         diskName: fileName,
         onProgress: onProgress,
-      );
-      _attachments.add(attachment);
+      )).addedAtTime(DateTime.now());
+      _insert(attachment);
       _sync.put(savedSyncItem(attachment, folders));
       await _store();
     });
@@ -238,7 +260,7 @@ class SavedAttachmentsProvider with ChangeNotifier implements SyncTarget {
           !await File(folders.thumbnailPath(added)).exists()) {
         await _moveFile(thumbnail, folders.thumbnailPath(added));
       }
-      _attachments.add(added);
+      _insert(added);
       changed = true;
     }
     if (changed) {

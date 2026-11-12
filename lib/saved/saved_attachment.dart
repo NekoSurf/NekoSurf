@@ -23,6 +23,7 @@ class SavedAttachment {
     required this.thumbnail,
     this.originalName,
     String? id,
+    this.addedAt,
   }) : _id = id;
 
   /// What's stored for it. Older versions stored just the file name, or
@@ -52,6 +53,7 @@ class SavedAttachment {
         thumbnail: json['thumbnail'] as String? ?? fileName,
         originalName: json['originalName'] as String?,
         id: json['id'] as String?,
+        addedAt: (json['addedAt'] as num?)?.toInt(),
       );
     } catch (_) {
       return null;
@@ -72,6 +74,25 @@ class SavedAttachment {
 
   final String? _id;
 
+  /// When it was saved (milliseconds since 1970), on whichever device;
+  /// null if before that was kept.
+  final int? addedAt;
+
+  /// Where it goes in the list, the same on every device: when it was
+  /// saved, or, from before that was kept, when its post was made (an
+  /// upload's `tim` is that time).
+  int get sortTime {
+    if (addedAt case final int added) {
+      return added;
+    }
+    int tim = int.tryParse(id) ?? 0;
+    // Microseconds on some boards.
+    while (tim > 100000000000000) {
+      tim ~/= 1000;
+    }
+    return tim;
+  }
+
   bool get isVideo => type == SavedAttachmentType.video;
 
   bool get hasOwnThumbnail => thumbnail != fileName;
@@ -89,6 +110,17 @@ class SavedAttachment {
     thumbnail: thumbnail == fileName ? newName : thumbnail,
     originalName: originalName,
     id: id,
+    addedAt: addedAt,
+  );
+
+  /// It, saved at [time].
+  SavedAttachment addedAtTime(DateTime time) => SavedAttachment(
+    type: type,
+    fileName: fileName,
+    thumbnail: thumbnail,
+    originalName: originalName,
+    id: _id,
+    addedAt: time.millisecondsSinceEpoch,
   );
 
   SavedAttachment withStoredId() => SavedAttachment(
@@ -97,6 +129,7 @@ class SavedAttachment {
     thumbnail: thumbnail,
     originalName: originalName,
     id: id,
+    addedAt: addedAt,
   );
 
   Map<String, dynamic> toJson() {
@@ -106,6 +139,7 @@ class SavedAttachment {
       'thumbnail': thumbnail,
       'originalName': originalName,
       'id': _id,
+      if (addedAt != null) 'addedAt': addedAt,
     };
   }
 

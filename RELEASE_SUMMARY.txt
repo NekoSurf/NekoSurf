@@ -1,1 +1,1 @@
-Sync now and coming back to NekoSurf bring in what changed on your other devices straight away, instead of minutes later.
+Sync now and coming back to NekoSurf bring in what changed on your other devices straight away, and bookmarks and saved media are in the same order on every device.
