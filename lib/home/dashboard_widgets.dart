@@ -1,5 +1,4 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_widgets.dart';
 
@@ -30,64 +29,38 @@ class DashHero extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: isDark
-              ? [
-                  context.accent.withValues(alpha: 0.22),
-                  context.accent2.withValues(alpha: 0.18),
-                ]
-              : [
-                  context.accent.withValues(alpha: 0.35),
-                  context.accent2.withValues(alpha: 0.28),
-                ],
+          colors: [
+            context.accent.withValues(alpha: isDark ? 0.22 : 0.35),
+            context.accent2.withValues(alpha: isDark ? 0.18 : 0.28),
+          ],
         ),
         border: Border.all(color: context.accent.withValues(alpha: 0.2)),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Stack(
-        children: [
-          Positioned(
-            right: -30,
-            top: -50,
-            child: Container(
-              width: 120,
-              height: 120,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 7,
+              height: 7,
               decoration: BoxDecoration(
+                color: context.accent,
                 shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    context.accent2.withValues(alpha: 0.35),
-                    Colors.transparent,
-                  ],
-                ),
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            child: Row(
-              children: [
-                Container(
-                  width: 7,
-                  height: 7,
-                  decoration: BoxDecoration(
-                    color: context.accent,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  _greeting,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.4,
-                    color: DashColors.text(context),
-                  ),
-                ),
-              ],
+            const SizedBox(width: 10),
+            Text(
+              _greeting,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.4,
+                color: DashColors.text(context),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
