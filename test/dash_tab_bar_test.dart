@@ -73,6 +73,6 @@ void main() {
   testWidgets('shows how many are new on a tab', (tester) async {
     await pumpBar(tester);
     expect(find.text('3'), findsOneWidget);
-    expect(find.bySemanticsLabel('Bookmarks, 3 new'), findsOneWidget);
+    expect(find.bySemanticsLabel('Bookmarks, 3 unread'), findsOneWidget);
   });
 }

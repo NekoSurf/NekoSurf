@@ -265,9 +265,7 @@ class _Threads extends StatelessWidget {
     final Set<int> isUpdated = updated.toSet();
     return SliverMainAxisGroup(
       slivers: [
-        const SliverToBoxAdapter(
-          child: DashSectionHeader(title: 'New replies'),
-        ),
+        const SliverToBoxAdapter(child: DashSectionHeader(title: 'Unread')),
         threads([for (final int i in updated) posts[i]]),
         const SliverToBoxAdapter(
           child: DashSectionHeader(title: 'Other bookmarks'),

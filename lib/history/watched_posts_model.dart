@@ -126,15 +126,19 @@ class WatchedPostsProvider
       ..changedAt = DateTime.now();
   }
 
-  /// Takes note of the [posts] in [thread], oldest first: those posted since it
-  /// was last open are unseen.
+  /// Takes note of the [posts] in [thread], oldest first. The first time,
+  /// all but the opening post are unseen till they've been on screen, but
+  /// none is new; after that, those posted since are unseen and new.
   void noteThreadPosts(int thread, List<int> posts) {
     if (posts.isEmpty) {
       return;
     }
     final ThreadMemory memory = _memoryOf(thread);
     final int? newest = memory.newestPost;
-    if (newest != null) {
+    if (newest == null) {
+      memory.unseen.addAll(posts.skip(1));
+      memory.firstNewestPost = posts.reduce(max);
+    } else {
       memory.unseen.addAll(posts.where((int post) => post > newest));
     }
     // Deleted posts can't be seen any more.
@@ -146,10 +150,22 @@ class WatchedPostsProvider
     notifyListeners();
   }
 
-  /// The posts in [thread] that were posted since it was first read and haven't
-  /// been on screen yet.
+  /// The posts in [thread] that haven't been on screen yet: unread ones
+  /// that were there when it was first read, and new ones since.
   Set<int> unseenPosts(int thread) =>
       Set<int>.unmodifiable(_threadMemory[thread]?.unseen ?? const <int>{});
+
+  /// The [unseenPosts] posted since [thread] was first read.
+  Set<int> newPosts(int thread) {
+    final ThreadMemory? memory = _threadMemory[thread];
+    if (memory == null) {
+      return const <int>{};
+    }
+    final int? first = memory.firstNewestPost;
+    return Set<int>.unmodifiable(
+      first == null ? memory.unseen : memory.unseen.where((p) => p > first),
+    );
+  }
 
   void markPostsSeen(int thread, Iterable<int> posts) {
     final ThreadMemory? memory = _threadMemory[thread];

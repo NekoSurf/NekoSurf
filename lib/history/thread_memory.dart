@@ -2,6 +2,7 @@
 class ThreadMemory {
   ThreadMemory({
     this.newestPost,
+    this.firstNewestPost,
     this.knownReplies,
     Set<int>? unseen,
     Set<String>? folded,
@@ -24,6 +25,7 @@ class ThreadMemory {
   factory ThreadMemory.fromJson(Map<String, dynamic> json) {
     return ThreadMemory(
       newestPost: json['newest'] as int?,
+      firstNewestPost: json['firstNewest'] as int?,
       knownReplies: json['replies'] as int?,
       unseen: (json['unseen'] as List<dynamic>?)?.cast<int>().toSet(),
       folded: (json['folded'] as List<dynamic>?)?.cast<String>().toSet(),
@@ -43,10 +45,16 @@ class ThreadMemory {
 
   int? newestPost;
 
+  /// The newest post when it was first read: those after it are new, the
+  /// rest of [unseen] were there but not read. Null if it was first read
+  /// before this was kept, when [unseen] only held new posts.
+  int? firstNewestPost;
+
   /// How many replies the thread had when it was last loaded.
   int? knownReplies;
 
-  /// Posts since then that haven't been on screen.
+  /// Posts that haven't been on screen: those there when it was first read,
+  /// other than the opening post, and those posted since.
   final Set<int> unseen;
 
   /// The rows folded, and where posts were moved to show in full, by their
@@ -73,6 +81,7 @@ class ThreadMemory {
   Map<String, dynamic> toJson() {
     return {
       if (newestPost != null) 'newest': newestPost,
+      if (firstNewestPost != null) 'firstNewest': firstNewestPost,
       if (knownReplies != null) 'replies': knownReplies,
       'unseen': unseen.toList(),
       'folded': folded.toList(),

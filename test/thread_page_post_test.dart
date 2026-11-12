@@ -910,6 +910,7 @@ void main() {
 
     Future<void> pumpNew(WidgetTester tester, Set<int> unseen) async {
       watched.noteThreadPosts(1, const <int>[1, 2]);
+      watched.markPostsSeen(1, const <int>[2]);
       watched.noteThreadPosts(1, <int>[1, 2, 3, 4, 5, 6, 7, 8, 9]);
       watched.markPostsSeen(1, <int>{3, 4, 5, 6, 7, 8, 9}.difference(unseen));
       await tester.pumpWidget(
@@ -985,7 +986,7 @@ void main() {
       await tester.tap(find.textContaining('#5   ', findRichText: true));
       await tester.pumpAndSettle(const Duration(seconds: 2));
 
-      expect(find.text('1 new'), findsOneWidget);
+      expect(find.text('1 unread'), findsOneWidget);
       expect(watched.unseenPosts(1), {7});
       await saveNewPosts(tester);
     });
@@ -1012,6 +1013,7 @@ void main() {
           ),
       ];
       watched.noteThreadPosts(1, const <int>[1, 2]);
+      watched.markPostsSeen(1, const <int>[2]);
       watched.noteThreadPosts(1, <int>[for (final Post p in many) p.no]);
       watched.markPostsSeen(1, <int>[
         for (final Post p in many)

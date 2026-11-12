@@ -291,7 +291,7 @@ class _TabButtonState extends State<_TabButton> {
     return Semantics(
       button: true,
       selected: selected,
-      label: tab.count > 0 ? '${tab.label}, ${tab.count} new' : tab.label,
+      label: tab.count > 0 ? '${tab.label}, ${tab.count} unread' : tab.label,
       excludeSemantics: true,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,

@@ -784,6 +784,7 @@ void main() {
       sent.clear();
 
       a.watched.noteThreadPosts(7, [7, 8, 9]);
+      a.watched.markPostsSeen(7, [8, 9]);
       a.watched.noteThreadPosts(7, [7, 8, 9, 10, 11]);
       await pumpEventQueue();
       expect(sent, isEmpty);

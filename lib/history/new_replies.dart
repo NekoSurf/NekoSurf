@@ -49,8 +49,8 @@ class NewRepliesBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        short ? '+$count' : '+$count new',
-        semanticsLabel: '$count new',
+        short ? '+$count' : '+$count unread',
+        semanticsLabel: '$count unread',
         style: const TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w800,

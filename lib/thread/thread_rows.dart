@@ -103,7 +103,7 @@ double _estimatedTextHeight(Post post) {
 /// Posts in [hidden] are a line saying so, with their replies folded away; the
 /// opening post never is.
 ///
-/// Replies in [unseenAtOpen] to posts the reader had already seen, which came
+/// Replies in [newAtOpen] to posts the reader had already seen, which came
 /// while they were away, aren't fitted in among what they've read: they're at
 /// the bottom with the new posts, oldest first, each under a preview of the
 /// post it answers ([ThreadRow.isContext]), with their own replies below.
@@ -118,7 +118,7 @@ List<ThreadRow> buildNestedRows(
   Set<int> hidden = const <int>{},
   Map<int, int> primaryParents = const <int, int>{},
   Set<int> unseen = const <int>{},
-  Set<int> unseenAtOpen = const <int>{},
+  Set<int> newAtOpen = const <int>{},
   Set<int>? treePosts,
   int opReplyCount = 0,
   Map<int, int>? positions,
@@ -169,11 +169,11 @@ List<ThreadRow> buildNestedRows(
   // Replies that came while the reader was away, to posts they'd seen: each
   // with the post it's listed under at the bottom, the oldest it answers.
   final Map<int, int> late = <int, int>{
-    for (final int id in unseenAtOpen)
+    for (final int id in newAtOpen)
       if (listed.contains(id) &&
           !answersOp.contains(id) &&
           parentsOf[id] != null &&
-          !parentsOf[id]!.any(unseenAtOpen.contains))
+          !parentsOf[id]!.any(newAtOpen.contains))
         id: parentsOf[id]!.reduce(
           (int a, int b) => (postIndex[a] ?? 0) <= (postIndex[b] ?? 0) ? a : b,
         ),

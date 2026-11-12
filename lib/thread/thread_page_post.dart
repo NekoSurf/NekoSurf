@@ -171,7 +171,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
               Padding(
                 padding: const EdgeInsets.only(left: 10),
                 child: Text(
-                  '${widget.newReplies} new',
+                  '${widget.newReplies} unread',
                   style: small.copyWith(
                     fontWeight: FontWeight.w600,
                     color: context.accent,
@@ -543,7 +543,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                   Padding(
                     padding: const EdgeInsets.only(left: 10),
                     child: Text(
-                      '${widget.newReplies} new',
+                      '${widget.newReplies} unread',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,

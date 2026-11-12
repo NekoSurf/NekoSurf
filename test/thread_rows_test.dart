@@ -18,7 +18,7 @@ List<ThreadRow> _nested(
   Set<String> collapsed = const <String>{},
   Map<int, int> primaryParents = const <int, int>{},
   Set<int>? treePosts,
-  Set<int> unseenAtOpen = const <int>{},
+  Set<int> newAtOpen = const <int>{},
 }) {
   return buildNestedRows(
     posts,
@@ -29,7 +29,7 @@ List<ThreadRow> _nested(
     collapsed: collapsed,
     primaryParents: primaryParents,
     treePosts: treePosts,
-    unseenAtOpen: unseenAtOpen,
+    newAtOpen: newAtOpen,
   );
 }
 
@@ -62,12 +62,12 @@ void main() {
       const Set<int> away = {7, 8, 9, 10};
 
       test('lists them at the bottom, oldest first, as previews above', () {
-        final List<ThreadRow> rows = _nested(later, unseenAtOpen: away);
+        final List<ThreadRow> rows = _nested(later, newAtOpen: away);
         expect(_numbers(rows), [1, 2, 3, 7, 4, 10, 5, 6, 3, 7, 8, 9, 4, 10]);
       });
 
       test('in the thread, each is a preview under the post it answers', () {
-        final List<ThreadRow> rows = _nested(later, unseenAtOpen: away);
+        final List<ThreadRow> rows = _nested(later, newAtOpen: away);
         final ThreadRow standIn = rows[3];
         expect(standIn.post.no, 7);
         // A preview like any other: tapping shows it in full there.
@@ -81,7 +81,7 @@ void main() {
       });
 
       test('each under a preview of the post it answers', () {
-        final List<ThreadRow> rows = _nested(later, unseenAtOpen: away);
+        final List<ThreadRow> rows = _nested(later, newAtOpen: away);
         final ThreadRow context = rows[8];
         expect(context.post.no, 3);
         expect(context.isContext, isTrue);
@@ -102,7 +102,7 @@ void main() {
         final List<ThreadRow> rows = buildNestedRows(
           later,
           children: buildReplyChildrenIndex(later),
-          unseenAtOpen: away,
+          newAtOpen: away,
           primaryParents: {7: 3},
         );
         expect(_numbers(rows), [1, 2, 3, 7, 8, 4, 10, 5, 6, 3, 7, 9, 4, 10]);
@@ -123,11 +123,11 @@ void main() {
             buildNestedRows(
               later,
               children: buildReplyChildrenIndex(later),
-              unseenAtOpen: away,
+              newAtOpen: away,
               primaryParents: {7: ThreadRow.bottom},
             ),
           ),
-          _numbers(_nested(later, unseenAtOpen: away)),
+          _numbers(_nested(later, newAtOpen: away)),
         );
       });
 
@@ -147,7 +147,7 @@ void main() {
           children: buildReplyChildrenIndex(later),
           collapsed: {'2'},
           unseen: away,
-          unseenAtOpen: away,
+          newAtOpen: away,
         );
         expect(_row(rows, 2).newReplies, 3);
         expect(_numbers(rows), [1, 2, 5, 6, 3, 7, 8, 9, 4, 10]);

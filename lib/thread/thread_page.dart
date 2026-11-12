@@ -63,7 +63,7 @@ class _ThreadPageState extends State<ThreadPage>
   // Posts in the tree, which is built once; see [_indexReplyTree].
   Map<int, List<Post>> _replyChildren = const <int, List<Post>>{};
   Set<int>? _treePosts;
-  Set<int> _unseenAtOpen = const <int>{};
+  Set<int> _newAtOpen = const <int>{};
 
   Set<int> _preloadVideoPostIds = const <int>{};
   bool _didRestorePlace = false;
@@ -199,7 +199,7 @@ class _ThreadPageState extends State<ThreadPage>
       return;
     }
     if (_treePosts == null) {
-      _unseenAtOpen = Set<int>.of(unseenPosts);
+      _newAtOpen = Set<int>.of(newPosts);
     }
     final Set<int> treePosts = _treePosts ??= thread.places.keys.toSet();
     final List<Post> inTree = <Post>[
@@ -214,7 +214,7 @@ class _ThreadPageState extends State<ThreadPage>
     thread.posts,
     children: _replyChildren,
     treePosts: _treePosts,
-    unseenAtOpen: _unseenAtOpen,
+    newAtOpen: _newAtOpen,
     opReplyCount: thread.replyCounts[widget.thread] ?? 0,
   );
 

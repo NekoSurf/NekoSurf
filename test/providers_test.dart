@@ -169,14 +169,19 @@ void main() {
       await Future<void>.delayed(Duration.zero);
     }
 
-    test('a thread opened for the first time has nothing new', () async {
-      SharedPreferences.setMockInitialValues({});
-      final WatchedPostsProvider watched = await watchedProvider();
+    test(
+      'a thread opened for the first time is unread, but nothing new',
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        final WatchedPostsProvider watched = await watchedProvider();
 
-      watched.noteThreadPosts(1, [1, 2, 3]);
+        watched.noteThreadPosts(1, [1, 2, 3]);
 
-      expect(watched.unseenPosts(1), isEmpty);
-    });
+        // All but the opening post, till they've been on screen.
+        expect(watched.unseenPosts(1), {2, 3});
+        expect(watched.newPosts(1), isEmpty);
+      },
+    );
 
     test('posts after the newest known are new, until seen', () async {
       SharedPreferences.setMockInitialValues({});
@@ -184,10 +189,39 @@ void main() {
 
       watched.noteThreadPosts(1, [1, 2, 3]);
       watched.noteThreadPosts(1, [1, 2, 3, 4, 5]);
-      expect(watched.unseenPosts(1), {4, 5});
+      expect(watched.unseenPosts(1), {2, 3, 4, 5});
+      expect(watched.newPosts(1), {4, 5});
 
       watched.markPostsSeen(1, [4]);
-      expect(watched.unseenPosts(1), {5});
+      expect(watched.newPosts(1), {5});
+    });
+
+    test(
+      'what was skipped the first time counts with what came since',
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        final WatchedPostsProvider watched = await watchedProvider();
+
+        // 200 posts, of which the first 45 replies were read; 4 came since.
+        final List<int> thread = [for (int i = 1; i <= 201; i++) i];
+        watched.noteThreadPosts(1, thread);
+        watched.markPostsSeen(1, [for (int i = 2; i <= 46; i++) i]);
+
+        expect(watched.newReplies(1, 204), 155 + 4);
+        watched.noteThreadPosts(1, [...thread, 202, 203, 204, 205]);
+        expect(watched.newReplies(1, 204), 159);
+        expect(watched.newPosts(1), {202, 203, 204, 205});
+      },
+    );
+
+    test('a thread first read before unread posts were kept is as it was', () {
+      final ThreadMemory memory = ThreadMemory.fromJson({
+        'newest': 3,
+        'replies': 2,
+        'unseen': [4],
+      });
+      expect(memory.firstNewestPost, isNull);
+      expect(ThreadMemory.fromJson(memory.toJson()).unseen, {4});
     });
 
     test(
@@ -271,6 +305,7 @@ void main() {
       final WatchedPostsProvider watched = await watchedProvider();
 
       watched.noteThreadPosts(1, [1, 2, 3]);
+      watched.markPostsSeen(1, [2, 3]);
       watched.noteThreadPosts(1, [1, 2, 3, 4, 5]);
 
       expect(watched.newReplies(1, 4), 2);

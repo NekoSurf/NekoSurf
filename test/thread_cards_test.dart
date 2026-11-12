@@ -58,6 +58,8 @@ void main() {
     expect(find.text('+2'), findsNothing, reason: 'never opened');
 
     watched.noteThreadPosts(123456789, List<int>.generate(11, (i) => i + 1));
+    // Read to the end.
+    watched.markPostsSeen(123456789, List<int>.generate(10, (i) => i + 2));
     await tester.pump(const Duration(seconds: 3));
     expect(find.text('+2'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -72,8 +74,10 @@ void main() {
     );
 
     watched.noteThreadPosts(123456789, List<int>.generate(11, (i) => i + 1));
+    // Read to the end.
+    watched.markPostsSeen(123456789, List<int>.generate(10, (i) => i + 2));
     await tester.pump(const Duration(seconds: 3));
-    expect(find.text('+2 new'), findsOneWidget);
+    expect(find.text('+2 unread'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
