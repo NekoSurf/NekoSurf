@@ -14,6 +14,8 @@ class ThreadRow {
     this.isPreview = false,
     this.hidden = false,
     this.newReplies = 0,
+    this.isContext = false,
+    this.inFullAt,
   });
 
   final Post post;
@@ -46,10 +48,23 @@ class ThreadRow {
   /// preview.
   final int newReplies;
 
+  /// A preview of the post a reply answers, above the reply at the bottom,
+  /// where a reply that came while the reader was away is listed: tapping it
+  /// goes to that post in the thread, rather than bringing it here.
+  final bool isContext;
+
+  /// Where tapping this preview shows the post in full, if not under its
+  /// [parent]: [bottom] for a reply that came while the reader was away.
+  final int? inFullAt;
+
   int get parent => ancestors.isEmpty ? topLevel : ancestors.last;
 
   /// The [parent] of a post at the top level of the list.
   static const int topLevel = -1;
+
+  /// Where a reply that came while the reader was away is shown in full, in
+  /// `primaryParents`: at the bottom, rather than under a post.
+  static const int bottom = -2;
 }
 
 double _estimatedTextHeight(Post post) {
@@ -87,6 +102,15 @@ double _estimatedTextHeight(Post post) {
 ///
 /// Posts in [hidden] are a line saying so, with their replies folded away; the
 /// opening post never is.
+///
+/// Replies in [unseenAtOpen] to posts the reader had already seen, which came
+/// while they were away, aren't fitted in among what they've read: they're at
+/// the bottom with the new posts, oldest first, each under a preview of the
+/// post it answers ([ThreadRow.isContext]), with their own replies below.
+/// Under that post in the thread, each is a preview too, which shows it in
+/// full there when tapped, as other previews do; the one at the bottom is a
+/// preview then, until it's tapped ([ThreadRow.bottom] in [primaryParents]).
+/// A folded post still counts them as new.
 List<ThreadRow> buildNestedRows(
   List<Post> posts, {
   required Map<int, List<Post>> children,
@@ -94,6 +118,7 @@ List<ThreadRow> buildNestedRows(
   Set<int> hidden = const <int>{},
   Map<int, int> primaryParents = const <int, int>{},
   Set<int> unseen = const <int>{},
+  Set<int> unseenAtOpen = const <int>{},
   Set<int>? treePosts,
   int opReplyCount = 0,
   Map<int, int>? positions,
@@ -127,6 +152,33 @@ List<ThreadRow> buildNestedRows(
         for (final Post reply in entry.value) reply.no,
   }..remove(opId);
 
+  final Set<int> answersOp = <int>{
+    for (final Post reply in children[opId] ?? const <Post>[]) reply.no,
+  };
+
+  // The posts each listed reply answers, other than the opening post.
+  final Map<int, List<int>> parentsOf = <int, List<int>>{};
+  for (final MapEntry<int, List<Post>> entry in children.entries) {
+    if (entry.key != opId && listed.contains(entry.key)) {
+      for (final Post reply in entry.value) {
+        (parentsOf[reply.no] ??= <int>[]).add(entry.key);
+      }
+    }
+  }
+
+  // Replies that came while the reader was away, to posts they'd seen: each
+  // with the post it's listed under at the bottom, the oldest it answers.
+  final Map<int, int> late = <int, int>{
+    for (final int id in unseenAtOpen)
+      if (listed.contains(id) &&
+          !answersOp.contains(id) &&
+          parentsOf[id] != null &&
+          !parentsOf[id]!.any(unseenAtOpen.contains))
+        id: parentsOf[id]!.reduce(
+          (int a, int b) => (postIndex[a] ?? 0) <= (postIndex[b] ?? 0) ? a : b,
+        ),
+  };
+
   final Map<int, Set<int>> below = <int, Set<int>>{};
   Set<int> postsBelow(int postId) {
     return below[postId] ??= <int>{
@@ -158,8 +210,21 @@ List<ThreadRow> buildNestedRows(
   // or not that's folded at the moment, so folding moves nothing elsewhere.
   final Map<int, int> firstParents = <int, int>{};
   bool isPreviewUnder(int postId, int parent) {
-    final int? primary = primaryParents[postId] ?? firstParents[postId];
+    int? primary = primaryParents[postId];
+    // From a visit it came during; it's in the thread like any other now.
+    if (primary == ThreadRow.bottom && !late.containsKey(postId)) {
+      primary = null;
+    }
+    primary ??= firstParents[postId];
     return primary != null && primary != parent;
+  }
+
+  /// A late reply shown in full at the bottom, as it is till it's tapped
+  /// in the thread.
+  bool atBottom(int postId) {
+    final int? primary = primaryParents[postId];
+    return late.containsKey(postId) &&
+        (primary == null || primary == ThreadRow.bottom);
   }
 
   void findFirstParents(Post post, int parent) {
@@ -171,19 +236,32 @@ List<ThreadRow> buildNestedRows(
       return;
     }
     for (final Post reply in repliesTo(id)) {
-      findFirstParents(reply, id);
+      if (!atBottom(reply.no)) {
+        findFirstParents(reply, id);
+      }
     }
   }
 
   final List<ThreadRow> rows = <ThreadRow>[];
 
-  void add(Post post, List<int> ancestors) {
+  // [prefix] keeps the paths at the bottom apart from those in the thread.
+  void add(
+    Post post,
+    List<int> ancestors, {
+    bool inFull = false,
+    bool asPreview = false,
+    int? inFullAt,
+    String prefix = '',
+  }) {
     final int id = post.no;
-    final String path = <int>[...ancestors, id].join('/');
-    final bool isPreview = isPreviewUnder(
-      id,
-      ancestors.isEmpty ? ThreadRow.topLevel : ancestors.last,
-    );
+    final String path = prefix + <int>[...ancestors, id].join('/');
+    final bool isPreview =
+        asPreview ||
+        !inFull &&
+            isPreviewUnder(
+              id,
+              ancestors.isEmpty ? ThreadRow.topLevel : ancestors.last,
+            );
     final bool isHidden = id != opId && hidden.contains(id);
     final bool isCollapsed =
         !isPreview && !isHidden && id != opId && collapsed.contains(path);
@@ -202,6 +280,7 @@ List<ThreadRow> buildNestedRows(
         newReplies: showsReplies
             ? 0
             : postsBelow(id).where(unseen.contains).length,
+        inFullAt: isPreview ? inFullAt : null,
       ),
     );
 
@@ -210,24 +289,72 @@ List<ThreadRow> buildNestedRows(
     }
     final List<int> belowThis = <int>[...ancestors, id];
     for (final Post reply in repliesTo(id)) {
-      add(reply, belowThis);
+      if (!atBottom(reply.no)) {
+        add(reply, belowThis, prefix: prefix);
+      } else if (!hidden.contains(reply.no)) {
+        add(reply, belowThis, asPreview: true, prefix: prefix);
+      }
     }
   }
 
-  final Set<int> answersOp = <int>{
-    for (final Post reply in children[opId] ?? const <Post>[]) reply.no,
+  final Map<int, Post> byId = <int, Post>{
+    for (final Post post in posts) post.no: post,
   };
+
+  /// A late reply at the bottom, under a preview of the post it answers.
+  void addLate(Post post) {
+    final int parent = late[post.no]!;
+    final Post? answered = byId[parent];
+    if (answered != null) {
+      rows.add(
+        ThreadRow(
+          post: answered,
+          path: 'context:${post.no}',
+          postIndex: postIndex[parent] ?? 0,
+          replyCount: postsBelow(parent).length,
+          isPreview: true,
+          isContext: true,
+        ),
+      );
+    }
+    final List<int> under = answered == null ? const <int>[] : <int>[parent];
+    if (atBottom(post.no)) {
+      add(post, under, inFull: true, prefix: 'new:');
+    } else {
+      add(
+        post,
+        under,
+        asPreview: true,
+        inFullAt: ThreadRow.bottom,
+        prefix: 'new:',
+      );
+    }
+  }
+
+  // In the order they were posted, the late replies among the new posts.
   final List<Post> topLevel = <Post>[
     for (final Post post in posts)
       if (inTree(post) &&
-          (!nested.contains(post.no) || answersOp.contains(post.no)))
+          (late.containsKey(post.no) ||
+              !nested.contains(post.no) ||
+              answersOp.contains(post.no)))
         post,
   ];
   for (final Post post in topLevel) {
-    findFirstParents(post, ThreadRow.topLevel);
+    if (atBottom(post.no)) {
+      for (final Post reply in repliesTo(post.no)) {
+        findFirstParents(reply, post.no);
+      }
+    } else if (!late.containsKey(post.no)) {
+      findFirstParents(post, ThreadRow.topLevel);
+    }
   }
   for (final Post post in topLevel) {
-    add(post, const <int>[]);
+    if (late.containsKey(post.no)) {
+      addLate(post);
+    } else {
+      add(post, const <int>[]);
+    }
   }
   for (final Post post in posts) {
     if (!inTree(post)) {

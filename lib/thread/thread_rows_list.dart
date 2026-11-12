@@ -300,7 +300,7 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
   void _showInFullHere(ThreadRow row) {
     final double? edge = _headerEdge(row.path);
     setState(() {
-      primaryParents[row.post.no] = row.parent;
+      primaryParents[row.post.no] = row.inFullAt ?? row.parent;
       rebuildRows();
     });
     onFoldsChanged();
@@ -552,11 +552,13 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
   }
 
   /// The rows for [posts] in the chosen layout, with what's folded. [children],
-  /// [treePosts] and [opReplyCount] are as in [buildNestedRows].
+  /// [treePosts], [unseenAtOpen] and [opReplyCount] are as in
+  /// [buildNestedRows].
   List<ThreadRow> layOutRows(
     List<Post> posts, {
     required Map<int, List<Post>> children,
     Set<int>? treePosts,
+    Set<int> unseenAtOpen = const <int>{},
     int opReplyCount = 0,
   }) {
     final Set<int> hidden = <int>{
@@ -578,6 +580,7 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
             hidden: hidden,
             primaryParents: primaryParents,
             unseen: unseenPosts,
+            unseenAtOpen: unseenAtOpen,
             treePosts: treePosts,
             opReplyCount: opReplyCount,
             positions: thread.places,
@@ -637,7 +640,9 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
                   replyCount: row.replyCount,
                   // The opening post's replies are the rest of the thread, not
                   // a branch to fold: its count still opens them on their own.
-                  onToggleFold: row.postIndex == 0
+                  onToggleFold: row.isContext
+                      ? () => _showQuotedPost(post.no)
+                      : row.postIndex == 0
                       ? null
                       : row.isPreview
                       ? () => _showInFullHere(row)

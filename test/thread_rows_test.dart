@@ -18,6 +18,7 @@ List<ThreadRow> _nested(
   Set<String> collapsed = const <String>{},
   Map<int, int> primaryParents = const <int, int>{},
   Set<int>? treePosts,
+  Set<int> unseenAtOpen = const <int>{},
 }) {
   return buildNestedRows(
     posts,
@@ -28,6 +29,7 @@ List<ThreadRow> _nested(
     collapsed: collapsed,
     primaryParents: primaryParents,
     treePosts: treePosts,
+    unseenAtOpen: unseenAtOpen,
   );
 }
 
@@ -48,6 +50,120 @@ void main() {
   ];
 
   group('buildNestedRows', () {
+    group('with replies that came while away', () {
+      // Read up to 6 before; 7 to 10 came since. 7 answers 3, which was
+      // read, 8 answers 7, 9 answers the opening post, 10 answers 4.
+      final List<Post> later = [
+        ...posts,
+        Post(board: 'g', no: 8, com: _quoting([7])),
+        Post(board: 'g', no: 9, com: _quoting([1])),
+        Post(board: 'g', no: 10, com: _quoting([4])),
+      ];
+      const Set<int> away = {7, 8, 9, 10};
+
+      test('lists them at the bottom, oldest first, as previews above', () {
+        final List<ThreadRow> rows = _nested(later, unseenAtOpen: away);
+        expect(_numbers(rows), [1, 2, 3, 7, 4, 10, 5, 6, 3, 7, 8, 9, 4, 10]);
+      });
+
+      test('in the thread, each is a preview under the post it answers', () {
+        final List<ThreadRow> rows = _nested(later, unseenAtOpen: away);
+        final ThreadRow standIn = rows[3];
+        expect(standIn.post.no, 7);
+        // A preview like any other: tapping shows it in full there.
+        expect(standIn.isContext, isFalse);
+        expect(standIn.isPreview, isTrue);
+        expect(standIn.inFullAt, isNull);
+        expect(standIn.ancestors, [2, 3]);
+        // Its replies are with it at the bottom.
+        expect(rows.where((r) => r.post.no == 8), hasLength(1));
+        expect(standIn.replyCount, 1);
+      });
+
+      test('each under a preview of the post it answers', () {
+        final List<ThreadRow> rows = _nested(later, unseenAtOpen: away);
+        final ThreadRow context = rows[8];
+        expect(context.post.no, 3);
+        expect(context.isContext, isTrue);
+        expect(context.isPreview, isTrue);
+        final ThreadRow reply = rows[9];
+        expect(reply.post.no, 7);
+        expect(reply.ancestors, [3]);
+        expect(reply.isPreview, isFalse);
+        // A reply to a new reply stays under it.
+        expect(_row(rows, 8).ancestors, [3, 7]);
+        // One to the opening post is just new.
+        expect(_row(rows, 9).ancestors, isEmpty);
+        expect(_row(rows, 9).isContext, isFalse);
+        expect(rows.map((r) => r.path).toSet(), hasLength(rows.length));
+      });
+
+      test('tapped in the thread, it is in full there, a preview below', () {
+        final List<ThreadRow> rows = buildNestedRows(
+          later,
+          children: buildReplyChildrenIndex(later),
+          unseenAtOpen: away,
+          primaryParents: {7: 3},
+        );
+        expect(_numbers(rows), [1, 2, 3, 7, 8, 4, 10, 5, 6, 3, 7, 9, 4, 10]);
+        final ThreadRow inThread = rows[3];
+        expect(inThread.isPreview, isFalse);
+        expect(rows[4].ancestors, [2, 3, 7]);
+        final ThreadRow below = rows[10];
+        expect(below.post.no, 7);
+        expect(below.isPreview, isTrue);
+        // Tapped, it goes back down.
+        expect(below.inFullAt, ThreadRow.bottom);
+        expect(rows.map((r) => r.path).toSet(), hasLength(rows.length));
+      });
+
+      test('tapped at the bottom again, it is back as it was', () {
+        expect(
+          _numbers(
+            buildNestedRows(
+              later,
+              children: buildReplyChildrenIndex(later),
+              unseenAtOpen: away,
+              primaryParents: {7: ThreadRow.bottom},
+            ),
+          ),
+          _numbers(_nested(later, unseenAtOpen: away)),
+        );
+      });
+
+      test('on the next visit, it is in the thread wherever it was', () {
+        final List<ThreadRow> rows = buildNestedRows(
+          later,
+          children: buildReplyChildrenIndex(later),
+          primaryParents: {7: ThreadRow.bottom},
+        );
+        expect(_numbers(rows), [1, 2, 3, 7, 8, 4, 10, 5, 6, 9]);
+        expect(rows[3].isPreview, isFalse);
+      });
+
+      test('a folded post still counts them as new', () {
+        final List<ThreadRow> rows = buildNestedRows(
+          later,
+          children: buildReplyChildrenIndex(later),
+          collapsed: {'2'},
+          unseen: away,
+          unseenAtOpen: away,
+        );
+        expect(_row(rows, 2).newReplies, 3);
+        expect(_numbers(rows), [1, 2, 5, 6, 3, 7, 8, 9, 4, 10]);
+      });
+
+      test('nothing moves when nothing was new', () {
+        expect(
+          _numbers(_nested(later)),
+          _numbers(
+            buildNestedRows(later, children: buildReplyChildrenIndex(later)),
+          ),
+        );
+        expect(_numbers(_nested(later)), [1, 2, 3, 7, 8, 4, 10, 5, 6, 9]);
+      });
+    });
+
     test('puts each reply under the post it answers', () {
       expect(_numbers(_nested(posts)), [1, 2, 3, 7, 4, 5, 6]);
     });

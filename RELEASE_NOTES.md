@@ -1,5 +1,8 @@
 ## What's new
 
+### 🧵 New replies where you left off
+- Back in a thread in the nested view, replies posted while you were away are at the bottom with the other new posts, each under a preview of the post it answers, and a preview under that post in the thread shows them there in full when tapped; the preview above one at the bottom goes to the post it answers
+
 ### 🔖 Bookmarks that look like a board
 - Bookmarked threads show as a board's threads do, in its grid or list, with the board, reply counts and new replies on each
 - Threads with new replies come first, under New replies
