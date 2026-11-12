@@ -24,6 +24,15 @@
       ],
       "versions": [
         {
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.13.0%2B305/Runner.ipa",
+          "size": 34200202,
+          "version": "0.13.0",
+          "buildVersion": "305",
+          "date": "2026-11-12T15:52:59+00:00",
+          "localizedDescription": "Replies posted while you were away wait at the bottom of a nested thread, threads count what you haven't read yet, bookmarks look like a board, and saved files fill tiles shaped like their pictures in the Saved tab; files saved before version 0.13.0 are now in the same place on all your devices with iCloud sync on.",
+          "minOSVersion": "17.0"
+        },
+        {
           "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.13.0%2B304/Runner.ipa",
           "size": 34172424,
           "version": "0.13.0",
