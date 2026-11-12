@@ -776,7 +776,9 @@ class _SyncBadge extends StatelessWidget {
           child: badge == null
               ? const SizedBox.shrink()
               : Semantics(
-                  key: ValueKey(badge.label),
+                  // Not the label, which changes with every percent and would
+                  // start the ring over each time.
+                  key: ValueKey((badge.icon, badge.progress == null)),
                   label: badge.label,
                   child: _CornerButton(
                     frost: frost,
