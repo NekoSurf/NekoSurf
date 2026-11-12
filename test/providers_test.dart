@@ -62,6 +62,13 @@ void main() {
       expect(bookmarks.bookmarks.map((b) => b.key), ['g/1', 'v/2']);
     });
 
+    test('remembers the order chosen', () async {
+      SharedPreferences.setMockInitialValues({});
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      BookmarksProvider(prefs).setNewestFirst(false);
+      expect(BookmarksProvider(prefs).newestFirst, isFalse);
+    });
+
     test('removes several at once, leaving the rest', () async {
       SharedPreferences.setMockInitialValues({
         'favoriteThreads': [

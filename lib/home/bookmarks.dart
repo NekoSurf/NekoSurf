@@ -157,11 +157,13 @@ class _BookmarksState extends State<Bookmarks> {
             DashMenuEntry(
               title: 'Newest',
               icon: CupertinoIcons.clock,
+              isSelected: bookmarks.newestFirst,
               onPressed: () => bookmarks.setNewestFirst(true),
             ),
             DashMenuEntry(
               title: 'Oldest',
               icon: CupertinoIcons.clock_fill,
+              isSelected: !bookmarks.newestFirst,
               onPressed: () => bookmarks.setNewestFirst(false),
             ),
           ],

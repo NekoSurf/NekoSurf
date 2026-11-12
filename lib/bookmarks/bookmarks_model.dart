@@ -22,7 +22,8 @@ int _byAddedAt(Bookmark a, Bookmark b) {
 /// every device with iCloud sync.
 class BookmarksProvider with ChangeNotifier implements SyncTarget {
   BookmarksProvider(this._prefs, {CloudSync? sync})
-    : _sync = sync ?? CloudSync.instance {
+    : _sync = sync ?? CloudSync.instance,
+      newestFirst = _prefs.getBool(newestFirstKey) ?? true {
     final Set<String> seen = {};
     for (final String raw in _prefs.getStringList(storageKey) ?? const []) {
       try {
@@ -63,10 +64,13 @@ class BookmarksProvider with ChangeNotifier implements SyncTarget {
   /// Where the bookmarks are kept in SharedPreferences.
   static const String storageKey = 'favoriteThreads';
 
+  /// Where the Bookmarks tab's order is kept; this device's own.
+  static const String newestFirstKey = 'bookmarksNewestFirst';
+
   final SharedPreferences _prefs;
   final CloudSync _sync;
   final List<Bookmark> _bookmarks = [];
-  bool newestFirst = true;
+  bool newestFirst;
 
   List<Bookmark> get bookmarks => newestFirst
       ? _bookmarks.reversed.toList(growable: false)
@@ -119,6 +123,7 @@ class BookmarksProvider with ChangeNotifier implements SyncTarget {
 
   void setNewestFirst(bool value) {
     newestFirst = value;
+    unawaited(_prefs.setBool(newestFirstKey, value));
     notifyListeners();
   }
 
