@@ -797,6 +797,41 @@ void main() {
     expect(deleted, [syncId(SyncKind.bookmark, 'g/1')]);
   });
 
+  test("what couldn't be applied is tried again, and in the end dropped "
+      'and noted', () async {
+    final a = await app(
+      await prefsWith({'sync.iCloud': true, 'sync.joined': true}),
+    );
+    await pumpEventQueue();
+    a.sync.applyRetryDelay = const Duration(milliseconds: 20);
+    final _Flaky flaky = _Flaky(failures: 1);
+    a.sync.attach(flaky);
+    await pumpEventQueue();
+
+    inbox.add({
+      ...change(SyncKind.board, 'g', {'board': 'g'}),
+      'seq': ++seq,
+    });
+    await a.sync.processInbox();
+    expect(inbox, hasLength(1));
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    expect(inbox, isEmpty);
+    expect(flaky.applied, 2);
+    expect(a.boards.boards, ['g']);
+    expect(calls, isNot(contains('note')));
+
+    flaky.failures = 100;
+    inbox.add({
+      ...change(SyncKind.board, 'pol', {'board': 'pol'}),
+      'seq': ++seq,
+    });
+    await a.sync.processInbox();
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    expect(inbox, isEmpty);
+    expect(calls.where((c) => c == 'note'), hasLength(1));
+    a.sync.detach(flaky);
+  });
+
   test('a setting goes out with when it was changed, so a newer one '
       'elsewhere wins over it', () async {
     final SharedPreferences prefs = await prefsWith({
@@ -947,4 +982,24 @@ void main() {
       expect(sent, isEmpty);
     },
   );
+}
+
+/// A [SyncTarget] whose applying fails [failures] times, then works.
+class _Flaky implements SyncTarget {
+  _Flaky({required this.failures});
+
+  int failures;
+  int applied = 0;
+
+  @override
+  Set<SyncKind> get syncKinds => const <SyncKind>{SyncKind.board};
+
+  @override
+  Future<void> applySync(List<SyncChange> changes) async {
+    applied++;
+    if (failures > 0) {
+      failures--;
+      throw StateError('not now');
+    }
+  }
 }

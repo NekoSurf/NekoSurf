@@ -539,6 +539,16 @@ class CloudSync extends ChangeNotifier {
         debugPrint('iCloud sync could not apply changes: $e');
       });
 
+  /// How long to wait before trying again what couldn't be applied.
+  @visibleForTesting
+  Duration applyRetryDelay = const Duration(seconds: 10);
+
+  /// How many times in a row what's in the inbox couldn't all be applied;
+  /// after [_applyTries], it's dropped, and the sync log says so.
+  int _applyFailures = 0;
+  static const int _applyTries = 3;
+  Timer? _applyRetry;
+
   Future<void> _drainInbox() async {
     while (isOn && _allTargetsThere) {
       final List<Object?> entries =
@@ -548,12 +558,13 @@ class CloudSync extends ChangeNotifier {
       }
       int last = -1;
       final List<SyncChange> changes = <SyncChange>[];
+      final List<String> failed = <String>[];
       for (final Object? entry in entries) {
         final Map<Object?, Object?> map = entry! as Map<Object?, Object?>;
         last = max(last, (map['seq']! as num).toInt());
         final String? event = map['event'] as String?;
         if (event != null) {
-          await _apply(changes);
+          failed.addAll(await _apply(changes));
           changes.clear();
           if (await _onEvent(event)) {
             return;
@@ -566,7 +577,22 @@ class CloudSync extends ChangeNotifier {
           _receivedWhileJoining?.add(change.id);
         }
       }
-      await _apply(changes);
+      failed.addAll(await _apply(changes));
+      if (failed.isNotEmpty) {
+        // Kept, to be applied again (each applySync takes a change it has
+        // already); unless it's failed every time, so the rest aren't held
+        // up for ever.
+        if (++_applyFailures < _applyTries) {
+          _applyRetry?.cancel();
+          _applyRetry = Timer(applyRetryDelay, () => unawaited(processInbox()));
+          return;
+        }
+        await _note(
+          "Couldn't apply what came from elsewhere, $_applyTries times; "
+          'dropped: ${failed.join('; ')}',
+        );
+      }
+      _applyFailures = 0;
       await _invoke('ackInbox', last);
       if (_receivedWhileJoining != null) {
         notifyListeners();
@@ -574,9 +600,11 @@ class CloudSync extends ChangeNotifier {
     }
   }
 
-  Future<void> _apply(List<SyncChange> changes) async {
+  /// Applies [changes]; what failed, as kinds and errors.
+  Future<List<String>> _apply(List<SyncChange> changes) async {
+    final List<String> failed = <String>[];
     if (changes.isEmpty) {
-      return;
+      return failed;
     }
     for (final SyncTarget target in List<SyncTarget>.of(_targets)) {
       final List<SyncChange> its = <SyncChange>[
@@ -590,7 +618,18 @@ class CloudSync extends ChangeNotifier {
         await target.applySync(its);
       } catch (e) {
         debugPrint('Applying iCloud changes failed: $e');
+        failed.add('${its.length} ${its.first.kind.name}: $e');
       }
+    }
+    return failed;
+  }
+
+  /// Notes [message] in the sync log (see [log]).
+  Future<void> _note(String message) async {
+    try {
+      await _invoke('note', message);
+    } on SyncFailed {
+      // Only the log.
     }
   }
 
@@ -646,6 +685,8 @@ class CloudSync extends ChangeNotifier {
     await prefs.setBool(_joinedKey, false);
     _puts.clear();
     _deletes.clear();
+    _applyRetry?.cancel();
+    _applyFailures = 0;
     _status = const SyncStatus();
   }
 

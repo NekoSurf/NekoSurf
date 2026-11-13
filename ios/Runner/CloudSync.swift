@@ -403,6 +403,10 @@ final actor CloudSync: CKSyncEngineDelegate {
       ack(upTo: seq)
       if applied > 0 { log("Applied \(applied) from elsewhere") }
       return nil
+    case "note":
+      // From Dart, as what it couldn't apply.
+      if let message = arguments as? String { log(message) }
+      return nil
     case "status":
       return status()
     case "log":
