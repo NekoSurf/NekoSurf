@@ -8,8 +8,8 @@ enum SyncRules {
   struct Mine: Equatable {
     /// When it was made here, in milliseconds since 1970.
     var modifiedAt: Double
-    /// It's a saved file's, whose file goes up apart: those are left as
-    /// they are, the change here going on.
+    /// It's a saved file's, whose file goes up apart: a change to one
+    /// elsewhere doesn't replace it, the change here going on.
     var hasFile = false
     /// It's being sent now, and can't be taken back.
     var onItsWay = false
@@ -37,5 +37,31 @@ enum SyncRules {
   static func onChange(theirs: Double?, mine: Mine?) -> OnChange {
     guard isNewer(theirs, than: mine), let mine else { return .keepMine }
     return mine.onItsWay ? .takeTheirsAndSendItAgain : .takeTheirs
+  }
+
+  enum OnDeletion: Equatable {
+    /// What's here goes on, putting it back.
+    case keepMine
+    /// It's deleted here, and what was waiting here no longer goes.
+    case delete
+    /// It's deleted here; what's on its way goes anyway, so it's deleted
+    /// again after.
+    case deleteAfterMine
+  }
+
+  /// An item deleted elsewhere, which was changed here too ([mine]; nil if
+  /// nothing of it is waiting here, or only its deletion). [knownHere]: this
+  /// device knew it was in iCloud, so it was deleted after this device
+  /// last heard of it, not deleted from here and since put back.
+  ///
+  /// Deleting wins, as when history is cleared on one device while a
+  /// thread's being read on another: there's no saying when it was
+  /// deleted, and what's waiting here is seldom more than a moment old. A
+  /// saved file's too, deleted elsewhere while its file was going up from
+  /// here, after its record.
+  static func onDeletion(knownHere: Bool, mine: Mine?) -> OnDeletion {
+    guard let mine else { return .delete }
+    if !knownHere { return .keepMine }
+    return mine.onItsWay ? .deleteAfterMine : .delete
   }
 }

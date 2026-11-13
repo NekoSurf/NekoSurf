@@ -497,6 +497,7 @@ final actor CloudSync: CKSyncEngineDelegate {
     busy = 0
     outbox = [:]
     inFlight = [:]
+    deleteAfter = []
     serverRecords = [:]
     problem = nil
     lastError = nil
@@ -861,8 +862,12 @@ final actor CloudSync: CKSyncEngineDelegate {
     }
     for deletion in event.deletions {
       let id = deletion.recordID.recordName
-      serverRecords[id] = nil
-      if pending.contains(id) { continue }
+      let knownHere = serverRecords.removeValue(forKey: id) != nil
+      if pending.contains(id),
+        !takeDeletion(deletion.recordID, knownHere: knownHere, engine: engine)
+      {
+        continue
+      }
       received.append(Incoming(seq: 0, id: id, deleted: true))
     }
     let kept = event.modifications.count + event.deletions.count - received.count - here
@@ -913,6 +918,34 @@ final actor CloudSync: CKSyncEngineDelegate {
       }
     }
     persistOutbox()
+    return true
+  }
+
+  /// Items deleted elsewhere while what changed here was on its way, to be
+  /// deleted again once it's landed (see sent).
+  private var deleteAfter = Set<String>()
+
+  /// Whether the deletion of [recordID] elsewhere, of an item changed here
+  /// too, is to be taken here (see SyncRules.onDeletion).
+  private func takeDeletion(_ recordID: CKRecord.ID, knownHere: Bool, engine: CKSyncEngine)
+    -> Bool
+  {
+    let id = recordID.recordName
+    switch SyncRules.onDeletion(knownHere: knownHere, mine: mine(id)) {
+    case .keepMine:
+      return false
+    case .delete:
+      engine.state.remove(pendingRecordZoneChanges: [.saveRecord(recordID)])
+    case .deleteAfterMine:
+      deleteAfter.insert(id)
+    }
+    if outbox[id]?.media != nil {
+      // A saved file's, its file still going up: that stops, and what of
+      // it is there goes (see finishUpload too), as for one deleted here.
+      uploads[id]?.operation.cancel()
+      engine.state.add(pendingRecordZoneChanges: [.deleteRecord(Self.fileRecordID(id))])
+    }
+    if outbox.removeValue(forKey: id) != nil { persistOutbox() }
     return true
   }
 
@@ -1085,7 +1118,12 @@ final actor CloudSync: CKSyncEngineDelegate {
       for deletion in page.deletions {
         deleted += 1
         let id = deletion.recordID.recordName
-        if serverRecords.removeValue(forKey: id) == nil || pending.contains(id) { continue }
+        guard serverRecords.removeValue(forKey: id) != nil else { continue }
+        if pending.contains(id),
+          !takeDeletion(deletion.recordID, knownHere: true, engine: engine)
+        {
+          continue
+        }
         received.append(Incoming(seq: 0, id: id, deleted: true))
         brought.append(id)
       }
@@ -1127,6 +1165,10 @@ final actor CloudSync: CKSyncEngineDelegate {
       } else if outbox[id] != nil {
         retry.append(.saveRecord(record.recordID))
       }
+      // Deleted elsewhere while it was on its way.
+      if deleteAfter.remove(id) != nil {
+        retry.append(.deleteRecord(record.recordID))
+      }
     }
     var refused: CKError?
     var full = false
@@ -1134,6 +1176,8 @@ final actor CloudSync: CKSyncEngineDelegate {
       let recordID = failure.record.recordID
       let id = recordID.recordName
       inFlight[id] = nil
+      // Not saved, so there's nothing to delete again.
+      deleteAfter.remove(id)
       let next: String
       switch failure.error.code {
       case .serverRecordChanged:

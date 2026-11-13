@@ -26,4 +26,20 @@ final class SyncRulesTests: XCTestCase {
     // What's waiting here is its deletion.
     XCTAssertEqual(SyncRules.onChange(theirs: 2, mine: nil), .keepMine)
   }
+
+  func testADeletionElsewhereWins() {
+    XCTAssertEqual(SyncRules.onDeletion(knownHere: true, mine: nil), .delete)
+    XCTAssertEqual(SyncRules.onDeletion(knownHere: true, mine: Mine(modifiedAt: 1)), .delete)
+    XCTAssertEqual(
+      SyncRules.onDeletion(knownHere: true, mine: Mine(modifiedAt: 1, onItsWay: true)),
+      .deleteAfterMine)
+    // A saved file's, deleted elsewhere while its file was going up here.
+    XCTAssertEqual(
+      SyncRules.onDeletion(knownHere: true, mine: Mine(modifiedAt: 1, hasFile: true)), .delete)
+  }
+
+  func testButNotOverWhatWasPutBackHere() {
+    // Deleted from here, then put back before the deletion came back.
+    XCTAssertEqual(SyncRules.onDeletion(knownHere: false, mine: Mine(modifiedAt: 1)), .keepMine)
+  }
 }
