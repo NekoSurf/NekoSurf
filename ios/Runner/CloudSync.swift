@@ -823,9 +823,8 @@ final actor CloudSync: CKSyncEngineDelegate {
       persistOutbox()
       return nil
     }
-    let record =
-      serverRecords[id].flatMap(Self.decodeRecord)
-      ?? CKRecord(recordType: Self.recordType, recordID: Self.recordID(id))
+    let known = serverRecords[id].flatMap(Self.decodeRecord)
+    let record = known ?? CKRecord(recordType: Self.recordType, recordID: Self.recordID(id))
     record["kind"] = item.kind
     record["key"] = item.key
     record["data"] = item.data
@@ -836,8 +835,14 @@ final actor CloudSync: CKSyncEngineDelegate {
       record["media"] = nil
       record["file"] = item.fileBytes.map { NSNumber(value: $0) }
     }
-    record["thumbnail"] = item.thumbnail.flatMap {
-      fileManager.fileExists(atPath: $0) ? CKAsset(fileURL: URL(fileURLWithPath: $0)) : nil
+    // Its record goes again once its file is up, saying so: the thumbnail
+    // that went with it the first time stays, as only what's set here is
+    // saved.
+    let thumbnailThere = known != nil && item.sentVersion != nil
+    if !thumbnailThere {
+      record["thumbnail"] = item.thumbnail.flatMap {
+        fileManager.fileExists(atPath: $0) ? CKAsset(fileURL: URL(fileURLWithPath: $0)) : nil
+      }
     }
     inFlight[id] = item.version
     return record
