@@ -143,6 +143,7 @@ class BookmarksProvider with ChangeNotifier implements SyncTarget {
 
   @override
   Future<void> applySync(List<SyncChange> changes) async {
+    final List<SyncItem> dated = <SyncItem>[];
     for (final SyncChange change in changes) {
       if (change.deleted) {
         _bookmarks.removeWhere((Bookmark b) => change.isFor(b.key));
@@ -155,13 +156,15 @@ class BookmarksProvider with ChangeNotifier implements SyncTarget {
         continue;
       }
       final int at = _bookmarks.indexWhere((b) => b.key == bookmark.key);
-      // One from an older NekoSurf doesn't say when: as it was here, or now.
+      // One from an older NekoSurf doesn't say when: as it was here, or now,
+      // and sent so, or each device that gets it would put it elsewhere.
       if (bookmark.addedAt == null) {
         bookmark = bookmark.addedAtTime(
           at < 0
               ? DateTime.now().millisecondsSinceEpoch
               : _bookmarks[at].addedAt ?? 0,
         );
+        dated.add(bookmarkSyncItem(bookmark));
       }
       if (at < 0) {
         _bookmarks.add(bookmark);
@@ -170,6 +173,9 @@ class BookmarksProvider with ChangeNotifier implements SyncTarget {
       }
     }
     _bookmarks.sort(_byAddedAt);
+    if (dated.isNotEmpty) {
+      _sync.putAll(dated);
+    }
     await _save();
   }
 

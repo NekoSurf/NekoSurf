@@ -218,7 +218,7 @@ void main() {
       ..writeAsStringSync('meow');
     File('${folders.media}/cat.png').writeAsStringSync('a cat of this phone');
     cloud = [
-      change(SyncKind.bookmark, 'wsg/1', bookmark('wsg', 1)),
+      change(SyncKind.bookmark, 'wsg/1', {...bookmark('wsg', 1), 'addedAt': 1}),
       change(SyncKind.setting, 'themeColor', {'value': 'violet'}),
       change(
         SyncKind.saved,
@@ -679,6 +679,28 @@ void main() {
     expect(a.bookmarks.bookmarks.map((b) => b.key), ['g/1', 'g/5', 'g/3']);
   });
 
+  test('a bookmark from iCloud that says not when it was made is sent back '
+      'with a time, for every device to put it in the same place', () async {
+    final a = await app(
+      await prefsWith({'sync.iCloud': true, 'sync.joined': true}),
+    );
+    await pumpEventQueue();
+    sent.clear();
+
+    // From an older NekoSurf, which didn't keep when.
+    inbox.add({
+      ...change(SyncKind.bookmark, 'g/1', bookmark('g', 1)),
+      'seq': ++seq,
+    });
+    await a.sync.processInbox();
+    await pumpEventQueue();
+
+    final int? addedAt = a.bookmarks.bookmarks.single.addedAt;
+    expect(addedAt, isNotNull);
+    expect(sentIds(), {syncId(SyncKind.bookmark, 'g/1')});
+    expect(jsonDecode(sent.single['data']! as String)['addedAt'], addedAt);
+  });
+
   test("Sync now sends what iCloud doesn't have, but not what was deleted "
       'elsewhere', () async {
     String stored(int no) => jsonEncode({...bookmark('g', no), 'addedAt': no});
@@ -824,7 +846,12 @@ void main() {
   test(
     'turning on waits until everything is there to take what comes in',
     () async {
-      cloud = [change(SyncKind.bookmark, 'wsg/1', bookmark('wsg', 1))];
+      cloud = [
+        change(SyncKind.bookmark, 'wsg/1', {
+          ...bookmark('wsg', 1),
+          'addedAt': 1,
+        }),
+      ];
       final SharedPreferences prefs = await prefsWith({});
       final a = await app(prefs);
       a.bookmarks.dispose();
