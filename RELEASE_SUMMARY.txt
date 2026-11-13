@@ -1,1 +1,0 @@
-With iCloud sync on, the change you made last now wins when NekoSurf is open on two devices at once, Clear watched posts clears them everywhere, and bookmarks made before version 0.13.0 are in the same order on all of them.
