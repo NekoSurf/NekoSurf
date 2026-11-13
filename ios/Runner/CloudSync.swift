@@ -557,6 +557,12 @@ final actor CloudSync: CKSyncEngineDelegate {
       changes.append(.saveRecord(Self.recordID(id)))
     }
     persistOutbox()
+    // Removed and back before it went: kept, as delete takes back a save.
+    engine.state.remove(
+      pendingRecordZoneChanges: changes.compactMap {
+        if case .saveRecord(let id) = $0 { return .deleteRecord(id) }
+        return nil
+      })
     engine.state.add(pendingRecordZoneChanges: changes)
     log("Changed here:\(Self.kinds(items.compactMap { $0["id"] as? String }))")
     sendStatus()
