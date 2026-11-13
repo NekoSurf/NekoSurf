@@ -24,6 +24,15 @@
       ],
       "versions": [
         {
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.13.0%2B307/Runner.ipa",
+          "size": 34206272,
+          "version": "0.13.0",
+          "buildVersion": "307",
+          "date": "2026-11-13T12:44:36+00:00",
+          "localizedDescription": "With iCloud sync on, the change you made last now wins when NekoSurf is open on two devices at once, Clear watched posts clears them everywhere, and bookmarks made before version 0.13.0 are in the same order on all of them.",
+          "minOSVersion": "17.0"
+        },
+        {
           "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.13.0%2B305/Runner.ipa",
           "size": 34200202,
           "version": "0.13.0",
