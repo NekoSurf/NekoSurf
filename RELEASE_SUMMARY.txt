@@ -1,1 +1,1 @@
-Bookmarks made before version 0.13.0 are now in the same order on all your devices with iCloud sync on.
+With iCloud sync on, the change you made last now wins when NekoSurf is open on two devices at once, and bookmarks made before version 0.13.0 are in the same order on all of them.

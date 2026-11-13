@@ -36,3 +36,6 @@ jobs:
       - run: flutter analyze
 
       - run: flutter test
+
+      # iCloud sync's rules, in Swift (the runner has it).
+      - run: swift test --package-path ios/SyncRules

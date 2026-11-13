@@ -29,7 +29,9 @@ git log --stat origin/main..HEAD
 - Regrouping must not change the code: before starting, keep a backup ref
   (`git update-ref refs/backup/before-regroup HEAD`), and afterwards check that
   the final tree is the same as the work you started from. Each new or rewritten
-  commit should pass `flutter analyze` and `flutter test` on its own.
+  commit should pass `flutter analyze` and `flutter test` on its own, and
+  `swift test --package-path ios/SyncRules` when it touches iCloud sync's rules
+  (`ios/Runner/SyncRules.swift`).
 - Update the message of a commit you change, so it's still true.
 
 ## Keeping the docs up to date

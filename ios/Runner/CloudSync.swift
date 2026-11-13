@@ -558,7 +558,7 @@ final actor CloudSync: CKSyncEngineDelegate {
     }
     persistOutbox()
     engine.state.add(pendingRecordZoneChanges: changes)
-    log("Changed here: \(Self.kinds(items.compactMap { $0["id"] as? String }))")
+    log("Changed here:\(Self.kinds(items.compactMap { $0["id"] as? String }))")
     sendStatus()
     if !changes.isEmpty { sendSoon() }
     uploadNext()
@@ -837,6 +837,8 @@ final actor CloudSync: CKSyncEngineDelegate {
     var received: [Incoming] = []
     // What was sent from here, or brought in by asking iCloud, as it is.
     var here = 0
+    // Changed here too, but later there.
+    var newerThere = 0
     for modification in event.modifications {
       let record = modification.record
       let id = record.recordID.recordName
@@ -845,7 +847,10 @@ final actor CloudSync: CKSyncEngineDelegate {
         continue
       }
       serverRecords[id] = Self.encodeSystemFields(record)
-      if pending.contains(id) { continue }
+      if pending.contains(id) {
+        guard takeOver(record, engine: engine) else { continue }
+        newerThere += 1
+      }
       received.append(Self.incoming(record))
     }
     for deletion in event.deletions {
@@ -859,6 +864,7 @@ final actor CloudSync: CKSyncEngineDelegate {
       "Fetched: \(event.modifications.count) changed, \(event.deletions.count) deleted"
         + (here > 0 ? ", \(here) already here" : "")
         + (kept > 0 ? ", \(kept) changed here since, kept" : "")
+        + (newerThere > 0 ? ", \(newerThere) changed later there, taken" : "")
         + (received.isEmpty ? "" : "; \(Self.kinds(received.compactMap(\.id)))"))
     // In the inbox before it's noted as here: if the app is ended between,
     // it comes in twice rather than not at all.
@@ -866,8 +872,47 @@ final actor CloudSync: CKSyncEngineDelegate {
     persistRecords()
   }
 
-  /// What's changed here and not sent yet, which wins over what comes in,
-  /// saved files waiting to go up too.
+  /// What's waiting to go from here of [id], for SyncRules: nil if
+  /// nothing is, or only its deletion.
+  private func mine(_ id: String) -> SyncRules.Mine? {
+    guard let item = outbox[id] else { return nil }
+    return SyncRules.Mine(
+      modifiedAt: item.modifiedAt, hasFile: item.media != nil, onItsWay: inFlight[id] != nil)
+  }
+
+  /// When [record] says it was changed, in milliseconds since 1970.
+  private static func changedAt(_ record: CKRecord) -> Double? {
+    (record["modifiedAt"] as? Date).map { $0.timeIntervalSince1970 * 1000 }
+  }
+
+  /// Whether [record], from iCloud, of an item changed here too, is to be
+  /// taken here, in place of what's waiting to go (see SyncRules.onChange).
+  private func takeOver(_ record: CKRecord, engine: CKSyncEngine) -> Bool {
+    let id = record.recordID.recordName
+    let theirs = Self.changedAt(record)
+    switch SyncRules.onChange(theirs: theirs, mine: mine(id)) {
+    case .keepMine:
+      return false
+    case .takeTheirs:
+      outbox[id] = nil
+      engine.state.remove(pendingRecordZoneChanges: [.saveRecord(record.recordID)])
+    case .takeTheirsAndSendItAgain:
+      // What's on its way lands over it: it goes again after (see sent).
+      if let kind = record["kind"] as? String, let key = record["key"] as? String,
+        let data = record["data"] as? String, let theirs
+      {
+        nextVersion += 1
+        outbox[id] = Outgoing(
+          kind: kind, key: key, data: data, modifiedAt: theirs, version: nextVersion)
+      }
+    }
+    persistOutbox()
+    return true
+  }
+
+  /// What's changed here and not sent yet, which wins over what comes in
+  /// unless that changed later (see takeOver), saved files waiting to go up
+  /// too.
   private func pendingIDs(_ engine: CKSyncEngine) -> Set<String> {
     var pending = Set(
       engine.state.pendingRecordZoneChanges.map { change -> String in
@@ -1000,9 +1045,9 @@ final actor CloudSync: CKSyncEngineDelegate {
         if Self.haveAsNew(serverRecords[id], modification.record) { continue }
         if changedHere.contains(id) {
           serverRecords[id] = Self.encodeSystemFields(modification.record)
-        } else {
-          wanted.append(recordID)
         }
+        // Changed here too, it's fetched whole to see which is newer.
+        wanted.append(recordID)
       }
       // What's noted as here is passed on at once, each 100: should a later
       // lot fail, this one isn't fetched again, nor by the engine.
@@ -1019,9 +1064,9 @@ final actor CloudSync: CKSyncEngineDelegate {
           guard case .success(let record) = result else { continue }
           let id = recordID.recordName
           // The engine may have brought it in meanwhile.
-          if Self.haveAsNew(serverRecords[id], record) { continue }
+          if Self.haveAsNew(serverRecords[id], record), !pending.contains(id) { continue }
           serverRecords[id] = Self.encodeSystemFields(record)
-          if pending.contains(id) { continue }
+          if pending.contains(id), !takeOver(record, engine: engine) { continue }
           received.append(Self.incoming(record))
           brought.append(id)
         }
@@ -1086,12 +1131,20 @@ final actor CloudSync: CKSyncEngineDelegate {
       let next: String
       switch failure.error.code {
       case .serverRecordChanged:
-        // Changed elsewhere since: what changed here is newer.
-        if let server = failure.error.serverRecord {
+        // Changed elsewhere since, as when two devices have the same thread
+        // open: the one changed last wins, here and there.
+        let server = failure.error.serverRecord
+        if let server {
           serverRecords[id] = Self.encodeSystemFields(server)
         }
-        retry.append(.saveRecord(recordID))
-        next = "sending again over it"
+        if let server, SyncRules.isNewer(Self.changedAt(server), than: mine(id)) {
+          outbox[id] = nil
+          receive([Self.incoming(server)])
+          next = "theirs is newer, taken here"
+        } else {
+          retry.append(.saveRecord(recordID))
+          next = "sending again over it"
+        }
       case .zoneNotFound:
         zones.append(.saveZone(CKRecordZone(zoneID: recordID.zoneID)))
         serverRecords[id] = nil
