@@ -20,8 +20,15 @@ SyncItem threadMemorySyncItem(int thread, ThreadMemory memory) => SyncItem(
 class WatchedPostsProvider
     with ChangeNotifier, WidgetsBindingObserver
     implements SyncTarget {
-  WatchedPostsProvider(this._prefs, this._settings, {CloudSync? sync})
-    : _sync = sync ?? CloudSync.instance {
+  WatchedPostsProvider(
+    this._prefs,
+    this._settings, {
+    CloudSync? sync,
+    @visibleForTesting Duration saveDelay = const Duration(seconds: 2),
+    @visibleForTesting Duration syncInterval = const Duration(seconds: 20),
+  }) : _sync = sync ?? CloudSync.instance,
+       _saveDebounceDelay = saveDelay,
+       _syncInterval = syncInterval {
     _load();
 
     WidgetsBinding.instance.addObserver(this);
@@ -32,14 +39,19 @@ class WatchedPostsProvider
   final SettingsProvider _settings;
   final CloudSync _sync;
 
-  // Threads changed since they were last stored: they go to iCloud then,
-  // not on every scroll.
+  // Threads changed since they last went to iCloud: they go at most every
+  // [_syncInterval] while they're read, and when one's left or the app is,
+  // not on every scroll. Each that goes is a request here, and a fetch on
+  // every other device.
   final Set<int> _changed = <int>{};
   Timer? _saveDebounceTimer;
   bool _hasPendingSave = false;
+  Timer? _syncTimer;
+  DateTime _lastSynced = DateTime.fromMillisecondsSinceEpoch(0);
 
   static const String _threadMemoryStorageKey = 'threadMemory';
-  static const Duration _saveDebounceDelay = Duration(seconds: 2);
+  final Duration _saveDebounceDelay;
+  final Duration _syncInterval;
 
   void _schedulePersist() {
     _hasPendingSave = true;
@@ -61,12 +73,53 @@ class WatchedPostsProvider
     await _save();
   }
 
+  /// A thread was left: what changed of it goes to iCloud now.
+  void leftThread() {
+    unawaited(_persistNow());
+    _syncNow();
+  }
+
+  void _syncSoon() {
+    if (!_sync.isOn) {
+      // Turning it on sends everything.
+      _changed.clear();
+      return;
+    }
+    if (_changed.isEmpty || _syncTimer != null) {
+      return;
+    }
+    final Duration wait = _lastSynced
+        .add(_syncInterval)
+        .difference(DateTime.now());
+    if (wait <= Duration.zero) {
+      _syncNow();
+    } else {
+      _syncTimer = Timer(wait, _syncNow);
+    }
+  }
+
+  void _syncNow() {
+    _syncTimer?.cancel();
+    _syncTimer = null;
+    if (_changed.isEmpty) {
+      return;
+    }
+    _sync.putAll(<SyncItem>[
+      for (final int thread in _changed)
+        if (_threadMemory[thread] case final ThreadMemory memory)
+          threadMemorySyncItem(thread, memory),
+    ]);
+    _changed.clear();
+    _lastSynced = DateTime.now();
+  }
+
   @override
   void dispose() {
     if (_hasPendingSave) {
       _save();
       _hasPendingSave = false;
     }
+    _syncNow();
     _saveDebounceTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _sync.detach(this);
@@ -81,6 +134,7 @@ class WatchedPostsProvider
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.detached) {
       _persistNow();
+      _syncNow();
     }
   }
 
@@ -248,14 +302,7 @@ class WatchedPostsProvider
   }
 
   Future<void> _save() {
-    if (_changed.isNotEmpty) {
-      _sync.putAll(<SyncItem>[
-        for (final int thread in _changed)
-          if (_threadMemory[thread] case final ThreadMemory memory)
-            threadMemorySyncItem(thread, memory),
-      ]);
-      _changed.clear();
-    }
+    _syncSoon();
     return _store();
   }
 

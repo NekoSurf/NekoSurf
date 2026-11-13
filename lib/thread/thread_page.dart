@@ -69,6 +69,9 @@ class _ThreadPageState extends State<ThreadPage>
   bool _didRestorePlace = false;
   bool _isListShown = false;
   bool _recordedHistory = false;
+
+  /// Told when the thread's left, as context can't be used in dispose.
+  late final WatchedPostsProvider _watched;
   Timer? _preloadDebounce;
   final Set<int> _preloadedThumbnailIds = <int>{};
 
@@ -118,10 +121,8 @@ class _ThreadPageState extends State<ThreadPage>
     super.initState();
 
     isListSettled = false;
-    final ThreadMemory? memory = Provider.of<WatchedPostsProvider>(
-      context,
-      listen: false,
-    ).threadMemory(widget.thread);
+    _watched = Provider.of<WatchedPostsProvider>(context, listen: false);
+    final ThreadMemory? memory = _watched.threadMemory(widget.thread);
     collapsedRows.addAll(memory?.folded ?? const <String>{});
     primaryParents.addAll(memory?.primaryParents ?? const <int, int>{});
 
@@ -142,6 +143,7 @@ class _ThreadPageState extends State<ThreadPage>
 
   @override
   void dispose() {
+    _watched.leftThread();
     itemPositionsListener.itemPositions.removeListener(_rememberPlace);
     _preloadDebounce?.cancel();
     _preloadDebounce = null;

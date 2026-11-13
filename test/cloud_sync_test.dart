@@ -797,6 +797,45 @@ void main() {
     expect(deleted, [syncId(SyncKind.bookmark, 'g/1')]);
   });
 
+  test('what changes in a thread goes out at most every so often while '
+      "it's read, and at once when it's left", () async {
+    final SharedPreferences prefs = await prefsWith({});
+    final a = await app(prefs);
+    await a.sync.turnOn();
+    a.watched.dispose();
+    final WatchedPostsProvider watched = WatchedPostsProvider(
+      prefs,
+      a.settings,
+      sync: a.sync,
+      saveDelay: const Duration(milliseconds: 10),
+      syncInterval: const Duration(milliseconds: 400),
+    );
+    sent.clear();
+    int sends() =>
+        sent.where((s) => s['id'] == syncId(SyncKind.threadMemory, '7')).length;
+
+    // The first goes once it's stored.
+    watched.noteThreadPosts(7, [7, 8, 9]);
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    expect(sends(), 1);
+
+    // Those soon after wait, and go together.
+    watched.markPostsSeen(7, [8]);
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    watched.markPostsSeen(7, [9]);
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    expect(sends(), 1);
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    expect(sends(), 2);
+
+    // Leaving it doesn't wait.
+    watched.noteThreadPosts(7, [7, 8, 9, 10]);
+    watched.leftThread();
+    await pumpEventQueue();
+    expect(sends(), 3);
+    watched.dispose();
+  });
+
   test(
     "what's seen in a thread goes out when stored, and the newest wins",
     () async {
