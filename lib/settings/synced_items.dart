@@ -47,7 +47,12 @@ List<SyncItem> localSyncItems(
   SavedFolders folders,
 ) => <SyncItem>[
   for (final String key in SettingsProvider.syncedKeys)
-    if (prefs.get(key) case final Object value) settingSyncItem(key, value),
+    if (prefs.get(key) case final Object value)
+      settingSyncItem(
+        key,
+        value,
+        changedAt: SettingsProvider.changedAt(prefs, key),
+      ),
   for (final String pattern
       in prefs.getStringList(SettingsProvider.hiddenPatternsKey) ??
           const <String>[])

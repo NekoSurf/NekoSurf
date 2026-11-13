@@ -797,6 +797,44 @@ void main() {
     expect(deleted, [syncId(SyncKind.bookmark, 'g/1')]);
   });
 
+  test('a setting goes out with when it was changed, so a newer one '
+      'elsewhere wins over it', () async {
+    final SharedPreferences prefs = await prefsWith({
+      'themeColor': 'cyan',
+      'allowNSFW': true,
+    });
+    final a = await app(prefs);
+    await a.sync.turnOn();
+    sent.clear();
+
+    final DateTime before = DateTime.now();
+    await a.settings.themeColor.set(ThemeColor.violet);
+    await pumpEventQueue();
+    final int changed = sent.single['modifiedAt']! as int;
+    expect(changed, greaterThanOrEqualTo(before.millisecondsSinceEpoch));
+
+    // Sent again from what's stored, as when the sync engine starts over:
+    // as changed then, and one never changed as long ago.
+    final Map<String, SyncItem> stored = {
+      for (final SyncItem item in await a.sync.snapshot()) item.key: item,
+    };
+    expect(stored['themeColor']!.modifiedAt.millisecondsSinceEpoch, changed);
+    expect(stored['allowNSFW']!.modifiedAt.millisecondsSinceEpoch, 0);
+
+    // One from elsewhere keeps its time here.
+    inbox.add({
+      ...change(SyncKind.setting, 'allowNSFW', {'value': false}),
+      'modifiedAt': 1800000000000,
+      'seq': ++seq,
+    });
+    await a.sync.processInbox();
+    expect(a.settings.allowNSFW.value, isFalse);
+    expect(
+      SettingsProvider.changedAt(prefs, 'allowNSFW')?.millisecondsSinceEpoch,
+      1800000000000,
+    );
+  });
+
   test('what changes in a thread goes out at most every so often while '
       "it's read, and at once when it's left", () async {
     final SharedPreferences prefs = await prefsWith({});

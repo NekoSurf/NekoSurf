@@ -4,3 +4,4 @@
 - With iCloud sync on and NekoSurf open on two devices at once, the change you made last now wins on both, such as how far you've read in a thread, instead of each keeping its own
 - With iCloud sync on, Settings → History → Clear watched posts now clears them on all your devices, even while another one has a thread open
 - With iCloud sync on, a file you remove from the Saved tab no longer comes back when it was still going up to iCloud from another device
+- With iCloud sync on, a setting you changed on another device is no longer undone when this device signs in to iCloud again

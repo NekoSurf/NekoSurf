@@ -7,6 +7,7 @@ import 'package:flutter_chan/saved/downloads.dart';
 import 'package:flutter_chan/saved/give_media.dart';
 import 'package:flutter_chan/saved/saved_folders.dart';
 import 'package:flutter_chan/settings/backup.dart';
+import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/settings/settings_widgets.dart';
 import 'package:flutter_chan/sync/cloud_sync.dart';
 import 'package:flutter_chan/sync/sync_items.dart';
@@ -113,6 +114,7 @@ class _BackupSettingsState extends State<BackupSettings> {
         await openSavedFolders(),
         await getTemporaryDirectory(),
       );
+      await SettingsProvider.noteAllChanged(app.prefs);
       await sync.pushChangesSince(before);
     });
   }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_chan/chan/catalog.dart';
@@ -68,9 +69,12 @@ class Setting<T> {
   }
 }
 
-/// The setting [key], stored as [value], as iCloud sync keeps it.
-SyncItem settingSyncItem(String key, Object value) =>
-    SyncItem(SyncKind.setting, key, {'value': value});
+/// The setting [key], stored as [value], as iCloud sync keeps it; changed
+/// at [changedAt], or long ago.
+SyncItem settingSyncItem(String key, Object value, {DateTime? changedAt}) =>
+    SyncItem(SyncKind.setting, key, {
+      'value': value,
+    }, modifiedAt: changedAt ?? DateTime.fromMillisecondsSinceEpoch(0));
 
 /// A thread filter, as iCloud sync keeps it.
 SyncItem threadFilterSyncItem(String pattern) =>
@@ -121,9 +125,57 @@ class SettingsProvider with ChangeNotifier implements SyncTarget {
   void _changed(String key, Object stored) {
     notifyListeners();
     if (syncedKeys.contains(key)) {
-      _sync.put(settingSyncItem(key, stored));
+      final DateTime now = DateTime.now();
+      unawaited(_noteChangedAt(key, now));
+      _sync.put(settingSyncItem(key, stored, changedAt: now));
     }
   }
+
+  /// Where it's kept when each synced setting was last changed, here or
+  /// on another device: which wins when two devices changed it.
+  static const String changedAtKey = 'sync.settingsChangedAt';
+
+  /// When the setting [key] was last changed, as kept in [prefs]; null if
+  /// not since this was kept, as for one never changed.
+  static DateTime? changedAt(SharedPreferences prefs, String key) {
+    final int? at = _changedAts(prefs)[key];
+    return at == null ? null : DateTime.fromMillisecondsSinceEpoch(at);
+  }
+
+  static Map<String, int> _changedAts(SharedPreferences prefs) {
+    try {
+      final Object? decoded = jsonDecode(prefs.getString(changedAtKey) ?? '{}');
+      return decoded is Map
+          ? <String, int>{
+              for (final MapEntry<Object?, Object?> entry in decoded.entries)
+                if (entry.key case final String key)
+                  if (entry.value case final int at) key: at,
+            }
+          : <String, int>{};
+    } on FormatException {
+      return <String, int>{};
+    }
+  }
+
+  Future<void> _noteChangedAt(String key, DateTime at) =>
+      _noteChanged(_prefs, [key], at);
+
+  static Future<void> _noteChanged(
+    SharedPreferences prefs,
+    Iterable<String> keys,
+    DateTime at,
+  ) async {
+    final Map<String, int> all = _changedAts(prefs);
+    for (final String key in keys) {
+      all[key] = at.millisecondsSinceEpoch;
+    }
+    await prefs.setString(changedAtKey, jsonEncode(all));
+  }
+
+  /// Every setting in [prefs] was changed now, as when a backup's been
+  /// restored: what's in it goes to iCloud over what's there.
+  static Future<void> noteAllChanged(SharedPreferences prefs) =>
+      _noteChanged(prefs, syncedKeys.where(prefs.containsKey), DateTime.now());
 
   @override
   void dispose() {
@@ -257,6 +309,9 @@ class SettingsProvider with ChangeNotifier implements SyncTarget {
           final Object? value = change.data['value'];
           if (change.deleted || key == null || !syncedKeys.contains(key)) {
             continue;
+          }
+          if (change.modifiedAt case final DateTime at) {
+            await _noteChangedAt(key, at);
           }
           final Setting<Object>? setting = _byKey[key];
           if (setting != null) {
