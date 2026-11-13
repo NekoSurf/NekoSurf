@@ -569,7 +569,7 @@ final actor CloudSync: CKSyncEngineDelegate {
         return nil
       })
     engine.state.add(pendingRecordZoneChanges: changes)
-    log("Changed here:\(Self.kinds(items.compactMap { $0["id"] as? String }))")
+    log("Changed here: \(Self.kinds(items.compactMap { $0["id"] as? String }))")
     sendStatus()
     if !changes.isEmpty { sendSoon() }
     uploadNext()
@@ -1482,7 +1482,10 @@ final actor CloudSync: CKSyncEngineDelegate {
     let next: String
     switch ckError.code {
     case .operationCancelled where outbox[id] == nil:
-      next = "deleted here meanwhile"
+      // Stopped on purpose, as it was removed: nothing went wrong.
+      log("Upload stopped: \(Self.tag(id)), removed meanwhile")
+      settle(refused: nil, full: false, saved: false)
+      return
     case .zoneNotFound:
       engine?.state.add(
         pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: Self.filesZoneID))])
