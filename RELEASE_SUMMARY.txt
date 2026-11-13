@@ -1,1 +1,0 @@
-New privacy settings keep NSFW boards hidden until you tap the flame, saved files out of the Files app, history only while the app is open and the app out of the app switcher.
