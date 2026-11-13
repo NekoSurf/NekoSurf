@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chan/settings/appearance_settings.dart';
 import 'package:flutter_chan/settings/backup_settings.dart';
 import 'package:flutter_chan/settings/browsing_settings.dart';
+import 'package:flutter_chan/settings/privacy_settings.dart';
 import 'package:flutter_chan/settings/settings_widgets.dart';
 import 'package:flutter_chan/settings/storage_settings.dart';
 import 'package:flutter_chan/settings/sync_settings.dart';
@@ -29,6 +30,7 @@ class _SettingsState extends State<Settings> {
           const SizedBox(height: 22),
           const AppearanceSettings(),
           const BrowsingSettings(),
+          const PrivacySettings(),
           const StorageSettings(),
           const CloudSyncSettings(),
           const BackupSettings(),

@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_chan/saved/give_media.dart';
+import 'package:flutter_chan/saved/photos_prompt.dart';
 import 'package:flutter_chan/saved/report_failure.dart';
 import 'package:flutter_chan/saved/saved_attachments_model.dart';
 import 'package:flutter_chan/saved/saved_browsing.dart';
@@ -13,8 +14,13 @@ import 'package:flutter_chan/ui/dash_scaffold.dart';
 import 'package:flutter_chan/ui/toast.dart';
 import 'package:provider/provider.dart';
 
+/// The saved files: a tab, or, with the tab turned off, a page opened from
+/// History ([asPage]).
 class SavedTab extends StatefulWidget {
-  const SavedTab({super.key});
+  const SavedTab({super.key, this.asPage = false});
+
+  /// Pushed as a page, with no tab bar under it.
+  final bool asPage;
 
   @override
   State<SavedTab> createState() => _SavedTabState();
@@ -46,6 +52,10 @@ class _SavedTabState extends State<SavedTab> {
 
   Future<void> _saveSelectedToPhotos(SavedAttachmentsProvider saved) async {
     final List<String> names = _selectedHere(saved);
+    if (!await confirmSavingToPhotos(context, count: names.length) ||
+        !mounted) {
+      return;
+    }
     int failed = 0;
     final bool ran = await reportingFailure(context, () async {
       failed = await copySavedToPhotos(names);
@@ -214,7 +224,7 @@ class _SavedTabState extends State<SavedTab> {
         actions: browsing.selecting
             ? _selectingActions(saved)
             : _browsingActions(saved),
-        reserveTabBarSpace: true,
+        reserveTabBarSpace: !widget.asPage,
         slivers: [SavedGrid(browsing: browsing)],
       ),
     );

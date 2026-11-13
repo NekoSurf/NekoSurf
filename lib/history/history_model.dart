@@ -96,10 +96,15 @@ class HistoryProvider with ChangeNotifier implements SyncTarget {
   /// Reply count from the last status check, if known.
   int? replies(HistoryThread t) => _replies[t.key];
 
-  Future<void> _saveThreads() => _prefs.setStringList(
-    storageKey,
-    _threads.map((t) => json.encode(t.toJson())).toList(),
-  );
+  /// History is only kept until the app is left ([forgetSession]).
+  bool get _sessionOnly => _settings.historyThisSessionOnly.value;
+
+  Future<void> _saveThreads() => _sessionOnly
+      ? _prefs.remove(storageKey)
+      : _prefs.setStringList(
+          storageKey,
+          _threads.map((t) => json.encode(t.toJson())).toList(),
+        );
 
   List<T> _decode<T>(
     List<String>? raw,
@@ -132,7 +137,9 @@ class HistoryProvider with ChangeNotifier implements SyncTarget {
     _threads
       ..removeWhere((t) => t.key == visited.key)
       ..insert(0, visited);
-    _sync.put(historySyncItem(visited));
+    if (!_sessionOnly) {
+      _sync.put(historySyncItem(visited));
+    }
     _trim();
 
     notifyListeners();
@@ -197,6 +204,29 @@ class HistoryProvider with ChangeNotifier implements SyncTarget {
     }
   }
 
+  /// Keeps history only until the app is left, or as before. What's
+  /// stored and synced goes now, so nothing of it is left behind.
+  Future<void> setSessionOnly(bool sessionOnly) async {
+    if (sessionOnly) {
+      _sync.removeAll(SyncKind.history, [for (final t in _threads) t.key]);
+    }
+    await _settings.historyThisSessionOnly.set(sessionOnly);
+    await _saveThreads();
+  }
+
+  /// The app was left: if history is kept only until then, it's forgotten.
+  void forgetSession() {
+    if (!_sessionOnly) {
+      return;
+    }
+    // Stored before it was turned on, as on another device.
+    unawaited(_prefs.remove(storageKey));
+    if (_threads.isNotEmpty) {
+      _threads = [];
+      notifyListeners();
+    }
+  }
+
   Future<void> removeThread(HistoryThread thread) async {
     _threads.removeWhere((t) => t.key == thread.key);
     _sync.remove(SyncKind.history, thread.key);
@@ -233,7 +263,7 @@ class HistoryProvider with ChangeNotifier implements SyncTarget {
         _threads.removeWhere((HistoryThread t) => change.isFor(t.key));
         continue;
       }
-      if (!_settings.trackHistory.value) {
+      if (!_settings.trackHistory.value || _sessionOnly) {
         continue;
       }
       final HistoryThread visited;

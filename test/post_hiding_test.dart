@@ -140,11 +140,7 @@ void main() {
     });
 
     test('posts and IDs hidden in a thread', () async {
-      final SettingsProvider settings = SettingsProvider(prefs);
-      final WatchedPostsProvider watched = WatchedPostsProvider(
-        prefs,
-        settings,
-      );
+      final WatchedPostsProvider watched = WatchedPostsProvider(prefs);
 
       watched.setPostHidden(1, 3, hidden: true);
       watched.setIdHidden(1, 'Abc', hidden: true);
@@ -155,10 +151,7 @@ void main() {
       // Saves what's waiting to be.
       watched.dispose();
 
-      final WatchedPostsProvider reloaded = WatchedPostsProvider(
-        prefs,
-        settings,
-      );
+      final WatchedPostsProvider reloaded = WatchedPostsProvider(prefs);
       addTearDown(reloaded.dispose);
       expect(reloaded.threadMemory(1)!.hiddenPosts, {3});
       expect(reloaded.threadMemory(1)!.hiddenIds, {'Abc'});
@@ -217,7 +210,7 @@ void main() {
       SharedPreferences.setMockInitialValues({});
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       settings = SettingsProvider(prefs);
-      watched = WatchedPostsProvider(prefs, settings);
+      watched = WatchedPostsProvider(prefs);
       addTearDown(watched.dispose);
     });
 

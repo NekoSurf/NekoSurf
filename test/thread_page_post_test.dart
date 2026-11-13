@@ -24,7 +24,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     settings = SettingsProvider(prefs);
-    watched = WatchedPostsProvider(prefs, settings);
+    watched = WatchedPostsProvider(prefs);
     addTearDown(watched.dispose);
   });
 

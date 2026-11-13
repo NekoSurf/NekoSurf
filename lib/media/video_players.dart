@@ -38,6 +38,8 @@ const int _mediaBufferBytes = 8 * 1024 * 1024;
 class VideoPlayers extends ChangeNotifier {
   VideoPlayers._() {
     _lifecycleListener = AppLifecycleListener(
+      onInactive: _pauseWhileInactive,
+      onResume: _playAfterInactive,
       onHide: _releaseAll,
       onShow: () {
         _inBackground = false;
@@ -66,6 +68,36 @@ class VideoPlayers extends ChangeNotifier {
   // Lives as long as the app.
   // ignore: unused_field
   late final AppLifecycleListener _lifecycleListener;
+
+  /// Videos pause while the app isn't active (in the app switcher, say),
+  /// as the app is covered there ("Hide in the app switcher"); the app
+  /// sets it from that setting.
+  bool pausesWhileInactive = false;
+
+  // Paused by [_pauseWhileInactive], to play again when the app's back.
+  final Set<VideoLease> _pausedWhileInactive = <VideoLease>{};
+
+  void _pauseWhileInactive() {
+    if (!pausesWhileInactive) {
+      return;
+    }
+    for (final VideoLease lease in _leases) {
+      if (lease.player.state.playing) {
+        _pausedWhileInactive.add(lease);
+        lease.player.pause().catchError((_) {});
+      }
+    }
+  }
+
+  void _playAfterInactive() {
+    for (final VideoLease lease in _pausedWhileInactive) {
+      // Not if it went meanwhile, as all do in the background.
+      if (_leases.contains(lease)) {
+        lease.player.play().catchError((_) {});
+      }
+    }
+    _pausedWhileInactive.clear();
+  }
 
   bool canAcquire(double priority) {
     if (!_inBackground &&
@@ -185,6 +217,7 @@ class VideoPlayers extends ChangeNotifier {
 
   void _releaseAll() {
     _inBackground = true;
+    _pausedWhileInactive.clear();
     for (final VideoLease lease in List<VideoLease>.of(_leases)) {
       lease._evict();
     }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_chan/chan/board.dart';
 import 'package:flutter_chan/chan/catalog.dart';
 import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/chan/post_text.dart';
@@ -11,8 +12,10 @@ import 'package:flutter_chan/thread/post_hiding.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Bytes in the unit [SettingsProvider.videoCacheMegabytes] is in.
 const int megabyte = 1024 * 1024;
+
+/// Where [SettingsProvider.savedFilesHidden] is kept.
+const String savedFilesHiddenKey = 'savedFilesHidden';
 
 enum ViewMode { grid, list }
 
@@ -91,6 +94,8 @@ class SettingsProvider with ChangeNotifier implements SyncTarget {
     // Settings that no longer exist.
     unawaited(_prefs.remove('useCachingOnVideos'));
     unawaited(_prefs.remove('inlineMediaInThreadFeed'));
+    unawaited(_prefs.remove('watchedPostsRetentionDays'));
+    unawaited(_prefs.remove('videoCacheMegabytes'));
     _sync.attach(this);
   }
 
@@ -107,7 +112,6 @@ class SettingsProvider with ChangeNotifier implements SyncTarget {
     'boardSortDirection',
     'boardViewMode',
     'threadLayout',
-    'watchedPostsRetentionDays',
     'autoScrollToLastSeen',
     'showStickyThreads',
     'feedVideosStartMuted',
@@ -115,6 +119,12 @@ class SettingsProvider with ChangeNotifier implements SyncTarget {
     'savedNewestFirst',
     'fullscreenAutoAdvance',
     'serverFileNames',
+    'nsfwEachSession',
+    'blurNsfwImages',
+    'showSavedTab',
+    'askBeforePhotos',
+    'coverInAppSwitcher',
+    'historyThisSessionOnly',
   };
 
   // Each setting, once it's been read (they're late).
@@ -214,14 +224,6 @@ class SettingsProvider with ChangeNotifier implements SyncTarget {
     ThreadLayout.values,
     ThreadLayout.nested,
   );
-  late final Setting<int> watchedPostsRetentionDays = _int(
-    'watchedPostsRetentionDays',
-    7,
-  );
-  late final Setting<int> videoCacheMegabytes = _int(
-    'videoCacheMegabytes',
-    300,
-  );
   late final Setting<bool> autoScrollToLastSeen = _bool(
     'autoScrollToLastSeen',
     true,
@@ -249,6 +251,84 @@ class SettingsProvider with ChangeNotifier implements SyncTarget {
   /// Saved and shared files take 4chan's name for them, not the poster's.
   late final Setting<bool> serverFileNames = _bool('serverFileNames', false);
 
+  /// NSFW boards show only once they're turned on with the flame on Boards,
+  /// until the app is closed: that's kept in memory only ([nsfwSessionOn]).
+  late final Setting<bool> nsfwEachSession = _bool('nsfwEachSession', false);
+
+  /// Images from NSFW boards are covered until tapped.
+  late final Setting<bool> blurNsfwImages = _bool('blurNsfwImages', false);
+
+  /// Saved has a tab of its own; without, it opens from History.
+  late final Setting<bool> showSavedTab = _bool('showSavedTab', true);
+
+  /// Saved files are kept in the app's own folder, out of the Files app (or
+  /// Android's Download folder). Changed by [moveSavedFiles], which moves
+  /// them; this device's own (see isLocalPreference).
+  late final Setting<bool> savedFilesHidden = _bool(savedFilesHiddenKey, false);
+
+  /// Saving to Photos asks first, saying where it'll show up.
+  late final Setting<bool> askBeforePhotos = _bool('askBeforePhotos', false);
+
+  /// The app switcher shows the app blurred (iOS) or blank (Android). Read
+  /// by the app's native side (AppDelegate.swift, MainActivity.kt) by this
+  /// name.
+  late final Setting<bool> coverInAppSwitcher = _bool(
+    'coverInAppSwitcher',
+    false,
+  );
+
+  /// History is only kept in memory, never stored or synced, and is
+  /// forgotten when the app is left.
+  late final Setting<bool> historyThisSessionOnly = _bool(
+    'historyThisSessionOnly',
+    false,
+  );
+
+  bool _nsfwSession = false;
+
+  /// NSFW boards were turned on with the flame, for this session.
+  bool get nsfwSessionOn => _nsfwSession;
+
+  /// NSFW boards, their threads and images show: they're allowed, and, if
+  /// only each session, turned on for this one.
+  bool get showsNsfw =>
+      allowNSFW.value && (!nsfwEachSession.value || _nsfwSession);
+
+  void setNsfwSession(bool on) {
+    if (on != _nsfwSession) {
+      _nsfwSession = on;
+      notifyListeners();
+    }
+  }
+
+  /// Where the codes of 4chan's NSFW boards are kept, from the last board
+  /// list, so they're known before it loads again (or offline).
+  static const String nsfwBoardsKey = 'nsfwBoards';
+
+  late Set<String> _nsfwBoards = <String>{
+    ...?_prefs.getStringList(nsfwBoardsKey),
+  };
+
+  /// Notes which of [boards] are NSFW.
+  void rememberBoards(List<Board> boards) {
+    final Set<String> nsfw = <String>{
+      for (final Board board in boards)
+        if (board.isNsfw) board.board,
+    };
+    if (nsfw.isEmpty || setEquals(nsfw, _nsfwBoards)) {
+      return;
+    }
+    _nsfwBoards = nsfw;
+    notifyListeners();
+    unawaited(_prefs.setStringList(nsfwBoardsKey, nsfw.toList()..sort()));
+  }
+
+  /// [board] is one of 4chan's NSFW boards, as far as is known.
+  bool isNsfwBoard(String board) => _nsfwBoards.contains(board);
+
+  /// [board]'s threads aren't shown: it's NSFW, and NSFW boards aren't.
+  bool hidesBoard(String board) => !showsNsfw && isNsfwBoard(board);
+
   Setting<T> _keep<T extends Object>(Setting<T> setting) {
     _byKey[setting._key] = setting;
     return setting;
@@ -261,17 +341,6 @@ class SettingsProvider with ChangeNotifier implements SyncTarget {
       _prefs.setBool,
       (bool value) => value,
       (Object? stored) => stored is bool ? stored : null,
-      this,
-    ),
-  );
-
-  Setting<int> _int(String key, int byDefault) => _keep(
-    Setting<int>._(
-      key,
-      _prefs.getInt(key) ?? byDefault,
-      _prefs.setInt,
-      (int value) => value,
-      (Object? stored) => stored is int ? stored : null,
       this,
     ),
   );

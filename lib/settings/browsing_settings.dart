@@ -124,16 +124,6 @@ class BrowsingSettings extends StatelessWidget {
                 segments: const {ViewMode.grid: 'Grid', ViewMode.list: 'List'},
               ),
             ),
-            SettingsRow(
-              icon: CupertinoIcons.exclamationmark_triangle_fill,
-              color: DashColors.danger,
-              title: 'Allow NSFW boards',
-              subtitle: 'Show them in the board list and your feed',
-              trailing: SettingsSwitch(
-                value: settings.allowNSFW.value,
-                onChanged: settings.allowNSFW.set,
-              ),
-            ),
           ],
         ),
         SettingsGroup(

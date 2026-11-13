@@ -36,10 +36,17 @@ class _FeedPageState extends State<FeedPage> with ThreadOrder<FeedPage> {
   }
 
   Future<void> _loadFeed() async {
-    final List<String> boards = Provider.of<FavoriteProvider>(
+    final SettingsProvider settings = Provider.of<SettingsProvider>(
       context,
       listen: false,
-    ).boards;
+    );
+    final List<String> boards = [
+      for (final String board in Provider.of<FavoriteProvider>(
+        context,
+        listen: false,
+      ).boards)
+        if (!settings.hidesBoard(board)) board,
+    ];
 
     setState(() {
       _isLoading = true;
@@ -62,9 +69,14 @@ class _FeedPageState extends State<FeedPage> with ThreadOrder<FeedPage> {
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
-    final int boardCount = Provider.of<FavoriteProvider>(context).boards.length;
+    final int boardCount = Provider.of<FavoriteProvider>(
+      context,
+    ).boards.where((board) => !settings.hidesBoard(board)).length;
     final List<Post> visibleThreads = _threads
-        .where(settings.isThreadListed)
+        .where(
+          (Post post) =>
+              settings.isThreadListed(post) && !settings.hidesBoard(post.board),
+        )
         .toList();
 
     return DashScaffold(

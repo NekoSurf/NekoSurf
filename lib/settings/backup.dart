@@ -6,6 +6,7 @@ import 'package:archive/archive_io.dart';
 import 'package:flutter_chan/saved/saved_attachment.dart';
 import 'package:flutter_chan/saved/saved_attachments_model.dart';
 import 'package:flutter_chan/saved/saved_folders.dart';
+import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// A backup of what NekoSurf keeps: its preferences (settings, bookmarks,
@@ -27,7 +28,10 @@ const int _format = 1;
 
 /// Preferences about this install rather than what's backed up, like
 /// whether it syncs with iCloud: never backed up, nor replaced by a restore.
-bool isLocalPreference(String key) => key.startsWith('sync.');
+bool isLocalPreference(String key) =>
+    key.startsWith('sync.') ||
+    key == savedFilesHiddenKey ||
+    key == savedFilesMovingKey;
 
 /// The backup isn't one, or is from a newer NekoSurf.
 class NotABackup implements Exception {

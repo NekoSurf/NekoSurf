@@ -91,18 +91,23 @@ class _ThreadGalleryPageState extends State<ThreadGalleryPage> {
                       fit: StackFit.expand,
                       children: [
                         ColoredBox(color: DashColors.border(context)),
-                        SpoilerCover(
-                          upload: post.spoilerUpload,
-                          canReveal: false,
-                          child: Image(
-                            image: ResizeImage.resizeIfNeeded(
-                              decodeWidth,
-                              null,
-                              thumbnailImage(post.thumbnailUrl),
+                        // Its own context: one tile rebuilds when what's
+                        // covered changes, not the grid.
+                        Builder(
+                          builder: (context) => SpoilerCover(
+                            upload: coveredUpload(context, post),
+                            label: coverLabel(post),
+                            canReveal: false,
+                            child: Image(
+                              image: ResizeImage.resizeIfNeeded(
+                                decodeWidth,
+                                null,
+                                thumbnailImage(post.thumbnailUrl),
+                              ),
+                              fit: BoxFit.cover,
+                              frameBuilder: fadeInImageFrame,
+                              errorBuilder: imageErrorPlaceholder,
                             ),
-                            fit: BoxFit.cover,
-                            frameBuilder: fadeInImageFrame,
-                            errorBuilder: imageErrorPlaceholder,
                           ),
                         ),
                         if (post.isVideo)

@@ -8,9 +8,16 @@ import 'package:flutter_chan/ui/colors.dart';
 const double mediaInlineRadius = 12;
 
 class PostThumbnail extends StatelessWidget {
-  const PostThumbnail({super.key, required this.post});
+  const PostThumbnail({
+    super.key,
+    required this.post,
+    this.coverAlignment = Alignment.center,
+  });
 
   final Post post;
+
+  /// Where a cover's icon goes ([SpoilerCover.alignment]).
+  final AlignmentGeometry coverAlignment;
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +25,9 @@ class PostThumbnail extends StatelessWidget {
       return imageErrorPlaceholder(context, 'No file', null);
     }
     return SpoilerCover(
-      upload: post.spoilerUpload,
+      upload: coveredUpload(context, post),
+      label: coverLabel(post),
+      alignment: coverAlignment,
       canReveal: false,
       child: Image(
         image: thumbnailImage(post.thumbnailUrl),

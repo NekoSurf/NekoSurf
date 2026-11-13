@@ -3,9 +3,11 @@ import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/media/image_cache.dart';
 import 'package:flutter_chan/media/reverse_image_search.dart';
 import 'package:flutter_chan/media/shared_media_viewer.dart';
+import 'package:flutter_chan/media/spoiler_cover.dart';
 import 'package:flutter_chan/saved/downloads.dart';
 import 'package:flutter_chan/saved/give_media.dart';
 import 'package:flutter_chan/saved/media_tasks.dart';
+import 'package:flutter_chan/saved/photos_prompt.dart';
 import 'package:flutter_chan/saved/report_failure.dart';
 import 'package:flutter_chan/saved/saved_attachments_model.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
@@ -77,7 +79,8 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
             thumbnail: thumbnailImage(post.thumbnailUrl),
             width: post.w,
             height: post.h,
-            spoilerUpload: post.spoilerUpload,
+            spoilerUpload: coveredUpload(context, post),
+            coverLabel: coverLabel(post),
           );
         })
         .toList(growable: false);
@@ -112,6 +115,9 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
   Future<void> _saveToPhotos() async {
     final Post post = _currentPost;
     final String name = _givenName(post);
+    if (!await confirmSavingToPhotos(context) || !mounted) {
+      return;
+    }
     await reportingFailure(
       context,
       () => _toPhotos.run(

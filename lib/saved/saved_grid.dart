@@ -45,6 +45,9 @@ class _SavedGridState extends State<SavedGrid> with WidgetsBindingObserver {
   // Null until they're open: without them every saved file would look deleted.
   SavedFolders? _folders;
 
+  // What SavedAttachmentsProvider.foldersMoved was when [_folders] opened.
+  int _foldersMoved = 0;
+
   bool _isLoading = true;
   bool _hasPermissionError = false;
 
@@ -164,6 +167,10 @@ class _SavedGridState extends State<SavedGrid> with WidgetsBindingObserver {
   }
 
   Future<void> _loadAttachments({bool ask = true}) async {
+    _foldersMoved = Provider.of<SavedAttachmentsProvider>(
+      context,
+      listen: false,
+    ).foldersMoved;
     try {
       _folders = await openSavedFolders(ask: ask);
     } catch (e) {
@@ -245,6 +252,18 @@ class _SavedGridState extends State<SavedGrid> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final SavedBrowsing browsing = widget.browsing;
     final provider = Provider.of<SavedAttachmentsProvider>(context);
+    if (provider.foldersMoved != _foldersMoved && !_isLoading) {
+      // The files moved: their folder opens again, and they're measured
+      // where they are now.
+      _foldersMoved = provider.foldersMoved;
+      _isLoading = true;
+      _sizeKey = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _loadAttachments(ask: false);
+        }
+      });
+    }
 
     // As many as fit, as on a board's grid: two on a phone, more on an iPad.
     final int columns = max(
@@ -555,6 +574,7 @@ class _Tile extends StatelessWidget {
   /// Null when its file is here.
   final _Coming? coming;
   final File thumb;
+
   final String title;
   final String details;
   final bool isVideo;

@@ -1,6 +1,6 @@
 # Privacy Policy
 
-_Last updated: 11 November 2026_
+_Last updated: 13 November 2026_
 
 NekoSurf is a free, open-source app for reading 4chan, made by wrngwrld. This policy explains what the app does with your data. In short:
 
@@ -13,9 +13,10 @@ NekoSurf is a free, open-source app for reading 4chan, made by wrngwrld. This po
 NekoSurf keeps these on your phone only:
 
 - Your settings, favorite boards, bookmarks and the filters you set to hide threads and posts
-- The threads you've visited (you can turn this off in Settings → History → Track history) and, for each thread, the posts you've already seen or not yet, where you left off, what you folded and what you hid (watched posts)
-- What you save to the Saved tab: on iPhone in the app's folder (which you can see in the Files app), on Android in Download/4Chan
+- The threads you've visited (you can turn this off in Settings → History → Track history, or keep them only while the app is open) and, for each thread, the posts you've already seen or not yet, where you left off, what you folded and what you hid (watched posts)
+- What you save to the Saved tab: on iPhone in the app's folder, which you can see in the Files app, and on Android in Download/4Chan; or, with Settings → Privacy → Keep saved files in the app turned on, in a folder only the app can see
 - Images and videos you've viewed, cached so they load faster the next time
+- Which of 4chan's boards are NSFW, from 4chan's board list, so they stay hidden while it loads
 - A backup you make with Settings → Backup → Back up to a file goes where you choose to keep it, such as the Files app
 - If you use iCloud sync, a log of what it did lately: when it sent and fetched, how many of each kind of thing (not what they are) and what iCloud answered. It leaves your phone only if you share it from Settings → iCloud sync → Sync log
 
@@ -25,7 +26,7 @@ To work, the app connects to these services. Like any website you visit, they re
 
 - **4chan**, to load boards, threads, images and videos. NekoSurf only reads from 4chan; it doesn't post. 4chan's own policies apply to what it receives.
 - **find.4chan.org**, only when you search all of 4chan. It's protected by Cloudflare, so the search runs in a browser view inside the app, which completes Cloudflare's check and keeps its cookie for later searches.
-- **Your iCloud account**, on iPhone and iPad with NekoSurf from TestFlight, when you turn on iCloud sync in NekoSurf's Settings: NekoSurf keeps your saved media, favorite boards, bookmarks, the threads you've visited and your watched posts (what you've seen in each, where you left off, what you folded and hid), your thread and post filters and most of your settings in your private iCloud database (CloudKit), so they're the same on your other devices with iCloud sync on. Apple lets the app know by a silent notification when something changed on another device; nothing is shown and no permission is asked for. It goes to your own Apple account, not to the developer, counts toward your iCloud storage, and [Apple's privacy policy](https://www.apple.com/legal/privacy/) applies. It's off until you turn it on. Turning it off in NekoSurf's Settings lets you keep that data in iCloud or delete it; you can also delete it there at any time, or in your iPhone's Settings → your name → iCloud → Storage → NekoSurf.
+- **Your iCloud account**, on iPhone and iPad with NekoSurf from TestFlight, when you turn on iCloud sync in NekoSurf's Settings: NekoSurf keeps your saved media, favorite boards, bookmarks, the threads you've visited (unless you keep them only while the app is open) and your watched posts (what you've seen in each, where you left off, what you folded and hid), your thread and post filters and most of your settings in your private iCloud database (CloudKit), so they're the same on your other devices with iCloud sync on. Apple lets the app know by a silent notification when something changed on another device; nothing is shown and no permission is asked for. It goes to your own Apple account, not to the developer, counts toward your iCloud storage, and [Apple's privacy policy](https://www.apple.com/legal/privacy/) applies. It's off until you turn it on. Turning it off in NekoSurf's Settings lets you keep that data in iCloud or delete it; you can also delete it there at any time, or in your iPhone's Settings → your name → iCloud → Storage → NekoSurf.
 - **GitHub**, to check whether a newer version of the app is out. This request carries nothing about you or how you use the app. [GitHub's privacy statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement) applies.
 
 Only when you choose them:
@@ -36,7 +37,7 @@ Only when you choose them:
 ## Permissions
 
 - **On iPhone**, the app asks to add to your photo library when you first save something to Photos. It can only add; it can't see your photos.
-- **On Android**, the app asks for storage access to keep the Saved tab's files in Download/4Chan, and on Android 9 and older also to save to your gallery.
+- **On Android**, the app asks for storage access to keep the Saved tab's files in Download/4Chan (not if you keep them out of Download), and on Android 9 and older also to save to your gallery.
 - The app doesn't use your camera, microphone, contacts or location.
 
 ## How you got the app
@@ -46,9 +47,10 @@ Only when you choose them:
 
 ## Deleting your data
 
-- In **Settings**, under History and Storage, clear the image and video caches, your watched posts and the threads you've visited.
+- In **Settings → Storage**, clear the cache of images and videos.
+- On the **History** page, clear the threads you've visited. Watched posts are forgotten a week after you last opened the thread.
 - In the **Saved tab**, delete what you've saved.
-- **Uninstalling** the app deletes everything it stored, except what you saved to Photos or your gallery, on Android the Download/4Chan folder, any backup files you kept, and what iCloud sync keeps in your iCloud account (delete it in NekoSurf's Settings or your iPhone's iCloud settings).
+- **Uninstalling** the app deletes everything it stored, except what you saved to Photos or your gallery, on Android the Download/4Chan folder (if you kept saved files there), any backup files you kept, and what iCloud sync keeps in your iCloud account (delete it in NekoSurf's Settings or your iPhone's iCloud settings).
 
 ## Children
 

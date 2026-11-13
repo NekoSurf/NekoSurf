@@ -16,6 +16,9 @@ class MediaTasks extends ChangeNotifier {
 
   bool isRunning(String key) => _running.containsKey(key);
 
+  /// Nothing is running.
+  bool get isIdle => _running.isEmpty;
+
   /// How far along [key] is, while it's running.
   ValueListenable<double?>? progressOf(String key) => _running[key];
 

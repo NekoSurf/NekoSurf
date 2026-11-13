@@ -19,7 +19,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final SettingsProvider settings = SettingsProvider(prefs);
-    watched = WatchedPostsProvider(prefs, settings);
+    watched = WatchedPostsProvider(prefs);
     addTearDown(watched.dispose);
 
     await tester.pumpWidget(
@@ -114,7 +114,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final SettingsProvider settings = SettingsProvider(prefs);
-    watched = WatchedPostsProvider(prefs, settings);
+    watched = WatchedPostsProvider(prefs);
     addTearDown(watched.dispose);
 
     await tester.pumpWidget(
@@ -224,7 +224,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final SettingsProvider settings = SettingsProvider(prefs);
-    watched = WatchedPostsProvider(prefs, settings);
+    watched = WatchedPostsProvider(prefs);
     addTearDown(watched.dispose);
     await tester.pumpWidget(
       MultiProvider(

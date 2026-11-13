@@ -186,7 +186,7 @@ void main() {
         syncFolders: () async => folders,
       ),
       boards: FavoriteProvider(prefs, sync: sync),
-      watched: WatchedPostsProvider(prefs, settings, sync: sync),
+      watched: WatchedPostsProvider(prefs, sync: sync),
     );
   }
 
@@ -230,7 +230,7 @@ void main() {
     final a = await app(
       await prefsWith({
         'themeColor': 'cyan',
-        'videoCacheMegabytes': 500,
+        'dataSaver': true,
         'favoriteThreads': [jsonEncode(bookmark('g', 2))],
         'savedAttachments': [savedEntry('cat.png', '222')],
       }),
@@ -298,7 +298,7 @@ void main() {
 
     await a.bookmarks.addBookmark(Bookmark(board: 'g', no: 1));
     await a.settings.themeColor.set(ThemeColor.violet);
-    await a.settings.videoCacheMegabytes.set(800);
+    await a.settings.dataSaver.set(true);
     await a.boards.toggle('wsg');
     await a.settings.addHiddenThreadPattern('spoilers');
     await pumpEventQueue();
@@ -352,7 +352,7 @@ void main() {
         visit(6, 'newer', DateTime(2026, 6)),
         change(SyncKind.setting, 'allowNSFW', {'value': true}),
         // Not one this device takes from others.
-        change(SyncKind.setting, 'videoCacheMegabytes', {'value': 1}),
+        change(SyncKind.setting, 'dataSaver', {'value': true}),
       ])
         {...entry, 'seq': ++seq},
     ]);
@@ -364,7 +364,7 @@ void main() {
     expect(File('${folders.media}/dog.png').existsSync(), isFalse);
     expect(a.history.threads.map((t) => t.title), ['newer', 'here']);
     expect(a.settings.allowNSFW.value, isTrue);
-    expect(a.settings.videoCacheMegabytes.value, 300);
+    expect(a.settings.dataSaver.value, isFalse);
     expect(calls, isNot(contains('save')));
     expect(calls, isNot(contains('delete')));
     expect(inbox, isEmpty);
@@ -878,7 +878,6 @@ void main() {
     a.watched.dispose();
     final WatchedPostsProvider watched = WatchedPostsProvider(
       prefs,
-      a.settings,
       sync: a.sync,
       saveDelay: const Duration(milliseconds: 10),
       syncInterval: const Duration(milliseconds: 400),
@@ -928,7 +927,6 @@ void main() {
 
       final WatchedPostsProvider watched = WatchedPostsProvider(
         prefs,
-        a.settings,
         sync: a.sync,
       );
       expect(watched.unseenPosts(7), {10, 11});

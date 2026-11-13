@@ -92,6 +92,31 @@ void main() {
     expect(prefs.getStringList('savedAttachments'), hasLength(1));
   });
 
+  test(
+    'brings back a file left in the folder they were moved out of',
+    () async {
+      final String other = Directory('${dir.path}/other').absolute.path;
+      Directory(other).createSync();
+      // Written there by a download that started before the move.
+      File('$other/late.jpg').writeAsStringSync('late');
+      final SavedFolders withOther = SavedFolders(
+        media: folders.media,
+        thumbnails: folders.thumbnails,
+        elsewhere: other,
+      );
+      final SavedAttachmentsProvider saved = await provider([
+        stored('late.jpg'),
+        stored('gone.jpg'),
+      ]);
+
+      await saved.reconcileWithDisk(withOther);
+
+      expect(saved.attachments.map((a) => a.fileName), ['late.jpg']);
+      expect(File(withOther.pathOfFile('late.jpg')).readAsStringSync(), 'late');
+      expect(File('$other/late.jpg').existsSync(), isFalse);
+    },
+  );
+
   test("gives files named after their upload the uploader's name", () async {
     File(folders.pathOfFile('123.jpg')).writeAsStringSync('x');
     final SavedAttachmentsProvider saved = await provider([

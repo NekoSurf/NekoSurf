@@ -334,6 +334,7 @@ class _SearchPageState extends State<SearchPage> {
       _catalogs ?? const <Post>[],
       _query,
     ).where((post) => !settings.isThreadHidden(post)).toList();
+    matches.removeWhere((post) => settings.hidesBoard(post.board));
 
     if (matches.isEmpty) {
       return [_message(isDark, 'No threads match')];
@@ -342,6 +343,12 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   List<Widget> _everywhereSlivers(bool isDark) {
+    final SettingsProvider settings = Provider.of<SettingsProvider>(context);
+    // 4chan searches every board: those of hidden NSFW boards are left out.
+    final List<Post> results = [
+      for (final Post post in _globalResults)
+        if (!settings.hidesBoard(post.board)) post,
+    ];
     if (_globalLoading && _globalResults.isEmpty) {
       return const [
         SliverFillRemaining(child: Center(child: CupertinoActivityIndicator())),
@@ -371,7 +378,7 @@ class _SearchPageState extends State<SearchPage> {
         ),
       ];
     }
-    if (_globalResults.isEmpty) {
+    if (results.isEmpty && _nextOffset == null) {
       return [_message(isDark, 'No posts match')];
     }
 
@@ -380,8 +387,8 @@ class _SearchPageState extends State<SearchPage> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
           child: Text(
-            _globalTotal == null
-                ? '${_globalResults.length} posts'
+            _globalTotal == null || results.length < _globalResults.length
+                ? '${results.length} posts'
                 : '$_globalTotal posts',
             style: TextStyle(
               fontSize: 13,
@@ -392,9 +399,9 @@ class _SearchPageState extends State<SearchPage> {
         ),
       ),
       SliverList.builder(
-        itemCount: _globalResults.length,
+        itemCount: results.length,
         itemBuilder: (context, index) {
-          final Post post = _globalResults[index];
+          final Post post = results[index];
           return _SearchResultTile(
             key: ValueKey('${post.board}-${post.no}'),
             post: post,

@@ -4,7 +4,6 @@ import 'dart:math';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_chan/history/thread_memory.dart';
-import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/sync/cloud_sync.dart';
 import 'package:flutter_chan/sync/sync_items.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,8 +20,7 @@ class WatchedPostsProvider
     with ChangeNotifier, WidgetsBindingObserver
     implements SyncTarget {
   WatchedPostsProvider(
-    this._prefs,
-    this._settings, {
+    this._prefs, {
     CloudSync? sync,
     @visibleForTesting Duration saveDelay = const Duration(seconds: 2),
     @visibleForTesting Duration syncInterval = const Duration(seconds: 20),
@@ -36,7 +34,6 @@ class WatchedPostsProvider
   }
 
   final SharedPreferences _prefs;
-  final SettingsProvider _settings;
   final CloudSync _sync;
 
   // Threads changed since they last went to iCloud: they go at most every
@@ -50,6 +47,9 @@ class WatchedPostsProvider
   DateTime _lastSynced = DateTime.fromMillisecondsSinceEpoch(0);
 
   static const String _threadMemoryStorageKey = 'threadMemory';
+
+  /// How long what's known of a thread is kept after it was last read.
+  static const Duration _keptFor = Duration(days: 7);
   final Duration _saveDebounceDelay;
   final Duration _syncInterval;
 
@@ -314,20 +314,8 @@ class WatchedPostsProvider
     }),
   );
 
-  Future<void> clearAllWatchedPosts() async {
-    _sync.removeAll(SyncKind.threadMemory, [
-      for (final int thread in _threadMemory.keys) '$thread',
-    ]);
-    _threadMemory.clear();
-    _changed.clear();
-    await _save();
-    notifyListeners();
-  }
-
   Future<void> _clearOldWatchedPosts() async {
-    final DateTime cutoffDate = DateTime.now().subtract(
-      Duration(days: _settings.watchedPostsRetentionDays.value),
-    );
+    final DateTime cutoffDate = DateTime.now().subtract(_keptFor);
 
     final List<int> old = <int>[
       for (final MapEntry<int, ThreadMemory> entry in _threadMemory.entries)
@@ -351,9 +339,7 @@ class WatchedPostsProvider
   /// if it changed there since, unless it's older than this device keeps.
   @override
   Future<void> applySync(List<SyncChange> changes) async {
-    final DateTime cutoff = DateTime.now().subtract(
-      Duration(days: _settings.watchedPostsRetentionDays.value),
-    );
+    final DateTime cutoff = DateTime.now().subtract(_keptFor);
     bool changed = false;
     for (final SyncChange change in changes) {
       final int? thread = int.tryParse(change.key ?? '');

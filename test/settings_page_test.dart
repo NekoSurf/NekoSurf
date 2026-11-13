@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/history/history_model.dart';
 import 'package:flutter_chan/history/watched_posts_model.dart';
+import 'package:flutter_chan/saved/saved_attachments_model.dart';
+import 'package:flutter_chan/saved/saved_folders.dart';
 import 'package:flutter_chan/settings/appearance_settings.dart';
 import 'package:flutter_chan/settings/settings.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
+import 'package:flutter_chan/settings/settings_widgets.dart';
 import 'package:flutter_chan/thread/post_hiding.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
@@ -27,10 +30,10 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     settings = SettingsProvider(prefs);
-    watched = WatchedPostsProvider(prefs, settings);
+    watched = WatchedPostsProvider(prefs);
     addTearDown(watched.dispose);
 
-    await tester.binding.setSurfaceSize(const Size(400, 3000));
+    await tester.binding.setSurfaceSize(const Size(400, 4000));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
       MultiProvider(
@@ -39,6 +42,15 @@ void main() {
           ChangeNotifierProvider<WatchedPostsProvider>.value(value: watched),
           ChangeNotifierProvider<HistoryProvider>(
             create: (_) => HistoryProvider(prefs, settings),
+          ),
+          ChangeNotifierProvider<SavedAttachmentsProvider>(
+            create: (_) => SavedAttachmentsProvider(
+              prefs,
+              syncFolders: () async => const SavedFolders(
+                media: '/nonexistent/media',
+                thumbnails: '/nonexistent/thumbnails',
+              ),
+            ),
           ),
         ],
         child: const MaterialApp(
@@ -58,19 +70,21 @@ void main() {
       'Sort by',
       'Direction',
       'View',
-      'Allow NSFW boards',
       'Auto-scroll to last seen',
       'Layout',
       'Start feed videos muted',
       'Data saver',
       "Use 4chan's file names",
+      'Allow NSFW boards',
+      'Turn on each time',
+      'Cover NSFW images',
+      'Show the Saved tab',
+      'Keep saved files in the app',
+      'Ask before saving to Photos',
+      'Hide in the app switcher',
       'Track history',
-      'Keep watched posts',
-      'Clear watched posts',
-      'Clear recently visited',
-      'Video cache limit',
-      'Clear video cache',
-      'Clear image cache',
+      'Only while the app is open',
+      'Clear cache',
       'Send feedback',
       'Privacy policy',
     ]) {
@@ -167,32 +181,32 @@ void main() {
     expect(find.text('Light'), findsNothing);
   });
 
-  testWidgets('clearing watched posts asks first', (tester) async {
+  testWidgets('the NSFW choices can be changed once NSFW boards are allowed', (
+    tester,
+  ) async {
     await pumpSettings(tester);
-    watched.noteThreadPosts(1, const <int>[1, 2]);
-    await tester.pump(const Duration(seconds: 3));
+    final Finder eachTime = find.descendant(
+      of: find.ancestor(
+        of: find.text('Turn on each time'),
+        matching: find.byType(SettingsRow),
+      ),
+      matching: find.byType(SettingsSwitch),
+    );
+    await tester.tap(eachTime, warnIfMissed: false);
+    await tester.pump();
+    expect(settings.nsfwEachSession.value, isFalse);
 
-    await tester.tap(find.text('Clear watched posts'));
+    await settings.allowNSFW.set(true);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Cancel'));
-    await tester.pumpAndSettle();
-    expect(watched.threadMemory(1), isNotNull);
-
-    await tester.tap(find.text('Clear watched posts'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Clear'));
-    await tester.pumpAndSettle();
-    expect(watched.threadMemory(1), isNull);
-
-    // The toast saying so goes away by itself.
-    await tester.pump(const Duration(seconds: 5));
-    await tester.pumpAndSettle();
+    await tester.tap(eachTime);
+    await tester.pump();
+    expect(settings.nsfwEachSession.value, isTrue);
   });
 
   testWidgets('caches clear without asking', (tester) async {
     await pumpSettings(tester);
 
-    await tester.tap(find.text('Clear image cache'));
+    await tester.tap(find.text('Clear cache'));
     await tester.pump();
     expect(find.text('Cancel'), findsNothing);
     await tester.pump(const Duration(seconds: 5));

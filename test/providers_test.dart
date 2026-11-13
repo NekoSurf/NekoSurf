@@ -105,7 +105,6 @@ void main() {
         'boardSort': 'byReplyCount',
         'boardViewMode': 'no longer a mode',
         'allowNSFW': true,
-        'watchedPostsRetentionDays': 30,
       });
       final SettingsProvider settings = SettingsProvider(
         await SharedPreferences.getInstance(),
@@ -114,7 +113,6 @@ void main() {
       expect(settings.boardSort.value, Sort.byReplyCount);
       expect(settings.boardViewMode.value, ViewMode.grid);
       expect(settings.allowNSFW.value, isTrue);
-      expect(settings.watchedPostsRetentionDays.value, 30);
       expect(settings.trackHistory.value, isTrue);
     });
 
@@ -153,10 +151,7 @@ void main() {
   group('WatchedPostsProvider', () {
     Future<WatchedPostsProvider> watchedProvider() async {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
-      final WatchedPostsProvider watched = WatchedPostsProvider(
-        prefs,
-        SettingsProvider(prefs),
-      );
+      final WatchedPostsProvider watched = WatchedPostsProvider(prefs);
       addTearDown(watched.dispose);
       // Let the cleanup it starts with finish.
       await Future<void>.delayed(Duration.zero);
@@ -240,9 +235,6 @@ void main() {
         expect(again.threadMemory(1)?.topAlignment, -0.25);
         expect(again.threadMemory(1)?.folded, {'3', '3/7'});
         expect(again.threadMemory(1)?.primaryParents, {7: 3});
-
-        await again.clearAllWatchedPosts();
-        expect(again.threadMemory(1), isNull);
       },
     );
 
@@ -339,9 +331,6 @@ void main() {
 
       final WatchedPostsProvider again = await watchedProvider();
       expect(again.unseenPosts(1), {2});
-
-      await again.clearAllWatchedPosts();
-      expect(again.unseenPosts(1), isEmpty);
     });
   });
 }

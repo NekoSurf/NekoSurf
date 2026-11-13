@@ -54,6 +54,7 @@ class SharedMediaViewerItem {
     this.width,
     this.height,
     this.spoilerUpload,
+    this.coverLabel = 'Spoiler',
   });
 
   final String id;
@@ -71,6 +72,9 @@ class SharedMediaViewerItem {
 
   /// See [SpoilerCover.upload].
   final int? spoilerUpload;
+
+  /// See [SpoilerCover.label].
+  final String coverLabel;
 }
 
 /// A scrollable ignores touches while its page settles, which blocks zoom;
@@ -278,6 +282,7 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
                 },
                 itemBuilder: (context, index) => SpoilerCover(
                   upload: widget.items[index].spoilerUpload,
+                  label: widget.items[index].coverLabel,
                   child: Builder(
                     builder: (context) {
                       final SharedMediaViewerItem item = widget.items[index];
@@ -333,9 +338,20 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
               left: 0,
               right: 0,
               bottom: 0,
-              child: _Chrome(
-                visible: _chromeVisible && widget.items[_currentIndex].isVideo,
-                hiddenOffset: 0.3,
+              // Not over a covered video: there's nothing to control
+              // till it's revealed, and the last video's would show.
+              child: ValueListenableBuilder<Set<int>>(
+                valueListenable: revealedSpoilers,
+                builder: (context, _, controls) => _Chrome(
+                  visible:
+                      _chromeVisible &&
+                      widget.items[_currentIndex].isVideo &&
+                      !isSpoilerCovered(
+                        widget.items[_currentIndex].spoilerUpload,
+                      ),
+                  hiddenOffset: 0.3,
+                  child: controls!,
+                ),
                 child: ListenableBuilder(
                   listenable: video,
                   builder: (context, _) => _VideoControls(

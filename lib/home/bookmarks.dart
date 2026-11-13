@@ -122,21 +122,28 @@ class _BookmarksState extends State<Bookmarks> {
     }
   }
 
-  Future<void> _clear(BookmarksProvider bookmarks) async {
-    final int n = bookmarks.bookmarks.length;
+  /// Clears the bookmarks shown, [items]: not those of hidden NSFW boards.
+  Future<void> _clear(BookmarksProvider bookmarks, List<Bookmark> items) async {
+    final int n = items.length;
     if (await _confirm(
       'Clear all $n ${n == 1 ? 'bookmark' : 'bookmarks'}?',
       'Every bookmark goes$_everywhere. This can’t be undone.',
       'Clear',
     )) {
-      await bookmarks.clearBookmarks();
+      await (n == bookmarks.bookmarks.length
+          ? bookmarks.clearBookmarks()
+          : bookmarks.removeBookmarks({for (final b in items) b.key}));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final bookmarks = Provider.of<BookmarksProvider>(context);
-    final List<Bookmark> items = bookmarks.bookmarks;
+    final SettingsProvider settings = Provider.of<SettingsProvider>(context);
+    final List<Bookmark> items = [
+      for (final Bookmark b in bookmarks.bookmarks)
+        if (!settings.hidesBoard(b.board)) b,
+    ];
     _check(items);
     final Set<String> dead = _deadKeys(items);
 
@@ -180,7 +187,7 @@ class _BookmarksState extends State<Bookmarks> {
                 title: 'Clear bookmarks',
                 icon: CupertinoIcons.trash,
                 isDestructive: true,
-                onPressed: () => _clear(bookmarks),
+                onPressed: () => _clear(bookmarks, items),
               ),
             ],
           ),

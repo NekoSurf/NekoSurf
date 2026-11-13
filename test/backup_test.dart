@@ -59,7 +59,7 @@ void main() {
       'savedAttachments': [video('cat.webm', '111'), image('dog.png', '222')],
       'favoriteThreads': ['{"board":"wsg","no":1}'],
       'allowNSFW': true,
-      'videoCacheMegabytes': 500,
+      'someCount': 500,
       'someRatio': 0.5,
       'themeColor': 'violet',
       'sync.iCloud': true,
@@ -88,7 +88,7 @@ void main() {
       '{"board":"wsg","no":1}',
     ]);
     expect(restored.getBool('allowNSFW'), isTrue);
-    expect(restored.getInt('videoCacheMegabytes'), 500);
+    expect(restored.getInt('someCount'), 500);
     expect(restored.getDouble('someRatio'), 0.5);
     expect(restored.getString('themeColor'), 'violet');
     // What the backup didn't have goes back to its default.

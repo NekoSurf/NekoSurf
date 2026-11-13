@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_chan/media/shared_media_viewer.dart';
 import 'package:flutter_chan/saved/give_media.dart';
 import 'package:flutter_chan/saved/media_tasks.dart';
+import 'package:flutter_chan/saved/photos_prompt.dart';
 import 'package:flutter_chan/saved/report_failure.dart';
 import 'package:flutter_chan/saved/saved_attachment.dart';
 import 'package:flutter_chan/saved/saved_attachments_model.dart';
@@ -77,6 +78,9 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
 
   Future<void> _saveToPhotos() async {
     final String fileName = _current.fileName;
+    if (!await confirmSavingToPhotos(context) || !mounted) {
+      return;
+    }
     await reportingFailure(
       context,
       () => _toPhotos.run(fileName, (_) async {

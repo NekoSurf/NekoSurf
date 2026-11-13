@@ -19,8 +19,18 @@ Bookmark _bookmark(String board, int no, {bool image = true}) => Bookmark(
   imageUrl: image ? '${1700000000000 + no}s.jpg' : null,
 );
 
-Future<void> _pump(WidgetTester tester, Widget child) =>
-    tester.pumpWidget(MaterialApp(home: Scaffold(body: child)));
+Future<void> _pump(WidgetTester tester, Widget child) async {
+  SharedPreferences.setMockInitialValues({});
+  final SettingsProvider settings = SettingsProvider(
+    await SharedPreferences.getInstance(),
+  );
+  await tester.pumpWidget(
+    ChangeNotifierProvider<SettingsProvider>.value(
+      value: settings,
+      child: MaterialApp(home: Scaffold(body: child)),
+    ),
+  );
+}
 
 void main() {
   testWidgets('counts the threads and the boards, in the order shown', (
@@ -93,8 +103,15 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await tester.pumpWidget(
-      ChangeNotifierProvider<BookmarksProvider>(
-        create: (_) => BookmarksProvider(prefs),
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<SettingsProvider>(
+            create: (_) => SettingsProvider(prefs),
+          ),
+          ChangeNotifierProvider<BookmarksProvider>(
+            create: (_) => BookmarksProvider(prefs),
+          ),
+        ],
         child: const MaterialApp(home: Bookmarks()),
       ),
     );
@@ -108,7 +125,7 @@ void main() {
     });
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final SettingsProvider settings = SettingsProvider(prefs);
-    final WatchedPostsProvider watched = WatchedPostsProvider(prefs, settings);
+    final WatchedPostsProvider watched = WatchedPostsProvider(prefs);
     addTearDown(watched.dispose);
     final BookmarksProvider bookmarks = BookmarksProvider(prefs);
     await tester.pumpWidget(

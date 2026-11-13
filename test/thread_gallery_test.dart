@@ -1,16 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/chan/post.dart';
+import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/thread/thread_gallery_page.dart';
 import 'package:flutter_chan/ui/pills.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 Post _media(int no, String ext) =>
     Post(board: 'g', no: no, time: 1700000000, tim: no, ext: ext);
 
 void main() {
   Future<void> pumpGallery(WidgetTester tester, List<Post> posts) async {
+    SharedPreferences.setMockInitialValues({});
+    final SettingsProvider settings = SettingsProvider(
+      await SharedPreferences.getInstance(),
+    );
     await tester.pumpWidget(
-      MaterialApp(home: ThreadGalleryPage(mediaPosts: posts)),
+      ChangeNotifierProvider<SettingsProvider>.value(
+        value: settings,
+        child: MaterialApp(home: ThreadGalleryPage(mediaPosts: posts)),
+      ),
     );
   }
 

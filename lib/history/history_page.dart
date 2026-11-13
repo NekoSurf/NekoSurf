@@ -3,6 +3,7 @@ import 'package:flutter_chan/chan/post_text.dart';
 import 'package:flutter_chan/history/history_model.dart';
 import 'package:flutter_chan/history/new_replies.dart';
 import 'package:flutter_chan/media/image_cache.dart';
+import 'package:flutter_chan/saved/saved_tab.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/ui/back_swipe_route.dart';
 import 'package:flutter_chan/ui/colors.dart';
@@ -76,13 +77,15 @@ class _HistoryPageState extends State<HistoryPage> {
   @override
   Widget build(BuildContext context) {
     final HistoryProvider history = Provider.of<HistoryProvider>(context);
-    final bool tracking = Provider.of<SettingsProvider>(
-      context,
-    ).trackHistory.value;
+    final SettingsProvider settings = Provider.of<SettingsProvider>(context);
+    final bool tracking = settings.trackHistory.value;
 
     // Threads are stored newest first, so each day's group is contiguous.
     final List<(String, List<HistoryThread>)> days = [];
     for (final HistoryThread t in history.threads) {
+      if (settings.hidesBoard(t.board)) {
+        continue;
+      }
       final String label = _dayLabel(t.visitedAt);
       if (days.isEmpty || days.last.$1 != label) {
         days.add((label, <HistoryThread>[]));
@@ -94,6 +97,17 @@ class _HistoryPageState extends State<HistoryPage> {
       title: 'History',
       onRefresh: () => history.checkThreads(force: true),
       actions: [
+        // Where Saved opens without its tab.
+        if (!settings.showSavedTab.value)
+          DashIconButton(
+            label: 'Saved',
+            icon: const Icon(CupertinoIcons.paperclip),
+            onPressed: () => Navigator.of(context).push(
+              BackSwipePageRoute<void>(
+                builder: (_) => const SavedTab(asPage: true),
+              ),
+            ),
+          ),
         if (history.threads.isNotEmpty)
           DashIconButton(
             label: 'Clear history',

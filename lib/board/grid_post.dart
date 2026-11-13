@@ -8,6 +8,7 @@ import 'package:flutter_chan/chan/thread_status.dart';
 import 'package:flutter_chan/history/new_replies.dart';
 import 'package:flutter_chan/media/image_cache.dart';
 import 'package:flutter_chan/media/post_thumbnail.dart';
+import 'package:flutter_chan/media/spoiler_cover.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/image_frost.dart';
 import 'package:flutter_chan/ui/open.dart';
@@ -46,8 +47,9 @@ class GridPost extends StatelessWidget {
 
     final Bookmark bookmark = Bookmark.fromPost(post);
     final bool isBookmarked = bookmarks.isBookmarked(bookmark);
-    // A spoiler's picture stays hidden, even this blurry.
-    final ImageProvider? frost = post.tim != null && post.spoilerUpload == null
+    // A covered picture stays hidden, even this blurry.
+    final ImageProvider? frost =
+        post.tim != null && coveredUpload(context, post) == null
         ? thumbnailImage(post.thumbnailUrl)
         : null;
 
@@ -71,7 +73,11 @@ class GridPost extends StatelessWidget {
                 children: [
                   Opacity(
                     opacity: status == ThreadStatus.deleted ? 0.45 : 1,
-                    child: PostThumbnail(post: post),
+                    child: PostThumbnail(
+                      post: post,
+                      // Above the title and counts at the bottom.
+                      coverAlignment: const Alignment(0, -0.25),
+                    ),
                   ),
                   DecoratedBox(
                     decoration: BoxDecoration(

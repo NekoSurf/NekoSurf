@@ -155,6 +155,32 @@ class SavedAttachmentsProvider with ChangeNotifier implements SyncTarget {
 
   Future<void> _store() => _prefs.setStringList(storageKey, _encoded());
 
+  int _foldersMoved = 0;
+
+  /// Goes up each time saved files move to another folder ([moveFiles]):
+  /// whatever keeps their folders opens them again.
+  int get foldersMoved => _foldersMoved;
+
+  /// While saved files move ([moveFiles]): how many of how many are done.
+  final ValueNotifier<(int, int)?> moving = ValueNotifier<(int, int)?>(null);
+
+  /// Moves saved files out of Files (or Android's Download folder), or back
+  /// with [hidden] false. Throws [StorageDenied] without access to them.
+  Future<void> moveFiles({required bool hidden}) async {
+    moving.value = (0, 0);
+    try {
+      await moveSavedFiles(
+        _prefs,
+        hidden: hidden,
+        onProgress: (int done, int total) => moving.value = (done, total),
+      );
+    } finally {
+      moving.value = null;
+      _foldersMoved++;
+      notifyListeners();
+    }
+  }
+
   /// Saves [post]'s upload in a file called [fileName].
   Future<void> save(Post post, {required String fileName}) async {
     final String id = post.uploadId;
@@ -222,7 +248,9 @@ class SavedAttachmentsProvider with ChangeNotifier implements SyncTarget {
   }
 
   /// Brings what older versions left up to date, once, and drops entries whose
-  /// file was deleted outside the app. Saves and removals can finish meanwhile.
+  /// file was deleted outside the app: not in [folders], nor left in the
+  /// folder they were moved out of ([SavedFolders.elsewhere]), from where
+  /// it's brought back. Saves and removals can finish meanwhile.
   Future<void> reconcileWithDisk(SavedFolders folders) async {
     if (!_migrated) {
       _migrated = true;
@@ -248,7 +276,10 @@ class SavedAttachmentsProvider with ChangeNotifier implements SyncTarget {
     for (final SavedAttachment attachment in List.of(_attachments)) {
       // A placeholder's file isn't here yet.
       if (!hasFile(attachment) ||
-          await File(folders.mediaPath(attachment)).exists()) {
+          await File(folders.mediaPath(attachment)).exists() ||
+          // Left in the folder they were in before "Keep saved files in
+          // the app" moved them: not gone.
+          await bringBackSavedFile(folders, attachment.fileName)) {
         continue;
       }
       gone.add(attachment);
@@ -458,6 +489,7 @@ class SavedAttachmentsProvider with ChangeNotifier implements SyncTarget {
     _sync.filesMayHaveCome.removeListener(_downloadWaiting);
     _sync.detach(this);
     saves.dispose();
+    moving.dispose();
     super.dispose();
   }
 }

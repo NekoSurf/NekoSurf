@@ -44,7 +44,15 @@ class _DashboardState extends State<Dashboard> {
   }
 
   void _load({bool refresh = false}) {
-    _boardsFuture = fetchAllBoards(refresh: refresh);
+    final SettingsProvider settings = Provider.of<SettingsProvider>(
+      context,
+      listen: false,
+    );
+    _boardsFuture = fetchAllBoards(refresh: refresh).then((boards) {
+      // So bookmarks, history and search know which to leave out.
+      settings.rememberBoards(boards);
+      return boards;
+    });
   }
 
   Future<void> _refresh() {
@@ -115,7 +123,8 @@ class _DashboardState extends State<Dashboard> {
   Widget build(BuildContext context) {
     final bool isDark = context.isDark;
     final favorites = Provider.of<FavoriteProvider>(context);
-    final nsfw = Provider.of<SettingsProvider>(context).allowNSFW.value;
+    final SettingsProvider settings = Provider.of<SettingsProvider>(context);
+    final bool nsfw = settings.showsNsfw;
 
     return DashScaffold(
       title: 'NekoSurf',
@@ -129,6 +138,19 @@ class _DashboardState extends State<Dashboard> {
         ),
       ),
       actions: [
+        if (settings.allowNSFW.value && settings.nsfwEachSession.value)
+          DashIconButton(
+            label: settings.nsfwSessionOn
+                ? 'Hide NSFW boards'
+                : 'Show NSFW boards',
+            icon: Icon(
+              settings.nsfwSessionOn
+                  ? CupertinoIcons.flame_fill
+                  : CupertinoIcons.flame,
+              color: settings.nsfwSessionOn ? DashColors.danger : null,
+            ),
+            onPressed: () => settings.setNsfwSession(!settings.nsfwSessionOn),
+          ),
         DashIconButton(
           label: 'History',
           icon: const Icon(CupertinoIcons.clock),
@@ -201,7 +223,7 @@ class _DashboardState extends State<Dashboard> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
           child: DashFeedCard(
-            boardCount: favorites.boards.length,
+            boardCount: favoriteBoards.length,
             onTap: () => _push(const FeedPage()),
           ),
         ),

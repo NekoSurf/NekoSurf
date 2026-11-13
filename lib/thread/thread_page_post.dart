@@ -275,7 +275,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
 
   Widget _buildMedia() {
     final Widget media = widget.post.isVideo ? _buildVideo() : _buildImage();
-    final int? upload = widget.post.spoilerUpload;
+    final int? upload = coveredUpload(context, widget.post);
     if (upload == null) {
       return media;
     }
@@ -283,7 +283,11 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
       aspectRatio: _mediaAspectRatio(),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(mediaInlineRadius),
-        child: SpoilerCover(upload: upload, child: media),
+        child: SpoilerCover(
+          upload: upload,
+          label: coverLabel(widget.post),
+          child: media,
+        ),
       ),
     );
   }
@@ -335,7 +339,8 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                         child: SizedBox.square(
                           dimension: 60,
                           child: SpoilerCover(
-                            upload: widget.post.spoilerUpload,
+                            upload: coveredUpload(context, widget.post),
+                            label: coverLabel(widget.post),
                             canReveal: false,
                             child: Image(
                               image: thumbnailImage(widget.post.thumbnailUrl),

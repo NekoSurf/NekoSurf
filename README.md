@@ -64,7 +64,8 @@
 
 - No account, no ads, no analytics: NekoSurf talks to 4chan, and to GitHub to check for updates
 - Your favorites, bookmarks, history and saved files stay on your phone
-- NSFW boards stay hidden until you turn them on
+- NSFW boards stay hidden until you turn them on, or until you tap the flame each time; their images can stay covered until you tap them
+- Keep the Saved tab, your saved files and history out of sight: out of the tab bar, out of the Files app, and forgotten when you leave the app; and hide the app in the app switcher
 
 The [privacy policy](privacy_policy.md) has the details.
 

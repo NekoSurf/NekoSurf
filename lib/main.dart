@@ -11,9 +11,11 @@ import 'package:flutter_chan/history/watched_posts_model.dart';
 import 'package:flutter_chan/home/app_shell.dart';
 import 'package:flutter_chan/home/routes.dart';
 import 'package:flutter_chan/media/image_cache.dart';
+import 'package:flutter_chan/media/video_players.dart';
 import 'package:flutter_chan/media/video_server.dart';
 import 'package:flutter_chan/saved/downloads.dart';
 import 'package:flutter_chan/saved/saved_attachments_model.dart';
+import 'package:flutter_chan/saved/saved_folders.dart';
 import 'package:flutter_chan/settings/backup.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/settings/synced_items.dart';
@@ -48,12 +50,11 @@ Future<void> main() async {
   final SharedPreferences prefs = await SharedPreferences.getInstance();
   CloudSync.instance.storedItems = storedSyncItems;
   unawaited(CloudSync.instance.load(prefs));
+  // Before anything looks for them.
+  await finishMovingSavedFiles(prefs);
   final SettingsProvider settings = SettingsProvider(prefs);
-  unawaited(
-    VideoServer.instance.setMaxCacheBytes(
-      settings.videoCacheMegabytes.value * megabyte,
-    ),
-  );
+  // Beyond this, the least recently watched videos are deleted.
+  unawaited(VideoServer.instance.setMaxCacheBytes(300 * megabyte));
   unawaited(deleteSaveLeftovers());
   unawaited(deleteOldImageCache());
   runApp(AppRoot(prefs: prefs, settings: settings));
@@ -109,11 +110,6 @@ class _AppRootState extends State<AppRoot> {
     final SettingsProvider old = _settings;
     _settings = SettingsProvider(widget.prefs);
     old.dispose();
-    unawaited(
-      VideoServer.instance.setMaxCacheBytes(
-        _settings.videoCacheMegabytes.value * megabyte,
-      ),
-    );
     if (!mounted) {
       return;
     }
@@ -256,7 +252,7 @@ class MyApp extends StatelessWidget {
           lazy: false,
         ),
         ChangeNotifierProvider<WatchedPostsProvider>(
-          create: (_) => WatchedPostsProvider(prefs, settings),
+          create: (_) => WatchedPostsProvider(prefs),
           lazy: false,
         ),
       ],
@@ -280,6 +276,8 @@ class _AppWithThemeState extends State<AppWithTheme>
   // Stays with the app's one navigator; an observer can't watch two.
   final UnfocusOnPushObserver _unfocusOnPush = UnfocusOnPushObserver();
 
+  late final AppLifecycleListener _lifecycle;
+
   Brightness _phoneBrightness =
       WidgetsBinding.instance.platformDispatcher.platformBrightness;
 
@@ -287,12 +285,20 @@ class _AppWithThemeState extends State<AppWithTheme>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _lifecycle = AppLifecycleListener(onHide: _left);
   }
 
   @override
   void dispose() {
+    _lifecycle.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  /// The app was left: history kept only while it's open is forgotten.
+  /// (NSFW boards turned on with the flame stay on until it's closed.)
+  void _left() {
+    context.read<HistoryProvider>().forgetSession();
   }
 
   @override
@@ -314,6 +320,9 @@ class _AppWithThemeState extends State<AppWithTheme>
               .select<SettingsProvider, Appearance>((s) => s.appearance.value)
               .brightness(_phoneBrightness);
     final bool isDark = brightness == Brightness.dark;
+    // Covered in the app switcher, videos needn't play on there.
+    VideoPlayers.instance.pausesWhileInactive = context
+        .select<SettingsProvider, bool>((s) => s.coverInAppSwitcher.value);
 
     return DashTheme(
       color: themeColor,
