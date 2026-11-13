@@ -24,6 +24,15 @@
       ],
       "versions": [
         {
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.13.0%2B308/Runner.ipa",
+          "size": 34224809,
+          "version": "0.13.0",
+          "buildVersion": "308",
+          "date": "2026-11-13T16:12:46+00:00",
+          "localizedDescription": "New privacy settings keep NSFW boards hidden until you tap the flame, saved files out of the Files app, history only while the app is open and the app out of the app switcher.",
+          "minOSVersion": "17.0"
+        },
+        {
           "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.13.0%2B307/Runner.ipa",
           "size": 34206272,
           "version": "0.13.0",
