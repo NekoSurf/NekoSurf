@@ -1187,6 +1187,12 @@ final actor CloudSync: CKSyncEngineDelegate {
       inFlight[id] = nil
       // Not saved, so there's nothing to delete again.
       deleteAfter.remove(id)
+      guard outbox[id] != nil else {
+        // Deleted here, or taken from elsewhere, meanwhile: not to be sent
+        // again, nor said to have failed.
+        log("Not saved: \(Self.tag(id)): \(Self.describe(failure.error)); no longer to be")
+        continue
+      }
       let next: String
       switch failure.error.code {
       case .serverRecordChanged:
@@ -1219,6 +1225,11 @@ final actor CloudSync: CKSyncEngineDelegate {
         next = "kept till there's room"
       case let code where Self.retriedByEngine(code):
         next = "the engine sends it again"
+      case .assetFileNotFound, .assetFileModified:
+        // Its thumbnail went, or changed, while it went up: it's sent again
+        // as it is now (see record(for:)).
+        retry.append(.saveRecord(recordID))
+        next = "sending again"
       default:
         // Kept in the outbox too; said, not dropped.
         refused = failure.error
