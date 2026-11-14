@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_chan/bookmarks/bookmark.dart';
 import 'package:flutter_chan/bookmarks/bookmark_button.dart';
 import 'package:flutter_chan/chan/api.dart';
@@ -23,6 +24,7 @@ import 'package:flutter_chan/ui/back_swipe_route.dart';
 import 'package:flutter_chan/ui/dash_header.dart';
 import 'package:flutter_chan/ui/dash_menu.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
+import 'package:flutter_chan/ui/keys.dart';
 import 'package:flutter_chan/ui/open_url.dart';
 import 'package:flutter_chan/ui/reload.dart';
 import 'package:flutter_chan/ui/toast.dart';
@@ -511,113 +513,135 @@ class _ThreadPageState extends State<ThreadPage>
 
   @override
   Widget build(BuildContext context) {
-    return DashBarScaffold(
-      title: _title,
-      subtitle: _threadStatus,
-      actions: [
-        DashIconButton(
-          label: 'Gallery',
-          icon: const Icon(CupertinoIcons.square_grid_3x2),
-          onPressed: _openGallery,
-        ),
-        BookmarkButton(bookmark: Bookmark.fromPost(_opening)),
-        Builder(
-          builder: (BuildContext menuButton) => DashMenuButton(
-            menuChildren: [
-              DashMenuEntry(
-                title: 'Share',
-                icon: CupertinoIcons.share,
-                onPressed: () => shareLink(
-                  Uri.parse(urls.threadPage(widget.board, widget.thread)),
-                  from: ShareAnchor(menuButton),
-                ),
-              ),
-              DashMenuEntry(
-                title: 'Open in Browser',
-                icon: CupertinoIcons.globe,
-                onPressed: () {
-                  openUrl(urls.threadPage(widget.board, widget.thread));
-                },
-              ),
-              DashMenuEntry(
-                title: 'Refresh',
-                icon: CupertinoIcons.arrow_clockwise,
-                onPressed: _refresh,
-              ),
-              DashMenuEntry(
-                title: 'Scroll to Top',
-                icon: CupertinoIcons.arrow_up,
-                onPressed: () {
-                  scrollToRow(0, alignment: 0);
-                },
-              ),
-              DashMenuEntry(
-                title: 'Scroll to Bottom',
-                icon: CupertinoIcons.arrow_down,
-                onPressed: () {
-                  scrollToRow(rows.length - 1, alignment: 0);
-                },
-              ),
-            ],
+    // With a keyboard: the arrows, or J and K, go post by post; ⌘ with
+    // them, to the ends; ⌘R refreshes.
+    return PageKeys(
+      bindings: keyBindings({
+        [
+          const SingleActivator(LogicalKeyboardKey.arrowDown),
+          const SingleActivator(LogicalKeyboardKey.keyJ),
+        ]: () =>
+            stepRows(1),
+        [
+          const SingleActivator(LogicalKeyboardKey.arrowUp),
+          const SingleActivator(LogicalKeyboardKey.keyK),
+        ]: () =>
+            stepRows(-1),
+        withCommand(LogicalKeyboardKey.arrowUp): () =>
+            scrollToRow(0, alignment: 0),
+        withCommand(LogicalKeyboardKey.arrowDown): () =>
+            scrollToRow(rows.length - 1, alignment: 0),
+        withCommand(LogicalKeyboardKey.keyR): _refresh,
+      }),
+      child: DashBarScaffold(
+        title: _title,
+        subtitle: _threadStatus,
+        actions: [
+          DashIconButton(
+            label: 'Gallery',
+            icon: const Icon(CupertinoIcons.square_grid_3x2),
+            onPressed: _openGallery,
           ),
-        ),
-      ],
-      body: FutureBuilder(
-        future: _loaded,
-        builder: (BuildContext context, AsyncSnapshot<List<Post>> snapshot) {
-          switch (snapshot.connectionState) {
-            case ConnectionState.waiting:
-              return const Center(child: CupertinoActivityIndicator());
-            default:
-              if (snapshot.error is ThreadNotFound) {
-                return ReloadWidget(
-                  onReload: loadThread,
-                  icon: CupertinoIcons.trash,
-                  title: 'Thread not found',
-                  message: 'It was deleted or has dropped out of the archive.',
-                  secondaryLabel: 'Open on 4chan',
-                  onSecondary: () =>
-                      openUrl(urls.threadPage(widget.board, widget.thread)),
-                );
-              }
-              if (snapshot.hasError) {
-                return ReloadWidget.forError(
-                  snapshot.error,
-                  onReload: loadThread,
-                );
-              } else {
-                if (!_didRestorePlace) {
-                  // Once the list is there to be told.
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) {
-                      _restorePlace();
-                      _didRestorePlace = true;
-                    }
-                  });
+          BookmarkButton(bookmark: Bookmark.fromPost(_opening)),
+          Builder(
+            builder: (BuildContext menuButton) => DashMenuButton(
+              menuChildren: [
+                DashMenuEntry(
+                  title: 'Share',
+                  icon: CupertinoIcons.share,
+                  onPressed: () => shareLink(
+                    Uri.parse(urls.threadPage(widget.board, widget.thread)),
+                    from: ShareAnchor(menuButton),
+                  ),
+                ),
+                DashMenuEntry(
+                  title: 'Open in Browser',
+                  icon: CupertinoIcons.globe,
+                  onPressed: () {
+                    openUrl(urls.threadPage(widget.board, widget.thread));
+                  },
+                ),
+                DashMenuEntry(
+                  title: 'Refresh',
+                  icon: CupertinoIcons.arrow_clockwise,
+                  onPressed: _refresh,
+                ),
+                DashMenuEntry(
+                  title: 'Scroll to Top',
+                  icon: CupertinoIcons.arrow_up,
+                  onPressed: () {
+                    scrollToRow(0, alignment: 0);
+                  },
+                ),
+                DashMenuEntry(
+                  title: 'Scroll to Bottom',
+                  icon: CupertinoIcons.arrow_down,
+                  onPressed: () {
+                    scrollToRow(rows.length - 1, alignment: 0);
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+        body: FutureBuilder(
+          future: _loaded,
+          builder: (BuildContext context, AsyncSnapshot<List<Post>> snapshot) {
+            switch (snapshot.connectionState) {
+              case ConnectionState.waiting:
+                return const Center(child: CupertinoActivityIndicator());
+              default:
+                if (snapshot.error is ThreadNotFound) {
+                  return ReloadWidget(
+                    onReload: loadThread,
+                    icon: CupertinoIcons.trash,
+                    title: 'Thread not found',
+                    message:
+                        'It was deleted or has dropped out of the archive.',
+                    secondaryLabel: 'Open on 4chan',
+                    onSecondary: () =>
+                        openUrl(urls.threadPage(widget.board, widget.thread)),
+                  );
                 }
+                if (snapshot.hasError) {
+                  return ReloadWidget.forError(
+                    snapshot.error,
+                    onReload: loadThread,
+                  );
+                } else {
+                  if (!_didRestorePlace) {
+                    // Once the list is there to be told.
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        _restorePlace();
+                        _didRestorePlace = true;
+                      }
+                    });
+                  }
 
-                // Hidden until it's back in place, so it doesn't show the top of
-                // the thread on its way. Always there, as adding it later would
-                // start the list over.
-                return Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    IgnorePointer(
-                      ignoring: !_isListShown,
-                      child: Opacity(
-                        opacity: _isListShown ? 1 : 0,
-                        child: buildRowList(
-                          preloadVideos: _preloadVideoPostIds,
+                  // Hidden until it's back in place, so it doesn't show the top of
+                  // the thread on its way. Always there, as adding it later would
+                  // start the list over.
+                  return Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      IgnorePointer(
+                        ignoring: !_isListShown,
+                        child: Opacity(
+                          opacity: _isListShown ? 1 : 0,
+                          child: buildRowList(
+                            preloadVideos: _preloadVideoPostIds,
+                          ),
                         ),
                       ),
-                    ),
-                    if (!_isListShown)
-                      const Center(child: CupertinoActivityIndicator()),
-                  ],
-                );
-              }
-          }
-        },
+                      if (!_isListShown)
+                        const Center(child: CupertinoActivityIndicator()),
+                    ],
+                  );
+                }
+            }
+          },
+        ),
       ),
     );
   }

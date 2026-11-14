@@ -23,6 +23,7 @@ import 'package:flutter_chan/sync/cloud_sync.dart';
 import 'package:flutter_chan/ui/app_restart.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/fast_page_transitions.dart';
+import 'package:flutter_chan/ui/keys.dart';
 import 'package:flutter_chan/ui/open.dart';
 import 'package:flutter_chan/ui/unfocus_on_push.dart';
 import 'package:media_kit/media_kit.dart';
@@ -362,7 +363,7 @@ class _AppWithThemeState extends State<AppWithTheme>
                 },
               ),
             ),
-            child: child!,
+            child: AppKeys(child: child!),
           ),
         ),
       ),

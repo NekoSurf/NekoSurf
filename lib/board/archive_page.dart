@@ -33,6 +33,7 @@ class ArchivePage extends StatefulWidget {
 class _ArchivePageState extends State<ArchivePage> {
   late final ArchivePreviewLoader _loader = ArchivePreviewLoader(widget.board);
   final TextEditingController _search = TextEditingController();
+  final FocusNode _searchFocus = FocusNode();
 
   List<int> _threads = const <int>[];
   bool _isLoading = true;
@@ -48,6 +49,7 @@ class _ArchivePageState extends State<ArchivePage> {
   void dispose() {
     _loader.dispose();
     _search.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -89,6 +91,7 @@ class _ArchivePageState extends State<ArchivePage> {
         title: 'Archive',
         subtitle: '/${widget.board}/ · ${widget.boardName}',
         readable: !grid,
+        onFind: _searchFocus.requestFocus,
         actions: const [ViewModeButton()],
         slivers: [
           SliverToBoxAdapter(
@@ -105,6 +108,7 @@ class _ArchivePageState extends State<ArchivePage> {
             SliverToBoxAdapter(
               child: DashSearchField(
                 controller: _search,
+                focusNode: _searchFocus,
                 placeholder: 'Search loaded threads',
                 onChanged: (_) => setState(() {}),
               ),

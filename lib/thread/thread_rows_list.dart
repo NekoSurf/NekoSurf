@@ -325,6 +325,34 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
     return (MediaQuery.paddingOf(context).top + kDashHeaderHeight + 8) / height;
   }
 
+  /// Moves on [by] posts from the one at the top, for a keyboard's arrows:
+  /// the next, or the one before, comes to just below the header. Back from
+  /// a post partly scrolled past goes to its own start first.
+  void stepRows(int by) {
+    // Pressed again on the way, it goes on from where it was going.
+    final int? going = _isAutoScrolling ? _aim?.row : null;
+    if (going != null) {
+      scrollToRow(
+        (going + by).clamp(0, rows.length - 1),
+        alignment: belowHeader,
+      );
+      return;
+    }
+    final List<ItemPosition> positions = visiblePositions()
+      ..sort((a, b) => a.index.compareTo(b.index));
+    if (positions.isEmpty || rows.isEmpty) {
+      return;
+    }
+    final double line = belowHeader;
+    final ItemPosition current = positions.lastWhere(
+      (ItemPosition position) => position.itemLeadingEdge <= line + 0.01,
+      orElse: () => positions.first,
+    );
+    final bool partway = current.itemLeadingEdge < line - 0.01;
+    final int target = by < 0 && partway ? current.index : current.index + by;
+    scrollToRow(target.clamp(0, rows.length - 1), alignment: line);
+  }
+
   /// Briefly tints a row so it's clear where a jump landed.
   void flashRow(String path) {
     _highlightTimer?.cancel();

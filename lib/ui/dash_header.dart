@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/frosted.dart';
+import 'package:flutter_chan/ui/hover.dart';
 import 'package:flutter_chan/ui/window_size.dart';
 
 const double kDashHeaderHeight = 62;
@@ -50,20 +51,22 @@ class _DashIconButtonState extends State<DashIconButton> {
             padding: const EdgeInsets.only(left: 8),
             child: SizedBox.square(
               dimension: 40,
-              child: Frosted(
-                radius: 14,
-                blur: 16,
-                color: Colors.white.withValues(alpha: isDark ? 0.08 : 0.55),
-                borderColor: isDark
-                    ? Colors.white.withValues(alpha: 0.12)
-                    : Colors.black.withValues(alpha: 0.08),
-                child: Center(
-                  child: IconTheme(
-                    data: IconThemeData(
-                      color: DashColors.text(context),
-                      size: 19,
+              child: HoverHighlight(
+                child: Frosted(
+                  radius: 14,
+                  blur: 16,
+                  color: Colors.white.withValues(alpha: isDark ? 0.08 : 0.55),
+                  borderColor: isDark
+                      ? Colors.white.withValues(alpha: 0.12)
+                      : Colors.black.withValues(alpha: 0.08),
+                  child: Center(
+                    child: IconTheme(
+                      data: IconThemeData(
+                        color: DashColors.text(context),
+                        size: 19,
+                      ),
+                      child: widget.icon,
                     ),
-                    child: widget.icon,
                   ),
                 ),
               ),
@@ -412,93 +415,96 @@ class _TabButtonState extends State<_TabButton> {
         onTapUp: (_) => _press(false),
         onTapCancel: () => _press(false),
         onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
-            gradient: selected
-                ? LinearGradient(
-                    colors: [
-                      context.accent.withValues(alpha: 0.24),
-                      context.accent2.withValues(alpha: 0.2),
-                    ],
-                  )
-                : null,
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              AnimatedScale(
-                scale: _pressed ? 0.82 : 1,
-                duration: Duration(milliseconds: _pressed ? 90 : 260),
-                curve: _pressed ? Curves.easeOut : Curves.easeOutBack,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Icon(
-                      tab.icon,
-                      size: 21,
-                      color: selected
-                          ? context.accent
-                          : DashColors.muted(context),
-                    ),
-                    if (tab.count > 0)
-                      Positioned(
-                        top: -5,
-                        left: 14,
-                        child: Container(
-                          constraints: const BoxConstraints(minWidth: 17),
-                          padding: const EdgeInsets.symmetric(horizontal: 5),
-                          decoration: BoxDecoration(
-                            color: context.accent,
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(
-                              color: DashColors.card(context),
-                              width: 1.5,
-                            ),
-                          ),
-                          child: Text(
-                            tab.count > 99 ? '99+' : '${tab.count}',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 10.5,
-                              height: 1.35,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.black,
-                            ),
-                          ),
-                        ),
-                      )
-                    else if (tab.badge)
-                      Positioned(
-                        top: -1,
-                        right: -3,
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: CupertinoColors.systemRed,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
+        child: HoverHighlight(
+          radius: 22,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(22),
+              gradient: selected
+                  ? LinearGradient(
+                      colors: [
+                        context.accent.withValues(alpha: 0.24),
+                        context.accent2.withValues(alpha: 0.2),
+                      ],
+                    )
+                  : null,
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                AnimatedScale(
+                  scale: _pressed ? 0.82 : 1,
+                  duration: Duration(milliseconds: _pressed ? 90 : 260),
+                  curve: _pressed ? Curves.easeOut : Curves.easeOutBack,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Icon(
+                        tab.icon,
+                        size: 21,
+                        color: selected
+                            ? context.accent
+                            : DashColors.muted(context),
                       ),
-                  ],
+                      if (tab.count > 0)
+                        Positioned(
+                          top: -5,
+                          left: 14,
+                          child: Container(
+                            constraints: const BoxConstraints(minWidth: 17),
+                            padding: const EdgeInsets.symmetric(horizontal: 5),
+                            decoration: BoxDecoration(
+                              color: context.accent,
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                color: DashColors.card(context),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Text(
+                              tab.count > 99 ? '99+' : '${tab.count}',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 10.5,
+                                height: 1.35,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.black,
+                              ),
+                            ),
+                          ),
+                        )
+                      else if (tab.badge)
+                        Positioned(
+                          top: -1,
+                          right: -3,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: CupertinoColors.systemRed,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                tab.label,
-                maxLines: 1,
-                style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w700,
-                  color: selected
-                      ? DashColors.text(context)
-                      : DashColors.muted(context),
+                const SizedBox(height: 2),
+                Text(
+                  tab.label,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    color: selected
+                        ? DashColors.text(context)
+                        : DashColors.muted(context),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

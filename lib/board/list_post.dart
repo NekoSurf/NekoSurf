@@ -64,6 +64,8 @@ class ListPost extends StatelessWidget {
         child: GestureDetector(
           onTap: () => openThreadUnlessDeleted(context, post, status),
           onLongPress: () => showThreadFilterMenu(context, post),
+          // A right click, with a trackpad or mouse, does what holding does.
+          onSecondaryTap: () => showThreadFilterMenu(context, post),
           child: Container(
             margin: const EdgeInsets.fromLTRB(10, 6, 10, 6),
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),

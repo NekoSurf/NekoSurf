@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/history/watched_posts_model.dart';
@@ -66,6 +67,43 @@ void main() {
     );
     await tester.pump();
   }
+
+  testWidgets('a right click opens the menu holding it opens', (tester) async {
+    final Post post = Post(board: 'g', no: 2, time: 1700000000, com: 'Hi');
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<SettingsProvider>.value(value: settings),
+          ChangeNotifierProvider<WatchedPostsProvider>.value(value: watched),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: ThreadPagePost(
+              post: post,
+              thread: ThreadPosts(
+                board: 'g',
+                number: 1,
+                posts: [
+                  Post(board: 'g', no: 1, time: 1700000000),
+                  post,
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(
+      find.textContaining('Anonymous'),
+      buttons: kSecondaryMouseButton,
+      kind: PointerDeviceKind.mouse,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Hide this post'), findsOneWidget);
+  });
 
   group('folded', () {
     testWidgets('shows only its header, and unfolds when tapped', (

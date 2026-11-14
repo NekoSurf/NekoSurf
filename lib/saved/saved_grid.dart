@@ -755,6 +755,8 @@ class _Tile extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       onLongPress: onLongPress,
+      // A right click, with a trackpad or mouse, does what holding does.
+      onSecondaryTap: onLongPress,
       child: AnimatedScale(
         scale: selected ? 0.95 : 1,
         duration: const Duration(milliseconds: 140),

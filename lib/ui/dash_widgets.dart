@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/ui/colors.dart';
+import 'package:flutter_chan/ui/hover.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 
 class DashCard extends StatelessWidget {
@@ -19,18 +20,19 @@ class DashCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Widget card = Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: DashColors.card(context),
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(color: DashColors.border(context)),
+      ),
+      child: child,
+    );
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: padding,
-        decoration: BoxDecoration(
-          color: DashColors.card(context),
-          borderRadius: BorderRadius.circular(radius),
-          border: Border.all(color: DashColors.border(context)),
-        ),
-        child: child,
-      ),
+      child: onTap == null ? card : HoverHighlight(radius: radius, child: card),
     );
   }
 }
@@ -142,9 +144,11 @@ class DashSearchField extends StatelessWidget {
     required this.controller,
     required this.onChanged,
     this.placeholder = 'Search threads',
+    this.focusNode,
   });
 
   final TextEditingController controller;
+  final FocusNode? focusNode;
   final ValueChanged<String> onChanged;
   final String placeholder;
 
@@ -154,6 +158,7 @@ class DashSearchField extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
       child: CupertinoSearchTextField(
         controller: controller,
+        focusNode: focusNode,
         placeholder: placeholder,
         backgroundColor: DashColors.card(context),
         onChanged: onChanged,

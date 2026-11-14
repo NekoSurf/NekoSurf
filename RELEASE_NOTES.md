@@ -3,6 +3,8 @@
 ### 🖥️ Made for iPad and tablets
 - In a wide window, the tabs move down the side, and a thread opens beside the board, bookmarks, history or search you picked it from
 - Lists and threads keep to a column you can read, and a tall image fits on the screen instead of running past it
+- With a trackpad or mouse, right-click for the menu that holding opens
+- With a keyboard, the arrows or J and K go post by post, Cmd+R refreshes, Cmd+F searches a board, Cmd+1 to Cmd+4 switch tabs, and Esc goes back
 
 ## What's fixed
 

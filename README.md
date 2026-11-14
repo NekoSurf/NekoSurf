@@ -60,6 +60,7 @@
 
 - In a wide window, the tabs move down the side, and threads open beside the board, bookmarks, history or search they're picked from, so you can read one and pick the next
 - Lists and threads keep to a column you can read, and a tall image fits on the screen
+- With a trackpad or mouse, right-click for the menu that holding opens; with a keyboard, the arrows or J and K go post by post, Cmd+R refreshes, Cmd+F searches a board, Cmd+1 to Cmd+4 switch tabs, and Esc goes back
 
 ### 🎨 Make it yours
 

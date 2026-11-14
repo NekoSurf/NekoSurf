@@ -10,6 +10,7 @@ import 'package:flutter_chan/media/image_cache.dart';
 import 'package:flutter_chan/media/post_thumbnail.dart';
 import 'package:flutter_chan/media/spoiler_cover.dart';
 import 'package:flutter_chan/ui/colors.dart';
+import 'package:flutter_chan/ui/hover.dart';
 import 'package:flutter_chan/ui/image_frost.dart';
 import 'package:flutter_chan/ui/open.dart';
 import 'package:flutter_chan/ui/pills.dart';
@@ -56,224 +57,231 @@ class GridPost extends StatelessWidget {
     return GestureDetector(
       onTap: () => openThreadUnlessDeleted(context, post, status),
       onLongPress: () => showThreadFilterMenu(context, post),
-      child: Container(
-        decoration: BoxDecoration(
-          color: cardColor,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: DashColors.border(context)),
-          boxShadow: DashColors.cardShadow(isDark),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(22),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final Size card = constraints.biggest;
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  Opacity(
-                    opacity: status == ThreadStatus.deleted ? 0.45 : 1,
-                    child: PostThumbnail(
-                      post: post,
-                      // Above the title and counts at the bottom.
-                      coverAlignment: const Alignment(0, -0.25),
-                    ),
-                  ),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        // Darkest behind the title, above the counts.
-                        stops: const [0, 0.4, 0.8],
-                        colors: [
-                          Colors.black.withValues(alpha: 0.08),
-                          Colors.black.withValues(alpha: 0.02),
-                          Colors.black.withValues(alpha: 0.58),
-                        ],
+      // A right click, with a trackpad or mouse, does what holding does.
+      onSecondaryTap: () => showThreadFilterMenu(context, post),
+      child: HoverHighlight(
+        radius: 22,
+        child: Container(
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: DashColors.border(context)),
+            boxShadow: DashColors.cardShadow(isDark),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(22),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final Size card = constraints.biggest;
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Opacity(
+                      opacity: status == ThreadStatus.deleted ? 0.45 : 1,
+                      child: PostThumbnail(
+                        post: post,
+                        // Above the title and counts at the bottom.
+                        coverAlignment: const Alignment(0, -0.25),
                       ),
                     ),
-                  ),
-                  Positioned(
-                    top: 10,
-                    left: 10,
-                    // Clear of the bookmark button.
-                    right: 50,
-                    child: Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: [
-                        // First, so that its place on the card is known.
-                        ImageFrost(
-                          image: frost,
-                          card: card,
-                          anchor: Alignment.topLeft,
-                          inset: const Offset(-_chipInset, -_chipInset),
-                          radius: 8,
-                          tint: _chipTint,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              'No.${post.no}',
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.9),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          // Darkest behind the title, above the counts.
+                          stops: const [0, 0.4, 0.8],
+                          colors: [
+                            Colors.black.withValues(alpha: 0.08),
+                            Colors.black.withValues(alpha: 0.02),
+                            Colors.black.withValues(alpha: 0.58),
+                          ],
                         ),
-                        if (showBoard)
-                          Container(
+                      ),
+                    ),
+                    Positioned(
+                      top: 10,
+                      left: 10,
+                      // Clear of the bookmark button.
+                      right: 50,
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          // First, so that its place on the card is known.
+                          ImageFrost(
+                            image: frost,
+                            card: card,
+                            anchor: Alignment.topLeft,
+                            inset: const Offset(-_chipInset, -_chipInset),
+                            radius: 8,
+                            tint: _chipTint,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 8,
                               vertical: 4,
                             ),
-                            decoration: BoxDecoration(
-                              color: boardTint.withValues(alpha: 0.65),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              '/${post.board}/',
-                              style: const TextStyle(
-                                color: CupertinoColors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                'No.${post.no}',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ),
-                        if (post.isSticky)
-                          const _Tag(
-                            color: CupertinoColors.systemOrange,
-                            icon: CupertinoIcons.pin,
-                            label: 'Sticky',
-                          ),
-                        if (status case ThreadStatus.archived)
-                          const _Tag(
-                            color: CupertinoColors.systemGrey,
-                            icon: CupertinoIcons.archivebox,
-                            label: 'Archived',
-                          ),
-                        if (status case ThreadStatus.deleted)
-                          const _Tag(
-                            color: DashColors.danger,
-                            icon: CupertinoIcons.trash,
-                            label: 'Deleted',
-                          ),
-                      ],
+                          if (showBoard)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: boardTint.withValues(alpha: 0.65),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '/${post.board}/',
+                                style: const TextStyle(
+                                  color: CupertinoColors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          if (post.isSticky)
+                            const _Tag(
+                              color: CupertinoColors.systemOrange,
+                              icon: CupertinoIcons.pin,
+                              label: 'Sticky',
+                            ),
+                          if (status case ThreadStatus.archived)
+                            const _Tag(
+                              color: CupertinoColors.systemGrey,
+                              icon: CupertinoIcons.archivebox,
+                              label: 'Archived',
+                            ),
+                          if (status case ThreadStatus.deleted)
+                            const _Tag(
+                              color: DashColors.danger,
+                              icon: CupertinoIcons.trash,
+                              label: 'Deleted',
+                            ),
+                        ],
+                      ),
                     ),
-                  ),
-                  Positioned(
-                    top: 10,
-                    right: 10,
-                    child: GestureDetector(
-                      onTap: () => bookmarks.toggleBookmark(bookmark),
-                      child: ImageFrost(
-                        image: frost,
-                        card: card,
-                        anchor: Alignment.topRight,
-                        inset: const Offset(_chipInset, -_chipInset),
-                        radius: 8,
-                        tint: _chipTint,
-                        child: SizedBox(
-                          width: 32,
-                          height: 32,
-                          child: Icon(
-                            isBookmarked
-                                ? CupertinoIcons.bookmark_fill
-                                : CupertinoIcons.bookmark,
-                            color: Colors.white,
-                            size: 16,
+                    Positioned(
+                      top: 10,
+                      right: 10,
+                      child: GestureDetector(
+                        onTap: () => bookmarks.toggleBookmark(bookmark),
+                        child: ImageFrost(
+                          image: frost,
+                          card: card,
+                          anchor: Alignment.topRight,
+                          inset: const Offset(_chipInset, -_chipInset),
+                          radius: 8,
+                          tint: _chipTint,
+                          child: SizedBox(
+                            width: 32,
+                            height: 32,
+                            child: Icon(
+                              isBookmarked
+                                  ? CupertinoIcons.bookmark_fill
+                                  : CupertinoIcons.bookmark,
+                              color: Colors.white,
+                              size: 16,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                headline,
-                                style: const TextStyle(
-                                  height: 1.1,
-                                  color: Colors.white,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              if (excerpt.isNotEmpty) ...[
-                                const SizedBox(height: 3),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
                                 Text(
-                                  excerpt,
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.9),
-                                    fontSize: 12,
-                                    height: 1.3,
+                                  headline,
+                                  style: const TextStyle(
+                                    height: 1.1,
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
                                   ),
-                                  maxLines: 1,
+                                  maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        ImageFrost(
-                          image: frost,
-                          card: card,
-                          anchor: Alignment.bottomCenter,
-                          inset: Offset.zero,
-                          radius: 0,
-                          tint: cardColor.withValues(
-                            alpha: isDark ? 0.7 : 0.85,
-                          ),
-                          padding: const EdgeInsets.fromLTRB(10, 8, 10, 9),
-                          child: NewRepliesCount(
-                            thread: post.no,
-                            replies: post.replies,
-                            builder: (context, newReplies) => Row(
-                              children: [
-                                Flexible(
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    alignment: Alignment.centerLeft,
-                                    child: RepliesRow(
-                                      replies: post.replies,
-                                      imageReplies: post.images,
+                                if (excerpt.isNotEmpty) ...[
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    excerpt,
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.9,
+                                      ),
+                                      fontSize: 12,
+                                      height: 1.3,
                                     ),
-                                  ),
-                                ),
-                                if (newReplies > 0) ...[
-                                  const SizedBox(width: 6),
-                                  NewRepliesBadge(
-                                    count: newReplies,
-                                    short: true,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ],
                               ],
                             ),
                           ),
-                        ),
-                      ],
+                          ImageFrost(
+                            image: frost,
+                            card: card,
+                            anchor: Alignment.bottomCenter,
+                            inset: Offset.zero,
+                            radius: 0,
+                            tint: cardColor.withValues(
+                              alpha: isDark ? 0.7 : 0.85,
+                            ),
+                            padding: const EdgeInsets.fromLTRB(10, 8, 10, 9),
+                            child: NewRepliesCount(
+                              thread: post.no,
+                              replies: post.replies,
+                              builder: (context, newReplies) => Row(
+                                children: [
+                                  Flexible(
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: RepliesRow(
+                                        replies: post.replies,
+                                        imageReplies: post.images,
+                                      ),
+                                    ),
+                                  ),
+                                  if (newReplies > 0) ...[
+                                    const SizedBox(width: 6),
+                                    NewRepliesBadge(
+                                      count: newReplies,
+                                      short: true,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              );
-            },
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ),

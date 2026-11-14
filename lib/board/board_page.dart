@@ -29,6 +29,7 @@ class BoardPage extends StatefulWidget {
 
 class _BoardPageState extends State<BoardPage> with ThreadOrder<BoardPage> {
   final TextEditingController _searchBarController = TextEditingController();
+  final FocusNode _searchFocus = FocusNode();
 
   List<Post> _catalog = [];
   List<Post> _threads = [];
@@ -57,6 +58,7 @@ class _BoardPageState extends State<BoardPage> with ThreadOrder<BoardPage> {
   @override
   void dispose() {
     _searchBarController.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -114,6 +116,7 @@ class _BoardPageState extends State<BoardPage> with ThreadOrder<BoardPage> {
         title: widget.boardName,
         readable: settings.boardViewMode.value == ViewMode.list,
         onRefresh: () => _loadBoard(keepShown: true),
+        onFind: _searchFocus.requestFocus,
         actions: [
           DashIconButton(
             label: isFavorite ? 'Remove from favorites' : 'Add to favorites',
@@ -153,6 +156,7 @@ class _BoardPageState extends State<BoardPage> with ThreadOrder<BoardPage> {
           SliverToBoxAdapter(
             child: DashSearchField(
               controller: _searchBarController,
+              focusNode: _searchFocus,
               onChanged: (_) => setState(_applyView),
             ),
           ),

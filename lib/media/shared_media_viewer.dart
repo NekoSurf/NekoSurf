@@ -6,6 +6,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_chan/media/media_video.dart';
 import 'package:flutter_chan/media/spoiler_cover.dart';
 import 'package:flutter_chan/media/video_scrub_gesture.dart';
@@ -13,6 +14,7 @@ import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_dialogs.dart';
 import 'package:flutter_chan/ui/frosted.dart';
+import 'package:flutter_chan/ui/keys.dart';
 import 'package:preload_page_view/preload_page_view.dart';
 import 'package:provider/provider.dart';
 
@@ -243,212 +245,232 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
       );
     }
 
-    return Scaffold(
-      // Black comes from the background layer, which may fade in.
-      backgroundColor: Colors.transparent,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: _zoomed(
-              (zoom) => zoom.buildBackgroundFade,
-              ColoredBox(color: Colors.black, child: _buildPagedBackdrop()),
-            ),
-          ),
-          // Android's smaller platform touch slop lets page drags beat pinch-to-zoom.
-          _zoomed(
-            (zoom) => zoom.buildMediaZoom,
-            MediaQuery(
-              data: MediaQuery.of(context).copyWith(
-                gestureSettings: const DeviceGestureSettings(
-                  touchSlop: kTouchSlop,
-                ),
-              ),
-              child: PreloadPageView.builder(
-                controller: _pageController,
-                scrollDirection: Axis.vertical,
-                preloadPagesCount: widget.savesData ? 0 : 1,
-                physics: _isVideoScrubbing || _isImageZoomed
-                    ? const NeverScrollableScrollPhysics()
-                    : const _SnappyPagePhysics(),
-                itemCount: itemCount,
-                onPageChanged: (index) {
-                  setState(() {
-                    _currentIndex = index;
-                    _isVideoScrubbing = false;
-                    _isImageZoomed = false;
-                  });
-                  _precacheAround(index);
-                  widget.onIndexChanged(index);
-                },
-                itemBuilder: (context, index) => SpoilerCover(
-                  upload: widget.items[index].spoilerUpload,
-                  label: widget.items[index].coverLabel,
-                  child: Builder(
-                    builder: (context) {
-                      final SharedMediaViewerItem item = widget.items[index];
+    // With a keyboard, the arrows go from one to the next (Esc closes it,
+    // as going back does everywhere).
+    void step(int by) {
+      final int to = _currentIndex + by;
+      if (to >= 0 && to < itemCount) {
+        _pageController.animateToPage(
+          to,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    }
 
-                      if (item.isVideo) {
-                        return _SharedMediaVideoPage(
-                          key: ValueKey('shared-media-video-${item.id}'),
+    return PageKeys(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.arrowLeft): () => step(-1),
+        const SingleActivator(LogicalKeyboardKey.arrowRight): () => step(1),
+      },
+      child: Scaffold(
+        // Black comes from the background layer, which may fade in.
+        backgroundColor: Colors.transparent,
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: _zoomed(
+                (zoom) => zoom.buildBackgroundFade,
+                ColoredBox(color: Colors.black, child: _buildPagedBackdrop()),
+              ),
+            ),
+            // Android's smaller platform touch slop lets page drags beat pinch-to-zoom.
+            _zoomed(
+              (zoom) => zoom.buildMediaZoom,
+              MediaQuery(
+                data: MediaQuery.of(context).copyWith(
+                  gestureSettings: const DeviceGestureSettings(
+                    touchSlop: kTouchSlop,
+                  ),
+                ),
+                child: PreloadPageView.builder(
+                  controller: _pageController,
+                  scrollDirection: Axis.vertical,
+                  preloadPagesCount: widget.savesData ? 0 : 1,
+                  physics: _isVideoScrubbing || _isImageZoomed
+                      ? const NeverScrollableScrollPhysics()
+                      : const _SnappyPagePhysics(),
+                  itemCount: itemCount,
+                  onPageChanged: (index) {
+                    setState(() {
+                      _currentIndex = index;
+                      _isVideoScrubbing = false;
+                      _isImageZoomed = false;
+                    });
+                    _precacheAround(index);
+                    widget.onIndexChanged(index);
+                  },
+                  itemBuilder: (context, index) => SpoilerCover(
+                    upload: widget.items[index].spoilerUpload,
+                    label: widget.items[index].coverLabel,
+                    child: Builder(
+                      builder: (context) {
+                        final SharedMediaViewerItem item = widget.items[index];
+
+                        if (item.isVideo) {
+                          return _SharedMediaVideoPage(
+                            key: ValueKey('shared-media-video-${item.id}'),
+                            item: item,
+                            isActive: _currentIndex == index,
+                            onTap: _toggleChrome,
+                            rate: _rate,
+                            autoAdvance: settings.fullscreenAutoAdvance.value,
+                            onCompleted: () => _advanceAfter(index),
+                            onActive: (video) {
+                              if (_activeVideo != video) {
+                                setState(() => _activeVideo = video);
+                              }
+                            },
+                            onScrubStateChanged: (isScrubbing) {
+                              if (!mounted ||
+                                  _isVideoScrubbing == isScrubbing) {
+                                return;
+                              }
+
+                              setState(() {
+                                _isVideoScrubbing = isScrubbing;
+                              });
+                            },
+                          );
+                        }
+
+                        return _SharedMediaImagePage(
+                          key: ValueKey('shared-media-image-${item.id}'),
                           item: item,
-                          isActive: _currentIndex == index,
                           onTap: _toggleChrome,
-                          rate: _rate,
-                          autoAdvance: settings.fullscreenAutoAdvance.value,
-                          onCompleted: () => _advanceAfter(index),
-                          onActive: (video) {
-                            if (_activeVideo != video) {
-                              setState(() => _activeVideo = video);
-                            }
-                          },
-                          onScrubStateChanged: (isScrubbing) {
-                            if (!mounted || _isVideoScrubbing == isScrubbing) {
+                          onZoomStateChanged: (isZoomed) {
+                            if (!mounted || _isImageZoomed == isZoomed) {
                               return;
                             }
 
                             setState(() {
-                              _isVideoScrubbing = isScrubbing;
+                              _isImageZoomed = isZoomed;
                             });
                           },
                         );
-                      }
-
-                      return _SharedMediaImagePage(
-                        key: ValueKey('shared-media-image-${item.id}'),
-                        item: item,
-                        onTap: _toggleChrome,
-                        onZoomStateChanged: (isZoomed) {
-                          if (!mounted || _isImageZoomed == isZoomed) {
-                            return;
-                          }
-
-                          setState(() {
-                            _isImageZoomed = isZoomed;
-                          });
-                        },
-                      );
-                    },
+                      },
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          if (_activeVideo case final MediaVideo video)
+            if (_activeVideo case final MediaVideo video)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                // Not over a covered video: there's nothing to control
+                // till it's revealed, and the last video's would show.
+                child: ValueListenableBuilder<Set<int>>(
+                  valueListenable: revealedSpoilers,
+                  builder: (context, _, controls) => _Chrome(
+                    visible:
+                        _chromeVisible &&
+                        widget.items[_currentIndex].isVideo &&
+                        !isSpoilerCovered(
+                          widget.items[_currentIndex].spoilerUpload,
+                        ),
+                    hiddenOffset: 0.3,
+                    child: controls!,
+                  ),
+                  child: ListenableBuilder(
+                    listenable: video,
+                    builder: (context, _) => _VideoControls(
+                      video: video,
+                      rate: _rate,
+                      onCycleRate: _cycleRate,
+                      autoAdvance: settings.fullscreenAutoAdvance.value,
+                      onToggleAutoAdvance: () => settings.fullscreenAutoAdvance
+                          .set(!settings.fullscreenAutoAdvance.value),
+                    ),
+                  ),
+                ),
+              ),
             Positioned(
+              top: 0,
               left: 0,
               right: 0,
-              bottom: 0,
-              // Not over a covered video: there's nothing to control
-              // till it's revealed, and the last video's would show.
-              child: ValueListenableBuilder<Set<int>>(
-                valueListenable: revealedSpoilers,
-                builder: (context, _, controls) => _Chrome(
-                  visible:
-                      _chromeVisible &&
-                      widget.items[_currentIndex].isVideo &&
-                      !isSpoilerCovered(
-                        widget.items[_currentIndex].spoilerUpload,
-                      ),
-                  hiddenOffset: 0.3,
-                  child: controls!,
-                ),
-                child: ListenableBuilder(
-                  listenable: video,
-                  builder: (context, _) => _VideoControls(
-                    video: video,
-                    rate: _rate,
-                    onCycleRate: _cycleRate,
-                    autoAdvance: settings.fullscreenAutoAdvance.value,
-                    onToggleAutoAdvance: () => settings.fullscreenAutoAdvance
-                        .set(!settings.fullscreenAutoAdvance.value),
+              child: _Chrome(
+                visible: _chromeVisible,
+                hiddenOffset: -0.3,
+                child: Container(
+                  padding: EdgeInsets.fromLTRB(12, topInset + 8, 12, 28),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.7),
+                        Colors.transparent,
+                      ],
+                    ),
                   ),
-                ),
-              ),
-            ),
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: _Chrome(
-              visible: _chromeVisible,
-              hiddenOffset: -0.3,
-              child: Container(
-                padding: EdgeInsets.fromLTRB(12, topInset + 8, 12, 28),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.7),
-                      Colors.transparent,
+                  child: Row(
+                    children: [
+                      _OverlayButton(
+                        onPressed: widget.onClose,
+                        child: const Icon(
+                          semanticLabel: 'Back',
+                          CupertinoIcons.chevron_left,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: showFileInfo,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                mediaTitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -0.3,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${_currentIndex + 1} of $itemCount',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.65),
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (itemCount > 0)
+                        Frosted(
+                          radius: 16,
+                          blur: 16,
+                          padding: const EdgeInsets.symmetric(horizontal: 2),
+                          color: _buttonBacking,
+                          borderColor: _buttonBorder,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              for (final SharedMediaViewerAction action
+                                  in widget.actions)
+                                _buildActionButton(action),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
                 ),
-                child: Row(
-                  children: [
-                    _OverlayButton(
-                      onPressed: widget.onClose,
-                      child: const Icon(
-                        semanticLabel: 'Back',
-                        CupertinoIcons.chevron_left,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: showFileInfo,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              mediaTitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.3,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '${_currentIndex + 1} of $itemCount',
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.65),
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    if (itemCount > 0)
-                      Frosted(
-                        radius: 16,
-                        blur: 16,
-                        padding: const EdgeInsets.symmetric(horizontal: 2),
-                        color: _buttonBacking,
-                        borderColor: _buttonBorder,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            for (final SharedMediaViewerAction action
-                                in widget.actions)
-                              _buildActionButton(action),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

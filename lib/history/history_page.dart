@@ -179,6 +179,21 @@ class _HistoryRow extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onRemove;
 
+  void _showMenu(BuildContext context, String headline) {
+    showDashMenu(
+      context,
+      title: headline,
+      entries: [
+        DashMenuEntry(
+          title: 'Remove from history',
+          icon: CupertinoIcons.trash,
+          isDestructive: true,
+          onPressed: onRemove,
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final Color tint = boardColor(thread.board);
@@ -198,18 +213,9 @@ class _HistoryRow extends StatelessWidget {
         ),
         child: SlidableBackSwipe(
           child: GestureDetector(
-            onLongPress: () => showDashMenu(
-              context,
-              title: headline,
-              entries: [
-                DashMenuEntry(
-                  title: 'Remove from history',
-                  icon: CupertinoIcons.trash,
-                  isDestructive: true,
-                  onPressed: onRemove,
-                ),
-              ],
-            ),
+            onLongPress: () => _showMenu(context, headline),
+            // A right click, with a trackpad or mouse, does what holding does.
+            onSecondaryTap: () => _showMenu(context, headline),
             child: DashCard(
               radius: 18,
               onTap: onTap,

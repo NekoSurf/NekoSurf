@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_chan/bookmarks/bookmarks_model.dart';
 import 'package:flutter_chan/home/bookmarks.dart';
 import 'package:flutter_chan/home/dashboard.dart';
@@ -13,6 +14,7 @@ import 'package:flutter_chan/sync/cloud_sync.dart';
 import 'package:flutter_chan/ui/dash_dialogs.dart';
 import 'package:flutter_chan/ui/dash_header.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
+import 'package:flutter_chan/ui/keys.dart';
 import 'package:flutter_chan/ui/window_size.dart';
 import 'package:provider/provider.dart';
 
@@ -184,88 +186,101 @@ class _AppShellState extends State<AppShell> {
       ],
     );
 
-    return ValueListenableBuilder<int>(
-      valueListenable: withNewReplies,
-      builder: (context, newReplies, _) {
-        final List<DashTab> tabs = [
-          for (final _Tab tab in shown)
-            switch (tab) {
-              _Tab.boards => const DashTab(
-                CupertinoIcons.square_grid_2x2_fill,
-                'Boards',
-              ),
-              _Tab.saved => const DashTab(CupertinoIcons.paperclip, 'Saved'),
-              _Tab.bookmarks => DashTab(
-                CupertinoIcons.bookmark_fill,
-                'Bookmarks',
-                count: newReplies,
-              ),
-              _Tab.settings => DashTab(
-                CupertinoIcons.settings,
-                'Settings',
-                badge: _sync.needsAttention,
-              ),
-            },
-        ];
-        final int selected = shown.indexOf(current);
-        void onSelected(int index) => _selectTab(shown[index]);
+    // With a keyboard, ⌘1 to ⌘4 go to the tabs, in their order.
+    const List<LogicalKeyboardKey> digits = [
+      LogicalKeyboardKey.digit1,
+      LogicalKeyboardKey.digit2,
+      LogicalKeyboardKey.digit3,
+      LogicalKeyboardKey.digit4,
+    ];
+    return PageKeys(
+      bindings: keyBindings({
+        for (int i = 0; i < shown.length && i < digits.length; i++)
+          withCommand(digits[i]): () => _selectTab(shown[i]),
+      }),
+      child: ValueListenableBuilder<int>(
+        valueListenable: withNewReplies,
+        builder: (context, newReplies, _) {
+          final List<DashTab> tabs = [
+            for (final _Tab tab in shown)
+              switch (tab) {
+                _Tab.boards => const DashTab(
+                  CupertinoIcons.square_grid_2x2_fill,
+                  'Boards',
+                ),
+                _Tab.saved => const DashTab(CupertinoIcons.paperclip, 'Saved'),
+                _Tab.bookmarks => DashTab(
+                  CupertinoIcons.bookmark_fill,
+                  'Bookmarks',
+                  count: newReplies,
+                ),
+                _Tab.settings => DashTab(
+                  CupertinoIcons.settings,
+                  'Settings',
+                  badge: _sync.needsAttention,
+                ),
+              },
+          ];
+          final int selected = shown.indexOf(current);
+          void onSelected(int index) => _selectTab(shown[index]);
 
-        if (dashTabsAtSide(context)) {
-          return Row(
-            children: [
-              DashSideBar(
-                tabs: tabs,
-                selectedIndex: selected,
-                onSelected: onSelected,
-              ),
-              Expanded(
-                // The sidebar has the window's left edge.
-                child: MediaQuery.removePadding(
-                  context: context,
-                  removeLeft: true,
-                  child: PaneSize(
-                    child: DashTabBarScope(
-                      atBottom: false,
-                      child: Stack(
-                        children: [
-                          pages,
-                          Positioned(
-                            left: 0,
-                            right: 0,
-                            bottom: MediaQuery.paddingOf(context).bottom + 24,
-                            child: const Center(child: CloudSyncProgress()),
-                          ),
-                        ],
+          if (dashTabsAtSide(context)) {
+            return Row(
+              children: [
+                DashSideBar(
+                  tabs: tabs,
+                  selectedIndex: selected,
+                  onSelected: onSelected,
+                ),
+                Expanded(
+                  // The sidebar has the window's left edge.
+                  child: MediaQuery.removePadding(
+                    context: context,
+                    removeLeft: true,
+                    child: PaneSize(
+                      child: DashTabBarScope(
+                        atBottom: false,
+                        child: Stack(
+                          children: [
+                            pages,
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: MediaQuery.paddingOf(context).bottom + 24,
+                              child: const Center(child: CloudSyncProgress()),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
+              ],
+            );
+          }
+          return Stack(
+            children: [
+              pages,
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: MediaQuery.paddingOf(context).bottom + 96,
+                child: const Center(child: CloudSyncProgress()),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: DashTabBar(
+                  selectedIndex: selected,
+                  onSelected: onSelected,
+                  tabs: tabs,
+                ),
               ),
             ],
           );
-        }
-        return Stack(
-          children: [
-            pages,
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: MediaQuery.paddingOf(context).bottom + 96,
-              child: const Center(child: CloudSyncProgress()),
-            ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: DashTabBar(
-                selectedIndex: selected,
-                onSelected: onSelected,
-                tabs: tabs,
-              ),
-            ),
-          ],
-        );
-      },
+        },
+      ),
     );
   }
 }

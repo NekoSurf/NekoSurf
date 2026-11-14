@@ -153,6 +153,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
       behavior: HitTestBehavior.opaque,
       onTap: revealed ? widget.onHideAgain : widget.onReveal,
       onLongPress: _showMenu,
+      onSecondaryTap: _showMenu,
       child: Padding(
         padding: EdgeInsets.fromLTRB(14, 10, 14, revealed ? 0 : 10),
         child: Row(
@@ -490,6 +491,8 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
       behavior: HitTestBehavior.opaque,
       onTap: fold,
       onLongPress: _showMenu,
+      // A right click, with a trackpad or mouse, does what holding does.
+      onSecondaryTap: _showMenu,
       child: Padding(
         padding: EdgeInsets.fromLTRB(14, 11, 14, folded ? 11 : 12),
         child: Column(

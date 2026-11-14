@@ -1,1 +1,1 @@
-On iPad and tablets, the tabs move down the side and threads open beside their board, in a readable column; and sharing works on iPad.
+NekoSurf is made for iPad and tablets, with tabs down the side, threads beside their board, readable columns and keyboard shortcuts; and sharing works on iPad.

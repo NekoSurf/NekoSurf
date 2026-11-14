@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_header.dart';
+import 'package:flutter_chan/ui/keys.dart';
 import 'package:flutter_chan/ui/pull_to_refresh.dart';
 import 'package:flutter_chan/ui/window_size.dart';
 
@@ -13,6 +15,7 @@ class DashScaffold extends StatefulWidget {
     this.leading,
     this.actions = const [],
     this.onRefresh,
+    this.onFind,
     this.reserveTabBarSpace = false,
     this.readable = false,
   });
@@ -30,6 +33,9 @@ class DashScaffold extends StatefulWidget {
   final bool readable;
   final List<Widget> actions;
   final Future<void> Function()? onRefresh;
+
+  /// Goes to the page's search field: ⌘F with a keyboard, as ⌘R refreshes.
+  final VoidCallback? onFind;
 
   @override
   State<DashScaffold> createState() => _DashScaffoldState();
@@ -66,7 +72,9 @@ class _DashScaffoldState extends State<DashScaffold> {
         ? 0
         : kDashTabBarHeight + (bottom > 0 ? bottom : 12) + 12;
 
-    return Material(
+    final Future<void> Function()? onRefresh = widget.onRefresh;
+    final VoidCallback? onFind = widget.onFind;
+    final Widget page = Material(
       color: DashColors.page(context),
       child: Stack(
         children: [
@@ -111,6 +119,17 @@ class _DashScaffoldState extends State<DashScaffold> {
           ),
         ],
       ),
+    );
+    if (onRefresh == null && onFind == null) {
+      return page;
+    }
+    return PageKeys(
+      bindings: keyBindings({
+        if (onRefresh != null)
+          withCommand(LogicalKeyboardKey.keyR): () => onRefresh(),
+        withCommand(LogicalKeyboardKey.keyF): ?onFind,
+      }),
+      child: page,
     );
   }
 }
