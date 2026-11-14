@@ -231,6 +231,16 @@ class WatchedPostsProvider
     notifyListeners();
   }
 
+  /// Counts every post in [thread] as seen, wherever the reader got to.
+  void markThreadSeen(int thread) {
+    if (_threadMemory[thread]?.unseen.isEmpty ?? true) {
+      return;
+    }
+    _memoryOf(thread).unseen.clear();
+    _schedulePersist();
+    notifyListeners();
+  }
+
   /// Remembers the row at the top of the screen in [thread], and how far down
   /// the screen it starts.
   void rememberPlace(

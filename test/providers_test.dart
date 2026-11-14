@@ -191,6 +191,24 @@ void main() {
       expect(watched.newPosts(1), {5});
     });
 
+    test('marking a thread read clears what was left unread', () async {
+      SharedPreferences.setMockInitialValues({});
+      final WatchedPostsProvider watched = await watchedProvider();
+
+      watched.noteThreadPosts(1, [1, 2, 3]);
+      watched.noteThreadPosts(1, [1, 2, 3, 4, 5]);
+      watched.markThreadSeen(1);
+
+      expect(watched.unseenPosts(1), isEmpty);
+      expect(watched.newPosts(1), isEmpty);
+      expect(watched.newReplies(1, 4), 0);
+
+      // Replies after that are unread again.
+      watched.noteThreadPosts(1, [1, 2, 3, 4, 5, 6]);
+      expect(watched.unseenPosts(1), {6});
+      expect(watched.newReplies(1, 5), 1);
+    });
+
     test(
       'what was skipped the first time counts with what came since',
       () async {

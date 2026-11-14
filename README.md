@@ -44,7 +44,7 @@
 - Hold a post to hide it, or a poster's posts by their ID, name, tripcode or country, and filter replies by keyword or regex
 - Tap a poster's ID to see all their posts in the thread
 - Bookmarks that show when a thread is archived or deleted
-- Threads can open where you left off, with what you haven't read counted and new replies marked until you've seen them, and a history keeps the ones you visited
+- Threads can open where you left off, with what you haven't read counted (or marked as read in one go) and new replies marked until you've seen them, and a history keeps the ones you visited
 - Swipe right anywhere on a page to go back
 
 ### 🎬 Watch and save

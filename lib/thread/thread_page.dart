@@ -513,6 +513,10 @@ class _ThreadPageState extends State<ThreadPage>
 
   @override
   Widget build(BuildContext context) {
+    // Only rebuilds when it turns, not with each post read.
+    final bool hasUnseen = context.select<WatchedPostsProvider, bool>(
+      (watched) => watched.unseenPosts(widget.thread).isNotEmpty,
+    );
     // With a keyboard: the arrows, or J and K, go post by post; ⌘ with
     // them, to the ends; ⌘R refreshes.
     return PageKeys(
@@ -566,6 +570,12 @@ class _ThreadPageState extends State<ThreadPage>
                   icon: CupertinoIcons.arrow_clockwise,
                   onPressed: _refresh,
                 ),
+                if (hasUnseen)
+                  DashMenuEntry(
+                    title: 'Mark All as Read',
+                    icon: CupertinoIcons.checkmark_alt,
+                    onPressed: () => _watched.markThreadSeen(widget.thread),
+                  ),
                 DashMenuEntry(
                   title: 'Scroll to Top',
                   icon: CupertinoIcons.arrow_up,
