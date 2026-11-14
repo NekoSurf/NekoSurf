@@ -23,6 +23,7 @@ import 'package:flutter_chan/sync/cloud_sync.dart';
 import 'package:flutter_chan/ui/app_restart.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/fast_page_transitions.dart';
+import 'package:flutter_chan/ui/open.dart';
 import 'package:flutter_chan/ui/unfocus_on_push.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:provider/provider.dart';
@@ -344,22 +345,25 @@ class _AppWithThemeState extends State<AppWithTheme>
       onGenerateRoute: generateRoute,
       navigatorObservers: [_unfocusOnPush],
       // Beyond this, fixed-size cards and rows cut their text off.
-      builder: (context, child) => MediaQuery.withClampedTextScaling(
-        maxScaleFactor: 1.3,
-        child: Theme(
-          data: Theme.of(context).copyWith(
-            pageTransitionsTheme: PageTransitionsTheme(
-              builders: {
-                for (final platform in TargetPlatform.values)
-                  platform:
-                      platform == TargetPlatform.iOS ||
-                          platform == TargetPlatform.macOS
-                      ? const CupertinoPageTransitionsBuilder()
-                      : const FastCupertinoTransitionsBuilder(),
-              },
+      builder: (context, child) => DestinationPages(
+        pageFor: destinationPage,
+        child: MediaQuery.withClampedTextScaling(
+          maxScaleFactor: 1.3,
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              pageTransitionsTheme: PageTransitionsTheme(
+                builders: {
+                  for (final platform in TargetPlatform.values)
+                    platform:
+                        platform == TargetPlatform.iOS ||
+                            platform == TargetPlatform.macOS
+                        ? const CupertinoPageTransitionsBuilder()
+                        : const FastCupertinoTransitionsBuilder(),
+                },
+              ),
             ),
+            child: child!,
           ),
-          child: child!,
         ),
       ),
       // Text cursors and selection, and buttons without a color of their own.

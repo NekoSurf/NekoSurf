@@ -12,6 +12,7 @@ import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_header.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
 import 'package:flutter_chan/ui/dash_widgets.dart';
+import 'package:flutter_chan/ui/master_detail.dart';
 import 'package:flutter_chan/ui/pills.dart';
 import 'package:flutter_chan/ui/reload.dart';
 import 'package:provider/provider.dart';
@@ -108,67 +109,69 @@ class _BoardPageState extends State<BoardPage> with ThreadOrder<BoardPage> {
         .toList();
     final bool isFavorite = favorites.contains(widget.board);
 
-    return DashScaffold(
-      title: widget.boardName,
-      readable: settings.boardViewMode.value == ViewMode.list,
-      onRefresh: () => _loadBoard(keepShown: true),
-      actions: [
-        DashIconButton(
-          label: isFavorite ? 'Remove from favorites' : 'Add to favorites',
-          icon: Icon(
-            isFavorite ? CupertinoIcons.heart_fill : CupertinoIcons.heart,
-            color: CupertinoColors.systemRed,
-          ),
-          onPressed: () => favorites.toggle(widget.board),
-        ),
-        const ViewModeButton(),
-        if (_hasArchive)
+    return MasterDetail(
+      master: DashScaffold(
+        title: widget.boardName,
+        readable: settings.boardViewMode.value == ViewMode.list,
+        onRefresh: () => _loadBoard(keepShown: true),
+        actions: [
           DashIconButton(
-            label: 'Archive',
-            icon: const Icon(CupertinoIcons.archivebox),
-            onPressed: () => Navigator.of(context).push(
-              BackSwipePageRoute(
-                builder: (_) => ArchivePage(
-                  board: widget.board,
-                  boardName: widget.boardName,
+            label: isFavorite ? 'Remove from favorites' : 'Add to favorites',
+            icon: Icon(
+              isFavorite ? CupertinoIcons.heart_fill : CupertinoIcons.heart,
+              color: CupertinoColors.systemRed,
+            ),
+            onPressed: () => favorites.toggle(widget.board),
+          ),
+          const ViewModeButton(),
+          if (_hasArchive)
+            DashIconButton(
+              label: 'Archive',
+              icon: const Icon(CupertinoIcons.archivebox),
+              onPressed: () => Navigator.of(context).push(
+                BackSwipePageRoute(
+                  builder: (_) => ArchivePage(
+                    board: widget.board,
+                    boardName: widget.boardName,
+                  ),
                 ),
               ),
             ),
+          sortMenu(settings),
+        ],
+        slivers: [
+          SliverToBoxAdapter(
+            child: DashPageHeader(
+              color: boardColor(widget.board),
+              badge: BoardBadge(board: widget.board),
+              title: _isLoading
+                  ? 'Loading...'
+                  : '${visibleThreads.length} threads',
+              subtitle: 'Sorted by ${sort.title.toLowerCase()}',
+            ),
           ),
-        sortMenu(settings),
-      ],
-      slivers: [
-        SliverToBoxAdapter(
-          child: DashPageHeader(
-            color: boardColor(widget.board),
-            badge: BoardBadge(board: widget.board),
-            title: _isLoading
-                ? 'Loading...'
-                : '${visibleThreads.length} threads',
-            subtitle: 'Sorted by ${sort.title.toLowerCase()}',
+          SliverToBoxAdapter(
+            child: DashSearchField(
+              controller: _searchBarController,
+              onChanged: (_) => setState(_applyView),
+            ),
           ),
-        ),
-        SliverToBoxAdapter(
-          child: DashSearchField(
-            controller: _searchBarController,
-            onChanged: (_) => setState(_applyView),
-          ),
-        ),
 
-        if (_isLoading)
-          const SliverFillRemaining(
-            child: Center(child: CupertinoActivityIndicator()),
-          )
-        else if (_error != null)
-          SliverFillRemaining(
-            child: ReloadWidget.forError(_error, onReload: _loadBoard),
-          )
-        else
-          ThreadsView(
-            threads: visibleThreads,
-            grid: settings.boardViewMode.value == ViewMode.grid,
-          ),
-      ],
+          if (_isLoading)
+            const SliverFillRemaining(
+              child: Center(child: CupertinoActivityIndicator()),
+            )
+          else if (_error != null)
+            SliverFillRemaining(
+              child: ReloadWidget.forError(_error, onReload: _loadBoard),
+            )
+          else
+            ThreadsView(
+              threads: visibleThreads,
+              grid: settings.boardViewMode.value == ViewMode.grid,
+            ),
+        ],
+      ),
     );
   }
 }

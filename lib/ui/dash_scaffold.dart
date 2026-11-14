@@ -61,7 +61,8 @@ class _DashScaffoldState extends State<DashScaffold> {
   Widget build(BuildContext context) {
     final double top = MediaQuery.paddingOf(context).top;
     final double bottom = MediaQuery.paddingOf(context).bottom;
-    final double barSpace = !widget.reserveTabBarSpace
+    final double barSpace =
+        !widget.reserveTabBarSpace || !DashTabBarScope.atBottomOf(context)
         ? 0
         : kDashTabBarHeight + (bottom > 0 ? bottom : 12) + 12;
 
@@ -105,7 +106,7 @@ class _DashScaffoldState extends State<DashScaffold> {
               leading: widget.leading,
               showBack: ModalRoute.of(context)?.canPop ?? false,
               actions: widget.actions,
-              elevated: _elevated,
+              elevated: _elevated || DashHeaderLine.alwaysOf(context),
             ),
           ),
         ],

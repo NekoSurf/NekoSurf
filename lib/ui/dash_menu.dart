@@ -72,7 +72,9 @@ Future<void> showLiftedMenu(
     entries: entries,
   );
   HapticFeedback.mediumImpact();
-  Navigator.of(context).push(route);
+  // Over the whole window, where the copy's place is measured, even from a
+  // pane beside another.
+  Navigator.of(context, rootNavigator: true).push(route);
   return route.completed;
 }
 

@@ -16,22 +16,23 @@ Route<void> homeRoute(Widget page) => BackSwipePageRoute<void>(
   builder: (_) => page,
 );
 
+/// The page for one of the destinations in ui/open.dart.
+Widget destinationPage(Destination destination) => switch (destination) {
+  ThreadDestination(:final post, :final atPost) => ThreadPage(
+    post: post,
+    initialPost: atPost,
+  ),
+  BoardDestination(:final board, :final name) => BoardPage(
+    board: board,
+    boardName: name,
+  ),
+};
+
 /// Builds the pages opened through ui/open.dart.
 Route<void>? generateRoute(RouteSettings settings) {
   final Object? destination = settings.arguments;
   if (destination is! Destination) {
     return null;
   }
-  return BackSwipePageRoute<void>(
-    builder: (_) => switch (destination) {
-      ThreadDestination(:final post, :final atPost) => ThreadPage(
-        post: post,
-        initialPost: atPost,
-      ),
-      BoardDestination(:final board, :final name) => BoardPage(
-        board: board,
-        boardName: name,
-      ),
-    },
-  );
+  return BackSwipePageRoute<void>(builder: (_) => destinationPage(destination));
 }

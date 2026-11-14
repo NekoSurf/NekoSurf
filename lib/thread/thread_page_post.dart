@@ -235,13 +235,16 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     if (index < 0) {
       return;
     }
-    final int? focusedPost = await Navigator.of(context).push<int>(
-      ThreadMediaViewerRoute(
-        mediaPosts: mediaPosts,
-        initialIndex: index,
-        origin: _zoomOrigin(),
-      ),
-    );
+    // Over the whole window, where it zooms from, even from a pane beside
+    // another.
+    final int? focusedPost = await Navigator.of(context, rootNavigator: true)
+        .push<int>(
+          ThreadMediaViewerRoute(
+            mediaPosts: mediaPosts,
+            initialIndex: index,
+            origin: _zoomOrigin(),
+          ),
+        );
     // Only scroll the thread to a post swiped to in the viewer: scrolling
     // now would also move the video zooming back into this post.
     if (mounted && focusedPost != null && focusedPost != widget.post.no) {

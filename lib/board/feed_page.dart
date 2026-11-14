@@ -9,6 +9,7 @@ import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
 import 'package:flutter_chan/ui/dash_widgets.dart';
+import 'package:flutter_chan/ui/master_detail.dart';
 import 'package:flutter_chan/ui/reload.dart';
 import 'package:provider/provider.dart';
 
@@ -79,38 +80,40 @@ class _FeedPageState extends State<FeedPage> with ThreadOrder<FeedPage> {
         )
         .toList();
 
-    return DashScaffold(
-      title: 'Feed',
-      readable: settings.boardViewMode.value == ViewMode.list,
-      onRefresh: _loadFeed,
-      actions: [const ViewModeButton(), sortMenu(settings)],
-      slivers: [
-        SliverToBoxAdapter(
-          child: DashPageHeader(
-            color: DashColors.feed,
-            badge: const Icon(
-              CupertinoIcons.rectangle_stack_fill,
+    return MasterDetail(
+      master: DashScaffold(
+        title: 'Feed',
+        readable: settings.boardViewMode.value == ViewMode.list,
+        onRefresh: _loadFeed,
+        actions: [const ViewModeButton(), sortMenu(settings)],
+        slivers: [
+          SliverToBoxAdapter(
+            child: DashPageHeader(
               color: DashColors.feed,
+              badge: const Icon(
+                CupertinoIcons.rectangle_stack_fill,
+                color: DashColors.feed,
+              ),
+              title: _isLoading && _threads.isEmpty
+                  ? 'Loading...'
+                  : '${visibleThreads.length} threads',
+              subtitle: 'From $boardCount favorite boards',
             ),
-            title: _isLoading && _threads.isEmpty
-                ? 'Loading...'
-                : '${visibleThreads.length} threads',
-            subtitle: 'From $boardCount favorite boards',
           ),
-        ),
-        if (_isLoading && _threads.isEmpty)
-          const SliverFillRemaining(
-            child: Center(child: CupertinoActivityIndicator()),
-          )
-        else if (_hasError)
-          SliverFillRemaining(child: ReloadWidget(onReload: _loadFeed))
-        else
-          ThreadsView(
-            threads: visibleThreads,
-            grid: settings.boardViewMode.value == ViewMode.grid,
-            showBoard: true,
-          ),
-      ],
+          if (_isLoading && _threads.isEmpty)
+            const SliverFillRemaining(
+              child: Center(child: CupertinoActivityIndicator()),
+            )
+          else if (_hasError)
+            SliverFillRemaining(child: ReloadWidget(onReload: _loadFeed))
+          else
+            ThreadsView(
+              threads: visibleThreads,
+              grid: settings.boardViewMode.value == ViewMode.grid,
+              showBoard: true,
+            ),
+        ],
+      ),
     );
   }
 }

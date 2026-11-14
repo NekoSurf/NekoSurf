@@ -58,6 +58,7 @@
 
 ### 🖥️ On iPad and tablets
 
+- In a wide window, the tabs move down the side, and threads open beside the board, bookmarks, history or search they're picked from, so you can read one and pick the next
 - Lists and threads keep to a column you can read, and a tall image fits on the screen
 
 ### 🎨 Make it yours

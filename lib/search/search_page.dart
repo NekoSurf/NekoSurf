@@ -15,6 +15,7 @@ import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_header.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
 import 'package:flutter_chan/ui/dash_widgets.dart';
+import 'package:flutter_chan/ui/master_detail.dart';
 import 'package:flutter_chan/ui/open.dart';
 import 'package:flutter_chan/ui/open_url.dart';
 import 'package:flutter_chan/ui/pills.dart';
@@ -167,54 +168,56 @@ class _SearchPageState extends State<SearchPage> {
   Widget build(BuildContext context) {
     final bool isDark = context.isDark;
 
-    final DashScaffold page = DashScaffold(
-      title: 'Search',
-      readable: true,
-      onRefresh: _refresh,
-      actions: [
-        DashIconButton(
-          label: 'Open in browser',
-          icon: const Icon(CupertinoIcons.globe),
-          onPressed: _openInBrowser,
-        ),
-      ],
-      slivers: [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
-            child: CupertinoSlidingSegmentedControl<_SearchScope>(
-              groupValue: _scope,
-              onValueChanged: (scope) => _setScope(scope!),
-              children: const {
-                _SearchScope.favorites: Text('Favorite boards'),
-                _SearchScope.everywhere: Text('All of 4chan'),
-              },
+    final Widget page = MasterDetail(
+      master: DashScaffold(
+        title: 'Search',
+        readable: true,
+        onRefresh: _refresh,
+        actions: [
+          DashIconButton(
+            label: 'Open in browser',
+            icon: const Icon(CupertinoIcons.globe),
+            onPressed: _openInBrowser,
+          ),
+        ],
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
+              child: CupertinoSlidingSegmentedControl<_SearchScope>(
+                groupValue: _scope,
+                onValueChanged: (scope) => _setScope(scope!),
+                children: const {
+                  _SearchScope.favorites: Text('Favorite boards'),
+                  _SearchScope.everywhere: Text('All of 4chan'),
+                },
+              ),
             ),
           ),
-        ),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-            child: CupertinoSearchTextField(
-              controller: _search,
-              autofocus: true,
-              placeholder: _scope == _SearchScope.favorites
-                  ? 'Search threads'
-                  : 'Search all posts',
-              backgroundColor: DashColors.card(context),
-              onChanged: (_) => setState(() {}),
-              onSubmitted: (_) {
-                if (_scope == _SearchScope.everywhere) {
-                  _searchEverywhere();
-                }
-              },
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: CupertinoSearchTextField(
+                controller: _search,
+                autofocus: true,
+                placeholder: _scope == _SearchScope.favorites
+                    ? 'Search threads'
+                    : 'Search all posts',
+                backgroundColor: DashColors.card(context),
+                onChanged: (_) => setState(() {}),
+                onSubmitted: (_) {
+                  if (_scope == _SearchScope.everywhere) {
+                    _searchEverywhere();
+                  }
+                },
+              ),
             ),
           ),
-        ),
-        ...(_scope == _SearchScope.favorites
-            ? _favoriteSlivers(isDark)
-            : _everywhereSlivers(isDark)),
-      ],
+          ...(_scope == _SearchScope.favorites
+              ? _favoriteSlivers(isDark)
+              : _everywhereSlivers(isDark)),
+        ],
+      ),
     );
 
     final Find4chanBrowser? browser = _browser;

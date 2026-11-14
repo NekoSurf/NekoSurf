@@ -65,3 +65,27 @@ class ReadableSliver extends StatelessWidget {
     );
   }
 }
+
+/// [child] laid out as if the window were the box it's given: a pane beside
+/// another, or the room beside the sidebar. Pages there size their columns,
+/// grids and images by [MediaQuery.sizeOf], as in a window that size.
+class PaneSize extends StatelessWidget {
+  const PaneSize({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final MediaQueryData media = MediaQuery.of(context);
+        return MediaQuery(
+          data: media.copyWith(
+            size: Size(constraints.maxWidth, constraints.maxHeight),
+          ),
+          child: child,
+        );
+      },
+    );
+  }
+}

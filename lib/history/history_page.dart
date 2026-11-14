@@ -12,6 +12,7 @@ import 'package:flutter_chan/ui/dash_header.dart';
 import 'package:flutter_chan/ui/dash_menu.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
 import 'package:flutter_chan/ui/dash_widgets.dart';
+import 'package:flutter_chan/ui/master_detail.dart';
 import 'package:flutter_chan/ui/open.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:intl/intl.dart';
@@ -93,70 +94,72 @@ class _HistoryPageState extends State<HistoryPage> {
       days.last.$2.add(t);
     }
 
-    return DashScaffold(
-      title: 'History',
-      readable: true,
-      onRefresh: () => history.checkThreads(force: true),
-      actions: [
-        // Where Saved opens without its tab.
-        if (!settings.showSavedTab.value)
-          DashIconButton(
-            label: 'Saved',
-            icon: const Icon(CupertinoIcons.paperclip),
-            onPressed: () => Navigator.of(context).push(
-              BackSwipePageRoute<void>(
-                builder: (_) => const SavedTab(asPage: true),
-              ),
-            ),
-          ),
-        if (history.threads.isNotEmpty)
-          DashIconButton(
-            label: 'Clear history',
-            icon: const Icon(CupertinoIcons.trash),
-            onPressed: () => _confirmClear(history),
-          ),
-      ],
-      slivers: [
-        if (days.isEmpty)
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Center(
-                child: Text(
-                  tracking
-                      ? 'Threads you open show up here.'
-                      : 'History is turned off in Privacy settings.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: DashColors.muted(context)),
+    return MasterDetail(
+      master: DashScaffold(
+        title: 'History',
+        readable: true,
+        onRefresh: () => history.checkThreads(force: true),
+        actions: [
+          // Where Saved opens without its tab.
+          if (!settings.showSavedTab.value)
+            DashIconButton(
+              label: 'Saved',
+              icon: const Icon(CupertinoIcons.paperclip),
+              onPressed: () => Navigator.of(context).push(
+                BackSwipePageRoute<void>(
+                  builder: (_) => const SavedTab(asPage: true),
                 ),
               ),
             ),
-          ),
-        for (final (String label, List<HistoryThread> threads) in days) ...[
-          SliverToBoxAdapter(child: DashSectionHeader(title: label)),
-          SliverList.builder(
-            itemCount: threads.length,
-            itemBuilder: (context, index) {
-              final HistoryThread t = threads[index];
-              final int? replies = history.replies(t);
-              return NewRepliesCount(
-                key: ValueKey(t.key),
-                thread: t.no,
-                replies: replies,
-                builder: (_, newReplies) => _HistoryRow(
-                  thread: t,
-                  isArchived: history.isArchived(t),
-                  newReplies: newReplies,
-                  onTap: () => openThread(context, t.toPost()),
-                  onRemove: () => history.removeThread(t),
-                ),
-              );
-            },
-          ),
+          if (history.threads.isNotEmpty)
+            DashIconButton(
+              label: 'Clear history',
+              icon: const Icon(CupertinoIcons.trash),
+              onPressed: () => _confirmClear(history),
+            ),
         ],
-        const SliverToBoxAdapter(child: SizedBox(height: 16)),
-      ],
+        slivers: [
+          if (days.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Center(
+                  child: Text(
+                    tracking
+                        ? 'Threads you open show up here.'
+                        : 'History is turned off in Privacy settings.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: DashColors.muted(context)),
+                  ),
+                ),
+              ),
+            ),
+          for (final (String label, List<HistoryThread> threads) in days) ...[
+            SliverToBoxAdapter(child: DashSectionHeader(title: label)),
+            SliverList.builder(
+              itemCount: threads.length,
+              itemBuilder: (context, index) {
+                final HistoryThread t = threads[index];
+                final int? replies = history.replies(t);
+                return NewRepliesCount(
+                  key: ValueKey(t.key),
+                  thread: t.no,
+                  replies: replies,
+                  builder: (_, newReplies) => _HistoryRow(
+                    thread: t,
+                    isArchived: history.isArchived(t),
+                    newReplies: newReplies,
+                    onTap: () => openThread(context, t.toPost()),
+                    onRemove: () => history.removeThread(t),
+                  ),
+                );
+              },
+            ),
+          ],
+          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+        ],
+      ),
     );
   }
 }

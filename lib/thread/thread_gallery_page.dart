@@ -23,8 +23,10 @@ class _ThreadGalleryPageState extends State<ThreadGalleryPage> {
 
   /// Swiping in the viewer stays within what's shown here.
   void _open(List<Post> shown, int index) {
+    // Over the whole window, even from a pane beside another.
     Navigator.of(
       context,
+      rootNavigator: true,
     ).push<int>(ThreadMediaViewerRoute(mediaPosts: shown, initialIndex: index));
   }
 

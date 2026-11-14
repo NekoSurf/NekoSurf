@@ -1,1 +1,1 @@
-Lists and threads keep to a readable column on iPad and tablets, with tall images fitting the screen; and sharing works on iPad.
+On iPad and tablets, the tabs move down the side and threads open beside their board, in a readable column; and sharing works on iPad.

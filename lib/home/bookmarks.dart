@@ -13,6 +13,7 @@ import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_dialogs.dart';
 import 'package:flutter_chan/ui/dash_menu.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
+import 'package:flutter_chan/ui/master_detail.dart';
 import 'package:provider/provider.dart';
 
 /// The Bookmarks tab: the bookmarked threads as a board shows its threads.
@@ -147,72 +148,77 @@ class _BookmarksState extends State<Bookmarks> {
     _check(items);
     final Set<String> dead = _deadKeys(items);
 
-    return DashScaffold(
-      title: 'Bookmarks',
-      reserveTabBarSpace: true,
-      readable: settings.boardViewMode.value == ViewMode.list,
-      onRefresh: items.isEmpty
-          ? null
-          : () => _check(items, again: true, force: true),
-      actions: [
-        if (items.isNotEmpty) const ViewModeButton(),
-        DashMenuButton(
-          icon: CupertinoIcons.sort_down,
-          label: 'Sort',
-          menuChildren: [
-            DashMenuEntry(
-              title: 'Newest',
-              icon: CupertinoIcons.clock,
-              isSelected: bookmarks.newestFirst,
-              onPressed: () => bookmarks.setNewestFirst(true),
-            ),
-            DashMenuEntry(
-              title: 'Oldest',
-              icon: CupertinoIcons.clock_fill,
-              isSelected: !bookmarks.newestFirst,
-              onPressed: () => bookmarks.setNewestFirst(false),
-            ),
-          ],
-        ),
-        // Only what there's something to do with.
-        if (items.isNotEmpty)
+    return MasterDetail(
+      master: DashScaffold(
+        title: 'Bookmarks',
+        reserveTabBarSpace: true,
+        readable: settings.boardViewMode.value == ViewMode.list,
+        onRefresh: items.isEmpty
+            ? null
+            : () => _check(items, again: true, force: true),
+        actions: [
+          if (items.isNotEmpty) const ViewModeButton(),
           DashMenuButton(
+            icon: CupertinoIcons.sort_down,
+            label: 'Sort',
             menuChildren: [
-              if (dead.isNotEmpty)
-                DashMenuEntry(
-                  title: 'Remove dead threads',
-                  icon: CupertinoIcons.archivebox,
-                  onPressed: () => _removeDead(bookmarks, dead),
-                ),
               DashMenuEntry(
-                title: 'Clear bookmarks',
-                icon: CupertinoIcons.trash,
-                isDestructive: true,
-                onPressed: () => _clear(bookmarks, items),
+                title: 'Newest',
+                icon: CupertinoIcons.clock,
+                isSelected: bookmarks.newestFirst,
+                onPressed: () => bookmarks.setNewestFirst(true),
+              ),
+              DashMenuEntry(
+                title: 'Oldest',
+                icon: CupertinoIcons.clock_fill,
+                isSelected: !bookmarks.newestFirst,
+                onPressed: () => bookmarks.setNewestFirst(false),
               ),
             ],
           ),
-      ],
-      slivers: [
-        if (items.isEmpty)
-          SliverToBoxAdapter(
-            child: Builder(
-              builder: (context) {
-                _report(context, 0);
-                return const _EmptyState();
-              },
+          // Only what there's something to do with.
+          if (items.isNotEmpty)
+            DashMenuButton(
+              menuChildren: [
+                if (dead.isNotEmpty)
+                  DashMenuEntry(
+                    title: 'Remove dead threads',
+                    icon: CupertinoIcons.archivebox,
+                    onPressed: () => _removeDead(bookmarks, dead),
+                  ),
+                DashMenuEntry(
+                  title: 'Clear bookmarks',
+                  icon: CupertinoIcons.trash,
+                  isDestructive: true,
+                  onPressed: () => _clear(bookmarks, items),
+                ),
+              ],
             ),
-          )
-        else ...[
-          SliverToBoxAdapter(
-            child: BookmarksSummary(
-              bookmarks: items,
-              newestFirst: bookmarks.newestFirst,
-            ),
-          ),
-          _Threads(posts: [for (final b in items) _post(b)], statusOf: _status),
         ],
-      ],
+        slivers: [
+          if (items.isEmpty)
+            SliverToBoxAdapter(
+              child: Builder(
+                builder: (context) {
+                  _report(context, 0);
+                  return const _EmptyState();
+                },
+              ),
+            )
+          else ...[
+            SliverToBoxAdapter(
+              child: BookmarksSummary(
+                bookmarks: items,
+                newestFirst: bookmarks.newestFirst,
+              ),
+            ),
+            _Threads(
+              posts: [for (final b in items) _post(b)],
+              statusOf: _status,
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

@@ -11,6 +11,7 @@ import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
 import 'package:flutter_chan/ui/dash_widgets.dart';
+import 'package:flutter_chan/ui/master_detail.dart';
 import 'package:flutter_chan/ui/pills.dart';
 import 'package:flutter_chan/ui/reload.dart';
 import 'package:provider/provider.dart';
@@ -83,46 +84,48 @@ class _ArchivePageState extends State<ArchivePage> {
         Provider.of<SettingsProvider>(context).boardViewMode.value ==
         ViewMode.grid;
 
-    return DashScaffold(
-      title: 'Archive',
-      subtitle: '/${widget.board}/ · ${widget.boardName}',
-      readable: !grid,
-      actions: const [ViewModeButton()],
-      slivers: [
-        SliverToBoxAdapter(
-          child: DashPageHeader(
-            color: boardColor(widget.board),
-            badge: BoardBadge(board: widget.board),
-            title: _isLoading
-                ? 'Loading...'
-                : '${_threads.length} archived threads',
-            subtitle: 'Newest first · previews load as you scroll',
-          ),
-        ),
-        if (!_isLoading && _error == null)
+    return MasterDetail(
+      master: DashScaffold(
+        title: 'Archive',
+        subtitle: '/${widget.board}/ · ${widget.boardName}',
+        readable: !grid,
+        actions: const [ViewModeButton()],
+        slivers: [
           SliverToBoxAdapter(
-            child: DashSearchField(
-              controller: _search,
-              placeholder: 'Search loaded threads',
-              onChanged: (_) => setState(() {}),
+            child: DashPageHeader(
+              color: boardColor(widget.board),
+              badge: BoardBadge(board: widget.board),
+              title: _isLoading
+                  ? 'Loading...'
+                  : '${_threads.length} archived threads',
+              subtitle: 'Newest first · previews load as you scroll',
             ),
           ),
-        if (_isLoading)
-          const SliverFillRemaining(
-            child: Center(child: CupertinoActivityIndicator()),
-          )
-        else if (_error != null)
-          SliverFillRemaining(
-            child: ReloadWidget.forError(_error, onReload: _load),
-          )
-        else
-          ListenableBuilder(
-            listenable: _loader,
-            builder: (context, _) => _search.text.trim().isEmpty
-                ? _buildAll(grid)
-                : _buildSearchResults(isDark, grid),
-          ),
-      ],
+          if (!_isLoading && _error == null)
+            SliverToBoxAdapter(
+              child: DashSearchField(
+                controller: _search,
+                placeholder: 'Search loaded threads',
+                onChanged: (_) => setState(() {}),
+              ),
+            ),
+          if (_isLoading)
+            const SliverFillRemaining(
+              child: Center(child: CupertinoActivityIndicator()),
+            )
+          else if (_error != null)
+            SliverFillRemaining(
+              child: ReloadWidget.forError(_error, onReload: _load),
+            )
+          else
+            ListenableBuilder(
+              listenable: _loader,
+              builder: (context, _) => _search.text.trim().isEmpty
+                  ? _buildAll(grid)
+                  : _buildSearchResults(isDark, grid),
+            ),
+        ],
+      ),
     );
   }
 

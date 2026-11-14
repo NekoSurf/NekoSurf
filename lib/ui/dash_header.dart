@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/frosted.dart';
+import 'package:flutter_chan/ui/window_size.dart';
 
 const double kDashHeaderHeight = 62;
 const double kDashTabBarHeight = 64;
@@ -251,6 +252,118 @@ class DashTabBar extends StatelessWidget {
                 ],
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Whether the app's tabs are down the side, not along the bottom: in a
+/// window wide enough to spare a column for them, as on an iPad on its
+/// side, or a big one upright.
+bool dashTabsAtSide(BuildContext context) =>
+    WindowSize.of(context).isAtLeast(WindowSize.expanded);
+
+/// Says to the pages below whether the tab bar is along the bottom, over
+/// them, so they leave room for it; down the side, it isn't over them.
+class DashTabBarScope extends InheritedWidget {
+  const DashTabBarScope({
+    super.key,
+    required this.atBottom,
+    required super.child,
+  });
+
+  final bool atBottom;
+
+  /// Along the bottom, unless a scope says otherwise.
+  static bool atBottomOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<DashTabBarScope>()?.atBottom ??
+      true;
+
+  @override
+  bool updateShouldNotify(DashTabBarScope oldWidget) =>
+      atBottom != oldWidget.atBottom;
+}
+
+/// Tells the headers below to show their bottom line before their page is
+/// scrolled: beside a pane whose header has one, so the two read as one
+/// bar.
+class DashHeaderLine extends InheritedWidget {
+  const DashHeaderLine({super.key, required this.always, required super.child});
+
+  final bool always;
+
+  static bool alwaysOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<DashHeaderLine>()?.always ??
+      false;
+
+  @override
+  bool updateShouldNotify(DashHeaderLine oldWidget) =>
+      always != oldWidget.always;
+}
+
+/// How wide the tabs down the side are, with their margins.
+const double kDashSideBarWidth = _tabWidth + 12 + 2 * 12;
+
+/// The tab bar, upright down the side of a wide window: the same tabs, in
+/// the same card, from the top.
+class DashSideBar extends StatelessWidget {
+  const DashSideBar({
+    super.key,
+    required this.tabs,
+    required this.selectedIndex,
+    required this.onSelected,
+  });
+
+  final List<DashTab> tabs;
+  final int selectedIndex;
+
+  /// Called with the tab tapped, also when it's the one already shown.
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final EdgeInsets safe = MediaQuery.paddingOf(context);
+
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: 1,
+      child: Container(
+        width: kDashSideBarWidth + safe.left,
+        padding: EdgeInsets.fromLTRB(12 + safe.left, safe.top + 8, 12, 12),
+        alignment: Alignment.topCenter,
+        decoration: BoxDecoration(
+          color: DashColors.page(context),
+          // A hairline, a pixel wide, like the one under the header.
+          border: Border(
+            right: BorderSide(
+              color: context.accent.withValues(alpha: 0.18),
+              width: 0,
+            ),
+          ),
+        ),
+        child: Frosted(
+          radius: 28,
+          padding: const EdgeInsets.all(6),
+          color: DashColors.card(context).withValues(alpha: 0.82),
+          borderColor: DashColors.border(context),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (int i = 0; i < tabs.length; i++)
+                SizedBox(
+                  width: _tabWidth,
+                  height: kDashTabBarHeight - 4,
+                  child: _TabButton(
+                    tab: tabs[i],
+                    selected: i == selectedIndex,
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      onSelected(i);
+                    },
+                  ),
+                ),
+            ],
           ),
         ),
       ),

@@ -25,9 +25,49 @@ class BoardDestination extends Destination {
   final String name;
 }
 
+/// Builds the page for a [Destination], for a pane to show it in place
+/// rather than on a new route; the app (home/routes.dart) gives it.
+class DestinationPages extends InheritedWidget {
+  const DestinationPages({
+    super.key,
+    required this.pageFor,
+    required super.child,
+  });
+
+  final Widget Function(Destination destination) pageFor;
+
+  static DestinationPages? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<DestinationPages>();
+
+  @override
+  bool updateShouldNotify(DestinationPages oldWidget) =>
+      pageFor != oldWidget.pageFor;
+}
+
+/// Around a list with a pane beside it (see MasterDetail in
+/// ui/master_detail.dart): threads opened from the list show in the pane,
+/// in place of the one there.
+class DetailPane extends InheritedWidget {
+  const DetailPane({super.key, required this.show, required super.child});
+
+  final void Function(Destination destination) show;
+
+  static DetailPane? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<DetailPane>();
+
+  @override
+  bool updateShouldNotify(DetailPane oldWidget) => show != oldWidget.show;
+}
+
 /// Opens the thread [post] opens. With [atPost] it shows that post once it's
-/// loaded, instead of resuming where it was left.
+/// loaded, instead of resuming where it was left. From a list with a pane
+/// beside it, it shows there.
 void openThread(BuildContext context, Post post, {int? atPost}) {
+  final DetailPane? pane = DetailPane.maybeOf(context);
+  if (pane != null) {
+    pane.show(ThreadDestination(post, atPost));
+    return;
+  }
   Navigator.of(context).pushNamed(
     Destination.routeName,
     arguments: ThreadDestination(post, atPost),

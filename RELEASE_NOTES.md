@@ -1,6 +1,7 @@
 ## What's new
 
 ### 🖥️ Made for iPad and tablets
+- In a wide window, the tabs move down the side, and a thread opens beside the board, bookmarks, history or search you picked it from
 - Lists and threads keep to a column you can read, and a tall image fits on the screen instead of running past it
 
 ## What's fixed
