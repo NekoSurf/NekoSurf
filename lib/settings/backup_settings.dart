@@ -38,7 +38,7 @@ class BackupSettings extends StatefulWidget {
 class _BackupSettingsState extends State<BackupSettings> {
   bool _makingFile = false;
 
-  Future<void> _backUpToFile() async {
+  Future<void> _backUpToFile(ShareAnchor from) async {
     final AppRestart app = AppRestart.of(context);
     setState(() => _makingFile = true);
     Directory? into;
@@ -51,7 +51,7 @@ class _BackupSettingsState extends State<BackupSettings> {
         await openSavedFolders(),
         into,
       );
-      await shareFile(zip, mimeType: 'application/zip');
+      await shareFile(zip, from: from, mimeType: 'application/zip');
     } on StorageDenied {
       if (mounted) {
         showToast(context, 'NekoSurf needs storage access to back up');
@@ -124,15 +124,17 @@ class _BackupSettingsState extends State<BackupSettings> {
     return SettingsGroup(
       title: 'Backup',
       children: [
-        SettingsRow(
-          icon: CupertinoIcons.square_arrow_up_fill,
-          color: const Color(0xFF34D399),
-          title: 'Back up to a file',
-          subtitle:
-              'Your saved media, bookmarks, history and settings in one file, '
-              'to keep in Files or anywhere.',
-          trailing: _makingFile ? const CupertinoActivityIndicator() : null,
-          onTap: _makingFile ? null : _backUpToFile,
+        Builder(
+          builder: (BuildContext row) => SettingsRow(
+            icon: CupertinoIcons.square_arrow_up_fill,
+            color: const Color(0xFF34D399),
+            title: 'Back up to a file',
+            subtitle:
+                'Your saved media, bookmarks, history and settings in one '
+                'file, to keep in Files or anywhere.',
+            trailing: _makingFile ? const CupertinoActivityIndicator() : null,
+            onTap: _makingFile ? null : () => _backUpToFile(ShareAnchor(row)),
+          ),
         ),
         SettingsRow(
           icon: CupertinoIcons.arrow_counterclockwise_circle_fill,

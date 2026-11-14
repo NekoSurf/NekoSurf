@@ -70,7 +70,7 @@ class _SyncLogPageState extends State<SyncLogPage> {
     }
   }
 
-  Future<void> _share() async {
+  Future<void> _share(ShareAnchor from) async {
     final String? log = _log;
     if (log == null) {
       return;
@@ -79,7 +79,7 @@ class _SyncLogPageState extends State<SyncLogPage> {
       final Directory dir = await getTemporaryDirectory();
       final File file = File('${dir.path}/NekoSurf iCloud sync log.txt');
       await file.writeAsString(log);
-      await shareFile(file, mimeType: 'text/plain');
+      await shareFile(file, from: from, mimeType: 'text/plain');
     } on Exception catch (e) {
       if (mounted) {
         showToast(context, "Couldn't share the log. $e");
@@ -93,10 +93,12 @@ class _SyncLogPageState extends State<SyncLogPage> {
     return DashBarScaffold(
       title: 'Sync log',
       actions: [
-        DashIconButton(
-          label: 'Share',
-          icon: const Icon(CupertinoIcons.share),
-          onPressed: _log == null ? null : _share,
+        Builder(
+          builder: (BuildContext button) => DashIconButton(
+            label: 'Share',
+            icon: const Icon(CupertinoIcons.share),
+            onPressed: _log == null ? null : () => _share(ShareAnchor(button)),
+          ),
         ),
       ],
       body: Builder(

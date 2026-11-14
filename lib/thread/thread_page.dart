@@ -13,6 +13,7 @@ import 'package:flutter_chan/history/history_model.dart';
 import 'package:flutter_chan/history/thread_memory.dart';
 import 'package:flutter_chan/history/watched_posts_model.dart';
 import 'package:flutter_chan/media/image_cache.dart';
+import 'package:flutter_chan/saved/give_media.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/thread/thread_gallery_page.dart';
 import 'package:flutter_chan/thread/thread_posts.dart';
@@ -27,7 +28,6 @@ import 'package:flutter_chan/ui/reload.dart';
 import 'package:flutter_chan/ui/toast.dart';
 import 'package:provider/provider.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
-import 'package:share_plus/share_plus.dart';
 
 class ThreadPage extends StatefulWidget {
   const ThreadPage({super.key, required this.post, this.initialPost});
@@ -521,48 +521,45 @@ class _ThreadPageState extends State<ThreadPage>
           onPressed: _openGallery,
         ),
         BookmarkButton(bookmark: Bookmark.fromPost(_opening)),
-        DashMenuButton(
-          menuChildren: [
-            DashMenuEntry(
-              title: 'Share',
-              icon: CupertinoIcons.share,
-              onPressed: () {
-                SharePlus.instance.share(
-                  ShareParams(
-                    uri: Uri.parse(
-                      urls.threadPage(widget.board, widget.thread),
-                    ),
-                  ),
-                );
-              },
-            ),
-            DashMenuEntry(
-              title: 'Open in Browser',
-              icon: CupertinoIcons.globe,
-              onPressed: () {
-                openUrl(urls.threadPage(widget.board, widget.thread));
-              },
-            ),
-            DashMenuEntry(
-              title: 'Refresh',
-              icon: CupertinoIcons.arrow_clockwise,
-              onPressed: _refresh,
-            ),
-            DashMenuEntry(
-              title: 'Scroll to Top',
-              icon: CupertinoIcons.arrow_up,
-              onPressed: () {
-                scrollToRow(0, alignment: 0);
-              },
-            ),
-            DashMenuEntry(
-              title: 'Scroll to Bottom',
-              icon: CupertinoIcons.arrow_down,
-              onPressed: () {
-                scrollToRow(rows.length - 1, alignment: 0);
-              },
-            ),
-          ],
+        Builder(
+          builder: (BuildContext menuButton) => DashMenuButton(
+            menuChildren: [
+              DashMenuEntry(
+                title: 'Share',
+                icon: CupertinoIcons.share,
+                onPressed: () => shareLink(
+                  Uri.parse(urls.threadPage(widget.board, widget.thread)),
+                  from: ShareAnchor(menuButton),
+                ),
+              ),
+              DashMenuEntry(
+                title: 'Open in Browser',
+                icon: CupertinoIcons.globe,
+                onPressed: () {
+                  openUrl(urls.threadPage(widget.board, widget.thread));
+                },
+              ),
+              DashMenuEntry(
+                title: 'Refresh',
+                icon: CupertinoIcons.arrow_clockwise,
+                onPressed: _refresh,
+              ),
+              DashMenuEntry(
+                title: 'Scroll to Top',
+                icon: CupertinoIcons.arrow_up,
+                onPressed: () {
+                  scrollToRow(0, alignment: 0);
+                },
+              ),
+              DashMenuEntry(
+                title: 'Scroll to Bottom',
+                icon: CupertinoIcons.arrow_down,
+                onPressed: () {
+                  scrollToRow(rows.length - 1, alignment: 0);
+                },
+              ),
+            ],
+          ),
         ),
       ],
       body: FutureBuilder(

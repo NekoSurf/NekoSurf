@@ -126,16 +126,21 @@ class _SavedTabState extends State<SavedTab> {
         icon: const Icon(CupertinoIcons.arrow_down_to_line),
         onPressed: hasFiles ? () => _saveSelectedToPhotos(saved) : null,
       ),
-      DashIconButton(
-        label: 'Share',
-        icon: const Icon(CupertinoIcons.share),
-        onPressed: hasFiles
-            ? () => reportingFailure(
-                context,
-                () => shareSaved(_selectedHere(saved)),
-                message: "Couldn't share it",
-              )
-            : null,
+      Builder(
+        builder: (BuildContext button) => DashIconButton(
+          label: 'Share',
+          icon: const Icon(CupertinoIcons.share),
+          onPressed: hasFiles
+              ? () => reportingFailure(
+                  context,
+                  () => shareSaved(
+                    _selectedHere(saved),
+                    from: ShareAnchor(button),
+                  ),
+                  message: "Couldn't share it",
+                )
+              : null,
+        ),
       ),
       DashIconButton(
         label: 'Delete',

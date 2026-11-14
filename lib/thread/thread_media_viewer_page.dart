@@ -130,15 +130,19 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
 
   /// Gets the post ready to share, and opens the share sheet for it once
   /// it's free, even if the viewer has moved on by then.
-  Future<void> _share() async {
+  Future<void> _share(BuildContext button) async {
     final Post post = _currentPost;
     final String name = _givenName(post);
     await reportingFailure(
       context,
       () => _shares.run(
         post.uploadId,
-        (SaveProgress onProgress) =>
-            shareDownload(post.fileUrl, name, onProgress: onProgress),
+        (SaveProgress onProgress) => shareDownload(
+          post.fileUrl,
+          name,
+          from: ShareAnchor(button),
+          onProgress: onProgress,
+        ),
       ),
     );
   }
@@ -191,7 +195,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
         SharedMediaViewerAction(
           icon: CupertinoIcons.share,
           label: 'Share',
-          onPressed: (_) => _share(),
+          onPressed: _share,
           isBusy: _shares.isRunning(key),
           progress: _shares.progressOf(key),
         ),

@@ -92,11 +92,14 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
     );
   }
 
-  Future<void> _share() async {
+  Future<void> _share(BuildContext button) async {
     final String fileName = _current.fileName;
     await reportingFailure(
       context,
-      () => _shares.run(fileName, (_) => shareSaved(<String>[fileName])),
+      () => _shares.run(
+        fileName,
+        (_) => shareSaved(<String>[fileName], from: ShareAnchor(button)),
+      ),
       message: "Couldn't share it",
     );
   }
@@ -182,7 +185,7 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
         SharedMediaViewerAction(
           icon: CupertinoIcons.share,
           label: 'Share',
-          onPressed: (_) => _share(),
+          onPressed: _share,
           isBusy: _shares.isRunning(fileName),
         ),
       ],

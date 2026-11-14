@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:device_info_plus/device_info_plus.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_chan/saved/downloads.dart';
 import 'package:flutter_chan/saved/saved_folders.dart';
 import 'package:path_provider/path_provider.dart';
@@ -87,9 +88,13 @@ Future<int> copySavedToPhotos(List<String> fileNames) async {
   return failed;
 }
 
-/// Opens one share sheet for all given saved files (includes "Save to Files").
-/// Throws [StorageDenied], or if none of them are there any more.
-Future<void> shareSaved(List<String> fileNames) async {
+/// Opens one share sheet for all given saved files (includes "Save to Files"),
+/// pointing [from] the button that asked. Throws [StorageDenied], or if none
+/// of them are there any more.
+Future<void> shareSaved(
+  List<String> fileNames, {
+  required ShareAnchor from,
+}) async {
   final SavedFolders folders = await openSavedFolders();
 
   final List<XFile> files = <XFile>[
@@ -100,12 +105,18 @@ Future<void> shareSaved(List<String> fileNames) async {
   if (files.isEmpty) {
     throw const FileSystemException('Saved files are gone');
   }
-  await shareInTurn(ShareParams(files: files));
+  await shareInTurn(
+    from,
+    (Rect origin) => ShareParams(files: files, sharePositionOrigin: origin),
+  );
 }
 
+/// Downloads an upload and opens the share sheet for it, pointing [from] the
+/// button that asked.
 Future<void> shareDownload(
   String url,
   String fileName, {
+  required ShareAnchor from,
   SaveProgress? onProgress,
 }) async {
   Directory? shareFolder;
@@ -118,7 +129,11 @@ Future<void> shareDownload(
       fileName,
       onProgress,
     );
-    await shareInTurn(ShareParams(files: [XFile(file.path)]));
+    await shareInTurn(
+      from,
+      (Rect origin) =>
+          ShareParams(files: [XFile(file.path)], sharePositionOrigin: origin),
+    );
     shared = true;
   } finally {
     if (shareFolder != null) {
@@ -138,24 +153,83 @@ Future<void> Function(ShareParams params) showShareSheet =
       await SharePlus.instance.share(params);
     };
 
-/// Opens the share sheet for [file] of [mimeType], once it's free; done
-/// when it's closed, by when what it was shared to has its own copy.
-Future<void> shareFile(File file, {String? mimeType}) =>
-    shareInTurn(ShareParams(files: [XFile(file.path, mimeType: mimeType)]));
+/// Opens the share sheet for [file] of [mimeType], once it's free, pointing
+/// [from] the button that asked; done when it's closed, by when what it was
+/// shared to has its own copy.
+Future<void> shareFile(
+  File file, {
+  required ShareAnchor from,
+  String? mimeType,
+}) => shareInTurn(
+  from,
+  (Rect origin) => ShareParams(
+    files: [XFile(file.path, mimeType: mimeType)],
+    sharePositionOrigin: origin,
+  ),
+);
+
+/// Opens the share sheet for a link, pointing [from] the button that asked.
+Future<void> shareLink(Uri uri, {required ShareAnchor from}) => shareInTurn(
+  from,
+  (Rect origin) => ShareParams(uri: uri, sharePositionOrigin: origin),
+);
+
+/// The button a share sheet points from. On iPad the sheet opens as a
+/// popover, which iPad refuses to open without a place inside the window to
+/// point at; iPhone ignores it.
+///
+/// It's looked up when the sheet opens, not when the button is pressed: a
+/// share can wait for a download or for another share first, by when the
+/// button may have moved, or be gone, as when the viewer it was in has
+/// closed.
+class ShareAnchor {
+  /// Made when [button] is pressed, from the button's own context.
+  const ShareAnchor(this._button);
+
+  final BuildContext _button;
+
+  /// The button's box in the window, or the middle of the window when it's
+  /// gone or off screen.
+  Rect get origin => shareOrigin(_button.mounted ? _button : null);
+}
+
+/// See [ShareAnchor.origin].
+@visibleForTesting
+Rect shareOrigin(BuildContext? from) {
+  final ui.FlutterView? view =
+      WidgetsBinding.instance.platformDispatcher.implicitView;
+  final Rect window = view == null
+      ? Rect.largest
+      : Offset.zero & (view.physicalSize / view.devicePixelRatio);
+  final RenderObject? box = from?.findRenderObject();
+  if (box is RenderBox && box.attached && box.hasSize) {
+    final Rect shown = (box.localToGlobal(Offset.zero) & box.size).intersect(
+      window,
+    );
+    if (shown.width > 0 && shown.height > 0) {
+      return shown;
+    }
+  }
+  return Rect.fromCenter(center: window.center, width: 1, height: 1);
+}
 
 // Done when the share sheet is free: it shows one share at a time.
 Future<void> _shareSheetFree = Future<void>.value();
 
-/// Opens the share sheet for [params] once the shares before it have
-/// closed theirs, so shares readied at once open one after another.
+/// Opens the share sheet for [params], made for where it points [from] (see
+/// [ShareAnchor]), once the shares before it have closed theirs, so shares
+/// readied at once open one after another.
 @visibleForTesting
-Future<void> shareInTurn(ShareParams params) async {
+Future<void> shareInTurn(
+  ShareAnchor? from,
+  ShareParams Function(Rect origin) params,
+) async {
   final Future<void> before = _shareSheetFree;
   final Completer<void> mine = Completer<void>();
   _shareSheetFree = mine.future;
   try {
     await before;
-    await showShareSheet(params);
+    await showShareSheet(params(from?.origin ?? shareOrigin(null)));
   } finally {
     mine.complete();
   }

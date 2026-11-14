@@ -1,0 +1,1 @@
+Sharing works on iPad, with the share sheet opening next to the share button.
