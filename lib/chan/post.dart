@@ -84,6 +84,35 @@ class Post {
         : null,
   );
 
+  /// The post as 4chan's API describes it, for [Post.fromJson] to read back.
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'no': no,
+    'sticky': ?sticky,
+    'closed': ?closed,
+    'name': ?name,
+    'sub': ?sub,
+    'com': ?com,
+    'filename': ?filename,
+    'ext': ?ext,
+    'w': ?w,
+    'h': ?h,
+    'tn_w': ?tnW,
+    'tn_h': ?tnH,
+    'tim': ?tim,
+    'time': ?time,
+    'resto': ?resto,
+    'replies': ?replies,
+    'images': ?images,
+    'last_modified': ?lastModified,
+    'country': ?country,
+    'country_name': ?countryName,
+    'archived': ?archived,
+    'id': ?id,
+    'trip': ?trip,
+    'capcode': ?capcode,
+    'spoiler': ?spoiler,
+  };
+
   static const String _thumbnailSuffix = 's.jpg';
 
   final String board;

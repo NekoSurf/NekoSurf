@@ -9,6 +9,9 @@ Made for iPad and tablets
 Mark a thread as read
 • Mark All as Read, in a thread's menu, clears its unread count, so a long thread you only skimmed stops showing replies to catch up on in Bookmarks and History
 
+Threads that still open offline
+• Threads you bookmarked or visited open without a connection, or once 4chan has deleted them, as they last loaded, with the time of that copy at the top
+
 WHAT'S FIXED
 
 • Sharing works on iPad: the share sheet opens next to the share button, for threads, images and videos, Saved files, backups and the iCloud sync log

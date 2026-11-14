@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +13,7 @@ import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/chan/post_text.dart';
 import 'package:flutter_chan/chan/thread_status.dart';
 import 'package:flutter_chan/history/history_model.dart';
+import 'package:flutter_chan/history/thread_copies.dart';
 import 'package:flutter_chan/history/watched_posts_model.dart';
 import 'package:flutter_chan/home/routes.dart';
 import 'package:flutter_chan/media/shared_media_viewer.dart';
@@ -554,6 +556,89 @@ void main() {
       },
       variant: TargetPlatformVariant.only(TargetPlatform.iOS),
     );
+
+    group('a thread that cannot be loaded', () {
+      late Directory dir;
+
+      setUp(() {
+        dir = Directory.systemTemp.createTempSync('thread_page_copies');
+        final ThreadCopies before = ThreadCopies.instance;
+        ThreadCopies.instance = ThreadCopies(() async => dir);
+        addTearDown(() {
+          ThreadCopies.instance = before;
+          dir.deleteSync(recursive: true);
+        });
+      });
+
+      // Answers and files arrive in real time, off the UI isolate.
+      Future<void> waitFor(WidgetTester tester, Finder finder) async {
+        for (int i = 0; i < 60 && finder.evaluate().isEmpty; i++) {
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 50)),
+          );
+          await tester.pump();
+        }
+        expect(finder, findsOneWidget);
+      }
+
+      Future<void> readOnce(WidgetTester tester) async {
+        answer = (_) => http.Response(
+          '{"posts":[{"no":1,"sub":"Title","com":"Words"},'
+          '{"no":2,"resto":1,"com":"A reply"}]}',
+          200,
+        );
+        await tester.pumpWidget(app(ThreadPage(post: Post(board: 'g', no: 1))));
+        await waitFor(tester, find.text('A reply'));
+        // The copy is written in the background.
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 300)),
+        );
+        await tester.pumpWidget(const SizedBox());
+      }
+
+      testWidgets('shows the copy kept when it was read, offline', (
+        tester,
+      ) async {
+        await readOnce(tester);
+
+        answer = (_) => throw const SocketException('offline');
+        await tester.pumpWidget(
+          app(
+            ThreadPage(
+              key: UniqueKey(),
+              post: Post(board: 'g', no: 1),
+            ),
+          ),
+        );
+        await waitFor(tester, find.text('A reply'));
+        expect(find.text('Showing a copy from just now'), findsOneWidget);
+        await finish(tester);
+      });
+
+      testWidgets('shows the copy once 4chan has deleted it', (tester) async {
+        await readOnce(tester);
+
+        answer = (_) => http.Response('', 404);
+        await tester.pumpWidget(
+          app(
+            ThreadPage(
+              key: UniqueKey(),
+              post: Post(board: 'g', no: 1),
+            ),
+          ),
+        );
+        await waitFor(tester, find.text('A reply'));
+        expect(find.text('Deleted · copy from just now'), findsOneWidget);
+        await finish(tester);
+      });
+
+      testWidgets('without a copy, says it is gone', (tester) async {
+        answer = (_) => http.Response('', 404);
+        await tester.pumpWidget(app(ThreadPage(post: Post(board: 'g', no: 1))));
+        await waitFor(tester, find.text('Thread not found'));
+        await finish(tester);
+      });
+    });
 
     testWidgets('an icon button says what it does to VoiceOver', (
       tester,

@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_chan/board/favorite_model.dart';
 import 'package:flutter_chan/bookmarks/bookmarks_model.dart';
 import 'package:flutter_chan/history/history_model.dart';
+import 'package:flutter_chan/history/thread_copies.dart';
 import 'package:flutter_chan/history/watched_posts_model.dart';
 import 'package:flutter_chan/home/app_shell.dart';
 import 'package:flutter_chan/home/routes.dart';
@@ -258,7 +259,7 @@ class MyApp extends StatelessWidget {
           lazy: false,
         ),
       ],
-      child: const AppWithTheme(),
+      child: const KeepThreadCopies(child: AppWithTheme()),
     );
   }
 }

@@ -1,6 +1,6 @@
 # Privacy Policy
 
-_Last updated: 13 November 2026_
+_Last updated: 14 November 2026_
 
 NekoSurf is a free, open-source app for reading 4chan, made by wrngwrld. This policy explains what the app does with your data. In short:
 
@@ -14,6 +14,7 @@ NekoSurf keeps these on your phone only:
 
 - Your settings, favorite boards, bookmarks and the filters you set to hide threads and posts
 - The threads you've visited (you can turn this off in Settings → History → Track history, or keep them only while the app is open) and, for each thread, the posts you've already seen or not yet, where you left off, what you folded and what you hid (watched posts)
+- A copy of the text of each thread you've bookmarked or visited, as it last loaded, so it still opens without a connection or once it's deleted. It goes when the thread leaves your bookmarks and history
 - What you save to the Saved tab: on iPhone in the app's folder, which you can see in the Files app, and on Android in Download/4Chan; or, with Settings → Privacy → Keep saved files in the app turned on, in a folder only the app can see
 - Images and videos you've viewed, cached so they load faster the next time
 - Which of 4chan's boards are NSFW, from 4chan's board list, so they stay hidden while it loads
@@ -48,7 +49,7 @@ Only when you choose them:
 ## Deleting your data
 
 - In **Settings → Storage**, clear the cache of images and videos.
-- On the **History** page, clear the threads you've visited. Watched posts are forgotten a week after you last opened the thread.
+- On the **History** page, clear the threads you've visited, with the copies kept of them. Watched posts are forgotten a week after you last opened the thread.
 - In the **Saved tab**, delete what you've saved.
 - **Uninstalling** the app deletes everything it stored, except what you saved to Photos or your gallery, on Android the Download/4Chan folder (if you kept saved files there), any backup files you kept, and what iCloud sync keeps in your iCloud account (delete it in NekoSurf's Settings or your iPhone's iCloud settings).
 
