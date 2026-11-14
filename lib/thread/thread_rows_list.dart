@@ -13,6 +13,7 @@ import 'package:flutter_chan/thread/thread_rows.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_header.dart';
 import 'package:flutter_chan/ui/pull_to_refresh.dart';
+import 'package:flutter_chan/ui/window_size.dart';
 import 'package:provider/provider.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
@@ -599,11 +600,16 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
   Widget buildRowList({int? rootPost, Set<int> preloadVideos = const <int>{}}) {
     final bool isFlat = layout == ThreadLayout.flat;
 
+    // In a wide window, the posts keep to a readable column in the middle;
+    // the sides still scroll the thread.
+    final double side = readableInset(MediaQuery.sizeOf(context).width);
     return PullToRefresh(
       onRefresh: onPulled,
       fromBottom: true,
       child: ScrollablePositionedList.builder(
         padding: EdgeInsets.only(
+          left: side,
+          right: side,
           bottom: MediaQuery.paddingOf(context).bottom + 8,
         ),
         shrinkWrap: false,

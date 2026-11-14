@@ -169,6 +169,7 @@ class _SearchPageState extends State<SearchPage> {
 
     final DashScaffold page = DashScaffold(
       title: 'Search',
+      readable: true,
       onRefresh: _refresh,
       actions: [
         DashIconButton(

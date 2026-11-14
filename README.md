@@ -56,6 +56,10 @@
 - Reverse image search with Google Lens, Bing, Yandex or SauceNAO
 - Turn on iCloud sync to keep your saved media, bookmarks, history, favorite boards, filters and settings the same on your iPhone and iPad, and get them back after reinstalling; or back them up to a file
 
+### 🖥️ On iPad and tablets
+
+- Lists and threads keep to a column you can read, and a tall image fits on the screen
+
 ### 🎨 Make it yours
 
 - Light, dark or following your phone, in 15 color themes that tint the whole app, or pure black for OLED screens

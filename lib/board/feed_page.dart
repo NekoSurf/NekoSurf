@@ -81,6 +81,7 @@ class _FeedPageState extends State<FeedPage> with ThreadOrder<FeedPage> {
 
     return DashScaffold(
       title: 'Feed',
+      readable: settings.boardViewMode.value == ViewMode.list,
       onRefresh: _loadFeed,
       actions: [const ViewModeButton(), sortMenu(settings)],
       slivers: [

@@ -33,6 +33,7 @@ class _AppShellState extends State<AppShell> {
     _Tab.settings: DashScaffold(
       title: 'Settings',
       reserveTabBarSpace: true,
+      readable: true,
       slivers: [Settings()],
     ),
   };

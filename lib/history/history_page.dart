@@ -95,6 +95,7 @@ class _HistoryPageState extends State<HistoryPage> {
 
     return DashScaffold(
       title: 'History',
+      readable: true,
       onRefresh: () => history.checkThreads(force: true),
       actions: [
         // Where Saved opens without its tab.

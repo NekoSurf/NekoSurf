@@ -168,6 +168,7 @@ class _DashboardState extends State<Dashboard> {
         ),
       ],
       reserveTabBarSpace: true,
+      readable: true,
       onRefresh: _refresh,
       slivers: [
         SliverToBoxAdapter(

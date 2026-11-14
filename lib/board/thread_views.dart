@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_chan/board/grid_post.dart';
 import 'package:flutter_chan/board/list_post.dart';
 import 'package:flutter_chan/chan/post.dart';
@@ -44,25 +45,32 @@ class ThreadsLayout extends StatelessWidget {
         ),
       );
     }
-    final double pageWidth = MediaQuery.sizeOf(context).width;
-    final int columns = max(2, (pageWidth / 230).floor());
-    final double tileWidth =
-        (pageWidth - 2 * sideInset - (columns - 1) * _gridSpacing) / columns;
-    return SliverPadding(
-      padding: EdgeInsets.fromLTRB(sideInset, 6, sideInset, 18),
-      sliver: SliverGrid.builder(
-        itemCount: itemCount,
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: columns,
-          crossAxisSpacing: _gridSpacing,
-          mainAxisSpacing: _gridSpacing,
-          // Only one row of pills under the image, however wide the tile.
-          mainAxisExtent:
-              tileWidth / 0.82 -
-              (MediaQuery.textScalerOf(context).scale(25) + 8),
-        ),
-        itemBuilder: itemBuilder,
-      ),
+    // As wide as the list it's in, which in a wide window can be a pane
+    // beside another, not the whole window.
+    return SliverLayoutBuilder(
+      builder: (BuildContext context, SliverConstraints constraints) {
+        final double pageWidth = constraints.crossAxisExtent;
+        final int columns = max(2, (pageWidth / 230).floor());
+        final double tileWidth =
+            (pageWidth - 2 * sideInset - (columns - 1) * _gridSpacing) /
+            columns;
+        return SliverPadding(
+          padding: EdgeInsets.fromLTRB(sideInset, 6, sideInset, 18),
+          sliver: SliverGrid.builder(
+            itemCount: itemCount,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: columns,
+              crossAxisSpacing: _gridSpacing,
+              mainAxisSpacing: _gridSpacing,
+              // Only one row of pills under the image, however wide the tile.
+              mainAxisExtent:
+                  tileWidth / 0.82 -
+                  (MediaQuery.textScalerOf(context).scale(25) + 8),
+            ),
+            itemBuilder: itemBuilder,
+          ),
+        );
+      },
     );
   }
 }

@@ -86,6 +86,7 @@ class _ArchivePageState extends State<ArchivePage> {
     return DashScaffold(
       title: 'Archive',
       subtitle: '/${widget.board}/ · ${widget.boardName}',
+      readable: !grid,
       actions: const [ViewModeButton()],
       slivers: [
         SliverToBoxAdapter(

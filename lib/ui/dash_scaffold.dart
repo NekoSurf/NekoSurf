@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_header.dart';
 import 'package:flutter_chan/ui/pull_to_refresh.dart';
+import 'package:flutter_chan/ui/window_size.dart';
 
 class DashScaffold extends StatefulWidget {
   const DashScaffold({
@@ -13,6 +14,7 @@ class DashScaffold extends StatefulWidget {
     this.actions = const [],
     this.onRefresh,
     this.reserveTabBarSpace = false,
+    this.readable = false,
   });
 
   final String title;
@@ -22,6 +24,10 @@ class DashScaffold extends StatefulWidget {
 
   /// Leaves room at the bottom for a tab bar drawn by the parent.
   final bool reserveTabBarSpace;
+
+  /// Keeps [slivers] to a readable column in a wide window (see
+  /// [kReadableWidth]), for a page of rows and text; grids take the width.
+  final bool readable;
   final List<Widget> actions;
   final Future<void> Function()? onRefresh;
 
@@ -77,7 +83,11 @@ class _DashScaffoldState extends State<DashScaffold> {
                   SliverToBoxAdapter(
                     child: SizedBox(height: top + kDashHeaderHeight + 8),
                   ),
-                  ...widget.slivers,
+                  for (final Widget sliver in widget.slivers)
+                    if (widget.readable)
+                      ReadableSliver(sliver: sliver)
+                    else
+                      sliver,
                   SliverToBoxAdapter(
                     child: SizedBox(height: bottom + 24 + barSpace),
                   ),

@@ -110,6 +110,7 @@ class _BoardPageState extends State<BoardPage> with ThreadOrder<BoardPage> {
 
     return DashScaffold(
       title: widget.boardName,
+      readable: settings.boardViewMode.value == ViewMode.list,
       onRefresh: () => _loadBoard(keepShown: true),
       actions: [
         DashIconButton(

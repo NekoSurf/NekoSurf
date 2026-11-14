@@ -1,1 +1,1 @@
-Sharing works on iPad, with the share sheet opening next to the share button.
+Lists and threads keep to a readable column on iPad and tablets, with tall images fitting the screen; and sharing works on iPad.

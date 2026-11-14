@@ -18,6 +18,7 @@ import 'package:flutter_chan/thread/thread_posts.dart';
 import 'package:flutter_chan/thread/thread_replies.dart';
 import 'package:flutter_chan/ui/back_swipe_route.dart';
 import 'package:flutter_chan/ui/colors.dart';
+import 'package:flutter_chan/ui/window_size.dart';
 import 'package:provider/provider.dart';
 
 /// A post as a row: a one-line header, then its text, then its image or
@@ -301,9 +302,25 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
     isDark ? 0.7 : 0.35,
   ).toColor();
 
+  /// Media take the post's width, but at most most of the window's height:
+  /// in a wide window, a tall image as wide as the post would be taller than
+  /// the screen. Kept to that, it lines up with the text on its left.
+  Widget _fitToWindow(Widget media) {
+    return Align(
+      alignment: AlignmentDirectional.topStart,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.75,
+        ),
+        child: media,
+      ),
+    );
+  }
+
   int? _imageDecodeWidth(BuildContext context) {
+    // No wider than the thread's column (see kReadableWidth).
     final double target =
-        MediaQuery.sizeOf(context).width *
+        min(MediaQuery.sizeOf(context).width, kReadableWidth) *
         MediaQuery.devicePixelRatioOf(context);
     final int? original = widget.post.w;
     return original == null ? target.round() : min(original, target.round());
@@ -640,7 +657,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
             ],
             if (!folded && !isPreview && post.hasFile) ...[
               const SizedBox(height: 8),
-              _buildMedia(),
+              _fitToWindow(_buildMedia()),
             ],
           ],
         ),

@@ -150,6 +150,7 @@ class _BookmarksState extends State<Bookmarks> {
     return DashScaffold(
       title: 'Bookmarks',
       reserveTabBarSpace: true,
+      readable: settings.boardViewMode.value == ViewMode.list,
       onRefresh: items.isEmpty
           ? null
           : () => _check(items, again: true, force: true),
