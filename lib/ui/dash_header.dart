@@ -125,7 +125,11 @@ class DashHeader extends StatelessWidget {
                   if (showBack)
                     GestureDetector(
                       behavior: HitTestBehavior.opaque,
-                      onTap: () => Navigator.of(context).maybePop(),
+                      // Leaves this page, even when back from elsewhere
+                      // would go back in something on it first: a board's
+                      // back goes to the boards with a thread open beside
+                      // it (see MasterDetail).
+                      onTap: () => Navigator.of(context).pop(),
                       child: Padding(
                         padding: const EdgeInsets.only(right: 12),
                         child: SizedBox.square(

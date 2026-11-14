@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_chan/chan/post.dart';
+import 'package:flutter_chan/ui/dash_scaffold.dart';
 import 'package:flutter_chan/ui/master_detail.dart';
 import 'package:flutter_chan/ui/open.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -163,5 +164,58 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.text('Open the list'), findsOneWidget);
+  });
+
+  testWidgets("the list's back icon leaves it, with a thread open beside it", (
+    tester,
+  ) async {
+    windowOf(tester, const Size(1376, 1032));
+    await tester.pumpWidget(
+      DestinationPages(
+        pageFor: _pageFor,
+        child: CupertinoApp(
+          home: Builder(
+            builder: (context) => CupertinoButton(
+              onPressed: () => Navigator.of(context).push(
+                CupertinoPageRoute<void>(
+                  builder: (_) => MasterDetail(
+                    master: DashScaffold(
+                      title: 'Board',
+                      slivers: [
+                        SliverToBoxAdapter(
+                          child: Builder(
+                            builder: (context) => CupertinoButton(
+                              onPressed: () =>
+                                  openThread(context, Post(board: 'g', no: 1)),
+                              child: const Text('Open 1'),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              child: const Text('Boards'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Boards'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open 1'));
+    await tester.pumpAndSettle();
+    expect(find.text('Thread 1'), findsOneWidget);
+
+    await tester.tap(
+      find.byWidgetPredicate(
+        (Widget widget) => widget is Icon && widget.semanticLabel == 'Back',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Boards'), findsOneWidget);
+    expect(find.text('Thread 1'), findsNothing);
   });
 }
