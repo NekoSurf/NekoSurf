@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
@@ -556,6 +557,104 @@ void main() {
       },
       variant: TargetPlatformVariant.only(TargetPlatform.iOS),
     );
+
+    testWidgets('goes from one unread post to the next', (tester) async {
+      final String replies = <String>[
+        for (int no = 2; no <= 40; no++)
+          '{"no":$no,"resto":1,"com":"Reply $no<br>more<br>lines<br>here"}',
+      ].join(',');
+      answer = (_) => http.Response(
+        '{"posts":[{"no":1,"sub":"Title","com":"Words"},$replies]}',
+        200,
+      );
+      await tester.pumpWidget(app(ThreadPage(post: Post(board: 'g', no: 1))));
+      for (int i = 0; i < 40 && find.text('Words').evaluate().isEmpty; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pump();
+      }
+      await tester.pumpAndSettle();
+
+      // What's on screen is read; the rest is still to go.
+      int unread() {
+        final Finder button = find.bySemanticsLabel(
+          RegExp(r'^Next unread post, \d+ unread$'),
+        );
+        if (button.evaluate().isEmpty) {
+          return 0;
+        }
+        final String label = tester.getSemantics(button).label;
+        return int.parse(RegExp(r'(\d+) unread').firstMatch(label)!.group(1)!);
+      }
+
+      final int before = unread();
+      expect(before, greaterThan(10));
+      expect(before, lessThan(39));
+      expect(find.text('Reply 39'), findsNothing);
+
+      await tester.tap(find.bySemanticsLabel(RegExp('^Next unread post')));
+      await tester.pumpAndSettle();
+      final int afterTap = unread();
+      expect(afterTap, lessThan(before));
+
+      // N does the same, with a keyboard.
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyN);
+      await tester.pumpAndSettle();
+      expect(unread(), lessThan(afterTap));
+
+      // Till there's nothing left.
+      for (int i = 0; i < 40 && unread() > 0; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyN);
+        await tester.pumpAndSettle();
+      }
+      expect(unread(), 0);
+      expect(find.bySemanticsLabel(RegExp('^Next unread post')), findsNothing);
+      expect(find.textContaining('Reply 40'), findsOneWidget);
+      await finish(tester);
+    });
+
+    testWidgets('unfolds a branch to an unread reply in it', (tester) async {
+      answer = (_) => http.Response(
+        jsonEncode({
+          'posts': [
+            {'no': 1, 'sub': 'Title', 'com': 'Words'},
+            {'no': 2, 'resto': 1, 'com': 'Folded post'},
+            {
+              'no': 3,
+              'resto': 1,
+              'com': '<a href="#p2" class="quotelink">&gt;&gt;2</a><br>Inside',
+            },
+          ],
+        }),
+        200,
+      );
+      // Read once, with the branch folded.
+      watched.noteThreadPosts(1, [1, 2, 3]);
+      watched.markPostsSeen(1, [2]);
+      watched.rememberFolds(1, folded: {'2'}, primaryParents: {});
+
+      await tester.pumpWidget(app(ThreadPage(post: Post(board: 'g', no: 1))));
+      for (int i = 0; i < 40 && find.text('Words').evaluate().isEmpty; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pump();
+      }
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Inside'), findsNothing);
+      expect(
+        find.bySemanticsLabel('Next unread post, 1 unread'),
+        findsOneWidget,
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyN);
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Inside'), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('^Next unread post')), findsNothing);
+      await finish(tester);
+    });
 
     group('a thread that cannot be loaded', () {
       late Directory dir;

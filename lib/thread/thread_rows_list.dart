@@ -353,6 +353,95 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
     scrollToRow(target.clamp(0, rows.length - 1), alignment: line);
   }
 
+  /// How many posts not read yet [goToNextUnread] can go to: those on show,
+  /// and those folded away, but not ones hidden or below a hidden post.
+  int get unreadToGo {
+    final Set<int> unseen = unseenPosts;
+    if (unseen.isEmpty) {
+      return 0;
+    }
+    final Set<int> shown = <int>{};
+    int folded = 0;
+    for (final ThreadRow row in rows) {
+      if (row.isPreview || row.hidden || !unseen.contains(row.post.no)) {
+        if (row.collapsed) {
+          folded += row.newReplies;
+        }
+        continue;
+      }
+      if (row.collapsed) {
+        folded += 1 + row.newReplies;
+      } else {
+        shown.add(row.post.no);
+      }
+    }
+    return shown.length + folded;
+  }
+
+  /// Goes to the next post not read yet, below the one at the top of the
+  /// screen, or round from the start: scrolled to just below the header, and
+  /// unfolded if it was folded away.
+  void goToNextUnread() {
+    final Set<int> unseen = unseenPosts;
+    if (unseen.isEmpty || rows.isEmpty) {
+      return;
+    }
+    // Pressed again on the way, it goes on from where it was going.
+    final int? going = _isAutoScrolling ? _aim?.row : null;
+    final int from = going ?? _rowAtLine() ?? -1;
+    for (int step = 1; step <= rows.length; step++) {
+      final int index = (from + step) % rows.length;
+      final ThreadRow row = rows[index];
+      if (row.isPreview || row.hidden) {
+        continue;
+      }
+      if (!row.collapsed) {
+        if (unseen.contains(row.post.no)) {
+          scrollToRow(index, alignment: belowHeader);
+          flashRow(row.path);
+          return;
+        }
+        continue;
+      }
+      if (unseen.contains(row.post.no)) {
+        _goToRow(row, belowHeader);
+        return;
+      }
+      if (row.newReplies > 0) {
+        final ThreadRow? inside = _rowsWithoutFolds()
+            .where(
+              (ThreadRow r) =>
+                  r.path.startsWith('${row.path}/') &&
+                  !r.isPreview &&
+                  !r.hidden &&
+                  unseen.contains(r.post.no),
+            )
+            .firstOrNull;
+        if (inside != null) {
+          _goToRow(inside, belowHeader);
+          return;
+        }
+      }
+    }
+  }
+
+  /// The row at the line just below the header, where a jump puts a row; null
+  /// if nothing is laid out.
+  int? _rowAtLine() {
+    final List<ItemPosition> positions = visiblePositions()
+      ..sort((a, b) => a.index.compareTo(b.index));
+    if (positions.isEmpty) {
+      return null;
+    }
+    final double line = belowHeader;
+    return positions
+        .lastWhere(
+          (ItemPosition position) => position.itemLeadingEdge <= line + 0.01,
+          orElse: () => positions.first,
+        )
+        .index;
+  }
+
   /// Briefly tints a row so it's clear where a jump landed.
   void flashRow(String path) {
     _highlightTimer?.cancel();

@@ -24,13 +24,16 @@ import 'package:flutter_chan/thread/thread_posts.dart';
 import 'package:flutter_chan/thread/thread_rows.dart';
 import 'package:flutter_chan/thread/thread_rows_list.dart';
 import 'package:flutter_chan/ui/back_swipe_route.dart';
+import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_header.dart';
 import 'package:flutter_chan/ui/dash_menu.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
+import 'package:flutter_chan/ui/frosted.dart';
 import 'package:flutter_chan/ui/keys.dart';
 import 'package:flutter_chan/ui/open_url.dart';
 import 'package:flutter_chan/ui/reload.dart';
 import 'package:flutter_chan/ui/toast.dart';
+import 'package:flutter_chan/ui/window_size.dart';
 import 'package:provider/provider.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
@@ -643,6 +646,8 @@ class _ThreadPageState extends State<ThreadPage>
 
   @override
   Widget build(BuildContext context) {
+    // Rows are built again as posts are read, and this page with them.
+    final int unread = unreadToGo;
     // Only rebuilds when it turns, not with each post read.
     final bool hasUnseen = context.select<WatchedPostsProvider, bool>(
       (watched) => watched.unseenPosts(widget.thread).isNotEmpty,
@@ -666,6 +671,7 @@ class _ThreadPageState extends State<ThreadPage>
         withCommand(LogicalKeyboardKey.arrowDown): () =>
             scrollToRow(rows.length - 1, alignment: 0),
         withCommand(LogicalKeyboardKey.keyR): _refresh,
+        [const SingleActivator(LogicalKeyboardKey.keyN)]: goToNextUnread,
       }),
       child: DashBarScaffold(
         title: _title,
@@ -794,11 +800,69 @@ class _ThreadPageState extends State<ThreadPage>
                       ),
                       if (!_isListShown)
                         const Center(child: CupertinoActivityIndicator()),
+                      if (_isListShown && unread > 0)
+                        Positioned(
+                          // In the column the posts keep to, in a wide window.
+                          right:
+                              readableInset(MediaQuery.sizeOf(context).width) +
+                              16,
+                          bottom: MediaQuery.paddingOf(context).bottom + 16,
+                          child: _NextUnreadButton(
+                            count: unread,
+                            onPressed: goToNextUnread,
+                          ),
+                        ),
                     ],
                   );
                 }
             }
           },
+        ),
+      ),
+    );
+  }
+}
+
+/// Floats over the thread while posts are still unread: goes to the next one.
+class _NextUnreadButton extends StatelessWidget {
+  const _NextUnreadButton({required this.count, required this.onPressed});
+
+  final int count;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final String label = count == 1 ? '1 unread' : '$count unread';
+    return Semantics(
+      button: true,
+      label: 'Next unread post, $label',
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: onPressed,
+        child: Frosted(
+          radius: 20,
+          color: Frosted.panel(context),
+          borderColor: DashColors.border(context),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                CupertinoIcons.chevron_down,
+                size: 15,
+                color: context.accent,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: DashColors.text(context),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

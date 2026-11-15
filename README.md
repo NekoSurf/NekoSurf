@@ -44,7 +44,7 @@
 - Hold a post to hide it, or a poster's posts by their ID, name, tripcode or country, and filter replies by keyword or regex
 - Tap a poster's ID to see all their posts in the thread
 - Bookmarks that show when a thread is archived or deleted, and the threads you bookmarked or visited still open offline or once they're deleted, as they last loaded
-- Threads can open where you left off, with what you haven't read counted (or marked as read in one go) and new replies marked until you've seen them, and a history keeps the ones you visited
+- Threads can open where you left off, with what you haven't read counted, a button to jump to the next unread post (or to mark them all as read in one go) and new replies marked until you've seen them, and a history keeps the ones you visited
 - Swipe right anywhere on a page to go back
 
 ### 🎬 Watch and save
@@ -61,7 +61,7 @@
 
 - In a wide window, the tabs move down the side, and threads open beside the board, bookmarks, history or search they're picked from, so you can read one and pick the next
 - Lists and threads keep to a column you can read, and a tall image fits on the screen
-- With a trackpad or mouse, right-click for the menu that holding opens; with a keyboard, the arrows or J and K go post by post, Cmd+R refreshes, Cmd+F searches a board, Cmd+1 to Cmd+4 switch tabs, and Esc goes back
+- With a trackpad or mouse, right-click for the menu that holding opens; with a keyboard, the arrows or J and K go post by post, N jumps to the next unread post, Cmd+R refreshes, Cmd+F searches a board, Cmd+1 to Cmd+4 switch tabs, and Esc goes back
 
 ### 🎨 Make it yours
 

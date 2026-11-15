@@ -6,7 +6,8 @@
 - With a trackpad or mouse, right-click for the menu that holding opens
 - With a keyboard, the arrows or J and K go post by post, Cmd+R refreshes, Cmd+F searches a board, Cmd+1 to Cmd+4 switch tabs, and Esc goes back
 
-### ✅ Mark a thread as read
+### ✅ Catch up on a thread
+- While a thread has posts you haven't read, a button at the bottom says how many and takes you to the next one, unfolding replies it's folded away in; with a keyboard, N does the same
 - Mark All as Read, in a thread's menu, clears its unread count, so a long thread you only skimmed stops showing replies to catch up on in Bookmarks and History
 
 ### 📴 Threads that still open offline
