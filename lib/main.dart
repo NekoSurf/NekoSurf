@@ -14,6 +14,7 @@ import 'package:flutter_chan/home/routes.dart';
 import 'package:flutter_chan/media/image_cache.dart';
 import 'package:flutter_chan/media/video_players.dart';
 import 'package:flutter_chan/media/video_server.dart';
+import 'package:flutter_chan/offline/offline_threads.dart';
 import 'package:flutter_chan/saved/downloads.dart';
 import 'package:flutter_chan/saved/saved_attachments_model.dart';
 import 'package:flutter_chan/saved/saved_folders.dart';
@@ -60,6 +61,7 @@ Future<void> main() async {
   unawaited(VideoServer.instance.setMaxCacheBytes(300 * megabyte));
   unawaited(deleteSaveLeftovers());
   unawaited(deleteOldImageCache());
+  unawaited(OfflineThreads.instance.load());
   runApp(AppRoot(prefs: prefs, settings: settings));
 }
 
@@ -257,6 +259,9 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider<WatchedPostsProvider>(
           create: (_) => WatchedPostsProvider(prefs),
           lazy: false,
+        ),
+        ChangeNotifierProvider<OfflineThreads>.value(
+          value: OfflineThreads.instance,
         ),
       ],
       child: const KeepThreadCopies(child: AppWithTheme()),

@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_chan/chan/http_client.dart';
+import 'package:flutter_chan/offline/offline_threads.dart';
 import 'package:path_provider/path_provider.dart';
 
 // Images are kept on disk as well as in memory, so ones seen before show
@@ -32,12 +33,34 @@ final CacheManager _images = CacheManager(
   ),
 );
 
-/// A thumbnail (`<tim>s.jpg`), from the disk cache when it's there.
+/// A thumbnail (`<tim>s.jpg`): from a thread saved for offline, or the disk
+/// cache, when it's there.
 ImageProvider<Object> thumbnailImage(String url) =>
-    CachedNetworkImageProvider(url, cacheManager: _thumbnails);
+    _offline(url) ?? CachedNetworkImageProvider(url, cacheManager: _thumbnails);
 
 ImageProvider<Object> fullImage(String url) =>
-    CachedNetworkImageProvider(url, cacheManager: _images);
+    _offline(url) ?? CachedNetworkImageProvider(url, cacheManager: _images);
+
+ImageProvider<Object>? _offline(String url) {
+  final File? file = OfflineThreads.instance.fileFor(url);
+  return file == null ? null : FileImage(file);
+}
+
+/// The cached copy of the image or thumbnail at [url], if there is one. A
+/// cache that doesn't answer soon counts as not having it.
+Future<File?> cachedImageFile(String url) async {
+  try {
+    for (final CacheManager cache in [_images, _thumbnails]) {
+      final FileInfo? info = await cache
+          .getFileFromCache(url)
+          .timeout(const Duration(seconds: 2), onTimeout: () => null);
+      if (info != null && await info.file.exists()) {
+        return info.file;
+      }
+    }
+  } catch (_) {}
+  return null;
+}
 
 /// What cached images take up on disk, in bytes.
 Future<int> imageCacheSize() async {

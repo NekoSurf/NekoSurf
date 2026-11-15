@@ -1,6 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_chan/media/image_cache.dart';
 import 'package:flutter_chan/media/video_server.dart';
+import 'package:flutter_chan/offline/offline_threads.dart';
+import 'package:flutter_chan/offline/offline_threads_page.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/settings/settings_widgets.dart';
 import 'package:flutter_chan/ui/colors.dart';
@@ -49,13 +51,32 @@ class _StorageSettingsState extends State<StorageSettings> {
     return SettingsGroup(
       title: 'Storage',
       children: [
+        ListenableBuilder(
+          listenable: OfflineThreads.instance,
+          builder: (BuildContext context, _) {
+            final OfflineThreads offline = OfflineThreads.instance;
+            final int count = offline.threads.length;
+            return SettingsRow(
+              icon: CupertinoIcons.arrow_down_circle_fill,
+              color: context.accent,
+              title: 'Saved for offline',
+              subtitle: count == 0
+                  ? 'Threads you save for offline, from their menu.'
+                  : count == 1
+                  ? '1 thread, with its images and videos.'
+                  : '$count threads, with their images and videos.',
+              value: count == 0 ? null : formatStorageSize(offline.bytes),
+              onTap: () => openOfflineThreads(context),
+            );
+          },
+        ),
         _ClearRow(
           icon: CupertinoIcons.trash_fill,
           title: 'Clear cache',
           subtitle:
               'Videos, thumbnails and images you open are kept for a while, '
               'so they show without downloading them again.',
-          value: cacheSize == null ? null : _formatCacheSize(cacheSize),
+          value: cacheSize == null ? null : formatStorageSize(cacheSize),
           done: 'Cache cleared!',
           clear: () async {
             await Future.wait([
@@ -107,7 +128,8 @@ class _ClearRow extends StatelessWidget {
   }
 }
 
-String _formatCacheSize(int bytes) {
+/// [bytes] as people read them: KB, MB or GB.
+String formatStorageSize(int bytes) {
   // Thumbnails are a few KB each; don't show a full cache as "0 MB".
   if (bytes < megabyte) {
     return '${(bytes / 1024).ceil()} KB';

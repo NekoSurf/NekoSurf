@@ -53,6 +53,7 @@
 - A fullscreen gallery to swipe through a thread's images and videos, zoom, scrub and change the speed
 - A grid of a thread's media that you can narrow to only images or only videos
 - Save to the Saved tab or to Photos, or share, several at once, with a ring showing how far along each is
+- Save a whole thread for offline, with all its images and videos, to read later without a connection
 - Reverse image search with Google Lens, Bing, Yandex or SauceNAO
 - Turn on iCloud sync to keep your saved media, bookmarks, history, favorite boards, filters and settings the same on your iPhone and iPad, and get them back after reinstalling; or back them up to a file
 

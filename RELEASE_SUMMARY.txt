@@ -1,1 +1,1 @@
-NekoSurf is made for iPad and tablets, with tabs down the side, threads beside their board, readable columns and keyboard shortcuts; a thread can be marked as read, and threads you've read open offline or once deleted; and sharing works on iPad.
+NekoSurf is made for iPad and tablets, with tabs down the side, threads beside their board, readable columns and keyboard shortcuts; a thread can be marked as read, and threads you've read open offline or once deleted, and whole threads can be saved for offline; and sharing works on iPad.

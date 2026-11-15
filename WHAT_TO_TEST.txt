@@ -12,6 +12,11 @@ Mark a thread as read
 Threads that still open offline
 • Threads you bookmarked or visited open without a connection, or once 4chan has deleted them, as they last loaded, with the time of that copy at the top
 
+Save threads for offline
+• Save for Offline, in a thread's menu, downloads every image and video in it, so you can read it later without a connection; the line under the title shows how far along it is
+• Saved threads are listed in Bookmarks → More → Saved for Offline and in Settings → Storage, with how much space each takes, to open or remove
+• Saving a thread again adds what's new since, and tries what couldn't be downloaded
+
 WHAT'S FIXED
 
 • Sharing works on iPad: the share sheet opens next to the share button, for threads, images and videos, Saved files, backups and the iCloud sync log

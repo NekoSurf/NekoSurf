@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_chan/chan/file_server_limit.dart';
 import 'package:flutter_chan/chan/http_client.dart';
+import 'package:flutter_chan/offline/offline_threads.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
@@ -83,6 +84,12 @@ class VideoServer {
   /// otherwise a local stream of the download, which starts now. [url]
   /// counts as watched from now on, until [unwatch].
   Future<String> source(String url) async {
+    final File? offline = OfflineThreads.instance.fileFor(url);
+    if (offline != null) {
+      _progressOf(url).value = 1;
+      _loadedOf(url).value = _all;
+      return offline.path;
+    }
     _watched.add(url);
     final File file = await _fileFor(url);
     if (file.existsSync() && !_downloads.containsKey(url)) {
@@ -114,6 +121,9 @@ class VideoServer {
   }
 
   Future<void> prefetch(String url) async {
+    if (OfflineThreads.instance.fileFor(url) != null) {
+      return;
+    }
     final File file = await _fileFor(url);
     if (file.existsSync() || _downloads.containsKey(url)) {
       return;
@@ -147,6 +157,10 @@ class VideoServer {
   /// The finished copy of [url] on disk, if it's been watched to the end
   /// of its download; null otherwise (also while it's still arriving).
   Future<File?> cachedFile(String url) async {
+    final File? offline = OfflineThreads.instance.fileFor(url);
+    if (offline != null) {
+      return offline;
+    }
     try {
       final File file = await _fileFor(url);
       if (file.existsSync() && !_downloads.containsKey(url)) {

@@ -16,6 +16,7 @@ import 'package:flutter_chan/history/thread_copies.dart';
 import 'package:flutter_chan/history/thread_memory.dart';
 import 'package:flutter_chan/history/watched_posts_model.dart';
 import 'package:flutter_chan/media/image_cache.dart';
+import 'package:flutter_chan/offline/offline_threads.dart';
 import 'package:flutter_chan/saved/give_media.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/thread/thread_gallery_page.dart';
@@ -95,6 +96,44 @@ class _ThreadPageState extends State<ThreadPage>
   /// last copy is shown in its place (see [ThreadCopies]).
   DateTime? _copySavedAt;
 
+  /// Whether it's saved for offline, and how far along saving it is.
+  ({bool saved, double? saving}) _offline = (saved: false, saving: null);
+
+  ({bool saved, double? saving}) _offlineNow() => (
+    saved: OfflineThreads.instance.isSaved(widget.board, widget.thread),
+    saving: OfflineThreads.instance.savingProgress(widget.board, widget.thread),
+  );
+
+  /// Rebuilds only when this thread's saving changes, not another's.
+  void _offlineChanged() {
+    final ({bool saved, double? saving}) now = _offlineNow();
+    if (now != _offline && mounted) {
+      setState(() => _offline = now);
+    }
+  }
+
+  Future<void> _saveOffline() async {
+    if (thread.posts.isEmpty) {
+      return;
+    }
+    final OfflineSaveResult result = await OfflineThreads.instance.save(
+      thread.posts,
+    );
+    if (!mounted) {
+      return;
+    }
+    showToast(
+      context,
+      result.failed == 0
+          ? 'Saved for offline'
+          : result.failed == 1
+          ? "Saved for offline, but 1 file couldn't be downloaded. "
+                'Save it again to try once more.'
+          : "Saved for offline, but ${result.failed} files couldn't be "
+                'downloaded. Save it again to try once more.',
+    );
+  }
+
   void _rememberPlace() {
     if (rows.isEmpty) {
       return;
@@ -137,6 +176,8 @@ class _ThreadPageState extends State<ThreadPage>
     loadThread();
 
     itemPositionsListener.itemPositions.addListener(_rememberPlace);
+    _offline = _offlineNow();
+    OfflineThreads.instance.addListener(_offlineChanged);
   }
 
   /// Once per visit, from the loaded opening post: [ThreadPage.post] can be
@@ -152,6 +193,7 @@ class _ThreadPageState extends State<ThreadPage>
   @override
   void dispose() {
     _watched.leftThread();
+    OfflineThreads.instance.removeListener(_offlineChanged);
     itemPositionsListener.itemPositions.removeListener(_rememberPlace);
     _preloadDebounce?.cancel();
     _preloadDebounce = null;
@@ -233,7 +275,8 @@ class _ThreadPageState extends State<ThreadPage>
   );
 
   /// Keeps a copy of [posts] to show when the thread can't be loaded, if
-  /// it's bookmarked or history is on: what can be found again later.
+  /// it's bookmarked, saved for offline or history is on: what can be found
+  /// again later.
   void _keepCopy(List<Post> posts) {
     if (posts.isEmpty) {
       return;
@@ -246,7 +289,11 @@ class _ThreadPageState extends State<ThreadPage>
       context,
       listen: false,
     ).trackHistory.value;
-    if (bookmarked || history) {
+    final bool offline = OfflineThreads.instance.isSaved(
+      widget.board,
+      widget.thread,
+    );
+    if (bookmarked || history || offline) {
       unawaited(ThreadCopies.instance.keep(widget.board, widget.thread, posts));
     }
   }
@@ -407,14 +454,22 @@ class _ThreadPageState extends State<ThreadPage>
       final String copy = 'copy from ${_timeAgo(copySavedAt)}';
       return _isGone ? 'Deleted · $copy' : 'Showing a $copy';
     }
+    final double? saving = _offline.saving;
+    if (saving != null) {
+      return 'Saving for offline · ${(saving * 100).round()}%';
+    }
     final Post? op = thread.posts.firstOrNull;
-    return _isGone
+    final String? status = _isGone
         ? 'Deleted'
         : op?.archived == 1
         ? 'Archived'
         : op?.closed == 1
         ? 'Closed'
         : null;
+    if (!_offline.saved) {
+      return status;
+    }
+    return status == null ? 'Saved for offline' : '$status · saved for offline';
   }
 
   static String _timeAgo(DateTime at) {
@@ -645,6 +700,24 @@ class _ThreadPageState extends State<ThreadPage>
                   icon: CupertinoIcons.arrow_clockwise,
                   onPressed: _refresh,
                 ),
+                if (_offline.saving == null && thread.posts.isNotEmpty)
+                  DashMenuEntry(
+                    title: _offline.saved
+                        ? 'Update Offline Copy'
+                        : 'Save for Offline',
+                    icon: CupertinoIcons.arrow_down_circle,
+                    onPressed: _saveOffline,
+                  ),
+                if (_offline.saved && _offline.saving == null)
+                  DashMenuEntry(
+                    title: 'Remove Offline Copy',
+                    icon: CupertinoIcons.trash,
+                    isDestructive: true,
+                    onPressed: () => OfflineThreads.instance.remove(
+                      widget.board,
+                      widget.thread,
+                    ),
+                  ),
                 if (hasUnseen)
                   DashMenuEntry(
                     title: 'Mark All as Read',

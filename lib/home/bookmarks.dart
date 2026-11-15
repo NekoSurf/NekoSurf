@@ -7,6 +7,8 @@ import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/chan/thread_status.dart';
 import 'package:flutter_chan/history/watched_posts_model.dart';
 import 'package:flutter_chan/home/bookmarks_summary.dart';
+import 'package:flutter_chan/offline/offline_threads.dart';
+import 'package:flutter_chan/offline/offline_threads_page.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/sync/cloud_sync.dart';
 import 'package:flutter_chan/ui/colors.dart';
@@ -33,6 +35,28 @@ class _BookmarksState extends State<Bookmarks> {
 
   DateTime? _shownAt;
   bool _isShown = false;
+
+  /// Whether any thread is saved for offline, for the menu to open them.
+  bool _hasOffline = OfflineThreads.instance.threads.isNotEmpty;
+
+  void _offlineChanged() {
+    final bool hasOffline = OfflineThreads.instance.threads.isNotEmpty;
+    if (hasOffline != _hasOffline && mounted) {
+      setState(() => _hasOffline = hasOffline);
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    OfflineThreads.instance.addListener(_offlineChanged);
+  }
+
+  @override
+  void dispose() {
+    OfflineThreads.instance.removeListener(_offlineChanged);
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -147,6 +171,7 @@ class _BookmarksState extends State<Bookmarks> {
     ];
     _check(items);
     final Set<String> dead = _deadKeys(items);
+    final bool hasOffline = _hasOffline;
 
     return MasterDetail(
       master: DashScaffold(
@@ -177,21 +202,28 @@ class _BookmarksState extends State<Bookmarks> {
             ],
           ),
           // Only what there's something to do with.
-          if (items.isNotEmpty)
+          if (items.isNotEmpty || hasOffline)
             DashMenuButton(
               menuChildren: [
+                if (hasOffline)
+                  DashMenuEntry(
+                    title: 'Saved for Offline',
+                    icon: CupertinoIcons.arrow_down_circle,
+                    onPressed: () => openOfflineThreads(context),
+                  ),
                 if (dead.isNotEmpty)
                   DashMenuEntry(
                     title: 'Remove dead threads',
                     icon: CupertinoIcons.archivebox,
                     onPressed: () => _removeDead(bookmarks, dead),
                   ),
-                DashMenuEntry(
-                  title: 'Clear bookmarks',
-                  icon: CupertinoIcons.trash,
-                  isDestructive: true,
-                  onPressed: () => _clear(bookmarks, items),
-                ),
+                if (items.isNotEmpty)
+                  DashMenuEntry(
+                    title: 'Clear bookmarks',
+                    icon: CupertinoIcons.trash,
+                    isDestructive: true,
+                    onPressed: () => _clear(bookmarks, items),
+                  ),
               ],
             ),
         ],

@@ -423,3 +423,8 @@ Future<void> _downloadOnce(
 /// Downloads a thumbnail into [file], leaving no partial file on failure.
 @visibleForTesting
 Future<void> downloadThumbnail(String url, File file) => _download(url, file);
+
+/// Downloads [url] into [file], trying again after a 429, a server error or a
+/// dropped connection; leaves no partial file behind on failure.
+Future<void> downloadFile(String url, File file, {SaveProgress? onProgress}) =>
+    _download(url, file, onProgress: onProgress);

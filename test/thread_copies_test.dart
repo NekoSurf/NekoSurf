@@ -5,6 +5,7 @@ import 'package:flutter_chan/bookmarks/bookmarks_model.dart';
 import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/history/history_model.dart';
 import 'package:flutter_chan/history/thread_copies.dart';
+import 'package:flutter_chan/offline/offline_threads.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -111,13 +112,24 @@ void main() {
     await bookmarks.addBookmark(Bookmark.fromPost(Post(board: 'g', no: 1)));
     await history.recordThread(Post(board: 'g', no: 2));
 
+    final OfflineThreads offline = OfflineThreads(
+      () async => Directory('${dir.path}/offline'),
+    );
     final void Function() stop = keepThreadCopiesOf(
       bookmarks,
       history,
       copies: copies,
+      offline: offline,
     );
     addTearDown(stop);
+    // Nothing goes till it's known which threads are saved for offline.
     await Future<void>.delayed(const Duration(milliseconds: 100));
+    await history.clear();
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    expect(files(), {'g_1.json', 'g_2.json'});
+    await history.recordThread(Post(board: 'g', no: 2));
+    await offline.load();
+    await Future<void>.delayed(const Duration(milliseconds: 1500));
     expect(files(), {'g_1.json', 'g_2.json'});
 
     // Clearing history takes its copies with it, right away.

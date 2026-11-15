@@ -7,17 +7,19 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_chan/bookmarks/bookmarks_model.dart';
 import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/history/history_model.dart';
+import 'package:flutter_chan/offline/offline_threads.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 /// A thread as it was when it last loaded.
 typedef ThreadCopy = ({List<Post> posts, DateTime savedAt});
 
-/// The last loaded copy of each bookmarked thread and each thread in the
-/// history, so it can still be read without a connection, or once 4chan has
-/// deleted it. Only text: images come from the image cache, if still there.
+/// The last loaded copy of each thread that's bookmarked, in the history or
+/// saved for offline, so it can still be read without a connection, or once
+/// 4chan has deleted it. Only text: images come from a thread saved for
+/// offline ([OfflineThreads]), or the image cache if they're still there.
 ///
-/// Copies go with the bookmark or history entry they belong to
+/// Copies go with the bookmark, history entry or saved thread they belong to
 /// ([keepOnly]), so forgetting history forgets them too.
 class ThreadCopies {
   ThreadCopies(this._directory);
@@ -136,21 +138,29 @@ ThreadCopy _decode(({String body, String board}) file) {
   );
 }
 
-/// Keeps [copies] to the threads that are bookmarked or in the history, now
+/// Keeps [copies] to the threads that are bookmarked, in the history or saved
+/// for offline, now
 /// and whenever either changes. Returns what stops it.
 VoidCallback keepThreadCopiesOf(
   BookmarksProvider bookmarks,
   HistoryProvider history, {
   ThreadCopies? copies,
+  OfflineThreads? offline,
 }) {
   final ThreadCopies kept = copies ?? ThreadCopies.instance;
+  final OfflineThreads saved = offline ?? OfflineThreads.instance;
   Timer? soon;
   Set<String>? last;
 
   void tidy() {
+    // Till it's known which threads are saved for offline, theirs might go.
+    if (!saved.isLoaded) {
+      return;
+    }
     final Set<String> keys = <String>{
       for (final bookmark in bookmarks.bookmarks) bookmark.key,
       for (final thread in history.threads) thread.key,
+      for (final thread in saved.threads) thread.key,
     };
     // History is told of every status check; only a change in what's kept
     // is worth a look at the folder.
@@ -174,11 +184,13 @@ VoidCallback keepThreadCopiesOf(
 
   bookmarks.addListener(changed);
   history.addListener(changed);
+  saved.addListener(changed);
   tidy();
   return () {
     soon?.cancel();
     bookmarks.removeListener(changed);
     history.removeListener(changed);
+    saved.removeListener(changed);
   };
 }
 
