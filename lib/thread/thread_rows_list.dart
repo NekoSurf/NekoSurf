@@ -426,6 +426,58 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
     }
   }
 
+  /// Counts the posts in rows [from] to [to] as read, and the replies folded
+  /// away in them: the reader skipped over them on purpose, by dragging the
+  /// scrollbar or going to the bottom. Hidden posts, and posts only previewed
+  /// here, are left as they are.
+  void markRowsSeen(int from, int to) {
+    final Set<int> unseen = unseenPosts;
+    if (unseen.isEmpty || rows.isEmpty) {
+      return;
+    }
+    final int first = (from < to ? from : to).clamp(0, rows.length - 1);
+    final int last = (from < to ? to : from).clamp(0, rows.length - 1);
+    final Set<int> seen = <int>{};
+    List<ThreadRow>? open;
+    for (int i = first; i <= last; i++) {
+      final ThreadRow row = rows[i];
+      if (row.isPreview || row.hidden) {
+        continue;
+      }
+      if (unseen.contains(row.post.no)) {
+        seen.add(row.post.no);
+      }
+      if (row.collapsed && row.newReplies > 0) {
+        open ??= _rowsWithoutFolds();
+        for (final ThreadRow r in open) {
+          if (r.path.startsWith('${row.path}/') &&
+              !r.isPreview &&
+              !r.hidden &&
+              unseen.contains(r.post.no)) {
+            seen.add(r.post.no);
+          }
+        }
+      }
+    }
+    if (seen.isEmpty) {
+      return;
+    }
+    Provider.of<WatchedPostsProvider>(
+      context,
+      listen: false,
+    ).markPostsSeen(thread.number, seen);
+    setState(rebuildRows);
+  }
+
+  /// Goes to the end of the list, counting what it goes past as read.
+  void scrollToEnd() {
+    if (rows.isEmpty) {
+      return;
+    }
+    markRowsSeen(_rowAtLine() ?? 0, rows.length - 1);
+    scrollToRow(rows.length - 1, alignment: 0);
+  }
+
   /// The row at the line just below the header, where a jump puts a row; null
   /// if nothing is laid out.
   int? _rowAtLine() {
@@ -734,6 +786,7 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
         positions: itemPositionsListener,
         controller: itemScrollController,
         endPadding: end,
+        onScrubbed: markRowsSeen,
         child: ScrollablePositionedList.builder(
           padding: EdgeInsets.only(left: side, right: side, bottom: end),
           shrinkWrap: false,

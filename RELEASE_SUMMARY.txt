@@ -1,1 +1,1 @@
-The scrollbar is back, to drag through a long thread fast, and opening a thread where you left off no longer marks its first posts read.
+The scrollbar is back, to drag through a long thread fast, and posts you drag or scroll to the bottom past count as read; opening a thread where you left off no longer marks its first posts read.

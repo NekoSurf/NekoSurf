@@ -93,6 +93,7 @@ class RowScrollbar extends StatefulWidget {
     required this.controller,
     required this.child,
     this.endPadding = 0,
+    this.onScrubbed,
   });
 
   final int rowCount;
@@ -103,6 +104,9 @@ class RowScrollbar extends StatefulWidget {
   /// The space the list leaves after its last row, which dragging to the end
   /// shows the last row above.
   final double endPadding;
+
+  /// Told the rows a drag of the thumb went from and to, once it's let go.
+  final void Function(int from, int to)? onScrubbed;
 
   @override
   State<RowScrollbar> createState() => _RowScrollbarState();
@@ -388,10 +392,15 @@ class _RowScrollbarState extends State<RowScrollbar>
   }
 
   void _onPressEnd() {
-    if (_dragFrom == null) {
+    final RowSpan? from = _dragFrom;
+    if (from == null) {
       return;
     }
     _dragFrom = null;
+    final int? to = _toEnd ? widget.rowCount - 1 : _jumpedRow;
+    if (to != null) {
+      widget.onScrubbed?.call(from.top.floor(), to);
+    }
     _thicken.reverse();
     HapticFeedback.mediumImpact();
     _onPositions();

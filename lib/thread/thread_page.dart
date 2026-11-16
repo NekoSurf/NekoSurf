@@ -668,8 +668,7 @@ class _ThreadPageState extends State<ThreadPage>
             stepRows(-1),
         withCommand(LogicalKeyboardKey.arrowUp): () =>
             scrollToRow(0, alignment: 0),
-        withCommand(LogicalKeyboardKey.arrowDown): () =>
-            scrollToRow(rows.length - 1, alignment: 0),
+        withCommand(LogicalKeyboardKey.arrowDown): scrollToEnd,
         withCommand(LogicalKeyboardKey.keyR): _refresh,
         [const SingleActivator(LogicalKeyboardKey.keyN)]: goToNextUnread,
       }),
@@ -740,9 +739,7 @@ class _ThreadPageState extends State<ThreadPage>
                 DashMenuEntry(
                   title: 'Scroll to Bottom',
                   icon: CupertinoIcons.arrow_down,
-                  onPressed: () {
-                    scrollToRow(rows.length - 1, alignment: 0);
-                  },
+                  onPressed: scrollToEnd,
                 ),
               ],
             ),

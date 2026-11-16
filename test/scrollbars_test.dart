@@ -46,6 +46,7 @@ void main() {
     const int count = 300;
     late ItemScrollController controller;
     late ItemPositionsListener positions;
+    late List<(int, int)> scrubbed;
 
     // Rows of different heights, as posts are.
     double heightOf(int index) => 40.0 + (index % 7) * 30;
@@ -53,6 +54,7 @@ void main() {
     Future<void> pumpList(WidgetTester tester) async {
       controller = ItemScrollController();
       positions = ItemPositionsListener.create();
+      scrubbed = <(int, int)>[];
       await tester.pumpWidget(
         CupertinoApp(
           home: RowScrollbar(
@@ -60,6 +62,7 @@ void main() {
             positions: positions,
             controller: controller,
             endPadding: 8,
+            onScrubbed: (int from, int to) => scrubbed.add((from, to)),
             child: ScrollablePositionedList.builder(
               itemCount: count,
               itemScrollController: controller,
@@ -120,6 +123,8 @@ void main() {
       );
       final double height = tester.getSize(find.byType(RowScrollbar)).height;
       expect(last.itemTrailingEdge, closeTo(1 - 8 / height, 0.005));
+      // From the top, where the drag started, to the last row.
+      expect(scrubbed, [(0, count - 1)]);
     });
 
     testWidgets('dragging the thumb halfway goes to the middle rows', (
@@ -152,9 +157,7 @@ void main() {
 
       await showThumb(tester);
       // No holding first, as on the pages with CupertinoScrollbar.
-      final TestGesture gesture = await tester.startGesture(
-        thumbAtTop(tester),
-      );
+      final TestGesture gesture = await tester.startGesture(thumbAtTop(tester));
       await gesture.moveBy(const Offset(0, 300));
       await tester.pump();
       await gesture.up();

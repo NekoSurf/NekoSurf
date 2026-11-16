@@ -655,6 +655,26 @@ void main() {
         expect(watched.unseenPosts(1), {for (int no = 2; no < 10; no++) no});
         await finish(tester);
       });
+
+      testWidgets('going to the bottom counts what it passes as read', (
+        tester,
+      ) async {
+        await open(tester);
+        expect(find.bySemanticsLabel(RegExp('^Next unread post')), findsOne);
+
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('Reply 40'), findsOneWidget);
+        expect(watched.unseenPosts(1), isEmpty);
+        expect(
+          find.bySemanticsLabel(RegExp('^Next unread post')),
+          findsNothing,
+        );
+        await finish(tester);
+      });
     });
 
     testWidgets('unfolds a branch to an unread reply in it', (tester) async {
