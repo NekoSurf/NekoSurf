@@ -675,6 +675,25 @@ void main() {
         );
         await finish(tester);
       });
+
+      testWidgets('the unread button points up when what is left is above', (
+        tester,
+      ) async {
+        // Read to the bottom before, all but #2.
+        watched.noteThreadPosts(1, [for (int no = 1; no <= 40; no++) no]);
+        watched.markPostsSeen(1, [for (int no = 3; no <= 40; no++) no]);
+        await open(tester, at: 38);
+
+        expect(find.bySemanticsLabel('Next unread post, 1 unread'), findsOne);
+        expect(find.byIcon(CupertinoIcons.chevron_up), findsOneWidget);
+        expect(find.byIcon(CupertinoIcons.chevron_down), findsNothing);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyN);
+        await tester.pumpAndSettle();
+        expect(find.textContaining('Reply 2'), findsOneWidget);
+        expect(watched.unseenPosts(1), isEmpty);
+        await finish(tester);
+      });
     });
 
     testWidgets('unfolds a branch to an unread reply in it', (tester) async {

@@ -804,9 +804,16 @@ class _ThreadPageState extends State<ThreadPage>
                               readableInset(MediaQuery.sizeOf(context).width) +
                               16,
                           bottom: MediaQuery.paddingOf(context).bottom + 16,
-                          child: _NextUnreadButton(
-                            count: unread,
-                            onPressed: goToNextUnread,
+                          // The arrow says which way it goes, from what's on
+                          // screen.
+                          child: ValueListenableBuilder<Iterable<ItemPosition>>(
+                            valueListenable:
+                                itemPositionsListener.itemPositions,
+                            builder: (context, _, _) => _NextUnreadButton(
+                              count: unread,
+                              up: nextUnreadIsAbove,
+                              onPressed: goToNextUnread,
+                            ),
                           ),
                         ),
                     ],
@@ -822,9 +829,16 @@ class _ThreadPageState extends State<ThreadPage>
 
 /// Floats over the thread while posts are still unread: goes to the next one.
 class _NextUnreadButton extends StatelessWidget {
-  const _NextUnreadButton({required this.count, required this.onPressed});
+  const _NextUnreadButton({
+    required this.count,
+    required this.up,
+    required this.onPressed,
+  });
 
   final int count;
+
+  /// Whether it goes up, as nothing below is unread.
+  final bool up;
   final VoidCallback onPressed;
 
   @override
@@ -845,7 +859,7 @@ class _NextUnreadButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                CupertinoIcons.chevron_down,
+                up ? CupertinoIcons.chevron_up : CupertinoIcons.chevron_down,
                 size: 15,
                 color: context.accent,
               ),

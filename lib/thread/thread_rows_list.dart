@@ -383,32 +383,54 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
   /// screen, or round from the start: scrolled to just below the header, and
   /// unfolded if it was folded away.
   void goToNextUnread() {
-    final Set<int> unseen = unseenPosts;
-    if (unseen.isEmpty || rows.isEmpty) {
-      return;
-    }
     // Pressed again on the way, it goes on from where it was going.
     final int? going = _isAutoScrolling ? _aim?.row : null;
-    final int from = going ?? _rowAtLine() ?? -1;
+    final _NextUnread? next = _nextUnread(going ?? _rowAtLine() ?? -1);
+    if (next == null) {
+      return;
+    }
+    final int? index = next.index;
+    if (index != null) {
+      scrollToRow(index, alignment: belowHeader);
+      flashRow(next.row.path);
+    } else {
+      _goToRow(next.row, belowHeader);
+    }
+  }
+
+  /// Whether [goToNextUnread] goes up from here, as no post below the top of
+  /// the screen is unread.
+  bool get nextUnreadIsAbove =>
+      _nextUnread(_rowAtLine() ?? -1, exact: false)?.above ?? false;
+
+  /// Where [goToNextUnread] goes from the row at [from]: a row on show, at
+  /// [_NextUnread.index], or one folded away. Unless [exact], a folded post
+  /// with new replies counts as the place, without finding which reply.
+  _NextUnread? _nextUnread(int from, {bool exact = true}) {
+    final Set<int> unseen = unseenPosts;
+    if (unseen.isEmpty || rows.isEmpty) {
+      return null;
+    }
     for (int step = 1; step <= rows.length; step++) {
       final int index = (from + step) % rows.length;
+      final bool above = from + step >= rows.length;
       final ThreadRow row = rows[index];
       if (row.isPreview || row.hidden) {
         continue;
       }
       if (!row.collapsed) {
         if (unseen.contains(row.post.no)) {
-          scrollToRow(index, alignment: belowHeader);
-          flashRow(row.path);
-          return;
+          return (row: row, index: index, above: above);
         }
         continue;
       }
       if (unseen.contains(row.post.no)) {
-        _goToRow(row, belowHeader);
-        return;
+        return (row: row, index: null, above: above);
       }
       if (row.newReplies > 0) {
+        if (!exact) {
+          return (row: row, index: null, above: above);
+        }
         final ThreadRow? inside = _rowsWithoutFolds()
             .where(
               (ThreadRow r) =>
@@ -419,11 +441,11 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
             )
             .firstOrNull;
         if (inside != null) {
-          _goToRow(inside, belowHeader);
-          return;
+          return (row: inside, index: null, above: above);
         }
       }
     }
+    return null;
   }
 
   /// Counts the posts in rows [from] to [to] as read, and the replies folded
@@ -911,3 +933,7 @@ class _StopsAtEndsWhenDriven extends ScrollPhysics {
     );
   }
 }
+
+/// Where [ThreadRowsList.goToNextUnread] goes: [row], at [index] in the rows
+/// if it's on show, and whether that's [above] the top of the screen.
+typedef _NextUnread = ({ThreadRow row, int? index, bool above});
