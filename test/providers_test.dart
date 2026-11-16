@@ -256,6 +256,86 @@ void main() {
       },
     );
 
+    group('splitting a thread by when posts came', () {
+      // Read once with 1 to 3, then 4 and 5 came while away.
+      Future<WatchedPostsProvider> readOnce() async {
+        SharedPreferences.setMockInitialValues({});
+        final WatchedPostsProvider watched = await watchedProvider();
+        expect(watched.openBatches(1, [1, 2, 3]), [3]);
+        watched.noteThreadPosts(1, [1, 2, 3]);
+        watched.markPostsSeen(1, {2, 3});
+        return watched;
+      }
+
+      // Opens it again with [posts], and reads [read] of them.
+      void visit(WatchedPostsProvider watched, List<int> posts, Set<int> read) {
+        watched.openBatches(1, posts);
+        watched.noteThreadPosts(1, posts);
+        watched.markPostsSeen(1, read);
+      }
+
+      test('the first time, it is all the thread', () async {
+        final WatchedPostsProvider watched = await readOnce();
+        expect(watched.threadMemory(1)?.batches, [3]);
+      });
+
+      test('what came while away is at the bottom', () async {
+        final WatchedPostsProvider watched = await readOnce();
+        expect(watched.openBatches(1, [1, 2, 3, 4, 5]), [3]);
+      });
+
+      test('read, and nothing new: it stays where it is', () async {
+        final WatchedPostsProvider watched = await readOnce();
+        visit(watched, [1, 2, 3, 4, 5], {4, 5});
+        await goToBackground(watched);
+
+        final WatchedPostsProvider again = await watchedProvider();
+        expect(again.openBatches(1, [1, 2, 3, 4, 5]), [3, 5]);
+      });
+
+      test('read, and something new: it is in the thread', () async {
+        final WatchedPostsProvider watched = await readOnce();
+        visit(watched, [1, 2, 3, 4, 5], {4, 5});
+        expect(watched.openBatches(1, [1, 2, 3, 4, 5, 6]), [5]);
+      });
+
+      test('not all read: what is new goes below it', () async {
+        final WatchedPostsProvider watched = await readOnce();
+        visit(watched, [1, 2, 3, 4, 5], {4});
+        expect(watched.openBatches(1, [1, 2, 3, 4, 5, 6]), [3, 5]);
+      });
+
+      test("hidden or deleted posts don't keep it there", () async {
+        final WatchedPostsProvider watched = await readOnce();
+        visit(watched, [1, 2, 3, 4, 5], {4});
+        // 5 is hidden.
+        expect(watched.openBatches(1, [1, 2, 3, 4, 5, 6], hidden: {5}), [5]);
+      });
+
+      test('a deleted post does not keep it there either', () async {
+        final WatchedPostsProvider watched = await readOnce();
+        visit(watched, [1, 2, 3, 4, 5], {4});
+        expect(watched.openBatches(1, [1, 2, 3, 4, 6]), [5]);
+      });
+
+      test('what comes while it is open goes below what is listed', () async {
+        final WatchedPostsProvider watched = await readOnce();
+        visit(watched, [1, 2, 3, 4], const {});
+        expect(watched.sealBatch(1, 4), [3, 4]);
+        // Nothing listed below the last part yet: nothing to close.
+        expect(watched.sealBatch(1, 4), [3, 4]);
+      });
+
+      test('from before the parts were kept, as if all was read', () async {
+        SharedPreferences.setMockInitialValues({});
+        final WatchedPostsProvider watched = await watchedProvider();
+        // As an older version left it, with 2 not read.
+        watched.noteThreadPosts(1, [1, 2, 3]);
+        expect(watched.threadMemory(1)?.batches, isEmpty);
+        expect(watched.openBatches(1, [1, 2, 3, 4]), [3]);
+      });
+    });
+
     String lastOpen(Duration ago) => json.encode(<String, dynamic>{
       '1': ThreadMemory(
         knownReplies: 3,

@@ -756,13 +756,12 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
   }
 
   /// The rows for [posts] in the chosen layout, with what's folded. [children],
-  /// [treePosts], [newAtOpen] and [opReplyCount] are as in
-  /// [buildNestedRows].
+  /// [treePosts], [batches] and [opReplyCount] are as in [buildNestedRows].
   List<ThreadRow> layOutRows(
     List<Post> posts, {
     required Map<int, List<Post>> children,
     Set<int>? treePosts,
-    Set<int> newAtOpen = const <int>{},
+    List<int> batches = const <int>[],
     int opReplyCount = 0,
   }) {
     final Set<int> hidden = <int>{
@@ -784,7 +783,7 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
             hidden: hidden,
             primaryParents: primaryParents,
             unseen: unseenPosts,
-            newAtOpen: newAtOpen,
+            batches: batches,
             treePosts: treePosts,
             opReplyCount: opReplyCount,
             positions: thread.places,

@@ -83,10 +83,6 @@ double _estimatedTextHeight(Post post) {
 /// Replies to the opening post stay at the top level: nearly every post in a
 /// thread is one, and indenting them all would only waste width.
 ///
-/// Posts not in [treePosts] go flat at the bottom, oldest first. That's how
-/// posts arriving while reading stay out of the way: fitting them in between
-/// the others would move the list under the reader.
-///
 /// [positions] says where posts are in the thread, for when [posts] is only a
 /// part of it. How deep replies go is only limited by what people post.
 ///
@@ -103,14 +99,20 @@ double _estimatedTextHeight(Post post) {
 /// Posts in [hidden] are a line saying so, with their replies folded away; the
 /// opening post never is.
 ///
-/// Replies in [newAtOpen] to posts the reader had already seen, which came
-/// while they were away, aren't fitted in among what they've read: they're at
-/// the bottom with the new posts, oldest first, each under a preview of the
-/// post it answers ([ThreadRow.isContext]), with their own replies below.
-/// Under that post in the thread, each is a preview too, which shows it in
-/// full there when tapped, as other previews do; the one at the bottom is a
-/// preview then, until it's tapped ([ThreadRow.bottom] in [primaryParents]).
-/// A folded post still counts them as new.
+/// [batches] splits the posts by when they came, as in `ThreadMemory.batches`:
+/// the first part is the thread, and each later one is listed below the one
+/// before, so what came while the reader was away isn't fitted in among what
+/// they've read. A reply only hangs under a post in the same part. One to a
+/// post in an earlier part is listed in its own part, oldest first, under a
+/// preview of the post it answers ([ThreadRow.isContext]), with its own
+/// replies below; under that post, it's a preview too, which shows it in full
+/// there when tapped, as other previews do; the one at the bottom is a preview
+/// then, until it's tapped ([ThreadRow.bottom] in [primaryParents]). A folded
+/// post still counts them as new. Without [batches], it's all one part.
+///
+/// Posts not in [treePosts] came while the list was on screen: they're only
+/// listed in their own part, at the bottom, not as previews under posts
+/// further up, as fitting them in there would move the list under the reader.
 List<ThreadRow> buildNestedRows(
   List<Post> posts, {
   required Map<int, List<Post>> children,
@@ -118,7 +120,7 @@ List<ThreadRow> buildNestedRows(
   Set<int> hidden = const <int>{},
   Map<int, int> primaryParents = const <int, int>{},
   Set<int> unseen = const <int>{},
-  Set<int> newAtOpen = const <int>{},
+  List<int> batches = const <int>[],
   Set<int>? treePosts,
   int opReplyCount = 0,
   Map<int, int>? positions,
@@ -135,19 +137,37 @@ List<ThreadRow> buildNestedRows(
           posts[index].no: index,
       };
 
-  List<Post> repliesTo(int postId) =>
-      postId == opId ? const <Post>[] : children[postId] ?? const <Post>[];
+  // The part of the thread each post is in.
+  int batchOf(int postId) {
+    for (int index = 0; index < batches.length; index++) {
+      if (postId <= batches[index]) {
+        return index;
+      }
+    }
+    return batches.length;
+  }
 
   bool inTree(Post post) => treePosts == null || treePosts.contains(post.no);
 
   // Only what's listed can have a reply under it: on a replies page, a reply
   // may also quote a post from outside the branch.
-  final Set<int> listed = <int>{
-    for (final Post post in posts)
-      if (inTree(post)) post.no,
-  };
-  final Set<int> nested = <int>{
+  final Set<int> listed = <int>{for (final Post post in posts) post.no};
+
+  // The replies listed under each post: those in its part, and previews of
+  // later ones, unless they came while the list was on screen.
+  final Map<int, List<Post>> shown = <int, List<Post>>{
     for (final MapEntry<int, List<Post>> entry in children.entries)
+      entry.key: <Post>[
+        for (final Post reply in entry.value)
+          if (inTree(reply) || batchOf(reply.no) == batchOf(entry.key)) reply,
+      ],
+  };
+
+  List<Post> repliesTo(int postId) =>
+      postId == opId ? const <Post>[] : shown[postId] ?? const <Post>[];
+
+  final Set<int> nested = <int>{
+    for (final MapEntry<int, List<Post>> entry in shown.entries)
       if (entry.key != opId && listed.contains(entry.key))
         for (final Post reply in entry.value) reply.no,
   }..remove(opId);
@@ -166,15 +186,17 @@ List<ThreadRow> buildNestedRows(
     }
   }
 
-  // Replies that came while the reader was away, to posts they'd seen: each
-  // with the post it's listed under at the bottom, the oldest it answers.
+  // Replies in a later part than all the posts they answer: each with the
+  // post it's listed under at the bottom, the oldest it answers.
   final Map<int, int> late = <int, int>{
-    for (final int id in newAtOpen)
-      if (listed.contains(id) &&
-          !answersOp.contains(id) &&
-          parentsOf[id] != null &&
-          !parentsOf[id]!.any(newAtOpen.contains))
-        id: parentsOf[id]!.reduce(
+    for (final Post post in posts)
+      if (batchOf(post.no) > 0 &&
+          !answersOp.contains(post.no) &&
+          parentsOf[post.no] != null &&
+          !parentsOf[post.no]!.any(
+            (int parent) => batchOf(parent) == batchOf(post.no),
+          ))
+        post.no: parentsOf[post.no]!.reduce(
           (int a, int b) => (postIndex[a] ?? 0) <= (postIndex[b] ?? 0) ? a : b,
         ),
   };
@@ -190,7 +212,7 @@ List<ThreadRow> buildNestedRows(
   }
 
   final Map<int, int> quoteCounts = <int, int>{};
-  for (final MapEntry<int, List<Post>> entry in children.entries) {
+  for (final MapEntry<int, List<Post>> entry in shown.entries) {
     if (entry.key == opId || listed.contains(entry.key)) {
       for (final Post reply in entry.value) {
         quoteCounts[reply.no] = (quoteCounts[reply.no] ?? 0) + 1;
@@ -331,13 +353,13 @@ List<ThreadRow> buildNestedRows(
     }
   }
 
-  // In the order they were posted, the late replies among the new posts.
+  // In the order they were posted, so each part follows the one before, with
+  // its late replies among its other posts.
   final List<Post> topLevel = <Post>[
     for (final Post post in posts)
-      if (inTree(post) &&
-          (late.containsKey(post.no) ||
-              !nested.contains(post.no) ||
-              answersOp.contains(post.no)))
+      if (late.containsKey(post.no) ||
+          !nested.contains(post.no) ||
+          answersOp.contains(post.no))
         post,
   ];
   for (final Post post in topLevel) {
@@ -356,14 +378,14 @@ List<ThreadRow> buildNestedRows(
       add(post, const <int>[]);
     }
   }
-  for (final Post post in posts) {
-    if (!inTree(post)) {
-      add(post, const <int>[]);
-    }
-  }
 
   return rows;
 }
+
+/// Whether [path] is a row's at the bottom, for a reply listed in a later part
+/// than the post it answers; see [buildNestedRows].
+bool isLatePath(String path) =>
+    path.startsWith('new:') || path.startsWith('context:');
 
 /// The thread with every post in the order it was posted, for
 /// [ThreadLayout.flat].

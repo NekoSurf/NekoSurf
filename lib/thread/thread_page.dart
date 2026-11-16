@@ -19,6 +19,7 @@ import 'package:flutter_chan/media/image_cache.dart';
 import 'package:flutter_chan/offline/offline_threads.dart';
 import 'package:flutter_chan/saved/give_media.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
+import 'package:flutter_chan/thread/resume_place.dart';
 import 'package:flutter_chan/thread/thread_gallery_page.dart';
 import 'package:flutter_chan/thread/thread_posts.dart';
 import 'package:flutter_chan/thread/thread_rows.dart';
@@ -68,10 +69,10 @@ class _ThreadPageState extends State<ThreadPage>
     posts: const <Post>[],
   );
 
-  // Posts in the tree, which is built once; see [_indexReplyTree].
-  Map<int, List<Post>> _replyChildren = const <int, List<Post>>{};
+  // The posts there when it opened, and how they're split by when they came;
+  // see [_setPosts].
   Set<int>? _treePosts;
-  Set<int> _newAtOpen = const <int>{};
+  List<int> _batches = const <int>[];
 
   Set<int> _preloadVideoPostIds = const <int>{};
   bool _didRestorePlace = false;
@@ -236,44 +237,41 @@ class _ThreadPageState extends State<ThreadPage>
       _copySavedAt = null;
       _keepCopy(posts);
     }
+    final int? known = thread.posts.isEmpty
+        ? null
+        : thread.posts.map((Post post) => post.no).reduce(max);
     thread = ThreadPosts(
       board: widget.board,
       number: widget.thread,
       posts: posts,
     );
-    Provider.of<WatchedPostsProvider>(context, listen: false).noteThreadPosts(
-      widget.thread,
-      <int>[for (final Post post in posts) post.no],
+    final WatchedPostsProvider watched = Provider.of<WatchedPostsProvider>(
+      context,
+      listen: false,
     );
-    _indexReplyTree();
+    final List<int> numbers = <int>[for (final Post post in posts) post.no];
+    if (_treePosts == null && posts.isNotEmpty) {
+      // Before the new posts are noted, to tell what's been read.
+      _batches = watched.openBatches(
+        widget.thread,
+        numbers,
+        hidden: hiding.reasonsIn(posts).keys.toSet(),
+      );
+      _treePosts = thread.places.keys.toSet();
+    } else if (known != null && numbers.any((int post) => post > known)) {
+      // What came while it's open goes below what's listed so far.
+      _batches = watched.sealBatch(widget.thread, known);
+    }
+    watched.noteThreadPosts(widget.thread, numbers);
     rebuildRows();
-  }
-
-  /// The tree is made of the posts there are the first time it's built;
-  /// later ones stay out of it until the thread is opened again. What hadn't
-  /// been seen then is kept for the visit, so replies that came while the
-  /// reader was away stay at the bottom once they've been read.
-  void _indexReplyTree() {
-    if (thread.posts.isEmpty) {
-      return;
-    }
-    if (_treePosts == null) {
-      _newAtOpen = Set<int>.of(newPosts);
-    }
-    final Set<int> treePosts = _treePosts ??= thread.places.keys.toSet();
-    final List<Post> inTree = <Post>[
-      for (final Post post in thread.posts)
-        if (treePosts.contains(post.no)) post,
-    ];
-    _replyChildren = buildReplyChildrenIndex(inTree);
   }
 
   @override
   List<ThreadRow> buildRows() => layOutRows(
     thread.posts,
-    children: _replyChildren,
+    children: thread.replies,
     treePosts: _treePosts,
-    newAtOpen: _newAtOpen,
+    batches: _batches,
     opReplyCount: thread.replyCounts[widget.thread] ?? 0,
   );
 
@@ -620,12 +618,15 @@ class _ThreadPageState extends State<ThreadPage>
       context,
       listen: false,
     ).threadMemory(widget.thread);
-    final int? row = rowOf(path: memory?.topPath, post: memory?.topPost);
-    final double alignment = memory?.topAlignment ?? belowHeader;
+    final place = resumePlace(
+      memory,
+      rows,
+      belowHeader: belowHeader,
+    );
 
     // Still at the very top: the list starts there anyway.
-    if (row != null && (row != 0 || alignment < 0)) {
-      itemScrollController.jumpTo(index: row, alignment: alignment);
+    if (place != null && (place.row != 0 || place.alignment < 0)) {
+      itemScrollController.jumpTo(index: place.row, alignment: place.alignment);
     }
     _settleList();
   }

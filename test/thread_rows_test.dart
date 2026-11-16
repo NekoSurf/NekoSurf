@@ -18,18 +18,15 @@ List<ThreadRow> _nested(
   Set<String> collapsed = const <String>{},
   Map<int, int> primaryParents = const <int, int>{},
   Set<int>? treePosts,
-  Set<int> newAtOpen = const <int>{},
+  List<int> batches = const <int>[],
 }) {
   return buildNestedRows(
     posts,
-    children: buildReplyChildrenIndex([
-      for (final Post post in posts)
-        if (treePosts == null || treePosts.contains(post.no)) post,
-    ]),
+    children: buildReplyChildrenIndex(posts),
     collapsed: collapsed,
     primaryParents: primaryParents,
     treePosts: treePosts,
-    newAtOpen: newAtOpen,
+    batches: batches,
   );
 }
 
@@ -60,14 +57,15 @@ void main() {
         Post(board: 'g', no: 10, com: _quoting([4])),
       ];
       const Set<int> away = {7, 8, 9, 10};
+      const List<int> read = [6];
 
       test('lists them at the bottom, oldest first, as previews above', () {
-        final List<ThreadRow> rows = _nested(later, newAtOpen: away);
+        final List<ThreadRow> rows = _nested(later, batches: read);
         expect(_numbers(rows), [1, 2, 3, 7, 4, 10, 5, 6, 3, 7, 8, 9, 4, 10]);
       });
 
       test('in the thread, each is a preview under the post it answers', () {
-        final List<ThreadRow> rows = _nested(later, newAtOpen: away);
+        final List<ThreadRow> rows = _nested(later, batches: read);
         final ThreadRow standIn = rows[3];
         expect(standIn.post.no, 7);
         // A preview like any other: tapping shows it in full there.
@@ -81,7 +79,7 @@ void main() {
       });
 
       test('each under a preview of the post it answers', () {
-        final List<ThreadRow> rows = _nested(later, newAtOpen: away);
+        final List<ThreadRow> rows = _nested(later, batches: read);
         final ThreadRow context = rows[8];
         expect(context.post.no, 3);
         expect(context.isContext, isTrue);
@@ -102,7 +100,7 @@ void main() {
         final List<ThreadRow> rows = buildNestedRows(
           later,
           children: buildReplyChildrenIndex(later),
-          newAtOpen: away,
+          batches: read,
           primaryParents: {7: 3},
         );
         expect(_numbers(rows), [1, 2, 3, 7, 8, 4, 10, 5, 6, 3, 7, 9, 4, 10]);
@@ -123,11 +121,11 @@ void main() {
             buildNestedRows(
               later,
               children: buildReplyChildrenIndex(later),
-              newAtOpen: away,
+              batches: read,
               primaryParents: {7: ThreadRow.bottom},
             ),
           ),
-          _numbers(_nested(later, newAtOpen: away)),
+          _numbers(_nested(later, batches: read)),
         );
       });
 
@@ -147,7 +145,7 @@ void main() {
           children: buildReplyChildrenIndex(later),
           collapsed: {'2'},
           unseen: away,
-          newAtOpen: away,
+          batches: read,
         );
         expect(_row(rows, 2).newReplies, 3);
         expect(_numbers(rows), [1, 2, 5, 6, 3, 7, 8, 9, 4, 10]);
@@ -242,21 +240,58 @@ void main() {
       expect(_row(rows, 2).parent, ThreadRow.topLevel);
     });
 
-    test('leaves posts that came in later flat at the bottom', () {
+    group('with posts that came while it was open', () {
+      // 8 and 9 came while 1 to 7 were on screen: 8 answers 3, 9 answers 8.
       final List<Post> withNew = [
         ...posts,
         Post(board: 'g', no: 8, com: _quoting([3])),
         Post(board: 'g', no: 9, com: _quoting([8])),
       ];
-      final List<ThreadRow> rows = _nested(
-        withNew,
-        treePosts: {1, 2, 3, 4, 5, 6, 7},
-      );
-      expect(_numbers(rows), [1, 2, 3, 7, 4, 5, 6, 8, 9]);
-      expect(_row(rows, 8).ancestors, isEmpty);
-      expect(_row(rows, 9).ancestors, isEmpty);
-      // The counts match what's actually below the post.
-      expect(_row(rows, 3).replyCount, 1);
+
+      test('lists them at the bottom, leaving what is above as it was', () {
+        final List<ThreadRow> rows = _nested(
+          withNew,
+          treePosts: {1, 2, 3, 4, 5, 6, 7},
+          batches: [7],
+        );
+        expect(_numbers(rows), [1, 2, 3, 7, 4, 5, 6, 3, 8, 9]);
+        expect(rows[7].isContext, isTrue);
+        expect(_row(rows, 8).path, 'new:3/8');
+        // A reply to one of them stays under it.
+        expect(_row(rows, 9).ancestors, [3, 8]);
+        // The counts match what's actually below the post.
+        expect(_row(rows, 3).replyCount, 1);
+      });
+
+      test('the next time, they are at the bottom just the same', () {
+        final List<ThreadRow> during = _nested(
+          withNew,
+          treePosts: {1, 2, 3, 4, 5, 6, 7},
+          batches: [7],
+        );
+        final List<ThreadRow> next = _nested(withNew, batches: [7, 9]);
+        final Iterable<String> bottom = during.skip(7).map((r) => r.path);
+        expect(next.skip(next.length - 3).map((r) => r.path), bottom);
+        // And a preview in the thread, under the post it answers.
+        expect(_numbers(next), [1, 2, 3, 7, 8, 4, 5, 6, 3, 8, 9]);
+        expect(next[4].isPreview, isTrue);
+      });
+
+      test('each new lot goes below the one before', () {
+        final List<Post> more = [
+          ...withNew,
+          Post(board: 'g', no: 10, com: _quoting([8])),
+        ];
+        // 10 came after 8 and 9 were listed.
+        final List<ThreadRow> rows = _nested(
+          more,
+          treePosts: {1, 2, 3, 4, 5, 6, 7, 8, 9},
+          batches: [7, 9],
+        );
+        expect(_numbers(rows), [1, 2, 3, 7, 8, 4, 5, 6, 3, 8, 9, 8, 10]);
+        expect(rows[11].isContext, isTrue);
+        expect(_row(rows, 9).ancestors, [3, 8]);
+      });
     });
 
     test('a reply whose parent was deleted moves to the top level', () {

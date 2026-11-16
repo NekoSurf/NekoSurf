@@ -1,0 +1,1 @@
+New replies stay at the bottom of a thread until you've read them, and reopening a thread brings you back to where you stopped.

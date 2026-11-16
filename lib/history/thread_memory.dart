@@ -12,6 +12,7 @@ class ThreadMemory {
     this.topPost,
     this.topPath,
     this.topAlignment,
+    List<int>? batches,
     DateTime? lastRead,
     DateTime? changedAt,
   }) : unseen = unseen ?? <int>{},
@@ -19,6 +20,7 @@ class ThreadMemory {
        primaryParents = primaryParents ?? <int, int>{},
        hiddenPosts = hiddenPosts ?? <int>{},
        hiddenIds = hiddenIds ?? <String>{},
+       batches = batches ?? <int>[],
        lastRead = lastRead ?? DateTime.now(),
        changedAt = changedAt ?? lastRead ?? DateTime.now();
 
@@ -38,6 +40,7 @@ class ThreadMemory {
       topPost: json['topPost'] as int?,
       topPath: json['topPath'] as String?,
       topAlignment: (json['topAlignment'] as num?)?.toDouble(),
+      batches: (json['batches'] as List<dynamic>?)?.cast<int>().toList(),
       lastRead: DateTime.tryParse(json['lastRead'] as String? ?? ''),
       changedAt: DateTime.tryParse(json['changedAt'] as String? ?? ''),
     );
@@ -71,6 +74,13 @@ class ThreadMemory {
   String? topPath;
   double? topAlignment;
 
+  /// How the thread's posts are split by when they came, as the newest post
+  /// in each part, oldest first: those up to the first are the thread, each
+  /// later part is listed at the bottom, and the posts after the last one are
+  /// listed below that. Kept between visits, so what was where stays there.
+  /// Empty for all of them in the thread.
+  final List<int> batches;
+
   /// When it was last open, to forget it after a while.
   DateTime lastRead;
 
@@ -94,6 +104,7 @@ class ThreadMemory {
       if (topPost != null) 'topPost': topPost,
       if (topPath != null) 'topPath': topPath,
       if (topAlignment != null) 'topAlignment': topAlignment,
+      if (batches.isNotEmpty) 'batches': batches,
       'lastRead': lastRead.toIso8601String(),
       'changedAt': changedAt.toIso8601String(),
     };

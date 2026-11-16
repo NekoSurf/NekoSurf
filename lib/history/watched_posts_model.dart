@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_chan/history/thread_memory.dart';
 import 'package:flutter_chan/sync/cloud_sync.dart';
@@ -254,6 +255,71 @@ class WatchedPostsProvider
       ..topPath = path
       ..topAlignment = alignment
       ..lastRead = DateTime.now();
+    _schedulePersist();
+  }
+
+  /// How [thread]'s [posts] are split for this visit, as kept in
+  /// [ThreadMemory.batches]; called as it opens, before [noteThreadPosts].
+  ///
+  /// What's at the bottom stays there till all of it has been read and
+  /// something new has come: then it's in the thread with the rest, and the
+  /// new posts are at the bottom. [hidden] posts can't be read, so they don't
+  /// count.
+  List<int> openBatches(
+    int thread,
+    List<int> posts, {
+    Set<int> hidden = const <int>{},
+  }) {
+    if (posts.isEmpty) {
+      return const <int>[];
+    }
+    final int newest = posts.reduce(max);
+    final ThreadMemory? memory = _threadMemory[thread];
+    final int? before = memory?.newestPost;
+    final List<int> batches;
+    if (memory == null || before == null) {
+      // Never read: it's all the thread.
+      batches = <int>[newest];
+    } else {
+      // From before the parts were kept, it's as if all of it was read.
+      final List<int> kept = memory.batches.isEmpty
+          ? <int>[before]
+          : <int>[...memory.batches, if (before > memory.batches.last) before];
+      final Set<int> unread = memory.unseen
+          .where(
+            (int post) =>
+                post > kept.first &&
+                post <= before &&
+                !hidden.contains(post) &&
+                posts.contains(post),
+          )
+          .toSet();
+      batches = newest > before && unread.isEmpty ? <int>[before] : kept;
+    }
+    _setBatches(thread, batches);
+    return List<int>.unmodifiable(batches);
+  }
+
+  /// Closes the part at the bottom of [thread] that's been listed so far,
+  /// up to [known], as newer posts have come while it's open: they're listed
+  /// below it, rather than among what's on screen.
+  List<int> sealBatch(int thread, int known) {
+    final List<int> batches = <int>[...?_threadMemory[thread]?.batches];
+    if (batches.isEmpty || known > batches.last) {
+      batches.add(known);
+      _setBatches(thread, batches);
+    }
+    return List<int>.unmodifiable(batches);
+  }
+
+  void _setBatches(int thread, List<int> batches) {
+    final ThreadMemory? memory = _threadMemory[thread];
+    if (memory != null && listEquals(memory.batches, batches)) {
+      return;
+    }
+    _memoryOf(thread).batches
+      ..clear()
+      ..addAll(batches);
     _schedulePersist();
   }
 
