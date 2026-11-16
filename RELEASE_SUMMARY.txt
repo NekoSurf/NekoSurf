@@ -1,0 +1,1 @@
+Dragging the scrollbar through a thread is smooth, and tapping a post or jumping up after dragging to the bottom works again.

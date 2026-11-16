@@ -1,0 +1,4 @@
+## What's fixed
+
+- After dragging the scrollbar to the bottom of a thread, tapping a post or jumping up works again, instead of the thread only shaking
+- Dragging the scrollbar moves a thread smoothly, without jumping back and forth between posts
