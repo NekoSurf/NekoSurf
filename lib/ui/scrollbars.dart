@@ -187,6 +187,13 @@ class _RowScrollbarState extends State<RowScrollbar>
   /// bottom, however tall the rows before it are.
   bool _toEnd = false;
 
+  /// Whether the last row is still kept at the bottom, while the thumb is
+  /// dragged and for a few frames after, until the last jump has landed.
+  bool _keepingEnd = false;
+
+  /// Frames left before the last row is let go of, after a drag.
+  int _framesToLetGo = 0;
+
   @override
   void initState() {
     super.initState();
@@ -242,9 +249,7 @@ class _RowScrollbarState extends State<RowScrollbar>
   }
 
   void _onPositions() {
-    // Until the reader scrolls the list again, as the last jump can land
-    // after the thumb is let go.
-    if (_jumpedRow != null) {
+    if (_keepingEnd) {
       _keepEndInPlace();
     }
     if (_dragFrom != null) {
@@ -259,11 +264,6 @@ class _RowScrollbarState extends State<RowScrollbar>
   bool _onScroll(ScrollNotification notification) {
     if (notification.depth != 0) {
       return false;
-    }
-    if (notification is ScrollStartNotification &&
-        notification.dragDetails != null) {
-      _jumpedRow = null;
-      _toEnd = false;
     }
     if (notification is ScrollUpdateNotification ||
         notification is OverscrollNotification) {
@@ -316,6 +316,7 @@ class _RowScrollbarState extends State<RowScrollbar>
     _jumpedRow = null;
     _jumpedAlignment = null;
     _toEnd = false;
+    _keepingEnd = true;
     _thicken.forward().then<void>((_) => HapticFeedback.mediumImpact());
   }
 
@@ -342,10 +343,19 @@ class _RowScrollbarState extends State<RowScrollbar>
       return;
     }
     final int row = math.min(top.floor(), widget.rowCount - 1);
-    // Part of the row is above the screen, as much as is past its top.
-    final double alignment = -(top - row) / from.shown;
+    // Part of the row is above the screen, as much as is past its top: by its
+    // own height once it's laid out, so the list moves smoothly from one row
+    // to the next; until then, by the average.
+    final ItemPosition? laidOut = widget.positions.itemPositions.value
+        .where((ItemPosition position) => position.index == row)
+        .firstOrNull;
+    final double size = laidOut == null
+        ? 1 / from.shown
+        : laidOut.itemTrailingEdge - laidOut.itemLeadingEdge;
+    final double alignment = -(top - row) * size;
+    // Not for less than a couple of pixels.
     if (row == _jumpedRow &&
-        (alignment - (_jumpedAlignment ?? 0)).abs() < 0.02) {
+        (alignment - (_jumpedAlignment ?? 0)).abs() * _viewport < 2) {
       return;
     }
     _jumpedRow = row;
@@ -405,6 +415,31 @@ class _RowScrollbarState extends State<RowScrollbar>
     HapticFeedback.mediumImpact();
     _onPositions();
     _hideSoon();
+    _letGoOfEndSoon();
+  }
+
+  /// Stops keeping the last row at the bottom once the drag's last jump, and
+  /// any correction of it, has landed: each takes two frames to show in the
+  /// positions. After that, the list goes where it's told, such as a folded
+  /// post staying put.
+  void _letGoOfEndSoon() {
+    _framesToLetGo = 6;
+    void countDown(Duration _) {
+      if (!mounted || _dragFrom != null || !_keepingEnd) {
+        return;
+      }
+      if (--_framesToLetGo > 0) {
+        WidgetsBinding.instance
+          ..addPostFrameCallback(countDown)
+          ..scheduleFrame();
+        return;
+      }
+      _keepingEnd = false;
+    }
+
+    WidgetsBinding.instance
+      ..addPostFrameCallback(countDown)
+      ..scheduleFrame();
   }
 
   @override

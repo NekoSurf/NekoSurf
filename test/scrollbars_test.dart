@@ -125,6 +125,22 @@ void main() {
       expect(last.itemTrailingEdge, closeTo(1 - 8 / height, 0.005));
       // From the top, where the drag started, to the last row.
       expect(scrubbed, [(0, count - 1)]);
+
+      // Then the list is put somewhere by itself, as when a post folds, and
+      // stays there: the last row is let go of once the drag is over.
+      for (int i = 0; i < 10; i++) {
+        await tester.pump();
+      }
+      controller.jumpTo(index: count - 1, alignment: 0.5);
+      for (int i = 0; i < 4; i++) {
+        await tester.pump();
+      }
+      expect(
+        shown()
+            .firstWhere((ItemPosition p) => p.index == count - 1)
+            .itemLeadingEdge,
+        closeTo(0.5, 0.001),
+      );
     });
 
     testWidgets('dragging the thumb halfway goes to the middle rows', (
@@ -143,6 +159,45 @@ void main() {
       await tester.pump();
 
       expect(firstShown(), inInclusiveRange(count * 0.4, count * 0.6));
+    });
+
+    testWidgets('a slow drag moves the list smoothly, row after row', (
+      WidgetTester tester,
+    ) async {
+      await pumpList(tester);
+      await showThumb(tester);
+      final double height = tester.getSize(find.byType(RowScrollbar)).height;
+
+      // How far down the list is, in pixels: the rows above the screen, and
+      // the part of the first one past its top.
+      double offset() {
+        final ItemPosition first = shown().reduce(
+          (ItemPosition a, ItemPosition b) =>
+              a.itemLeadingEdge < b.itemLeadingEdge ? a : b,
+        );
+        double above = 0;
+        for (int i = 0; i < first.index; i++) {
+          above += heightOf(i);
+        }
+        return above - first.itemLeadingEdge * height;
+      }
+
+      final TestGesture gesture = await takeThumb(tester);
+      double last = offset();
+      // Across a few rows of different heights.
+      for (int i = 0; i < 30; i++) {
+        await gesture.moveBy(const Offset(0, 1));
+        await tester.pump();
+        await tester.pump();
+        final double now = offset();
+        expect(now, greaterThanOrEqualTo(last - 0.5), reason: 'step $i');
+        // A pixel of the thumb is about half a row here, at most the tallest.
+        expect(now - last, lessThanOrEqualTo(heightOf(6)), reason: 'step $i');
+        last = now;
+      }
+      await gesture.up();
+      await tester.pump();
+      expect(last, greaterThan(200));
     });
 
     testWidgets('a drag takes the thumb at once, once it shows', (
