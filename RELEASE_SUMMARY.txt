@@ -1,1 +1,0 @@
-NekoSurf is made for iPad and tablets, with tabs down the side, threads beside their board, readable columns and keyboard shortcuts; catch up on a thread by jumping to the next unread post or marking it all as read; threads you've read open offline, and whole threads can be saved for offline; the scrollbar is back, to drag through a long thread fast; and sharing works on iPad.
