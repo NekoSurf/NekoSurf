@@ -7,7 +7,8 @@ Made for iPad and tablets
 • With a keyboard, the arrows or J and K go post by post, Cmd+R refreshes, Cmd+F searches a board, Cmd+1 to Cmd+4 switch tabs, and Esc goes back
 
 Catch up on a thread
-• While a thread has posts you haven't read, a button at the bottom says how many and takes you to the next one, unfolding replies it's folded away in; with a keyboard, N does the same
+• While a thread has posts you haven't read, a button at the bottom says how many and takes you to the next one, unfolding replies it's folded away in, with its arrow pointing up when that's above you; with a keyboard, N does the same
+• Posts you skip over by dragging the scrollbar, or with Scroll to Bottom in a thread's menu, count as read, so they don't wait as unread above you
 • Mark All as Read, in a thread's menu, clears its unread count, so a long thread you only skimmed stops showing replies to catch up on in Bookmarks and History
 
 Threads that still open offline
@@ -20,4 +21,6 @@ Save threads for offline
 
 WHAT'S FIXED
 
+• The scrollbar is back on the right, in threads and lists: drag it to get through a long thread fast
+• Opening a thread where you left off no longer counts its first posts as read
 • Sharing works on iPad: the share sheet opens next to the share button, for threads, images and videos, Saved files, backups and the iCloud sync log
