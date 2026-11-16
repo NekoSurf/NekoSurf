@@ -4,6 +4,7 @@ import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_header.dart';
 import 'package:flutter_chan/ui/keys.dart';
 import 'package:flutter_chan/ui/pull_to_refresh.dart';
+import 'package:flutter_chan/ui/scrollbars.dart';
 import 'package:flutter_chan/ui/window_size.dart';
 
 class DashScaffold extends StatefulWidget {
@@ -82,25 +83,33 @@ class _DashScaffoldState extends State<DashScaffold> {
             top + kDashHeaderHeight,
             NotificationListener<ScrollNotification>(
               onNotification: _onScroll,
-              child: CustomScrollView(
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                physics: widget.onRefresh == null
-                    ? null
-                    : PullToRefresh.pullPhysics,
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: SizedBox(height: top + kDashHeaderHeight + 8),
-                  ),
-                  for (final Widget sliver in widget.slivers)
-                    if (widget.readable)
-                      ReadableSliver(sliver: sliver)
-                    else
-                      sliver,
-                  SliverToBoxAdapter(
-                    child: SizedBox(height: bottom + 24 + barSpace),
-                  ),
-                ],
+              child: PageScrollbar(
+                // Below the header, and above the tab bar.
+                padding: MediaQuery.paddingOf(context).copyWith(
+                  top: top + kDashHeaderHeight,
+                  bottom: bottom + barSpace,
+                ),
+                child: CustomScrollView(
+                  primary: true,
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  physics: widget.onRefresh == null
+                      ? null
+                      : PullToRefresh.pullPhysics,
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: SizedBox(height: top + kDashHeaderHeight + 8),
+                    ),
+                    for (final Widget sliver in widget.slivers)
+                      if (widget.readable)
+                        ReadableSliver(sliver: sliver)
+                      else
+                        sliver,
+                    SliverToBoxAdapter(
+                      child: SizedBox(height: bottom + 24 + barSpace),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

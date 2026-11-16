@@ -13,6 +13,7 @@ import 'package:flutter_chan/thread/thread_rows.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_header.dart';
 import 'package:flutter_chan/ui/pull_to_refresh.dart';
+import 'package:flutter_chan/ui/scrollbars.dart';
 import 'package:flutter_chan/ui/window_size.dart';
 import 'package:provider/provider.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
@@ -720,88 +721,91 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
     // In a wide window, the posts keep to a readable column in the middle;
     // the sides still scroll the thread.
     final double side = readableInset(MediaQuery.sizeOf(context).width);
+    final double end = MediaQuery.paddingOf(context).bottom + 8;
     return PullToRefresh(
       onRefresh: onPulled,
       fromBottom: true,
-      child: ScrollablePositionedList.builder(
-        padding: EdgeInsets.only(
-          left: side,
-          right: side,
-          bottom: MediaQuery.paddingOf(context).bottom + 8,
-        ),
-        shrinkWrap: false,
-        itemCount: rows.length,
-        itemScrollController: itemScrollController,
-        itemPositionsListener: itemPositionsListener,
-        physics: _StopsAtEndsWhenDriven(
-          // A thread shorter than the screen can still be pulled to refresh.
-          parent: PullToRefresh.pullPhysics,
-          isDriven: () => _isAutoScrolling,
-          onDrivenStep: _checkAim,
-        ),
-        itemBuilder: (context, index) {
-          final ThreadRow row = rows[index];
-          final Post post = row.post;
+      child: RowScrollbar(
+        rowCount: rows.length,
+        positions: itemPositionsListener,
+        controller: itemScrollController,
+        endPadding: end,
+        child: ScrollablePositionedList.builder(
+          padding: EdgeInsets.only(left: side, right: side, bottom: end),
+          shrinkWrap: false,
+          itemCount: rows.length,
+          itemScrollController: itemScrollController,
+          itemPositionsListener: itemPositionsListener,
+          physics: _StopsAtEndsWhenDriven(
+            // A thread shorter than the screen can still be pulled to refresh.
+            parent: PullToRefresh.pullPhysics,
+            isDriven: () => _isAutoScrolling,
+            onDrivenStep: _checkAim,
+          ),
+          itemBuilder: (context, index) {
+            final ThreadRow row = rows[index];
+            final Post post = row.post;
 
-          return Padding(
-            // Folding moves posts to other positions; don't let one take over
-            // another's state.
-            key: ValueKey<String>(row.path),
-            padding: EdgeInsets.only(
-              top: index == 0 ? MediaQuery.paddingOf(context).top + 8 : 0,
-            ),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 400),
-              curve: Curves.easeOut,
-              color: row.path == _highlightedRow
-                  ? context.accent.withValues(alpha: 0.16)
-                  : context.accent.withValues(
-                      alpha: _newThisVisit.contains(post.no) ? 0.07 : 0,
-                    ),
-              child: ThreadBranch(
-                ancestors: row.ancestors,
-                previousDepth: index == 0
-                    ? null
-                    : rows[index - 1].ancestors.length,
-                child: ThreadPagePost(
-                  thread: thread,
-                  post: post,
-                  mediaOrder: _listedPosts,
-                  replyCount: row.replyCount,
-                  // The opening post's replies are the rest of the thread, not
-                  // a branch to fold: its count still opens them on their own.
-                  onToggleFold: row.isContext
-                      ? () => _showQuotedPost(post.no)
-                      : row.postIndex == 0
+            return Padding(
+              // Folding moves posts to other positions; don't let one take over
+              // another's state.
+              key: ValueKey<String>(row.path),
+              padding: EdgeInsets.only(
+                top: index == 0 ? MediaQuery.paddingOf(context).top + 8 : 0,
+              ),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeOut,
+                color: row.path == _highlightedRow
+                    ? context.accent.withValues(alpha: 0.16)
+                    : context.accent.withValues(
+                        alpha: _newThisVisit.contains(post.no) ? 0.07 : 0,
+                      ),
+                child: ThreadBranch(
+                  ancestors: row.ancestors,
+                  previousDepth: index == 0
                       ? null
-                      : row.isPreview
-                      ? () => _showInFullHere(row)
-                      : () => _toggleRow(row.path),
-                  folded: row.collapsed,
-                  isPreview: row.isPreview,
-                  hiddenBecause: row.hidden ? hiddenReasons[post.no] : null,
-                  onReveal: () => _reveal(row),
-                  revealedBecause: revealedPosts.contains(post.no)
-                      ? hiddenReasons[post.no]
-                      : null,
-                  onHideAgain: () => _hideAgain(row),
-                  countOpensReplies: isFlat,
-                  newReplies: row.newReplies,
-                  onTapQuote: _showQuotedPost,
-                  // The top level answers the post the list is about. Flat, no
-                  // post is under another, so none of its quotes stands out.
-                  repliedTo: isFlat
-                      ? null
-                      : row.ancestors.isNotEmpty
-                      ? row.ancestors.last
-                      : rootPost ?? thread.posts.firstOrNull?.no,
-                  preloadVideo: preloadVideos.contains(post.no),
-                  onViewerMovedTo: _showPost,
+                      : rows[index - 1].ancestors.length,
+                  child: ThreadPagePost(
+                    thread: thread,
+                    post: post,
+                    mediaOrder: _listedPosts,
+                    replyCount: row.replyCount,
+                    // The opening post's replies are the rest of the thread, not
+                    // a branch to fold: its count still opens them on their own.
+                    onToggleFold: row.isContext
+                        ? () => _showQuotedPost(post.no)
+                        : row.postIndex == 0
+                        ? null
+                        : row.isPreview
+                        ? () => _showInFullHere(row)
+                        : () => _toggleRow(row.path),
+                    folded: row.collapsed,
+                    isPreview: row.isPreview,
+                    hiddenBecause: row.hidden ? hiddenReasons[post.no] : null,
+                    onReveal: () => _reveal(row),
+                    revealedBecause: revealedPosts.contains(post.no)
+                        ? hiddenReasons[post.no]
+                        : null,
+                    onHideAgain: () => _hideAgain(row),
+                    countOpensReplies: isFlat,
+                    newReplies: row.newReplies,
+                    onTapQuote: _showQuotedPost,
+                    // The top level answers the post the list is about. Flat, no
+                    // post is under another, so none of its quotes stands out.
+                    repliedTo: isFlat
+                        ? null
+                        : row.ancestors.isNotEmpty
+                        ? row.ancestors.last
+                        : rootPost ?? thread.posts.firstOrNull?.no,
+                    preloadVideo: preloadVideos.contains(post.no),
+                    onViewerMovedTo: _showPost,
+                  ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }

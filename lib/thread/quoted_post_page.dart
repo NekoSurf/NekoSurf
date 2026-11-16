@@ -6,6 +6,7 @@ import 'package:flutter_chan/thread/thread_page_post.dart';
 import 'package:flutter_chan/thread/thread_posts.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
 import 'package:flutter_chan/ui/reload.dart';
+import 'package:flutter_chan/ui/scrollbars.dart';
 import 'package:flutter_chan/ui/window_size.dart';
 
 class QuotedPostPage extends StatefulWidget {
@@ -57,16 +58,21 @@ class _QuotedPostPageState extends State<QuotedPostPage> {
                 final double side = readableInset(
                   MediaQuery.sizeOf(context).width,
                 );
-                return ListView(
-                  padding: EdgeInsets.only(
-                    left: side,
-                    right: side,
-                    top: MediaQuery.paddingOf(context).top + 8,
-                    bottom: MediaQuery.paddingOf(context).bottom + 8,
+                return PageScrollbar(
+                  child: ListView(
+                    padding: EdgeInsets.only(
+                      left: side,
+                      right: side,
+                      top: MediaQuery.paddingOf(context).top + 8,
+                      bottom: MediaQuery.paddingOf(context).bottom + 8,
+                    ),
+                    children: [
+                      ThreadPagePost(
+                        thread: widget.thread,
+                        post: snapshot.data!,
+                      ),
+                    ],
                   ),
-                  children: [
-                    ThreadPagePost(thread: widget.thread, post: snapshot.data!),
-                  ],
                 );
               }
           }
