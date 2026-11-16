@@ -21,6 +21,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite_platform_interface/sqflite_platform_interface.dart';
 
 // On its own, with the caches made before any test: ones made in a test's
 // clock never finish being made once that test is over.
@@ -35,6 +36,25 @@ void main() {
     TestWidgetsFlutterBinding.ensureInitialized();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(paths, (_) async => caches.path);
+
+    // The image caches keep their records in sqflite, which a running app
+    // sets up: here it says where its files go, and every database is empty.
+    SqflitePlatform.initWithDatabaseFactoryMethodChannel();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('com.tekartik.sqflite'),
+          (MethodCall call) async => switch (call.method) {
+            'getDatabasesPath' => caches.path,
+            'openDatabase' => 1,
+            'query' => <String, Object>{
+              'columns': <String>[],
+              'rows': <Object>[],
+            },
+            'insert' => 1,
+            'update' || 'delete' => 0,
+            _ => null,
+          },
+        );
 
     // httpClient is made on first use, here, around this one.
     http.runWithClient(

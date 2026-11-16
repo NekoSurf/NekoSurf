@@ -930,7 +930,7 @@ packages:
     source: hosted
     version: "2.4.4+1"
   sqflite_platform_interface:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       name: sqflite_platform_interface
       sha256: "5b611dbcb9bab33e7073594ecac111bf0a86ffc342652c2081160d7038a45fb6"
