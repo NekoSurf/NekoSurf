@@ -614,6 +614,49 @@ void main() {
       await finish(tester);
     });
 
+    group('with 40 replies', () {
+      setUp(() {
+        final String replies = <String>[
+          for (int no = 2; no <= 40; no++)
+            '{"no":$no,"resto":1,"com":"Reply $no<br>more<br>lines<br>here"}',
+        ].join(',');
+        answer = (_) => http.Response(
+          '{"posts":[{"no":1,"sub":"Title","com":"Words"},$replies]}',
+          200,
+        );
+      });
+
+      Future<void> open(WidgetTester tester, {int? at}) async {
+        await tester.pumpWidget(
+          app(
+            ThreadPage(
+              post: Post(board: 'g', no: 1),
+              initialPost: at,
+            ),
+          ),
+        );
+        for (int i = 0; i < 40 && find.text('Words').evaluate().isEmpty; i++) {
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 50)),
+          );
+          await tester.pump();
+        }
+        await tester.pumpAndSettle();
+      }
+
+      testWidgets('opening at a post leaves the top of the thread unread', (
+        tester,
+      ) async {
+        watched.noteThreadPosts(1, [for (int no = 1; no <= 40; no++) no]);
+        watched.markPostsSeen(1, [for (int no = 10; no <= 40; no++) no]);
+        await open(tester, at: 38);
+
+        expect(find.textContaining('Reply 38'), findsOneWidget);
+        expect(watched.unseenPosts(1), {for (int no = 2; no < 10; no++) no});
+        await finish(tester);
+      });
+    });
+
     testWidgets('unfolds a branch to an unread reply in it', (tester) async {
       answer = (_) => http.Response(
         jsonEncode({

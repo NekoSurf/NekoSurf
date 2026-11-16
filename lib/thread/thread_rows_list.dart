@@ -540,10 +540,14 @@ mixin ThreadRowsList<T extends StatefulWidget> on State<T> {
   }
 
   /// The list has been told where it's staying, if anywhere else: what's on
-  /// screen from then on is where the reader is.
+  /// screen once it's there is where the reader is. Until then, the list still
+  /// says what was on screen before, such as the top of the thread when it
+  /// opens at the post last read, which isn't being read.
   void settleList() {
-    isListSettled = true;
-    afterListMoved(_checkNewPosts);
+    afterListMoved(() {
+      isListSettled = true;
+      _checkNewPosts();
+    });
   }
 
   /// A new post counts as seen once it's on screen, unless it's folded away,
