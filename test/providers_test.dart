@@ -8,6 +8,7 @@ import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/history/thread_memory.dart';
 import 'package:flutter_chan/history/watched_posts_model.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
+import 'package:flutter_chan/thread/post_hiding.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -143,6 +144,86 @@ void main() {
       );
       expect(
         settings.isThreadHidden(Post(board: 'g', no: 1, sub: 'Windows')),
+        isFalse,
+      );
+    });
+
+    test('edits thread filters in place', () async {
+      SharedPreferences.setMockInitialValues({});
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final SettingsProvider settings = SettingsProvider(prefs);
+
+      await settings.addHiddenThreadPattern(r'Linux general \#123');
+      await settings.addHiddenThreadPattern('crypto');
+      await settings.addHiddenThreadPattern('ai');
+
+      await settings.editHiddenThreadPattern(r'Linux general \#123', ' linux ');
+      expect(settings.hiddenThreadPatterns, ['linux', 'crypto', 'ai']);
+      expect(prefs.getStringList('hiddenThreadPatterns'), [
+        'linux',
+        'crypto',
+        'ai',
+      ]);
+      expect(
+        settings.isThreadHidden(Post(board: 'g', no: 1, sub: 'Linux thread')),
+        isTrue,
+      );
+
+      // Made the same as another: only one is kept.
+      await settings.editHiddenThreadPattern('ai', 'crypto');
+      expect(settings.hiddenThreadPatterns, ['linux', 'crypto']);
+
+      // Cleared: removed.
+      await settings.editHiddenThreadPattern('crypto', '  ');
+      expect(settings.hiddenThreadPatterns, ['linux']);
+    });
+
+    test('edits keyword post filters in place', () async {
+      SharedPreferences.setMockInitialValues({});
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final SettingsProvider settings = SettingsProvider(prefs);
+      final PostFilter spoilers = PostFilter(
+        PostFilterKind.text,
+        'spoilers ahead',
+      );
+      final PostFilter anon = PostFilter(PostFilterKind.name, 'Anonymous');
+
+      await settings.addPostFilter(spoilers);
+      await settings.addPostFilter(anon);
+      await settings.editPostFilter(spoilers, ' spoiler ');
+
+      expect(settings.postFilters, [
+        PostFilter(PostFilterKind.text, 'spoiler'),
+        anon,
+      ]);
+      expect(prefs.getStringList('postFilters'), [
+        'text:spoiler',
+        'name:Anonymous',
+      ]);
+
+      await settings.editPostFilter(
+        PostFilter(PostFilterKind.text, 'spoiler'),
+        '',
+      );
+      expect(settings.postFilters, [anon]);
+    });
+
+    test('turning thread filters off shows matching threads', () async {
+      SharedPreferences.setMockInitialValues({});
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final SettingsProvider settings = SettingsProvider(prefs);
+      final Post linux = Post(board: 'g', no: 1, sub: 'Linux general');
+
+      await settings.addHiddenThreadPattern('linux');
+      expect(settings.isThreadListed(linux), isFalse);
+
+      await settings.hideFilteredThreads.set(false);
+      expect(settings.isThreadHidden(linux), isFalse);
+      expect(settings.isThreadListed(linux), isTrue);
+      // Still known to match, so boards can show it faded.
+      expect(settings.matchesThreadFilter(linux), isTrue);
+      expect(
+        settings.matchesThreadFilter(Post(board: 'g', no: 2, sub: 'Windows')),
         isFalse,
       );
     });

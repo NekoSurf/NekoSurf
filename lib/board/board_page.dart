@@ -173,6 +173,7 @@ class _BoardPageState extends State<BoardPage> with ThreadOrder<BoardPage> {
             ThreadsView(
               threads: visibleThreads,
               grid: settings.boardViewMode.value == ViewMode.grid,
+              isDimmed: settings.matchesThreadFilter,
             ),
         ],
       ),

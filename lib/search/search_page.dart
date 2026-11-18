@@ -343,7 +343,14 @@ class _SearchPageState extends State<SearchPage> {
     if (matches.isEmpty) {
       return [_message(isDark, 'No threads match')];
     }
-    return [ThreadsView(threads: matches, grid: false, showBoard: true)];
+    return [
+      ThreadsView(
+        threads: matches,
+        grid: false,
+        showBoard: true,
+        isDimmed: settings.matchesThreadFilter,
+      ),
+    ];
   }
 
   List<Widget> _everywhereSlivers(bool isDark) {

@@ -22,7 +22,7 @@ void showThreadFilterMenu(BuildContext context, Post post) {
 
   void add(String text) {
     settings.addHiddenThreadPattern(RegExp.escape(text));
-    showToast(context, 'Thread filter added');
+    showToast(context, 'Thread filter added. Edit it in Settings.');
   }
 
   final bool commentTruncated = comment.characters.length > 80;

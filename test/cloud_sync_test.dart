@@ -316,6 +316,14 @@ void main() {
       syncId(SyncKind.bookmark, 'g/1'),
       syncId(SyncKind.board, 'wsg'),
     ]);
+
+    // An edited filter goes out as the new one in place of the old.
+    sent.clear();
+    deleted.clear();
+    await a.settings.editHiddenThreadPattern('spoilers', 'spoiler');
+    await pumpEventQueue();
+    expect(sentIds(), {syncId(SyncKind.threadFilter, 'spoiler')});
+    expect(deleted, [syncId(SyncKind.threadFilter, 'spoilers')]);
   });
 
   test('changes made elsewhere are applied, and not sent back', () async {

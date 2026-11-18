@@ -83,6 +83,7 @@ class ThreadsView extends StatelessWidget {
     required this.grid,
     this.showBoard = false,
     this.statusOf,
+    this.isDimmed,
     this.sideInset = 10,
   });
 
@@ -96,6 +97,10 @@ class ThreadsView extends StatelessWidget {
   /// Whether each thread is still up, where that's been checked.
   final ThreadStatus Function(Post post)? statusOf;
 
+  /// Which threads are shown faded: those a thread filter would hide, while
+  /// the filters are off.
+  final bool Function(Post post)? isDimmed;
+
   @override
   Widget build(BuildContext context) {
     return ThreadsLayout(
@@ -106,7 +111,7 @@ class ThreadsView extends StatelessWidget {
         final Post post = threads[index];
         final Key key = ValueKey('${post.board}-${post.no}');
         final ThreadStatus status = statusOf?.call(post) ?? ThreadStatus.online;
-        return grid
+        final Widget tile = grid
             ? GridPost(
                 key: key,
                 post: post,
@@ -119,6 +124,9 @@ class ThreadsView extends StatelessWidget {
                 showBoard: showBoard,
                 status: status,
               );
+        return isDimmed?.call(post) ?? false
+            ? Opacity(opacity: 0.35, child: tile)
+            : tile;
       },
     );
   }

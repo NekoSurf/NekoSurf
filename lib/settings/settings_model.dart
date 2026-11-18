@@ -114,6 +114,7 @@ class SettingsProvider with ChangeNotifier implements SyncTarget {
     'threadLayout',
     'autoScrollToLastSeen',
     'showStickyThreads',
+    'hideFilteredThreads',
     'feedVideosStartMuted',
     'trackHistory',
     'savedNewestFirst',
@@ -229,6 +230,13 @@ class SettingsProvider with ChangeNotifier implements SyncTarget {
     true,
   );
   late final Setting<bool> showStickyThreads = _bool('showStickyThreads', true);
+
+  /// Threads matching a thread filter are left out; when off, they're shown
+  /// dimmed, to check what the filters catch.
+  late final Setting<bool> hideFilteredThreads = _bool(
+    'hideFilteredThreads',
+    true,
+  );
   late final Setting<bool> feedVideosStartMuted = _bool(
     'feedVideosStartMuted',
     true,
@@ -459,7 +467,13 @@ class SettingsProvider with ChangeNotifier implements SyncTarget {
     }
   }
 
-  bool isThreadHidden(Post post) {
+  /// Whether [post] is left out of boards, the feed and search: it matches a
+  /// thread filter, and they're on.
+  bool isThreadHidden(Post post) =>
+      hideFilteredThreads.value && matchesThreadFilter(post);
+
+  /// Whether [post] matches a thread filter, whether or not they're on.
+  bool matchesThreadFilter(Post post) {
     if (_hiddenRegexes.isEmpty) {
       return false;
     }
@@ -478,6 +492,27 @@ class SettingsProvider with ChangeNotifier implements SyncTarget {
       _sync.put(threadFilterSyncItem(trimmed));
       await _setHiddenPatterns([..._hiddenPatterns, trimmed]);
     }
+  }
+
+  /// Changes thread filter [pattern] to [edited], keeping its place in the
+  /// list. Clearing it removes it.
+  Future<void> editHiddenThreadPattern(String pattern, String edited) async {
+    final String trimmed = edited.trim();
+    if (!_hiddenPatterns.contains(pattern) || trimmed == pattern) {
+      return;
+    }
+    if (trimmed.isEmpty) {
+      return removeHiddenThreadPattern(pattern);
+    }
+    _sync.remove(SyncKind.threadFilter, pattern);
+    final bool isKept = !_hiddenPatterns.contains(trimmed);
+    if (isKept) {
+      _sync.put(threadFilterSyncItem(trimmed));
+    }
+    await _setHiddenPatterns([
+      for (final String p in _hiddenPatterns)
+        if (p != pattern) p else if (isKept) trimmed,
+    ]);
   }
 
   Future<void> removeHiddenThreadPattern(String pattern) async {
@@ -515,6 +550,27 @@ class SettingsProvider with ChangeNotifier implements SyncTarget {
       _sync.put(postFilterSyncItem(filter));
       await _setPostFilters([..._postFilters, filter]);
     }
+  }
+
+  /// Changes [filter]'s value to [edited], keeping its kind and its place in
+  /// the list. Clearing it removes it.
+  Future<void> editPostFilter(PostFilter filter, String edited) async {
+    final PostFilter changed = PostFilter(filter.kind, edited);
+    if (!_postFilters.contains(filter) || changed == filter) {
+      return;
+    }
+    if (changed.value.isEmpty) {
+      return removePostFilter(filter);
+    }
+    _sync.remove(SyncKind.postFilter, filter.stored);
+    final bool isKept = !_postFilters.contains(changed);
+    if (isKept) {
+      _sync.put(postFilterSyncItem(changed));
+    }
+    await _setPostFilters([
+      for (final PostFilter each in _postFilters)
+        if (each != filter) each else if (isKept) changed,
+    ]);
   }
 
   Future<void> removePostFilter(PostFilter filter) async {

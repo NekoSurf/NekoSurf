@@ -71,6 +71,53 @@ class BrowsingSettings extends StatelessWidget {
     ).whenComplete(controller.dispose);
   }
 
+  /// Lets a keyword filter be changed, e.g. to cut one added by holding a
+  /// thread down to the words that matter.
+  static void _showEditFilter(
+    BuildContext context, {
+    required String pattern,
+    required ValueChanged<String> onSave,
+  }) {
+    final TextEditingController controller = TextEditingController(
+      text: pattern,
+    );
+    showDashDialog<void>(
+      context: context,
+      builder: (ctx) => DashDialog(
+        title: const Text('Edit filter'),
+        content: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'A plain word hides as a keyword; regex works too. '
+              'Clear it to remove the filter.',
+            ),
+            const SizedBox(height: 12),
+            DashDialogField(
+              controller: controller,
+              placeholder: 'Keyword or regex',
+              isCode: true,
+            ),
+          ],
+        ),
+        actions: [
+          DashDialogAction(
+            isDefaultAction: true,
+            onPressed: () {
+              onSave(controller.text);
+              Navigator.of(ctx).pop();
+            },
+            child: const Text('Save'),
+          ),
+          DashDialogAction(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    ).whenComplete(controller.dispose);
+  }
+
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
@@ -201,14 +248,33 @@ class BrowsingSettings extends StatelessWidget {
           title: 'Hidden threads',
           footer:
               'Matching is case-insensitive against the thread title and '
-              'comment, in boards and the feed. Invalid regex is treated as a '
-              'plain keyword.',
+              'comment, in boards, the feed and search. Invalid regex is '
+              'treated as a plain keyword. Tap a filter to edit it.',
           children: [
+            if (settings.hiddenThreadPatterns.isNotEmpty)
+              SettingsRow(
+                icon: CupertinoIcons.line_horizontal_3_decrease,
+                color: DashColors.danger,
+                title: 'Hide matching threads',
+                subtitle:
+                    'When off, they show faded, to check what the '
+                    'filters catch',
+                trailing: SettingsSwitch(
+                  value: settings.hideFilteredThreads.value,
+                  onChanged: settings.hideFilteredThreads.set,
+                ),
+              ),
             for (final String pattern in settings.hiddenThreadPatterns)
               SettingsRow(
                 icon: CupertinoIcons.eye_slash_fill,
                 color: DashColors.danger,
                 title: pattern,
+                onTap: () => _showEditFilter(
+                  context,
+                  pattern: pattern,
+                  onSave: (String edited) =>
+                      settings.editHiddenThreadPattern(pattern, edited),
+                ),
                 trailing: _RemoveButton(
                   label: 'Remove $pattern',
                   onTap: () => settings.removeHiddenThreadPattern(pattern),
@@ -233,13 +299,24 @@ class BrowsingSettings extends StatelessWidget {
           footer:
               'Hides replies in every thread, by their title and text. Hold a '
               "post to hide it, or its poster's posts by ID, name or country. "
-              'Tap a hidden post to see it anyway.',
+              'Tap a hidden post to see it anyway, or a keyword filter to '
+              'edit it.',
           children: [
             for (final PostFilter filter in settings.postFilters)
               SettingsRow(
                 icon: _postFilterIcons[filter.kind]!,
                 color: DashColors.danger,
                 title: filter.label,
+                // Names, tripcodes and countries match exactly: cut down,
+                // they'd match nothing.
+                onTap: filter.kind == PostFilterKind.text
+                    ? () => _showEditFilter(
+                        context,
+                        pattern: filter.value,
+                        onSave: (String edited) =>
+                            settings.editPostFilter(filter, edited),
+                      )
+                    : null,
                 trailing: _RemoveButton(
                   label: 'Remove ${filter.label}',
                   onTap: () => settings.removePostFilter(filter),

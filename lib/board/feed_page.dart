@@ -111,6 +111,7 @@ class _FeedPageState extends State<FeedPage> with ThreadOrder<FeedPage> {
               threads: visibleThreads,
               grid: settings.boardViewMode.value == ViewMode.grid,
               showBoard: true,
+              isDimmed: settings.matchesThreadFilter,
             ),
         ],
       ),
