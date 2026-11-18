@@ -6,6 +6,7 @@ import 'package:flutter_chan/board/grid_post.dart';
 import 'package:flutter_chan/board/list_post.dart';
 import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/chan/thread_status.dart';
+import 'package:flutter_chan/ui/open.dart';
 
 /// How threads are laid out on a page, as a grid of tiles or a list of cards.
 class ThreadsLayout extends StatelessWidget {
@@ -50,7 +51,13 @@ class ThreadsLayout extends StatelessWidget {
     return SliverLayoutBuilder(
       builder: (BuildContext context, SliverConstraints constraints) {
         final double pageWidth = constraints.crossAxisExtent;
-        final int columns = max(2, (pageWidth / 230).floor());
+        // Two at least, as on a phone; but in the list's narrow column
+        // beside a thread, as on an iPhone Duo open, one, so the tiles have
+        // room for their board and title.
+        final bool besideThread = DetailPane.maybeOf(context) != null;
+        final int columns = besideThread && pageWidth < 340
+            ? 1
+            : max(2, (pageWidth / 230).floor());
         final double tileWidth =
             (pageWidth - 2 * sideInset - (columns - 1) * _gridSpacing) /
             columns;

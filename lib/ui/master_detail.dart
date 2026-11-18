@@ -9,7 +9,8 @@ import 'package:flutter_chan/ui/open.dart';
 import 'package:flutter_chan/ui/window_size.dart';
 
 /// A list of threads, with the thread opened from it beside it once there's
-/// room for both, as on an iPad on its side. The list takes the page until
+/// room for both, as on an iPad on its side or an iPhone Duo open. The list
+/// takes the page until
 /// a thread is chosen; then it narrows to a column on the left, and the
 /// thread comes in beside it, where threads opened from the list take each
 /// other's place. Going back from the thread gives the list the page again.
@@ -17,11 +18,24 @@ import 'package:flutter_chan/ui/window_size.dart';
 class MasterDetail extends StatefulWidget {
   const MasterDetail({super.key, required this.master});
 
-  /// From this wide, the list gets a pane beside it.
-  static const double minWidth = 1000;
+  /// From this wide, the list gets a pane beside it: room for the list, in
+  /// its narrower column, and a thread about as wide as a big phone's. An
+  /// iPhone Duo open has it, 755 beside the tabs' sidebar and the room its
+  /// camera takes, and so does an 11" iPad upright, beside a board; an iPad
+  /// mini upright, 744, doesn't.
+  static const double minWidth = 750;
 
   /// How wide the list is beside the pane.
   static const double masterWidth = 380;
+
+  /// How wide it is in a window narrower than [roomyWidth], to leave the
+  /// thread room.
+  static const double narrowMasterWidth = 320;
+  static const double roomyWidth = 1000;
+
+  /// How wide the list is beside the pane, in [width].
+  static double masterWidthIn(double width) =>
+      width < roomyWidth ? narrowMasterWidth : masterWidth;
 
   final Widget master;
 
@@ -79,21 +93,51 @@ class _MasterDetailState extends State<MasterDetail> {
     );
   }
 
+  /// What went over the list when the window got too narrow for the pane,
+  /// to take back into it when there's room again, as when an iPhone Duo is
+  /// folded shut and opened again.
+  Route<void>? _movedOut;
+
+  /// Taken back from over the list, for the pane to show once it's built.
+  Destination? _takenBack;
+
   /// Too narrow for the pane now: what it showed opens over the list.
-  void _movePaneOut() {
-    final Destination? shown = _paneCanPop ? _shown : null;
+  void _movePaneOut(double width) {
+    final Destination? shown = _takenBack ?? (_paneCanPop ? _shown : null);
+    _takenBack = null;
     _shown = null;
     _paneCanPop = false;
     if (shown == null) {
       return;
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        Navigator.of(
-          context,
-        ).pushNamed(Destination.routeName, arguments: shown);
+      final DestinationPages? pages = DestinationPages.maybeOf(context);
+      if (!mounted || pages == null) {
+        return;
       }
+      late final Route<void> route;
+      route = BackSwipePageRoute<void>(
+        settings: RouteSettings(name: Destination.routeName, arguments: shown),
+        builder: (_) => _MovedOut(
+          listWidth: width,
+          onRoom: () => _takeBack(route, shown),
+          child: pages.pageFor(shown),
+        ),
+      );
+      _movedOut = route;
+      Navigator.of(context).push(route);
     });
+  }
+
+  /// There's room for the pane again: what went over the list goes back
+  /// into it, unless something's been opened over it since.
+  void _takeBack(Route<void> route, Destination shown) {
+    if (!mounted || route != _movedOut || !route.isCurrent) {
+      return;
+    }
+    _movedOut = null;
+    Navigator.of(context).removeRoute(route);
+    setState(() => _takenBack = shown);
   }
 
   @override
@@ -109,8 +153,18 @@ class _MasterDetailState extends State<MasterDetail> {
       builder: (BuildContext context, BoxConstraints constraints) {
         final double width = constraints.maxWidth;
         if (width < MasterDetail.minWidth) {
-          _movePaneOut();
+          _movePaneOut(width);
           return master;
+        }
+        _movedOut = null;
+        if (_takenBack case final Destination shown) {
+          _takenBack = null;
+          // The pane is built in this frame.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _show(shown);
+            }
+          });
         }
         final bool open = _paneCanPop;
         // Back (Android's, or Esc) goes back in the pane first, then leaves
@@ -162,15 +216,12 @@ class _MasterDetailState extends State<MasterDetail> {
               ),
             ),
             builder: (BuildContext context, double t, Widget? pane) {
-              final double listWidth = lerpDouble(
-                width,
-                MasterDetail.masterWidth,
-                t,
-              )!;
+              final double masterWidth = MasterDetail.masterWidthIn(width);
+              final double listWidth = lerpDouble(width, masterWidth, t)!;
               return Stack(
                 children: [
                   Positioned(
-                    left: MasterDetail.masterWidth,
+                    left: masterWidth,
                     top: 0,
                     right: 0,
                     bottom: 0,
@@ -213,6 +264,47 @@ class _MasterDetailState extends State<MasterDetail> {
             },
           ),
         );
+      },
+    );
+  }
+}
+
+/// A page that went over the list as the window narrowed; it says when the
+/// window's wide enough for the pane again. The list it covers isn't laid
+/// out meanwhile, so it can't tell; this page's width less what the list
+/// lacked of it then (a sidebar beside the list, say) stands in for the
+/// list's.
+class _MovedOut extends StatefulWidget {
+  const _MovedOut({
+    required this.listWidth,
+    required this.onRoom,
+    required this.child,
+  });
+
+  /// How wide the list was when this went over it.
+  final double listWidth;
+  final VoidCallback onRoom;
+  final Widget child;
+
+  @override
+  State<_MovedOut> createState() => _MovedOutState();
+}
+
+class _MovedOutState extends State<_MovedOut> {
+  double? _beyondList;
+  bool _told = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final double width = constraints.maxWidth;
+        final double beyondList = _beyondList ??= width - widget.listWidth;
+        if (!_told && width - beyondList >= MasterDetail.minWidth) {
+          _told = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) => widget.onRoom());
+        }
+        return widget.child;
       },
     );
   }

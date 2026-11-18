@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
+import 'package:flutter_chan/ui/window_size.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 
 /// A page that goes back when swiped to the right from anywhere on it, not
@@ -107,6 +108,10 @@ class BackSwipePageRoute<T> extends MaterialPageRoute<T> {
       navigator.didStopUserGesture();
     }
   }
+
+  @override
+  Widget buildContent(BuildContext context) =>
+      SideSafeArea(child: super.buildContent(context));
 
   @override
   Widget buildTransitions(

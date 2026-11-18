@@ -8,6 +8,7 @@ import 'package:flutter_chan/chan/thread_status.dart';
 import 'package:flutter_chan/history/watched_posts_model.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/ui/image_frost.dart';
+import 'package:flutter_chan/ui/open.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -147,6 +148,51 @@ void main() {
     final Size tile = tester.getSize(find.byType(GridPost));
     expect(tile.width, 145);
     expect(tile.height, lessThan(145 / 0.82));
+  });
+
+  testWidgets("beside a thread, the list's narrow column has one tile a row", (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 700);
+    addTearDown(tester.view.reset);
+    SharedPreferences.setMockInitialValues({});
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final SettingsProvider settings = SettingsProvider(prefs);
+    watched = WatchedPostsProvider(prefs);
+    addTearDown(watched.dispose);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<SettingsProvider>.value(value: settings),
+          ChangeNotifierProvider<WatchedPostsProvider>.value(value: watched),
+          ChangeNotifierProvider<BookmarksProvider>(
+            create: (_) => BookmarksProvider(prefs),
+          ),
+        ],
+        child: MaterialApp(
+          home: DetailPane(
+            show: (_) {},
+            child: Scaffold(
+              body: CustomScrollView(
+                slivers: [
+                  ThreadsView(
+                    threads: [thread(), thread()],
+                    grid: true,
+                    showBoard: true,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(tester.getSize(find.byType(GridPost).first).width, greaterThan(290));
   });
 
   testWidgets('a grid card has no live blur, which makes scrolling stutter', (

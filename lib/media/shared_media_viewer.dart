@@ -221,7 +221,9 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
-    final double topInset = MediaQuery.of(context).padding.top;
+    // The media goes under the window's edges, but not the buttons: on
+    // iPhone Duo the camera and status icons sit at the right one.
+    final EdgeInsets safe = MediaQuery.paddingOf(context);
     final int itemCount = widget.items.length;
     final String mediaTitle = widget.items[_currentIndex].name;
 
@@ -394,7 +396,12 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
                 visible: _chromeVisible,
                 hiddenOffset: -0.3,
                 child: Container(
-                  padding: EdgeInsets.fromLTRB(12, topInset + 8, 12, 28),
+                  padding: EdgeInsets.fromLTRB(
+                    safe.left + 12,
+                    safe.top + 8,
+                    safe.right + 12,
+                    28,
+                  ),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
@@ -883,16 +890,17 @@ class _VideoControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final EdgeInsets safe = MediaQuery.paddingOf(context);
     final Duration duration = video.duration;
     final double max =
         (duration.inMilliseconds <= 0 ? 1 : duration.inMilliseconds).toDouble();
 
     return Container(
       padding: EdgeInsets.fromLTRB(
-        12,
+        safe.left + 12,
         44,
-        12,
-        MediaQuery.paddingOf(context).bottom + 12,
+        safe.right + 12,
+        safe.bottom + 12,
       ),
       decoration: BoxDecoration(
         gradient: LinearGradient(

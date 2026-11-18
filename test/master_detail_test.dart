@@ -76,7 +76,8 @@ void main() {
   testWidgets('in a narrow window, a thread opens over the list', (
     tester,
   ) async {
-    windowOf(tester, const Size(820, 1180));
+    // An iPad mini upright.
+    windowOf(tester, const Size(744, 1133));
     await tester.pumpWidget(_app());
 
     await tester.tap(find.text('Open 1'));
@@ -108,6 +109,24 @@ void main() {
     );
   });
 
+  testWidgets('on an iPhone Duo open, a thread opens beside the list in '
+      'its narrower column', (tester) async {
+    // What a tab gets there: the screen's 951 points across, less the 84
+    // kept clear of the camera and the tabs' sidebar.
+    windowOf(tester, const Size(755, 669));
+    await tester.pumpWidget(_app());
+
+    await tester.tap(find.text('Open 1'));
+    await tester.pumpAndSettle();
+    expect(find.text('Thread 1'), findsOneWidget);
+    expect(find.text('Open 1'), findsOneWidget);
+    final Finder thread = find.ancestor(
+      of: find.text('Thread 1'),
+      matching: find.byType(CupertinoPageScaffold),
+    );
+    expect(tester.getTopLeft(thread).dx, MasterDetail.narrowMasterWidth);
+  });
+
   testWidgets('when the window gets narrow, the thread beside the list '
       'opens over it', (tester) async {
     windowOf(tester, const Size(1376, 1032));
@@ -115,10 +134,54 @@ void main() {
     await tester.tap(find.text('Open 2'));
     await tester.pumpAndSettle();
 
-    tester.view.physicalSize = const Size(820, 1180);
+    tester.view.physicalSize = const Size(744, 1133);
     await tester.pumpAndSettle();
 
     expect(find.text('Thread 2'), findsOneWidget);
+    expect(find.text('Open 2'), findsNothing);
+  });
+
+  testWidgets('when the window gets wide again, the thread goes back beside '
+      'the list', (tester) async {
+    windowOf(tester, const Size(1376, 1032));
+    await tester.pumpWidget(_app());
+    await tester.tap(find.text('Open 2'));
+    await tester.pumpAndSettle();
+
+    tester.view.physicalSize = const Size(744, 1133);
+    await tester.pumpAndSettle();
+    expect(find.text('Open 2'), findsNothing);
+
+    tester.view.physicalSize = const Size(1376, 1032);
+    await tester.pumpAndSettle();
+    expect(find.text('Thread 2'), findsOneWidget);
+    expect(find.text('Open 2'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Thread 2')).dx,
+      greaterThan(MasterDetail.masterWidth),
+    );
+
+    // Back closes the pane: nothing's left over the list.
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('Thread 2'), findsNothing);
+    expect(find.text('Open 2'), findsOneWidget);
+  });
+
+  testWidgets('a thread opened over the one that went over the list stays '
+      'when the window gets wide again', (tester) async {
+    windowOf(tester, const Size(1376, 1032));
+    await tester.pumpWidget(_app());
+    await tester.tap(find.text('Open 2'));
+    await tester.pumpAndSettle();
+
+    tester.view.physicalSize = const Size(744, 1133);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open replies'));
+    await tester.pumpAndSettle();
+
+    tester.view.physicalSize = const Size(1376, 1032);
+    await tester.pumpAndSettle();
     expect(find.text('Open 2'), findsNothing);
   });
 

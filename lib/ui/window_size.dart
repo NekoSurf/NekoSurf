@@ -1,7 +1,7 @@
 import 'dart:math';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/widgets.dart';
 
 /// How much room the app's window has across, in Material's size classes:
 /// a phone is [compact]; an iPad, or a tablet, is [medium] upright and
@@ -86,6 +86,39 @@ class PaneSize extends StatelessWidget {
           child: child,
         );
       },
+    );
+  }
+}
+
+/// [child] kept clear of what covers the window's sides, with the page's
+/// color in the strip it leaves. Phones have nothing there upright, but
+/// iPhone Duo's camera and status icons sit at the right edge of both its
+/// screens, and iOS asks for room beside them all the way down.
+///
+/// Pages only make room above and below themselves, so this takes care of
+/// the sides for them: inside it, the window has none to keep clear of.
+class SideSafeArea extends StatelessWidget {
+  const SideSafeArea({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final EdgeInsets padding = MediaQuery.paddingOf(context);
+    if (padding.left == 0 && padding.right == 0) {
+      return child;
+    }
+    return ColoredBox(
+      color: CupertinoTheme.of(context).scaffoldBackgroundColor,
+      child: Padding(
+        padding: EdgeInsets.only(left: padding.left, right: padding.right),
+        child: MediaQuery.removePadding(
+          context: context,
+          removeLeft: true,
+          removeRight: true,
+          child: child,
+        ),
+      ),
     );
   }
 }
