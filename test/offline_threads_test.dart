@@ -131,8 +131,13 @@ void main() {
 
   test('is still there after the app restarts', () async {
     await offline.save(thread);
-    // A save that never got as far as its first files.
-    Directory('${dir.path}/offline/g_9').createSync(recursive: true);
+    // Saves that never got as far as their first files: one long ago, one
+    // maybe starting now.
+    final Directory old = Directory('${dir.path}/offline/g_9')
+      ..createSync(recursive: true);
+    Process.runSync('touch', ['-t', '202001010000', old.path]);
+    final Directory fresh = Directory('${dir.path}/offline/g_8')
+      ..createSync(recursive: true);
 
     final OfflineThreads restarted = OfflineThreads(
       () async => Directory('${dir.path}/offline'),
@@ -141,7 +146,88 @@ void main() {
 
     expect(restarted.threads.map((t) => t.key), ['g/1']);
     expect(restarted.fileFor(image)!.existsSync(), isTrue);
-    expect(Directory('${dir.path}/offline/g_9').existsSync(), isFalse);
+    expect(old.existsSync(), isFalse);
+    expect(fresh.existsSync(), isTrue);
+    // Its text is in its folder too.
+    final ThreadCopy? text = await restarted.text('g', 1);
+    expect(text!.posts.map((Post post) => post.no), [1, 2, 3]);
+  });
+
+  test('a saved thread it cannot read is kept, files and all', () async {
+    await offline.save(thread);
+    final File manifest = File('${dir.path}/offline/g_1/thread.json');
+    // As a later version might write it.
+    manifest.writeAsStringSync(
+      manifest.readAsStringSync().replaceFirst('"bytes":', '"bytes":"x","b":'),
+    );
+
+    final OfflineThreads restarted = OfflineThreads(
+      () async => Directory('${dir.path}/offline'),
+    );
+    await restarted.load();
+    expect(restarted.threads, isEmpty);
+    expect(File('${dir.path}/offline/g_1/100.jpg').existsSync(), isTrue);
+  });
+
+  test('a save cut short carries on at the next launch', () async {
+    await offline.save(thread);
+    final File manifest = File('${dir.path}/offline/g_1/thread.json');
+    File('${dir.path}/offline/g_1/300.webm').deleteSync();
+    manifest.writeAsStringSync(
+      manifest.readAsStringSync().replaceFirst('{', '{"unfinished":true,'),
+    );
+    asked.clear();
+
+    final OfflineThreads restarted = OfflineThreads(
+      () async => Directory('${dir.path}/offline'),
+    );
+    await restarted.load();
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    expect(asked, [video]);
+    expect(restarted.thread('g', 1)!.unfinished, isFalse);
+    expect(restarted.fileFor(video), isNotNull);
+  });
+
+  test('files saved from 4chan are found from an archive', () async {
+    await offline.save(thread);
+    final Post archived = Post(
+      board: 'g',
+      no: 1,
+      tim: 100,
+      ext: '.jpg',
+      archivedFileUrl: 'https://archive.example/g/image/1/00/100.jpg',
+      archivedThumbnailUrl: 'https://archive.example/g/thumb/1/00/100s.jpg',
+    );
+    expect(offline.fileFor(archived.fileUrl), isNotNull);
+    expect(offline.fileFor(archived.thumbnailUrl), isNotNull);
+
+    // Saved again from the archive, nothing is fetched twice.
+    asked.clear();
+    final OfflineSaveResult result = await offline.save(<Post>[
+      archived,
+      thread[1],
+      thread[2],
+    ]);
+    expect(asked, isEmpty);
+    expect(result.failed, 0);
+    expect(offline.thread('g', 1)!.mediaCount, 2);
+  });
+
+  test('files of posts no longer there go', () async {
+    await offline.save(thread);
+    await offline.save(thread.take(2).toList());
+    expect(offline.fileFor(video), isNull);
+    expect(File('${dir.path}/offline/g_1/300.webm').existsSync(), isFalse);
+    expect(offline.thread('g', 1)!.mediaCount, 1);
+  });
+
+  test('a copy saved keeps when it was loaded, and where from', () async {
+    final DateTime loaded = DateTime(2026, 11, 1);
+    await offline.save(thread, copiedAt: loaded, source: 'warosu');
+    final ThreadCopy copy = (await ThreadCopies.instance.read('g', 1))!;
+    expect(copy.savedAt, loaded);
+    expect(copy.source, 'warosu');
+    expect((await offline.text('g', 1))!.source, 'warosu');
   });
 
   test('removing it deletes its files', () async {

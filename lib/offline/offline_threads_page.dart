@@ -28,13 +28,14 @@ class OfflineThreadsPage extends StatelessWidget {
   Future<void> _confirmRemoveAll(
     BuildContext context,
     OfflineThreads offline,
+    SettingsProvider settings,
   ) async {
     final bool? confirmed = await showDashDialog<bool>(
       context: context,
       builder: (dialogContext) => DashDialog(
         title: const Text('Remove all?'),
         content: const Text(
-          'This deletes every thread saved for offline, with its images and '
+          'This deletes every thread listed here, with its images and '
           'videos.',
         ),
         actions: [
@@ -52,7 +53,8 @@ class OfflineThreadsPage extends StatelessWidget {
       ),
     );
     if (confirmed ?? false) {
-      await offline.removeAll();
+      // Not those of boards that are hidden: they aren't on show.
+      await offline.removeAll(where: (t) => !settings.hidesBoard(t.board));
     }
   }
 
@@ -70,14 +72,14 @@ class OfflineThreadsPage extends StatelessWidget {
       subtitle: threads.isEmpty
           ? null
           : '${threads.length == 1 ? '1 thread' : '${threads.length} threads'}'
-                ' · ${formatStorageSize(offline.bytes)}',
+                ' · ${formatStorageSize(OfflineThreads.bytesOf(threads))}',
       readable: true,
       actions: [
         if (threads.isNotEmpty)
           DashIconButton(
             label: 'Remove all',
             icon: const Icon(CupertinoIcons.trash),
-            onPressed: () => _confirmRemoveAll(context, offline),
+            onPressed: () => _confirmRemoveAll(context, offline, settings),
           ),
       ],
       slivers: [

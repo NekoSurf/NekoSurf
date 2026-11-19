@@ -15,7 +15,7 @@ NekoSurf keeps these on your phone only:
 - Your settings, favorite boards, bookmarks and the filters you set to hide threads and posts
 - The threads you've visited (you can turn this off in Settings → History → Track history, or keep them only while the app is open) and, for each thread, the posts you've already seen or not yet, where you left off, what you folded and what you hid (watched posts)
 - A copy of the text of each thread you've bookmarked or visited, as it last loaded, so it still opens without a connection or once it's deleted. It goes when the thread leaves your bookmarks and history (or, for a thread saved for offline, when you remove it)
-- The images and videos of threads you save for offline, in a folder only the app can see, until you remove them
+- The text, images and videos of threads you save for offline, in a folder only the app can see, until you remove them
 - What you save to the Saved tab: on iPhone in the app's folder, which you can see in the Files app, and on Android in Download/4Chan; or, with Settings → Privacy → Keep saved files in the app turned on, in a folder only the app can see
 - Images and videos you've viewed, cached so they load faster the next time
 - Which of 4chan's boards are NSFW, from 4chan's board list, so they stay hidden while it loads

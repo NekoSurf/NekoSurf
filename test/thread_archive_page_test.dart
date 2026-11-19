@@ -164,6 +164,24 @@ void main() {
     await finish(tester);
   });
 
+  testWidgets('a thread saved for offline shows at once', (tester) async {
+    // Real files, off the test's clock.
+    await tester.runAsync(
+      () => OfflineThreads.instance.save(<Post>[
+        Post(board: 'g', no: 100, sub: 'Kept', com: 'First words'),
+        Post(board: 'g', no: 101, resto: 100, com: 'A reply'),
+      ]),
+    );
+    await tester.pumpWidget(app(ThreadPage(post: Post(board: 'g', no: 100))));
+    await waitUntil(tester, () => find.text('A reply').evaluate().isNotEmpty);
+    // Then 4chan says it's gone.
+    await waitUntil(
+      tester,
+      () => find.textContaining('Deleted · copy from').evaluate().isNotEmpty,
+    );
+    await finish(tester);
+  });
+
   testWidgets('says so when no archive has it', (tester) async {
     await tester.pumpWidget(app(ThreadPage(post: Post(board: 'g', no: 100))));
     await waitUntil(

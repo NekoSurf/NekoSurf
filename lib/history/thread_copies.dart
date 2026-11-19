@@ -105,6 +105,25 @@ class ThreadCopies {
     }
   }
 
+  /// What the copies take up, in bytes.
+  Future<int> size() async {
+    try {
+      final Directory dir = await _directory();
+      if (!await dir.exists()) {
+        return 0;
+      }
+      int total = 0;
+      await for (final FileSystemEntity entity in dir.list()) {
+        if (entity is File) {
+          total += await entity.length();
+        }
+      }
+      return total;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   /// Deletes the copies of all threads but [keys] (`board/number`).
   Future<void> keepOnly(Set<String> keys) async {
     try {
@@ -175,6 +194,8 @@ VoidCallback keepThreadCopiesOf(
       for (final bookmark in bookmarks.bookmarks) bookmark.key,
       for (final thread in history.threads) thread.key,
       for (final thread in saved.threads) thread.key,
+      // Saved threads are listed once their first files are in.
+      ...saved.savingKeys,
     };
     // History is told of every status check; only a change in what's kept
     // is worth a look at the folder.

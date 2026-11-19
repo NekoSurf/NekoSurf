@@ -281,12 +281,18 @@ class _ThreadPageState extends State<ThreadPage>
     }
   }
 
+  /// Where the posts on show came from, to keep with what's saved of them.
+  String? get _source => _archive?.name ?? _copySource;
+
   Future<void> _saveOffline() async {
     if (thread.posts.isEmpty) {
       return;
     }
     final OfflineSaveResult result = await OfflineThreads.instance.save(
       thread.posts,
+      // A copy on show stays dated when it was loaded.
+      copiedAt: _copySavedAt,
+      source: _source,
     );
     if (!mounted) {
       return;
@@ -295,6 +301,9 @@ class _ThreadPageState extends State<ThreadPage>
       context,
       result.failed == 0
           ? 'Saved for offline'
+          : result.saved == 0
+          ? 'Saved the text for offline, but no files could be downloaded. '
+                'Check your connection and save it again.'
           : result.failed == 1
           ? "Saved for offline, but 1 file couldn't be downloaded. "
                 'Save it again to try once more.'
@@ -473,13 +482,22 @@ class _ThreadPageState extends State<ThreadPage>
     }
   }
 
-  /// The copy kept when the thread last loaded.
+  /// The newest copy of the thread: the one kept when it last loaded, or
+  /// what was saved for offline.
   Future<ThreadCopy?> _readCopy() async {
-    final ThreadCopy? copy = await ThreadCopies.instance.read(
-      widget.board,
-      widget.thread,
-    );
-    return copy == null || copy.posts.isEmpty ? null : copy;
+    final List<ThreadCopy?> copies = await Future.wait([
+      ThreadCopies.instance.read(widget.board, widget.thread),
+      OfflineThreads.instance.text(widget.board, widget.thread),
+    ]);
+    ThreadCopy? newest;
+    for (final ThreadCopy? copy in copies) {
+      if (copy != null &&
+          copy.posts.isNotEmpty &&
+          (newest == null || copy.savedAt.isAfter(newest.savedAt))) {
+        newest = copy;
+      }
+    }
+    return newest;
   }
 
   void _showCopy(ThreadCopy copy, {required bool gone}) {
@@ -507,6 +525,16 @@ class _ThreadPageState extends State<ThreadPage>
   }
 
   Future<List<Post>> _load() async {
+    // Saved for offline: shown at once, and brought up to date behind it,
+    // rather than after waiting on a slow connection.
+    if (OfflineThreads.instance.isSaved(widget.board, widget.thread)) {
+      final ThreadCopy? copy = await _readCopy();
+      if (copy != null && mounted) {
+        _showCopy(copy, gone: false);
+        unawaited(_updateBehindCopy());
+        return copy.posts;
+      }
+    }
     final List<Post> posts;
     try {
       posts = await fetchThread(widget.board, widget.thread);
@@ -536,6 +564,15 @@ class _ThreadPageState extends State<ThreadPage>
       _scheduleLiveUpdate();
     }
     return posts;
+  }
+
+  /// Swaps the saved copy on show for the thread as it is now, once 4chan
+  /// answers; offline, it keeps trying, like a live thread.
+  Future<void> _updateBehindCopy() async {
+    await _update();
+    if (mounted && !_isGone) {
+      _scheduleLiveUpdate();
+    }
   }
 
   /// Archived and closed threads can't get new posts.
@@ -702,6 +739,12 @@ class _ThreadPageState extends State<ThreadPage>
         if (!thread.places.containsKey(post.no)) post,
     ];
     final int added = arrived.length;
+    // Saved for offline: the new posts' files are saved too.
+    if (_offline.saved &&
+        _offline.saving == null &&
+        OfflineThreads.instance.lacksFilesOf(arrived)) {
+      unawaited(OfflineThreads.instance.save(posts));
+    }
 
     if (added == 0) {
       _backOff();

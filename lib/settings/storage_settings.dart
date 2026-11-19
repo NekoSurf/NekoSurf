@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_chan/history/thread_copies.dart';
 import 'package:flutter_chan/media/image_cache.dart';
 import 'package:flutter_chan/media/video_server.dart';
 import 'package:flutter_chan/offline/offline_threads.dart';
@@ -7,6 +8,7 @@ import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/settings/settings_widgets.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/toast.dart';
+import 'package:provider/provider.dart';
 
 /// What the app keeps on the phone to load faster, and clearing it.
 class StorageSettings extends StatefulWidget {
@@ -19,6 +21,7 @@ class StorageSettings extends StatefulWidget {
 class _StorageSettingsState extends State<StorageSettings> {
   /// What cached videos and images take up; null until measured.
   int? _cacheSize;
+  int? _copiesSize;
 
   bool _visible = false;
 
@@ -38,15 +41,20 @@ class _StorageSettingsState extends State<StorageSettings> {
     final List<int> sizes = await Future.wait([
       VideoServer.instance.cacheSize(),
       imageCacheSize(),
+      ThreadCopies.instance.size(),
     ]);
     if (mounted) {
-      setState(() => _cacheSize = sizes[0] + sizes[1]);
+      setState(() {
+        _cacheSize = sizes[0] + sizes[1];
+        _copiesSize = sizes[2];
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final int? cacheSize = _cacheSize;
+    final int? copiesSize = _copiesSize;
 
     return SettingsGroup(
       title: 'Storage',
@@ -54,8 +62,15 @@ class _StorageSettingsState extends State<StorageSettings> {
         ListenableBuilder(
           listenable: OfflineThreads.instance,
           builder: (BuildContext context, _) {
-            final OfflineThreads offline = OfflineThreads.instance;
-            final int count = offline.threads.length;
+            final SettingsProvider settings = Provider.of<SettingsProvider>(
+              context,
+            );
+            // Those of hidden boards aren't counted, so as not to tell.
+            final List<OfflineThread> shown = <OfflineThread>[
+              for (final OfflineThread t in OfflineThreads.instance.threads)
+                if (!settings.hidesBoard(t.board)) t,
+            ];
+            final int count = shown.length;
             return SettingsRow(
               icon: CupertinoIcons.arrow_down_circle_fill,
               color: context.accent,
@@ -65,10 +80,22 @@ class _StorageSettingsState extends State<StorageSettings> {
                   : count == 1
                   ? '1 thread, with its images and videos.'
                   : '$count threads, with their images and videos.',
-              value: count == 0 ? null : formatStorageSize(offline.bytes),
+              value: count == 0
+                  ? null
+                  : formatStorageSize(OfflineThreads.bytesOf(shown)),
               onTap: () => openOfflineThreads(context),
             );
           },
+        ),
+        SettingsRow(
+          icon: CupertinoIcons.doc_text_fill,
+          color: const Color(0xFF94A3B8),
+          title: 'Copies of threads',
+          subtitle:
+              'The text of threads you bookmarked or visited, to read them '
+              "offline or once they're deleted. They go with the bookmark or "
+              'the history entry.',
+          value: copiesSize == null ? null : formatStorageSize(copiesSize),
         ),
         _ClearRow(
           icon: CupertinoIcons.trash_fill,
