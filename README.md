@@ -67,6 +67,7 @@
 ### 🎨 Make it yours
 
 - Light, dark or following your phone, in 15 color themes that tint the whole app, or pure black for OLED screens
+- Make the text of posts in threads smaller or larger
 
 ### 🔒 Private
 

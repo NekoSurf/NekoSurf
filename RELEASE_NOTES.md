@@ -5,3 +5,6 @@
 - If an archive's copy falls short, Look in Other Archives in the thread's menu tries the rest, and posts the old copy had stay
 - Opened again later, the thread says which archive it came from, and shows the archive's thumbnail in History and Bookmarks
 - Turn off any archive you'd rather not have asked, in Settings → Archives
+
+### 🔠 Text size for posts
+- Make the text of posts in threads smaller or larger, in Settings → Threads → Text size

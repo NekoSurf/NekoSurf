@@ -179,7 +179,8 @@ class BrowsingSettings extends StatelessWidget {
           footer:
               'Nested puts each reply under the post it answers, so you can '
               'fold whole conversations. Flat lists every post in the order '
-              'it was posted.',
+              'it was posted. Text size is for posts, on top of your '
+              "phone's own.",
           children: [
             SettingsRow(
               icon: CupertinoIcons.arrow_down_circle_fill,
@@ -202,6 +203,23 @@ class BrowsingSettings extends StatelessWidget {
                   ThreadLayout.nested: 'Nested',
                   ThreadLayout.flat: 'Flat',
                 },
+              ),
+            ),
+            DashMenuAnchor(
+              menuChildren: [
+                for (final PostTextSize size in PostTextSize.values)
+                  DashMenuEntry(
+                    title: size.title,
+                    isSelected: settings.postTextSize.value == size,
+                    onPressed: () => settings.postTextSize.set(size),
+                  ),
+              ],
+              builder: (context, open) => SettingsRow(
+                icon: CupertinoIcons.textformat_size,
+                color: const Color(0xFFF472B6),
+                title: 'Text size',
+                value: settings.postTextSize.value.title,
+                onTap: open,
               ),
             ),
           ],

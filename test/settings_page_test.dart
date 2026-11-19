@@ -72,6 +72,7 @@ void main() {
       'View',
       'Auto-scroll to last seen',
       'Layout',
+      'Text size',
       'Desuarchive',
       'archived.moe',
       'Start feed videos muted',
@@ -139,6 +140,18 @@ void main() {
     await tester.tap(find.text('Flat'));
     await tester.pumpAndSettle();
     expect(settings.threadLayout.value, ThreadLayout.flat);
+
+    // Its menu offers each size; the row says the one chosen.
+    await tester.tap(find.text('Text size'));
+    await tester.pumpAndSettle();
+    for (final PostTextSize size in PostTextSize.values) {
+      expect(find.text(size.title), findsWidgets, reason: size.title);
+    }
+    await tester.tapAt(const Offset(2, 2));
+    await tester.pumpAndSettle();
+    await settings.postTextSize.set(PostTextSize.larger);
+    await tester.pumpAndSettle();
+    expect(find.text('Larger'), findsOneWidget);
   });
 
   testWidgets('an archive can be turned off, and is then not asked', (

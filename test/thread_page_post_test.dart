@@ -1153,4 +1153,31 @@ void main() {
       expect(folds, 1);
     });
   });
+
+  testWidgets('its text is at the size chosen in Settings', (tester) async {
+    await settings.postTextSize.set(PostTextSize.large);
+    final Post post = Post(board: 'g', no: 2, time: 1700000000, com: 'Text');
+    await tester.pumpWidget(
+      ChangeNotifierProvider<SettingsProvider>.value(
+        value: settings,
+        child: MaterialApp(
+          home: Scaffold(
+            body: ThreadPagePost(
+              post: post,
+              thread: ThreadPosts(board: 'g', number: 1, posts: [post]),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    double scale() =>
+        MediaQuery.textScalerOf(tester.element(find.text('Text'))).scale(1);
+    expect(scale(), 1.15);
+
+    await settings.postTextSize.set(PostTextSize.standard);
+    await tester.pump();
+    expect(scale(), 1);
+  });
 }

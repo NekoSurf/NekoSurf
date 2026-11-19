@@ -36,6 +36,20 @@ enum Appearance {
 
 enum ThreadLayout { nested, flat }
 
+/// How big the text of posts in threads is, against the phone's own text
+/// size.
+enum PostTextSize {
+  small(0.9, 'Small'),
+  standard(1, 'Default'),
+  large(1.15, 'Large'),
+  larger(1.3, 'Larger');
+
+  const PostTextSize(this.scale, this.title);
+
+  final double scale;
+  final String title;
+}
+
 class Setting<T> {
   Setting._(
     this._key,
@@ -226,6 +240,13 @@ class SettingsProvider with ChangeNotifier implements SyncTarget {
     'threadLayout',
     ThreadLayout.values,
     ThreadLayout.nested,
+  );
+
+  /// Not synced: a phone and an iPad can each want their own.
+  late final Setting<PostTextSize> postTextSize = _enum(
+    'postTextSize',
+    PostTextSize.values,
+    PostTextSize.standard,
   );
 
   /// The archives Look in Archives leaves out, by host.

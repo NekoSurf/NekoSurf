@@ -484,7 +484,9 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
         : widget.thread.postsById[id]?.length ?? 0;
 
     if (widget.hiddenBecause case final String reason) {
-      return Opacity(opacity: _isLifted ? 0 : 1, child: _buildHidden(reason));
+      return _withTextSize(
+        Opacity(opacity: _isLifted ? 0 : 1, child: _buildHidden(reason)),
+      );
     }
 
     final Widget row = GestureDetector(
@@ -670,15 +672,36 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
       ),
     );
     // Still taking its room, so nothing moves under the copy.
-    return Opacity(
-      opacity: _isLifted ? 0 : 1,
-      child: switch (widget.revealedBecause) {
-        final String reason => Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [_buildHidden(reason, revealed: true), row],
-        ),
-        null => row,
-      },
+    return _withTextSize(
+      Opacity(
+        opacity: _isLifted ? 0 : 1,
+        child: switch (widget.revealedBecause) {
+          final String reason => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [_buildHidden(reason, revealed: true), row],
+          ),
+          null => row,
+        },
+      ),
+    );
+  }
+
+  /// [post] with its text at the size chosen in Settings, on top of the
+  /// phone's own.
+  Widget _withTextSize(Widget post) {
+    // Without settings (as in some tests), at the phone's size.
+    final double scale = context.select<SettingsProvider?, double>(
+      (SettingsProvider? settings) => settings?.postTextSize.value.scale ?? 1,
+    );
+    if (scale == 1) {
+      return post;
+    }
+    final MediaQueryData media = MediaQuery.of(context);
+    return MediaQuery(
+      data: media.copyWith(
+        textScaler: TextScaler.linear(media.textScaler.scale(1) * scale),
+      ),
+      child: post,
     );
   }
 }
