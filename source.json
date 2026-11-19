@@ -24,6 +24,15 @@
       ],
       "versions": [
         {
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.13.1%2B316/Runner.ipa",
+          "size": 34348650,
+          "version": "0.13.1",
+          "buildVersion": "316",
+          "date": "2026-11-19T12:03:00+00:00",
+          "localizedDescription": "Find deleted threads in archives like Desuarchive and archived.moe, and make the text of posts in threads smaller or larger; deleted threads now stay in History and open from Bookmarks, and threads saved for offline open at once.",
+          "minOSVersion": "17.0"
+        },
+        {
           "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.13.1%2B315/Runner.ipa",
           "size": 34313384,
           "version": "0.13.1",
