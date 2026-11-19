@@ -24,6 +24,15 @@
       ],
       "versions": [
         {
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.13.1%2B315/Runner.ipa",
+          "size": 34313384,
+          "version": "0.13.1",
+          "buildVersion": "315",
+          "date": "2026-11-19T02:07:02+00:00",
+          "localizedDescription": "The app is ready for iPhone Duo, new replies stay at the bottom of a thread until you've read them, filters can be edited, thread filters can be turned off to see what they catch, and reopening a thread brings you back to where you stopped.",
+          "minOSVersion": "17.0"
+        },
+        {
           "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.13.1%2B314/Runner.ipa",
           "size": 34303328,
           "version": "0.13.1",
