@@ -13,6 +13,7 @@ import 'package:flutter_chan/media/post_thumbnail.dart';
 import 'package:flutter_chan/ui/back_swipe_route.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_widgets.dart';
+import 'package:flutter_chan/ui/open.dart';
 import 'package:flutter_chan/ui/pills.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:provider/provider.dart';
@@ -62,7 +63,7 @@ class ListPost extends StatelessWidget {
             ),
       child: SlidableBackSwipe(
         child: GestureDetector(
-          onTap: () => openThreadUnlessDeleted(context, post, status),
+          onTap: () => openThread(context, post),
           onLongPress: () => showThreadFilterMenu(context, post),
           // A right click, with a trackpad or mouse, does what holding does.
           onSecondaryTap: () => showThreadFilterMenu(context, post),

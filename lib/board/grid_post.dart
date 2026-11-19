@@ -14,7 +14,6 @@ import 'package:flutter_chan/ui/hover.dart';
 import 'package:flutter_chan/ui/image_frost.dart';
 import 'package:flutter_chan/ui/open.dart';
 import 'package:flutter_chan/ui/pills.dart';
-import 'package:flutter_chan/ui/toast.dart';
 import 'package:provider/provider.dart';
 
 const Color _chipTint = Color(0x40000000);
@@ -55,7 +54,7 @@ class GridPost extends StatelessWidget {
         : null;
 
     return GestureDetector(
-      onTap: () => openThreadUnlessDeleted(context, post, status),
+      onTap: () => openThread(context, post),
       onLongPress: () => showThreadFilterMenu(context, post),
       // A right click, with a trackpad or mouse, does what holding does.
       onSecondaryTap: () => showThreadFilterMenu(context, post),
@@ -156,18 +155,6 @@ class GridPost extends StatelessWidget {
                               color: CupertinoColors.systemOrange,
                               icon: CupertinoIcons.pin,
                               label: 'Sticky',
-                            ),
-                          if (status case ThreadStatus.archived)
-                            const _Tag(
-                              color: CupertinoColors.systemGrey,
-                              icon: CupertinoIcons.archivebox,
-                              label: 'Archived',
-                            ),
-                          if (status case ThreadStatus.deleted)
-                            const _Tag(
-                              color: DashColors.danger,
-                              icon: CupertinoIcons.trash,
-                              label: 'Deleted',
                             ),
                         ],
                       ),
@@ -271,6 +258,27 @@ class GridPost extends StatelessWidget {
                                       short: true,
                                     ),
                                   ],
+                                  // Here rather than over the picture,
+                                  // where a long title ran into it.
+                                  if (status case ThreadStatus.archived) ...[
+                                    const SizedBox(width: 6),
+                                    _Tag(
+                                      color: CupertinoColors.systemGrey,
+                                      icon: CupertinoIcons.archivebox,
+                                      label: 'Archived',
+                                      // Room for the counts beside it.
+                                      iconOnly: newReplies > 0,
+                                    ),
+                                  ],
+                                  if (status case ThreadStatus.deleted) ...[
+                                    const SizedBox(width: 6),
+                                    _Tag(
+                                      color: DashColors.danger,
+                                      icon: CupertinoIcons.trash,
+                                      label: 'Deleted',
+                                      iconOnly: newReplies > 0,
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),
@@ -291,11 +299,19 @@ class GridPost extends StatelessWidget {
 
 /// A coloured chip on a card's picture, like Sticky.
 class _Tag extends StatelessWidget {
-  const _Tag({required this.color, required this.icon, required this.label});
+  const _Tag({
+    required this.color,
+    required this.icon,
+    required this.label,
+    this.iconOnly = false,
+  });
 
   final Color color;
   final IconData icon;
   final String label;
+
+  /// Only the icon, where there's little room; the label is still read out.
+  final bool iconOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -310,32 +326,26 @@ class _Tag extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: CupertinoColors.white, size: 12),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: const TextStyle(
-                color: CupertinoColors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
+            Icon(
+              icon,
+              color: CupertinoColors.white,
+              size: 12,
+              semanticLabel: iconOnly ? label : null,
             ),
+            if (!iconOnly) ...[
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: CupertinoColors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
-  }
-}
-
-/// Opens [post]'s thread, or says it's gone when it's been deleted.
-void openThreadUnlessDeleted(
-  BuildContext context,
-  Post post,
-  ThreadStatus status,
-) {
-  if (status == ThreadStatus.deleted) {
-    showToast(context, 'This thread was deleted');
-  } else {
-    openThread(context, post);
   }
 }

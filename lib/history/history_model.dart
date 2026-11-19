@@ -87,11 +87,16 @@ class HistoryProvider with ChangeNotifier implements SyncTarget {
   final CloudSync _sync;
   List<HistoryThread> _threads = [];
   final Set<String> _archived = {};
+  final Set<String> _deleted = {};
   final Map<String, int> _replies = {};
 
   List<HistoryThread> get threads => List.unmodifiable(_threads);
 
   bool isArchived(HistoryThread t) => _archived.contains(t.key);
+
+  /// Whether 4chan no longer has it, as of the last status check. It stays
+  /// in the history, which still opens it as it last loaded.
+  bool isDeleted(HistoryThread t) => _deleted.contains(t.key);
 
   /// Reply count from the last status check, if known.
   int? replies(HistoryThread t) => _replies[t.key];
@@ -149,7 +154,7 @@ class HistoryProvider with ChangeNotifier implements SyncTarget {
   static const Duration _checkInterval = Duration(minutes: 5);
   DateTime? _lastCheck;
 
-  /// Drops threads that 4chan no longer has and remembers which are archived.
+  /// Remembers which threads are archived, and which 4chan no longer has.
   /// Runs at most every few minutes unless [force]d (pull to refresh).
   Future<void> checkThreads({bool force = false}) async {
     final DateTime now = DateTime.now();
@@ -165,7 +170,6 @@ class HistoryProvider with ChangeNotifier implements SyncTarget {
       threads.map((t) => checkThread(t.board, t.no, force: force)),
     );
 
-    final deleted = <String>{};
     for (int i = 0; i < threads.length; i++) {
       final String key = threads[i].key;
       final int? replies = statuses[i]?.replies;
@@ -174,26 +178,20 @@ class HistoryProvider with ChangeNotifier implements SyncTarget {
       }
       switch (statuses[i]?.status) {
         case ThreadStatus.deleted:
-          deleted.add(key);
+          _deleted.add(key);
           _archived.remove(key);
         case ThreadStatus.archived:
           _archived.add(key);
+          _deleted.remove(key);
         case ThreadStatus.online:
           _archived.remove(key);
+          _deleted.remove(key);
         case null:
           break;
       }
     }
 
-    if (deleted.isNotEmpty) {
-      _threads.removeWhere((t) => deleted.contains(t.key));
-      _sync.removeAll(SyncKind.history, deleted);
-    }
     notifyListeners();
-
-    if (deleted.isNotEmpty) {
-      await _saveThreads();
-    }
   }
 
   /// Turns history on or off, which forgets what's in it.

@@ -148,7 +148,11 @@ class _HistoryPageState extends State<HistoryPage> {
                   replies: replies,
                   builder: (_, newReplies) => _HistoryRow(
                     thread: t,
-                    isArchived: history.isArchived(t),
+                    status: history.isDeleted(t)
+                        ? 'Deleted'
+                        : history.isArchived(t)
+                        ? 'Archived'
+                        : null,
                     newReplies: newReplies,
                     onTap: () => openThread(context, t.toPost()),
                     onRemove: () => history.removeThread(t),
@@ -167,14 +171,16 @@ class _HistoryPageState extends State<HistoryPage> {
 class _HistoryRow extends StatelessWidget {
   const _HistoryRow({
     required this.thread,
-    required this.isArchived,
+    required this.status,
     required this.newReplies,
     required this.onTap,
     required this.onRemove,
   });
 
   final HistoryThread thread;
-  final bool isArchived;
+
+  /// What's become of it, if it isn't live: "Archived" or "Deleted".
+  final String? status;
   final int newReplies;
   final VoidCallback onTap;
   final VoidCallback onRemove;
@@ -273,10 +279,10 @@ class _HistoryRow extends StatelessWidget {
                                 color: DashColors.muted(context),
                               ),
                             ),
-                            if (isArchived) ...[
+                            if (status case final String status) ...[
                               const SizedBox(width: 6),
                               Text(
-                                'Archived',
+                                status,
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,

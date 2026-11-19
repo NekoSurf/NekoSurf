@@ -179,6 +179,24 @@ void main() {
       expect(check?.status, ThreadStatus.deleted);
     });
 
+    test('a deleted thread stays in the history, marked so', () async {
+      SharedPreferences.setMockInitialValues({});
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final HistoryProvider history = HistoryProvider(
+        prefs,
+        SettingsProvider(prefs),
+      );
+      await history.recordThread(Post(board: 'a', no: 1));
+      threadAnswers(404);
+      await history.checkThreads(force: true);
+      expect(history.threads.map((t) => t.key), ['a/1']);
+      expect(history.isDeleted(history.threads.single), isTrue);
+
+      threadAnswers(200);
+      await history.checkThreads(force: true);
+      expect(history.isDeleted(history.threads.single), isFalse);
+    });
+
     test('is unknown when 4chan is limiting requests or failing', () async {
       threadAnswers(429);
       expect(await checkThread('b', 1, exact: true), isNull);

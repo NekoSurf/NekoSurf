@@ -8,3 +8,9 @@
 
 ### 🔠 Text size for posts
 - Make the text of posts in threads smaller or larger, in Settings → Threads → Text size
+
+## What's fixed
+
+- Tapping a deleted thread in Bookmarks opens it again, as it last loaded, with Look in Archives if there's no copy; it used to only say the thread was deleted
+- The Deleted and Archived labels on thread cards sit by the counts, no longer over a long title
+- Threads you visited stay in History once 4chan deletes them, marked Deleted, and still open as they last loaded; opening History used to remove them

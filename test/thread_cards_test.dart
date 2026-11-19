@@ -265,7 +265,7 @@ void main() {
     expect(tester.getSize(tint).width, 200);
   });
 
-  testWidgets('a deleted thread says so, and is not opened', (tester) async {
+  testWidgets('a deleted thread says so, and still opens', (tester) async {
     final List<Object?> opened = [];
     SharedPreferences.setMockInitialValues({});
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -300,14 +300,10 @@ void main() {
     );
     expect(find.text('Deleted'), findsOneWidget);
 
+    // It still opens: as it last loaded, or from an archive.
     await tester.tap(find.byType(GridPost));
-    await tester.pump();
-    expect(opened, isEmpty);
-    expect(find.text('This thread was deleted'), findsOneWidget);
-    // Till the toast has gone.
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
+    expect(opened, hasLength(1));
   });
 
   testWidgets('an archived thread says so on its card, in the list too', (
