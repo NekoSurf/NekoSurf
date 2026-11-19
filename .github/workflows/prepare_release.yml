@@ -1,6 +1,7 @@
 name: Prepare Release
 
-# Bumps pubspec to <version>+<next Xcode Cloud build number>, tags it (which
+# Bumps pubspec to <version>+<next Xcode Cloud build number> (left empty, the
+# version stays as it is and only the build goes up), tags it (which
 # starts Xcode Cloud), creates the GitHub release, builds and uploads the
 # APK/IPA, adds the version to source.json, and starts TestFlight Status
 # watching for Apple to approve the build.
@@ -23,8 +24,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version name, e.g. 0.11.6"
-        required: true
+        description: "Version name, e.g. 0.11.6; left empty, the current one (a new build of it)"
+        required: false
+        default: ""
         type: string
 
 concurrency: release
@@ -137,6 +139,11 @@ jobs:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
         run: |
+          # Left empty: the version pubspec.yaml is at, with the next build.
+          if [ -z "${VERSION// /}" ]; then
+            VERSION=$(sed -nE 's/^version: *([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' pubspec.yaml)
+            echo "No version given: building $VERSION again"
+          fi
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error::Version must look like 1.2.3, got '$VERSION'"
             exit 1
@@ -152,13 +159,14 @@ jobs:
           fi
 
           echo "Releasing $TAG"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "build=$BUILD" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Commit, tag and create the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ steps.version.outputs.version }}
           BUILD: ${{ steps.version.outputs.build }}
           TAG: ${{ steps.version.outputs.tag }}
         run: |

@@ -68,7 +68,8 @@ the release notes.
 
 A release is made by running the Prepare Release workflow
 (`.github/workflows/prepare_release.yml`), which only asks for the version
-(e.g. `0.12.2`); the build number is worked out, and the release is titled
+(e.g. `0.12.2`; left empty, it's the current one in `pubspec.yaml`, as a new
+build of it); the build number is worked out, and the release is titled
 with its tag (`v0.12.2+296`). What the release says comes from three files
 in the repository root, committed to `main` before it runs. The release
 commit deletes them, so after a release they don't exist: create them
