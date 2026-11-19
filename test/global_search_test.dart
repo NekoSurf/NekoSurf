@@ -2,6 +2,7 @@ import 'package:flutter_chan/chan/catalog.dart';
 import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/chan/urls.dart' as urls;
 import 'package:flutter_chan/search/global_search.dart';
+import 'package:flutter_chan/ui/checked_browser.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // Shaped like 4chan's board markup, which find.4chan.org reuses.

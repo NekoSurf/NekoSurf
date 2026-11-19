@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_chan/board/favorite_model.dart';
 import 'package:flutter_chan/bookmarks/bookmarks_model.dart';
+import 'package:flutter_chan/chan/archives.dart';
 import 'package:flutter_chan/history/history_model.dart';
 import 'package:flutter_chan/history/thread_copies.dart';
 import 'package:flutter_chan/history/watched_posts_model.dart';
@@ -62,6 +63,7 @@ Future<void> main() async {
   unawaited(deleteSaveLeftovers());
   unawaited(deleteOldImageCache());
   unawaited(OfflineThreads.instance.load());
+  unawaited(rememberArchiveBoards(prefs));
   runApp(AppRoot(prefs: prefs, settings: settings));
 }
 

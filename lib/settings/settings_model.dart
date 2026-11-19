@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_chan/chan/archives.dart';
 import 'package:flutter_chan/chan/board.dart';
 import 'package:flutter_chan/chan/catalog.dart';
 import 'package:flutter_chan/chan/post.dart';
@@ -126,6 +127,7 @@ class SettingsProvider with ChangeNotifier implements SyncTarget {
     'askBeforePhotos',
     'coverInAppSwitcher',
     'historyThisSessionOnly',
+    'archivesOff',
   };
 
   // Each setting, once it's been read (they're late).
@@ -225,6 +227,16 @@ class SettingsProvider with ChangeNotifier implements SyncTarget {
     ThreadLayout.values,
     ThreadLayout.nested,
   );
+
+  /// The archives Look in Archives leaves out, by host.
+  late final Setting<Set<String>> archivesOff = _names('archivesOff');
+
+  /// The archives to look in for [board]'s deleted threads, in order.
+  List<ThreadArchive> archivesToAsk(String board) => <ThreadArchive>[
+    for (final ThreadArchive archive in archivesFor(board))
+      if (!archivesOff.value.contains(archive.host)) archive,
+  ];
+
   late final Setting<bool> autoScrollToLastSeen = _bool(
     'autoScrollToLastSeen',
     true,
@@ -352,6 +364,26 @@ class SettingsProvider with ChangeNotifier implements SyncTarget {
       this,
     ),
   );
+
+  /// A set of names, stored as one line, separated by spaces.
+  Setting<Set<String>> _names(String key) {
+    Set<String>? read(Object? stored) => stored is String
+        ? Set<String>.unmodifiable(
+            stored.split(' ').where((String name) => name.isNotEmpty),
+          )
+        : null;
+    String write(Set<String> names) => (names.toList()..sort()).join(' ');
+    return _keep(
+      Setting<Set<String>>._(
+        key,
+        read(_prefs.getString(key)) ?? const <String>{},
+        (String key, Set<String> names) => _prefs.setString(key, write(names)),
+        write,
+        read,
+        this,
+      ),
+    );
+  }
 
   Setting<T> _enum<T extends Enum>(String key, List<T> values, T byDefault) {
     T? named(Object? name) =>

@@ -1,5 +1,4 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_chan/board/favorite_model.dart';
 import 'package:flutter_chan/board/post_time.dart';
 import 'package:flutter_chan/board/thread_views.dart';
@@ -11,6 +10,7 @@ import 'package:flutter_chan/media/post_thumbnail.dart';
 import 'package:flutter_chan/search/find_4chan_browser.dart';
 import 'package:flutter_chan/search/global_search.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
+import 'package:flutter_chan/ui/checked_browser.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_header.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
@@ -21,7 +21,6 @@ import 'package:flutter_chan/ui/open_url.dart';
 import 'package:flutter_chan/ui/pills.dart';
 import 'package:flutter_chan/ui/reload.dart';
 import 'package:provider/provider.dart';
-import 'package:webview_flutter/webview_flutter.dart';
 
 enum _SearchScope { favorites, everywhere }
 
@@ -220,93 +219,10 @@ class _SearchPageState extends State<SearchPage> {
       ),
     );
 
-    final Find4chanBrowser? browser = _browser;
-    if (browser == null) {
-      return page;
-    }
-    return Stack(
-      children: [
-        page,
-        Positioned.fill(
-          child: ListenableBuilder(
-            listenable: browser,
-            builder: (context, webView) =>
-                _browserLayer(isDark, browser, webView!),
-            child: WebViewWidget(controller: browser.controller),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// The find.4chan.org web view: a hidden pixel while it loads results, a
-  /// card over the page while the user completes a Cloudflare check. The
-  /// tree keeps the same shape either way, so the web view isn't recreated.
-  Widget _browserLayer(bool isDark, Find4chanBrowser browser, Widget webView) {
-    final bool verifying = browser.verifying;
-    final EdgeInsets safe = MediaQuery.paddingOf(context);
-
-    return Stack(
-      children: [
-        IgnorePointer(
-          ignoring: !verifying,
-          child: ColoredBox(
-            color: verifying ? Colors.black54 : Colors.transparent,
-            child: const SizedBox.expand(),
-          ),
-        ),
-        Positioned(
-          left: verifying ? 12 : 0,
-          top: verifying ? safe.top + 60 : 0,
-          right: verifying ? 12 : null,
-          bottom: verifying ? safe.bottom + 24 : null,
-          width: verifying ? null : 1,
-          height: verifying ? null : 1,
-          child: IgnorePointer(
-            ignoring: !verifying,
-            // Not 0: a fully transparent web view isn't painted at all, and
-            // iOS then stops running its scripts.
-            child: Opacity(
-              opacity: verifying ? 1 : 0.01,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: ColoredBox(
-                  color: DashColors.card(context),
-                  child: Column(
-                    children: [
-                      Visibility(
-                        visible: verifying,
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 4, 8),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  'Complete the check to search 4chan',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    color: DashColors.text(context),
-                                  ),
-                                ),
-                              ),
-                              CupertinoButton(
-                                onPressed: browser.cancel,
-                                child: const Text('Cancel'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      Expanded(child: webView),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
+    return CheckedBrowserLayer(
+      browser: _browser,
+      title: 'Complete the check to search 4chan',
+      child: page,
     );
   }
 

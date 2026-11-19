@@ -11,8 +11,9 @@ import 'package:flutter_chan/offline/offline_threads.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
-/// A thread as it was when it last loaded.
-typedef ThreadCopy = ({List<Post> posts, DateTime savedAt});
+/// A thread as it was when it last loaded, and the archive it came from,
+/// if it was read from one (its [ThreadArchive.name]).
+typedef ThreadCopy = ({List<Post> posts, DateTime savedAt, String? source});
 
 /// The last loaded copy of each thread that's bookmarked, in the history or
 /// saved for offline, so it can still be read without a connection, or once
@@ -42,8 +43,16 @@ class ThreadCopies {
   Future<File> _file(String board, int thread) async =>
       File('${(await _directory()).path}/${_fileName(board, thread)}');
 
-  /// Keeps [posts] as [board]'s [thread], in place of the copy before.
-  Future<void> keep(String board, int thread, List<Post> posts) {
+  /// Keeps [posts] as [board]'s [thread], in place of the copy before: as
+  /// they are now, or as they were at [savedAt] when that's when they were
+  /// loaded; from the archive named [source], if they came from one.
+  Future<void> keep(
+    String board,
+    int thread,
+    List<Post> posts, {
+    DateTime? savedAt,
+    String? source,
+  }) {
     if (posts.isEmpty) {
       return Future<void>.value();
     }
@@ -54,9 +63,10 @@ class ThreadCopies {
       try {
         final File file = await _file(board, thread);
         await file.parent.create(recursive: true);
-        final String encoded = await compute(_encode, (
+        final String encoded = await compute(encodeThreadCopy, (
           posts: posts,
-          savedAt: DateTime.now(),
+          savedAt: savedAt ?? DateTime.now(),
+          source: source,
         ));
         // Whole or not at all: a copy cut short can't be read.
         final File partial = File('${file.path}.part');
@@ -85,7 +95,7 @@ class ThreadCopies {
       if (!await file.exists()) {
         return null;
       }
-      return await compute(_decode, (
+      return await compute(decodeThreadCopy, (
         body: await file.readAsString(),
         board: board,
       ));
@@ -119,14 +129,17 @@ class ThreadCopies {
   }
 }
 
-String _encode(ThreadCopy copy) => json.encode(<String, dynamic>{
+/// [copy] as it's kept in a file.
+String encodeThreadCopy(ThreadCopy copy) => json.encode(<String, dynamic>{
   'saved': copy.savedAt.millisecondsSinceEpoch,
+  'source': ?copy.source,
   'posts': <Map<String, dynamic>>[
     for (final Post post in copy.posts) post.toJson(),
   ],
 });
 
-ThreadCopy _decode(({String body, String board}) file) {
+/// A copy of a [file] of [encodeThreadCopy]'s, of a thread on its board.
+ThreadCopy decodeThreadCopy(({String body, String board}) file) {
   final Map<String, dynamic> decoded =
       json.decode(file.body) as Map<String, dynamic>;
   return (
@@ -135,6 +148,7 @@ ThreadCopy _decode(({String body, String board}) file) {
         Post.fromJson(post as Map<String, dynamic>, file.board),
     ],
     savedAt: DateTime.fromMillisecondsSinceEpoch(decoded['saved'] as int),
+    source: decoded['source'] as String?,
   );
 }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_chan/board/thread_order.dart';
+import 'package:flutter_chan/chan/archives.dart';
 import 'package:flutter_chan/chan/catalog.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/settings/settings_widgets.dart';
@@ -203,6 +204,32 @@ class BrowsingSettings extends StatelessWidget {
                 },
               ),
             ),
+          ],
+        ),
+        SettingsGroup(
+          title: 'Archives',
+          footer:
+              'Look in Archives, on a thread 4chan has deleted, asks the '
+              'archives that keep its board, from the top. They are run by '
+              'others; one that is off is never asked. archived.moe can ask '
+              'you to complete a check first.',
+          children: [
+            for (final ThreadArchive archive in threadArchives)
+              SettingsRow(
+                icon: CupertinoIcons.archivebox_fill,
+                color: const Color(0xFF94A3B8),
+                title: archive.name,
+                subtitle: archive.boardsDescription,
+                trailing: SettingsSwitch(
+                  value: !settings.archivesOff.value.contains(archive.host),
+                  onChanged: (bool on) => settings.archivesOff.set(
+                    on
+                        ? (Set<String>.of(settings.archivesOff.value)
+                            ..remove(archive.host))
+                        : <String>{...settings.archivesOff.value, archive.host},
+                  ),
+                ),
+              ),
           ],
         ),
         SettingsGroup(

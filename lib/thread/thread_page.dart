@@ -8,6 +8,7 @@ import 'package:flutter_chan/bookmarks/bookmark.dart';
 import 'package:flutter_chan/bookmarks/bookmark_button.dart';
 import 'package:flutter_chan/bookmarks/bookmarks_model.dart';
 import 'package:flutter_chan/chan/api.dart';
+import 'package:flutter_chan/chan/archives.dart';
 import 'package:flutter_chan/chan/load_errors.dart';
 import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/chan/urls.dart' as urls;
@@ -25,6 +26,7 @@ import 'package:flutter_chan/thread/thread_posts.dart';
 import 'package:flutter_chan/thread/thread_rows.dart';
 import 'package:flutter_chan/thread/thread_rows_list.dart';
 import 'package:flutter_chan/ui/back_swipe_route.dart';
+import 'package:flutter_chan/ui/checked_browser.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_header.dart';
 import 'package:flutter_chan/ui/dash_menu.dart';
@@ -37,6 +39,7 @@ import 'package:flutter_chan/ui/toast.dart';
 import 'package:flutter_chan/ui/window_size.dart';
 import 'package:provider/provider.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ThreadPage extends StatefulWidget {
   const ThreadPage({super.key, required this.post, this.initialPost});
@@ -99,6 +102,168 @@ class _ThreadPageState extends State<ThreadPage>
   /// When the copy on show was kept, while the thread can't be loaded and its
   /// last copy is shown in its place (see [ThreadCopies]).
   DateTime? _copySavedAt;
+
+  /// The archive the copy on show was read from, if it was (its name).
+  String? _copySource;
+
+  /// The archive the deleted thread on show came from (see [_lookInArchives]).
+  ThreadArchive? _archive;
+  bool _lookingInArchives = false;
+
+  /// The archives asked so far, which don't have it or showed it (hosts).
+  final Set<String> _askedArchives = <String>{};
+
+  /// Reads the archives behind a Cloudflare check; made when first needed.
+  CheckedBrowser? _archiveBrowser;
+
+  /// [api]'s answer, read in [_archiveBrowser]; null if it couldn't be, as
+  /// when the check was cancelled.
+  Future<String?> _browseArchive(Uri api) async {
+    if (!mounted) {
+      return null;
+    }
+    CheckedBrowser? browser = _archiveBrowser;
+    if (browser == null) {
+      setState(() => browser = _archiveBrowser = CheckedBrowser());
+      // Its web view has to be on the page before it loads anything.
+      await WidgetsBinding.instance.endOfFrame;
+    }
+    try {
+      return await browser!.load(api, jsonInPage);
+    } on CheckedBrowserFailed {
+      return null;
+    }
+  }
+
+  /// The archives that keep its board, are on, and haven't been asked yet.
+  List<ThreadArchive> get _archivesToAsk => <ThreadArchive>[
+    for (final ThreadArchive archive in Provider.of<SettingsProvider>(
+      context,
+      listen: false,
+    ).archivesToAsk(widget.board))
+      if (!_askedArchives.contains(archive.host)) archive,
+  ];
+
+  /// Whether the archives might have it: it's gone from 4chan, and some
+  /// archive not asked yet keeps its board.
+  bool get _canLookInArchives => _archivesToAsk.isNotEmpty;
+
+  String get _lookInArchivesTitle => _archive == null && _copySource == null
+      ? 'Look in Archives'
+      : 'Look in Other Archives';
+
+  /// Looks for the deleted thread in the archives that keep its board, and
+  /// shows it from the first that has it.
+  Future<void> _lookInArchives() async {
+    if (_lookingInArchives) {
+      return;
+    }
+    setState(() => _lookingInArchives = true);
+    final SettingsProvider settings = Provider.of<SettingsProvider>(
+      context,
+      listen: false,
+    );
+    // While they're being asked anyway: which boards they keep now, for
+    // the next time.
+    unawaited(
+      SharedPreferences.getInstance().then(
+        (SharedPreferences prefs) => rememberArchiveBoards(
+          prefs,
+          ask: true,
+          off: settings.archivesOff.value,
+        ),
+      ),
+    );
+    final List<ThreadArchive> asking = _archivesToAsk;
+    final bool others = _archive != null || _copySource != null;
+    // Archives behind a check that couldn't be read, as when it's cancelled.
+    final List<String> unchecked = <String>[];
+    String? failed;
+    try {
+      final found = await fetchArchivedThread(
+        widget.board,
+        widget.thread,
+        archives: asking,
+        browse: (Uri api) async {
+          final String? answer = await _browseArchive(api);
+          if (answer == null) {
+            unchecked.add(api.host);
+          }
+          return answer;
+        },
+      );
+      if (!mounted) {
+        return;
+      }
+      // Those before the one that has it, in order, answered they haven't;
+      // those after it may still have another copy.
+      final int foundAt = found == null
+          ? asking.length
+          : asking.indexOf(found.archive);
+      final List<ThreadArchive> without = <ThreadArchive>[
+        for (final ThreadArchive archive in asking.take(foundAt))
+          if (!unchecked.contains(archive.host)) archive,
+      ];
+      _askedArchives.addAll(without.map((ThreadArchive a) => a.host));
+      if (found == null || found.posts.isEmpty) {
+        failed = _notFound(without, unchecked, others: others);
+      } else {
+        _askedArchives.add(found.archive.host);
+        final bool wasShown = thread.posts.isNotEmpty;
+        _liveTimer?.cancel();
+        _liveStopped = true;
+        final List<Post> posts = mergeArchivedPosts(thread.posts, found.posts);
+        setState(() {
+          _archive = found.archive;
+          _copySource = null;
+          _setPosts(posts);
+          _isGone = true;
+          // From the error page; a list already on show stays as it is.
+          if (!wasShown) {
+            _loaded = Future<List<Post>>.value(posts);
+          }
+        });
+        _recordHistory(posts.first);
+      }
+    } on ArchivesUnreachable {
+      failed = unchecked.isNotEmpty && unchecked.length == asking.length
+          ? "${_namesOf(unchecked)} wasn't checked"
+          : "Couldn't reach the archives";
+    } finally {
+      if (mounted) {
+        setState(() => _lookingInArchives = false);
+      }
+    }
+    if (failed != null && mounted) {
+      showToast(context, failed);
+    }
+  }
+
+  static String _namesOf(List<String> hosts) => hosts
+      .map(
+        (String host) =>
+            threadArchives.where((a) => a.host == host).firstOrNull?.name ??
+            host,
+      )
+      .join(' and ');
+
+  /// What to say when [without] answered they haven't got it, and the
+  /// archives behind a check in [unchecked] couldn't be asked.
+  static String _notFound(
+    List<ThreadArchive> without,
+    List<String> unchecked, {
+    required bool others,
+  }) {
+    final String haveNot = without.length == 1
+        ? "${without.single.name} doesn't have it"
+        : others
+        ? 'None of the other archives have it'
+        : 'None of the archives have it';
+    if (unchecked.isEmpty) {
+      return haveNot;
+    }
+    return "$haveNot, and ${_namesOf(unchecked)} wasn't checked";
+  }
 
   /// Whether it's saved for offline, and how far along saving it is.
   ({bool saved, double? saving}) _offline = (saved: false, saving: null);
@@ -202,6 +367,7 @@ class _ThreadPageState extends State<ThreadPage>
     _preloadDebounce?.cancel();
     _preloadDebounce = null;
     _liveTimer?.cancel();
+    _archiveBrowser?.dispose();
     super.dispose();
   }
 
@@ -235,6 +401,7 @@ class _ThreadPageState extends State<ThreadPage>
   void _setPosts(List<Post> posts, {bool fromCopy = false}) {
     if (!fromCopy) {
       _copySavedAt = null;
+      _copySource = null;
       _keepCopy(posts);
     }
     final int? known = thread.posts.isEmpty
@@ -295,50 +462,80 @@ class _ThreadPageState extends State<ThreadPage>
       widget.thread,
     );
     if (bookmarked || history || offline) {
-      unawaited(ThreadCopies.instance.keep(widget.board, widget.thread, posts));
+      unawaited(
+        ThreadCopies.instance.keep(
+          widget.board,
+          widget.thread,
+          posts,
+          source: _archive?.name,
+        ),
+      );
     }
+  }
+
+  /// The copy kept when the thread last loaded.
+  Future<ThreadCopy?> _readCopy() async {
+    final ThreadCopy? copy = await ThreadCopies.instance.read(
+      widget.board,
+      widget.thread,
+    );
+    return copy == null || copy.posts.isEmpty ? null : copy;
+  }
+
+  void _showCopy(ThreadCopy copy, {required bool gone}) {
+    setState(() {
+      _setPosts(copy.posts, fromCopy: true);
+      _copySavedAt = copy.savedAt;
+      _copySource = copy.source;
+      _isGone = gone;
+      // Its archive has been asked: the others are left to try.
+      for (final ThreadArchive archive in threadArchives) {
+        if (archive.name == copy.source) {
+          _askedArchives.add(archive.host);
+        }
+      }
+    });
+    _recordHistory(copy.posts.first);
   }
 
   void loadThread() {
     setState(() {
-      _loaded = fetchThread(widget.board, widget.thread)
-          .then((posts) {
-            if (!mounted) {
-              return posts;
-            }
-            // The header, outside the FutureBuilder, says if it's archived.
-            setState(() => _setPosts(posts));
-            if (posts.isNotEmpty) {
-              _recordHistory(posts.first);
-            }
-            if (_isLive(posts)) {
-              _scheduleLiveUpdate();
-            }
-            return posts;
-          })
-          .catchError((Object error) async {
-            final ThreadCopy? copy = await ThreadCopies.instance.read(
-              widget.board,
-              widget.thread,
-            );
-            if (copy == null || copy.posts.isEmpty || !mounted) {
-              throw error;
-            }
-            final bool gone = error is ThreadNotFound;
-            setState(() {
-              _setPosts(copy.posts, fromCopy: true);
-              _copySavedAt = copy.savedAt;
-              _isGone = gone;
-            });
-            _recordHistory(copy.posts.first);
-            // Offline, it's loaded once the connection is back.
-            _liveStopped = gone;
-            if (!gone) {
-              _scheduleLiveUpdate();
-            }
-            return copy.posts;
-          });
+      _archive = null;
+      _askedArchives.clear();
+      _loaded = _load();
     });
+  }
+
+  Future<List<Post>> _load() async {
+    final List<Post> posts;
+    try {
+      posts = await fetchThread(widget.board, widget.thread);
+    } catch (error) {
+      final ThreadCopy? copy = await _readCopy();
+      if (copy == null || !mounted) {
+        rethrow;
+      }
+      final bool gone = error is ThreadNotFound;
+      _showCopy(copy, gone: gone);
+      // Offline, it's loaded once the connection is back.
+      _liveStopped = gone;
+      if (!gone) {
+        _scheduleLiveUpdate();
+      }
+      return copy.posts;
+    }
+    if (!mounted) {
+      return posts;
+    }
+    // The header, outside the FutureBuilder, says if it's archived.
+    setState(() => _setPosts(posts));
+    if (posts.isNotEmpty) {
+      _recordHistory(posts.first);
+    }
+    if (_isLive(posts)) {
+      _scheduleLiveUpdate();
+    }
+    return posts;
   }
 
   /// Archived and closed threads can't get new posts.
@@ -449,8 +646,18 @@ class _ThreadPageState extends State<ThreadPage>
 
   /// What's become of the thread, if it isn't live any more.
   String? get _threadStatus {
+    final ThreadArchive? archive = _archive;
+    if (archive != null) {
+      return 'Deleted · from ${archive.name}';
+    }
     final DateTime? copySavedAt = _copySavedAt;
     if (copySavedAt != null) {
+      final String? source = _copySource;
+      if (source != null) {
+        return _isGone
+            ? 'Deleted · from $source'
+            : 'Showing a copy from $source';
+      }
       // Offline, or 4chan didn't answer as it should.
       final String copy = 'copy from ${_timeAgo(copySavedAt)}';
       return _isGone ? 'Deleted · $copy' : 'Showing a $copy';
@@ -490,9 +697,11 @@ class _ThreadPageState extends State<ThreadPage>
   /// Swaps in the refreshed posts. New ones are appended below, so the list
   /// doesn't move.
   int _applyUpdate(List<Post> posts) {
-    final int added = posts
-        .where((p) => !thread.places.containsKey(p.no))
-        .length;
+    final List<Post> arrived = <Post>[
+      for (final Post post in posts)
+        if (!thread.places.containsKey(post.no)) post,
+    ];
+    final int added = arrived.length;
 
     if (added == 0) {
       _backOff();
@@ -618,11 +827,7 @@ class _ThreadPageState extends State<ThreadPage>
       context,
       listen: false,
     ).threadMemory(widget.thread);
-    final place = resumePlace(
-      memory,
-      rows,
-      belowHeader: belowHeader,
-    );
+    final place = resumePlace(memory, rows, belowHeader: belowHeader);
 
     // Still at the very top: the list starts there anyway.
     if (place != null && (place.row != 0 || place.alignment < 0)) {
@@ -655,173 +860,195 @@ class _ThreadPageState extends State<ThreadPage>
     );
     // With a keyboard: the arrows, or J and K, go post by post; ⌘ with
     // them, to the ends; ⌘R refreshes.
-    return PageKeys(
-      bindings: keyBindings({
-        [
-          const SingleActivator(LogicalKeyboardKey.arrowDown),
-          const SingleActivator(LogicalKeyboardKey.keyJ),
-        ]: () =>
-            stepRows(1),
-        [
-          const SingleActivator(LogicalKeyboardKey.arrowUp),
-          const SingleActivator(LogicalKeyboardKey.keyK),
-        ]: () =>
-            stepRows(-1),
-        withCommand(LogicalKeyboardKey.arrowUp): () =>
-            scrollToRow(0, alignment: 0),
-        withCommand(LogicalKeyboardKey.arrowDown): scrollToEnd,
-        withCommand(LogicalKeyboardKey.keyR): _refresh,
-        [const SingleActivator(LogicalKeyboardKey.keyN)]: goToNextUnread,
-      }),
-      child: DashBarScaffold(
-        title: _title,
-        subtitle: _threadStatus,
-        actions: [
-          DashIconButton(
-            label: 'Gallery',
-            icon: const Icon(CupertinoIcons.square_grid_3x2),
-            onPressed: _openGallery,
-          ),
-          BookmarkButton(bookmark: Bookmark.fromPost(_opening)),
-          Builder(
-            builder: (BuildContext menuButton) => DashMenuButton(
-              menuChildren: [
-                DashMenuEntry(
-                  title: 'Share',
-                  icon: CupertinoIcons.share,
-                  onPressed: () => shareLink(
-                    Uri.parse(urls.threadPage(widget.board, widget.thread)),
-                    from: ShareAnchor(menuButton),
-                  ),
-                ),
-                DashMenuEntry(
-                  title: 'Open in Browser',
-                  icon: CupertinoIcons.globe,
-                  onPressed: () {
-                    openUrl(urls.threadPage(widget.board, widget.thread));
-                  },
-                ),
-                DashMenuEntry(
-                  title: 'Refresh',
-                  icon: CupertinoIcons.arrow_clockwise,
-                  onPressed: _refresh,
-                ),
-                if (_offline.saving == null && thread.posts.isNotEmpty)
+    return CheckedBrowserLayer(
+      browser: _archiveBrowser,
+      title: 'Complete the check to look in archived.moe',
+      child: PageKeys(
+        bindings: keyBindings({
+          [
+            const SingleActivator(LogicalKeyboardKey.arrowDown),
+            const SingleActivator(LogicalKeyboardKey.keyJ),
+          ]: () =>
+              stepRows(1),
+          [
+            const SingleActivator(LogicalKeyboardKey.arrowUp),
+            const SingleActivator(LogicalKeyboardKey.keyK),
+          ]: () =>
+              stepRows(-1),
+          withCommand(LogicalKeyboardKey.arrowUp): () =>
+              scrollToRow(0, alignment: 0),
+          withCommand(LogicalKeyboardKey.arrowDown): scrollToEnd,
+          withCommand(LogicalKeyboardKey.keyR): _refresh,
+          [const SingleActivator(LogicalKeyboardKey.keyN)]: goToNextUnread,
+        }),
+        child: DashBarScaffold(
+          title: _title,
+          subtitle: _threadStatus,
+          actions: [
+            DashIconButton(
+              label: 'Gallery',
+              icon: const Icon(CupertinoIcons.square_grid_3x2),
+              onPressed: _openGallery,
+            ),
+            BookmarkButton(bookmark: Bookmark.fromPost(_opening)),
+            Builder(
+              builder: (BuildContext menuButton) => DashMenuButton(
+                menuChildren: [
                   DashMenuEntry(
-                    title: _offline.saved
-                        ? 'Update Offline Copy'
-                        : 'Save for Offline',
-                    icon: CupertinoIcons.arrow_down_circle,
-                    onPressed: _saveOffline,
-                  ),
-                if (_offline.saved && _offline.saving == null)
-                  DashMenuEntry(
-                    title: 'Remove Offline Copy',
-                    icon: CupertinoIcons.trash,
-                    isDestructive: true,
-                    onPressed: () => OfflineThreads.instance.remove(
-                      widget.board,
-                      widget.thread,
+                    title: 'Share',
+                    icon: CupertinoIcons.share,
+                    onPressed: () => shareLink(
+                      Uri.parse(urls.threadPage(widget.board, widget.thread)),
+                      from: ShareAnchor(menuButton),
                     ),
                   ),
-                if (hasUnseen)
                   DashMenuEntry(
-                    title: 'Mark All as Read',
-                    icon: CupertinoIcons.checkmark_alt,
-                    onPressed: () => _watched.markThreadSeen(widget.thread),
+                    title: 'Open in Browser',
+                    icon: CupertinoIcons.globe,
+                    onPressed: () {
+                      openUrl(urls.threadPage(widget.board, widget.thread));
+                    },
                   ),
-                DashMenuEntry(
-                  title: 'Scroll to Top',
-                  icon: CupertinoIcons.arrow_up,
-                  onPressed: () {
-                    scrollToRow(0, alignment: 0);
-                  },
-                ),
-                DashMenuEntry(
-                  title: 'Scroll to Bottom',
-                  icon: CupertinoIcons.arrow_down,
-                  onPressed: scrollToEnd,
-                ),
-              ],
-            ),
-          ),
-        ],
-        body: FutureBuilder(
-          future: _loaded,
-          builder: (BuildContext context, AsyncSnapshot<List<Post>> snapshot) {
-            switch (snapshot.connectionState) {
-              case ConnectionState.waiting:
-                return const Center(child: CupertinoActivityIndicator());
-              default:
-                if (snapshot.error is ThreadNotFound) {
-                  return ReloadWidget(
-                    onReload: loadThread,
-                    icon: CupertinoIcons.trash,
-                    title: 'Thread not found',
-                    message:
-                        'It was deleted or has dropped out of the archive.',
-                    secondaryLabel: 'Open on 4chan',
-                    onSecondary: () =>
-                        openUrl(urls.threadPage(widget.board, widget.thread)),
-                  );
-                }
-                if (snapshot.hasError) {
-                  return ReloadWidget.forError(
-                    snapshot.error,
-                    onReload: loadThread,
-                  );
-                } else {
-                  if (!_didRestorePlace) {
-                    // Once the list is there to be told.
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) {
-                        _restorePlace();
-                        _didRestorePlace = true;
-                      }
-                    });
-                  }
-
-                  // Hidden until it's back in place, so it doesn't show the top of
-                  // the thread on its way. Always there, as adding it later would
-                  // start the list over.
-                  return Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      IgnorePointer(
-                        ignoring: !_isListShown,
-                        child: Opacity(
-                          opacity: _isListShown ? 1 : 0,
-                          child: buildRowList(
-                            preloadVideos: _preloadVideoPostIds,
-                          ),
-                        ),
+                  DashMenuEntry(
+                    title: 'Refresh',
+                    icon: CupertinoIcons.arrow_clockwise,
+                    onPressed: _refresh,
+                  ),
+                  if (_isGone && _canLookInArchives)
+                    DashMenuEntry(
+                      title: _lookInArchivesTitle,
+                      icon: CupertinoIcons.archivebox,
+                      onPressed: _lookInArchives,
+                    ),
+                  if (_offline.saving == null && thread.posts.isNotEmpty)
+                    DashMenuEntry(
+                      title: _offline.saved
+                          ? 'Update Offline Copy'
+                          : 'Save for Offline',
+                      icon: CupertinoIcons.arrow_down_circle,
+                      onPressed: _saveOffline,
+                    ),
+                  if (_offline.saved && _offline.saving == null)
+                    DashMenuEntry(
+                      title: 'Remove Offline Copy',
+                      icon: CupertinoIcons.trash,
+                      isDestructive: true,
+                      onPressed: () => OfflineThreads.instance.remove(
+                        widget.board,
+                        widget.thread,
                       ),
-                      if (!_isListShown)
-                        const Center(child: CupertinoActivityIndicator()),
-                      if (_isListShown && unread > 0)
-                        Positioned(
-                          // In the column the posts keep to, in a wide window.
-                          right:
-                              readableInset(MediaQuery.sizeOf(context).width) +
-                              16,
-                          bottom: MediaQuery.paddingOf(context).bottom + 16,
-                          // The arrow says which way it goes, from what's on
-                          // screen.
-                          child: ValueListenableBuilder<Iterable<ItemPosition>>(
-                            valueListenable:
-                                itemPositionsListener.itemPositions,
-                            builder: (context, _, _) => _NextUnreadButton(
-                              count: unread,
-                              up: nextUnreadIsAbove,
-                              onPressed: goToNextUnread,
+                    ),
+                  if (hasUnseen)
+                    DashMenuEntry(
+                      title: 'Mark All as Read',
+                      icon: CupertinoIcons.checkmark_alt,
+                      onPressed: () => _watched.markThreadSeen(widget.thread),
+                    ),
+                  DashMenuEntry(
+                    title: 'Scroll to Top',
+                    icon: CupertinoIcons.arrow_up,
+                    onPressed: () {
+                      scrollToRow(0, alignment: 0);
+                    },
+                  ),
+                  DashMenuEntry(
+                    title: 'Scroll to Bottom',
+                    icon: CupertinoIcons.arrow_down,
+                    onPressed: scrollToEnd,
+                  ),
+                ],
+              ),
+            ),
+          ],
+          body: FutureBuilder(
+            future: _loaded,
+            builder: (BuildContext context, AsyncSnapshot<List<Post>> snapshot) {
+              switch (snapshot.connectionState) {
+                case ConnectionState.waiting:
+                  return const Center(child: CupertinoActivityIndicator());
+                default:
+                  if (snapshot.error is ThreadNotFound) {
+                    return ReloadWidget(
+                      onReload: loadThread,
+                      icon: CupertinoIcons.trash,
+                      title: 'Thread not found',
+                      message: _canLookInArchives
+                          ? "It's gone from 4chan, but an archive might still "
+                                'have it.'
+                          : 'It was deleted or has dropped out of the archive.',
+                      secondaryLabel: !_canLookInArchives
+                          ? 'Open on 4chan'
+                          : _lookingInArchives
+                          ? 'Looking in archives…'
+                          : 'Look in Archives',
+                      onSecondary: !_canLookInArchives
+                          ? () => openUrl(
+                              urls.threadPage(widget.board, widget.thread),
+                            )
+                          : _lookInArchives,
+                    );
+                  }
+                  if (snapshot.hasError) {
+                    return ReloadWidget.forError(
+                      snapshot.error,
+                      onReload: loadThread,
+                    );
+                  } else {
+                    if (!_didRestorePlace) {
+                      // Once the list is there to be told.
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) {
+                          _restorePlace();
+                          _didRestorePlace = true;
+                        }
+                      });
+                    }
+
+                    // Hidden until it's back in place, so it doesn't show the top of
+                    // the thread on its way. Always there, as adding it later would
+                    // start the list over.
+                    return Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        IgnorePointer(
+                          ignoring: !_isListShown,
+                          child: Opacity(
+                            opacity: _isListShown ? 1 : 0,
+                            child: buildRowList(
+                              preloadVideos: _preloadVideoPostIds,
                             ),
                           ),
                         ),
-                    ],
-                  );
-                }
-            }
-          },
+                        if (!_isListShown)
+                          const Center(child: CupertinoActivityIndicator()),
+                        if (_isListShown && unread > 0)
+                          Positioned(
+                            // In the column the posts keep to, in a wide window.
+                            right:
+                                readableInset(
+                                  MediaQuery.sizeOf(context).width,
+                                ) +
+                                16,
+                            bottom: MediaQuery.paddingOf(context).bottom + 16,
+                            // The arrow says which way it goes, from what's on
+                            // screen.
+                            child:
+                                ValueListenableBuilder<Iterable<ItemPosition>>(
+                                  valueListenable:
+                                      itemPositionsListener.itemPositions,
+                                  builder: (context, _, _) => _NextUnreadButton(
+                                    count: unread,
+                                    up: nextUnreadIsAbove,
+                                    onPressed: goToNextUnread,
+                                  ),
+                                ),
+                          ),
+                      ],
+                    );
+                  }
+              }
+            },
+          ),
         ),
       ),
     );

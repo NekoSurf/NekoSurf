@@ -45,16 +45,6 @@ Future<GlobalSearchPage?> parseGlobalSearchPageInBackground(
   return compute(_parseSearchPage, (body: body, offset: offset));
 }
 
-/// Whether [body] is Cloudflare's "checking your browser" page rather than
-/// find.4chan.org itself.
-bool isCloudflareChallenge(String body) {
-  final String lower = body.toLowerCase();
-  return lower.contains('challenges.cloudflare.com') ||
-      lower.contains('cf-chl') ||
-      lower.contains('challenge-platform') ||
-      lower.contains('<title>just a moment');
-}
-
 final RegExp _postLink = RegExp(
   r'boards\.4chan(?:nel)?\.org/(\w+)/thread/(\d+)(?:[^#"\s]*#p(\d+))?',
 );

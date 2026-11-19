@@ -29,6 +29,8 @@ class Post {
     this.trip,
     this.capcode,
     this.spoiler,
+    this.archivedFileUrl,
+    this.archivedThumbnailUrl,
   });
 
   /// A post of [board], as 4chan's API describes it.
@@ -59,30 +61,37 @@ class Post {
     trip: json['trip'] as String?,
     capcode: json['capcode'] as String?,
     spoiler: json['spoiler'] as int?,
+    archivedFileUrl: json['archived_file_url'] as String?,
+    archivedThumbnailUrl: json['archived_thumbnail_url'] as String?,
   );
 
   /// A thread's opening post as it's remembered (bookmarks, history), which
-  /// is enough to show it until it's loaded.
+  /// is enough to show it until it's loaded. [thumbnailName] is a name on
+  /// 4chan, or an archive's whole address (see [Post.thumbnailName]).
   factory Post.remembered({
     required String board,
     required int no,
     String? sub,
     String? com,
     String? thumbnailName,
-  }) => Post(
-    board: board,
-    no: no,
-    sub: sub,
-    com: com,
-    tim: thumbnailName != null && thumbnailName.endsWith(_thumbnailSuffix)
-        ? int.tryParse(
-            thumbnailName.substring(
-              0,
-              thumbnailName.length - _thumbnailSuffix.length,
-            ),
-          )
-        : null,
-  );
+  }) {
+    final bool archived = thumbnailName?.startsWith('https://') ?? false;
+    final String? name = archived
+        ? Uri.tryParse(thumbnailName!)?.pathSegments.lastOrNull
+        : thumbnailName;
+    return Post(
+      board: board,
+      no: no,
+      sub: sub,
+      com: com,
+      tim: name != null && name.endsWith(_thumbnailSuffix)
+          ? int.tryParse(
+              name.substring(0, name.length - _thumbnailSuffix.length),
+            )
+          : null,
+      archivedThumbnailUrl: archived ? thumbnailName : null,
+    );
+  }
 
   /// The post as 4chan's API describes it, for [Post.fromJson] to read back.
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -111,6 +120,8 @@ class Post {
     'trip': ?trip,
     'capcode': ?capcode,
     'spoiler': ?spoiler,
+    'archived_file_url': ?archivedFileUrl,
+    'archived_thumbnail_url': ?archivedThumbnailUrl,
   };
 
   static const String _thumbnailSuffix = 's.jpg';
@@ -148,18 +159,26 @@ class Post {
   final String? capcode;
   final int? spoiler;
 
+  /// Where an archive keeps the attached file and its thumbnail, for a post
+  /// loaded from one (see fetchArchivedThread) rather than from 4chan.
+  final String? archivedFileUrl;
+  final String? archivedThumbnailUrl;
+
   /// The upload ([tim]) if it's a spoiler, to cover it (see SpoilerCover).
   int? get spoilerUpload => spoiler == 1 ? tim : null;
 
   /// The name of its thumbnail, to keep showing it later; a spoiler has none.
-  String? get thumbnailName =>
-      tim == null || spoiler == 1 ? null : '$tim$_thumbnailSuffix';
+  /// From an archive, its whole address, as 4chan no longer has it.
+  String? get thumbnailName => tim == null || spoiler == 1
+      ? null
+      : archivedThumbnailUrl ?? '$tim$_thumbnailSuffix';
 
   /// The attached file's address; see [hasFile].
-  String get fileUrl => urls.file(board, tim, ext);
+  String get fileUrl => archivedFileUrl ?? urls.file(board, tim, ext);
 
   /// The small JPEG of the attached file, videos included; see [hasFile].
-  String get thumbnailUrl => urls.thumbnail(board, tim);
+  String get thumbnailUrl =>
+      archivedThumbnailUrl ?? archivedFileUrl ?? urls.thumbnail(board, tim);
 
   /// What 4chan calls the attached file: `tim` is unique per upload.
   String get uploadName => '$tim$ext';

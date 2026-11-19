@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_chan/chan/api.dart';
 import 'package:flutter_chan/chan/board_link.dart';
+import 'package:flutter_chan/chan/load_errors.dart';
 import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_dialogs.dart';
@@ -47,6 +48,13 @@ class _OpenLinkDialogState extends State<_OpenLinkDialog> {
     final List<Post> posts;
     try {
       posts = await fetchThread(link.board, thread);
+    } on ThreadNotFound {
+      // Its page has a copy kept of it, or can look for it in the archives.
+      if (mounted) {
+        Navigator.of(context).pop();
+        openThread(context, Post(board: link.board, no: thread));
+      }
+      return;
     } catch (e) {
       if (mounted) {
         setState(() => _warning = e.toString());

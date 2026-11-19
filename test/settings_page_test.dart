@@ -72,6 +72,8 @@ void main() {
       'View',
       'Auto-scroll to last seen',
       'Layout',
+      'Desuarchive',
+      'archived.moe',
       'Start feed videos muted',
       'Data saver',
       "Use 4chan's file names",
@@ -137,6 +139,41 @@ void main() {
     await tester.tap(find.text('Flat'));
     await tester.pumpAndSettle();
     expect(settings.threadLayout.value, ThreadLayout.flat);
+  });
+
+  testWidgets('an archive can be turned off, and is then not asked', (
+    tester,
+  ) async {
+    await pumpSettings(tester);
+    expect(find.text('/g/, /mlp/, /qb/ and 7 more'), findsOneWidget);
+    expect(find.text('Every board'), findsOneWidget);
+    expect(settings.archivesToAsk('g').map((a) => a.name), [
+      'Desuarchive',
+      'b4k',
+      'archived.moe',
+    ]);
+
+    // The switch in its own row.
+    final Finder moe = find.ancestor(
+      of: find.text('archived.moe'),
+      matching: find.byType(SettingsRow),
+    );
+    await tester.tap(
+      find.descendant(of: moe, matching: find.byType(SettingsSwitch)),
+    );
+    await tester.pumpAndSettle();
+    expect(settings.archivesOff.value, {'archived.moe'});
+    expect(settings.archivesToAsk('g').map((a) => a.name), [
+      'Desuarchive',
+      'b4k',
+    ]);
+
+    // Kept for next time.
+    final SettingsProvider again = SettingsProvider(
+      await SharedPreferences.getInstance(),
+    );
+    addTearDown(again.dispose);
+    expect(again.archivesOff.value, {'archived.moe'});
   });
 
   testWidgets('the theme is chosen right there', (tester) async {
