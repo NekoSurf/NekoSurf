@@ -1,0 +1,1 @@
+Posts now show the size, dimensions and type of their picture or video, and the File Information dialog shows its size too.

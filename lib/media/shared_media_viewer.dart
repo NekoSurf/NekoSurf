@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 import 'dart:ui';
 
@@ -7,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_chan/chan/post.dart' show formatFileSize;
 import 'package:flutter_chan/media/media_video.dart';
 import 'package:flutter_chan/media/spoiler_cover.dart';
 import 'package:flutter_chan/media/video_scrub_gesture.dart';
@@ -45,6 +47,20 @@ class SharedMediaViewerAction {
   final bool isCompleted;
 }
 
+/// The size of a file kept on the phone, read when it's asked for; null for
+/// one that's online (a web address) or can't be read.
+int? _savedFileSize(String source) {
+  if (source.startsWith('http')) {
+    return null;
+  }
+  try {
+    final File file = File(source);
+    return file.existsSync() ? file.lengthSync() : null;
+  } on FileSystemException {
+    return null;
+  }
+}
+
 class SharedMediaViewerItem {
   const SharedMediaViewerItem({
     required this.id,
@@ -55,6 +71,7 @@ class SharedMediaViewerItem {
     this.thumbnail,
     this.width,
     this.height,
+    this.fileSize,
     this.spoilerUpload,
     this.coverLabel = 'Spoiler',
   });
@@ -71,6 +88,9 @@ class SharedMediaViewerItem {
   /// The video's size, when known up front.
   final int? width;
   final int? height;
+
+  /// The file's size in bytes, when known.
+  final int? fileSize;
 
   /// See [SpoilerCover.upload].
   final int? spoilerUpload;
@@ -228,13 +248,25 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
     final String mediaTitle = widget.items[_currentIndex].name;
 
     void showFileInfo() {
+      final SharedMediaViewerItem item = widget.items[_currentIndex];
+      final int? bytes = item.fileSize ?? _savedFileSize(item.source);
+      final String? size = bytes == null ? null : formatFileSize(bytes);
+      final String? dimensions = item.width == null || item.height == null
+          ? null
+          : '${item.width}×${item.height}';
       showDashDialog<void>(
         context: context,
         builder: (dialogContext) => DashDialog(
           title: const Text('File Information'),
           content: Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text('Filename: $mediaTitle'),
+            child: Text(
+              [
+                'Filename: $mediaTitle',
+                if (size != null) 'Size: $size',
+                if (dimensions != null) 'Dimensions: $dimensions',
+              ].join('\n'),
+            ),
           ),
           actions: [
             DashDialogAction(

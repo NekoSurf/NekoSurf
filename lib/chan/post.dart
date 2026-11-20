@@ -12,6 +12,7 @@ class Post {
     this.com,
     this.filename,
     this.ext,
+    this.fsize,
     this.w,
     this.h,
     this.tnW,
@@ -43,6 +44,7 @@ class Post {
     com: json['com'] as String?,
     filename: json['filename'] as String?,
     ext: json['ext'] as String?,
+    fsize: json['fsize'] as int?,
     w: json['w'] as int?,
     h: json['h'] as int?,
     tnW: json['tn_w'] as int?,
@@ -103,6 +105,7 @@ class Post {
     'com': ?com,
     'filename': ?filename,
     'ext': ?ext,
+    'fsize': ?fsize,
     'w': ?w,
     'h': ?h,
     'tn_w': ?tnW,
@@ -135,6 +138,9 @@ class Post {
   final String? com;
   final String? filename;
   final String? ext;
+
+  /// The attached file's size in bytes, when known.
+  final int? fsize;
   final int? w;
   final int? h;
   final int? tnW;
@@ -183,6 +189,20 @@ class Post {
   /// What 4chan calls the attached file: `tim` is unique per upload.
   String get uploadName => '$tim$ext';
 
+  /// The attached file as a short line: "1.2 MB · 1920×1080 · WEBM"; null
+  /// when none of it is known.
+  String? get fileDetails {
+    final String? type = ext == null || ext!.length < 2
+        ? null
+        : ext!.substring(1).toUpperCase();
+    final List<String> parts = <String>[
+      if (fsize != null) formatFileSize(fsize!),
+      if (w != null && h != null) '$w×$h',
+      ?type,
+    ];
+    return parts.isEmpty ? null : parts.join(' · ');
+  }
+
   String get posterFileName => '$filename$ext';
 
   String get uploadId => '$tim';
@@ -214,4 +234,14 @@ class Post {
     final String? lower = ext?.toLowerCase();
     return lower == '.webm' || lower == '.mp4';
   }
+}
+
+/// [bytes] of one file, as people read them: "640 KB" or "1.2 MB".
+String formatFileSize(int bytes) {
+  const int kb = 1024;
+  const int mb = 1024 * kb;
+  if (bytes < mb) {
+    return '${(bytes / kb).ceil()} KB';
+  }
+  return '${(bytes / mb).toStringAsFixed(1)} MB';
 }
