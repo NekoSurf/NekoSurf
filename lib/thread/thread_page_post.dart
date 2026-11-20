@@ -666,6 +666,14 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
             if (!folded && !isPreview && post.hasFile) ...[
               const SizedBox(height: 8),
               _fitToWindow(_buildMedia()),
+              if (post.fileDetails != null &&
+                  coveredUpload(context, post) == null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  post.fileDetails!,
+                  style: TextStyle(fontSize: 12, color: muted),
+                ),
+              ],
             ],
           ],
         ),

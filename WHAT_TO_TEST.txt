@@ -1,0 +1,5 @@
+WHAT'S NEW
+
+File sizes
+• Each post's picture or video now shows its size, dimensions and type in a line below it
+• The File Information dialog in the media viewer now shows the file's size and dimensions too

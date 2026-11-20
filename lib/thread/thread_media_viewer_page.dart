@@ -79,6 +79,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
             thumbnail: thumbnailImage(post.thumbnailUrl),
             width: post.w,
             height: post.h,
+            fileSize: post.fsize,
             spoilerUpload: coveredUpload(context, post),
             coverLabel: coverLabel(post),
           );
