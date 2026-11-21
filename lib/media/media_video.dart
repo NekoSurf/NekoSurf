@@ -73,6 +73,10 @@ class MediaVideo extends ChangeNotifier {
   // unmutes the inline video.
   bool _muted = true;
   double _rate = 1;
+  // Held down to fast-forward (fastForwardStart), and whether it was
+  // paused before.
+  bool _fastForward = false;
+  bool _pausedBeforeFastForward = false;
   bool _loop = true;
 
   VideoLease? _lease;
@@ -205,9 +209,52 @@ class MediaVideo extends ChangeNotifier {
     }
   }
 
+  /// The speed while held down to fast-forward, like YouTube's.
+  static const double fastForwardRate = 2;
+
+  double get _playbackRate => _fastForward ? fastForwardRate : _rate;
+
+  /// The speed it plays at, besides fast-forwarding.
   void setRate(double rate) {
     _rate = rate;
-    _lease?.player.setRate(rate).catchError((_) {});
+    _applyRate();
+  }
+
+  void _applyRate() {
+    _lease?.player.setRate(_playbackRate).catchError((_) {});
+  }
+
+  bool get isFastForwarding => _fastForward;
+
+  /// Plays it at [fastForwardRate] until [fastForwardEnd], even when it was
+  /// paused. False when it can't yet (nothing shown).
+  bool fastForwardStart() {
+    final Player? player = _lease?.player;
+    if (player == null || !_opened || !_hasFirstFrame || _scrubbing) {
+      return false;
+    }
+    _fastForward = true;
+    _pausedBeforeFastForward = !_playing;
+    _applyRate();
+    if (!_playing) {
+      restartIfFinished();
+      player.play().catchError((_) {});
+    }
+    notifyListeners();
+    return true;
+  }
+
+  /// Back to its own speed, and paused again if it was.
+  void fastForwardEnd() {
+    if (!_fastForward) {
+      return;
+    }
+    _fastForward = false;
+    _applyRate();
+    if (_pausedBeforeFastForward) {
+      _lease?.player.pause().catchError((_) {});
+    }
+    notifyListeners();
   }
 
   // mpv's loop-file, which seeks back to the file's start. Looping the
@@ -463,7 +510,7 @@ class MediaVideo extends ChangeNotifier {
         Media(media, start: _resumeAt > Duration.zero ? _resumeAt : null),
         setUp: (Player player) async {
           await player.setVolume(_volume);
-          await player.setRate(_rate);
+          await player.setRate(_playbackRate);
           await player.setPlaylistMode(_playlistMode);
         },
       );

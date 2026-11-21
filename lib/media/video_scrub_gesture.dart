@@ -1,17 +1,21 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_chan/media/media_video.dart';
 
 /// Horizontal drag over [child] scrubs [video] live: it pauses, follows the
-/// finger frame by frame and plays on when let go.
+/// finger frame by frame and plays on when let go. With [holdToFastForward],
+/// holding a finger on it plays it at double speed until let go.
 class VideoScrubGesture extends StatefulWidget {
   const VideoScrubGesture({
     super.key,
     required this.video,
     required this.child,
     this.onScrubStateChanged,
+    this.holdToFastForward = false,
   });
 
   /// Drags starting this close to the screen's left edge are left to the
@@ -22,13 +26,41 @@ class VideoScrubGesture extends StatefulWidget {
   final Widget child;
   final ValueChanged<bool>? onScrubStateChanged;
 
+  /// Off for inline posts, where holding opens the post's menu.
+  final bool holdToFastForward;
+
   @override
   State<VideoScrubGesture> createState() => _VideoScrubGestureState();
 }
 
 class _VideoScrubGestureState extends State<VideoScrubGesture> {
   MediaVideo? _scrubbing;
+  MediaVideo? _fastForwarding;
   double _targetMs = 0;
+
+  void _handleHoldStart(LongPressStartDetails details) {
+    final MediaVideo video = widget.video;
+    if (_scrubbing != null || !video.fastForwardStart()) {
+      return;
+    }
+    _fastForwarding = video;
+    HapticFeedback.selectionClick();
+    setState(() {});
+  }
+
+  void _handleHoldRelease(LongPressEndDetails details) => _handleHoldEnd();
+
+  void _handleHoldEnd() {
+    final MediaVideo? video = _fastForwarding;
+    if (video == null) {
+      return;
+    }
+    _fastForwarding = null;
+    video.fastForwardEnd();
+    if (mounted) {
+      setState(() {});
+    }
+  }
 
   void _handleStart(DragStartDetails details) {
     final MediaVideo video = widget.video;
@@ -79,6 +111,8 @@ class _VideoScrubGestureState extends State<VideoScrubGesture> {
 
   @override
   void dispose() {
+    _fastForwarding?.fastForwardEnd();
+    _fastForwarding = null;
     final MediaVideo? video = _scrubbing;
     _scrubbing = null;
     if (video != null) {
@@ -104,11 +138,29 @@ class _VideoScrubGestureState extends State<VideoScrubGesture> {
                 ..onEnd = _handleEnd
                 ..onCancel = _handleEnd;
             }),
+        if (widget.holdToFastForward)
+          LongPressGestureRecognizer:
+              GestureRecognizerFactoryWithHandlers<LongPressGestureRecognizer>(
+                LongPressGestureRecognizer.new,
+                (recognizer) {
+                  recognizer
+                    ..onLongPressStart = _handleHoldStart
+                    ..onLongPressEnd = _handleHoldRelease
+                    ..onLongPressCancel = _handleHoldEnd;
+                },
+              ),
       },
       child: Stack(
         fit: StackFit.passthrough,
         children: [
           widget.child,
+          if (_fastForwarding != null)
+            const Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(child: _FastForwardLabel()),
+            ),
           if (scrubbing != null)
             Positioned.fill(
               child: IgnorePointer(
@@ -139,6 +191,50 @@ class _VideoScrubGestureState extends State<VideoScrubGesture> {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// Over the top of the video while it fast-forwards, like YouTube's.
+class _FastForwardLabel extends StatelessWidget {
+  const _FastForwardLabel();
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        // Below the viewer's top bar.
+        padding: const EdgeInsets.only(top: 64),
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.58),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${MediaVideo.fastForwardRate.toStringAsFixed(0)}×',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                const Icon(
+                  CupertinoIcons.forward_fill,
+                  color: Colors.white,
+                  size: 16,
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

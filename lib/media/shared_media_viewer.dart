@@ -886,6 +886,7 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
             child: VideoScrubGesture(
               video: _video,
               onScrubStateChanged: widget.onScrubStateChanged,
+              holdToFastForward: true,
               child: SizedBox.expand(child: content),
             ),
           ),

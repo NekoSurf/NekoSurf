@@ -51,7 +51,7 @@
 ### 🎬 Watch and save
 
 - Videos (WebM and MP4) start quickly, even on a slow connection, and play as you scroll
-- A fullscreen gallery to swipe through a thread's images and videos, zoom, scrub and change the speed
+- A fullscreen gallery to swipe through a thread's images and videos, zoom, scrub, change the speed and hold a video to fast-forward
 - A grid of a thread's media that you can narrow to only images or only videos
 - Save to the Saved tab or to Photos, or share, several at once, with a ring showing how far along each is
 - Save a whole thread for offline, with all its images and videos, to read later without a connection
