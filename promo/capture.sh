@@ -113,9 +113,7 @@ trap 'xcrun simctl status_bar "$UDID" clear 2>/dev/null || true' EXIT
 
 xcrun simctl terminate "$UDID" "$BUNDLE_ID" 2>/dev/null || true
 if [ $build -eq 1 ]; then
-  # Builds for this simulator only, so just this Mac's architecture:
-  # `flutter build ios --simulator` builds Intel too, which ffmpeg_kit's
-  # build hook has no library for ("lipo: same architectures (arm64)").
+  # Builds for this simulator only, so just this Mac's architecture.
   # --no-resident: install and launch, then let the app run on its own.
   echo "Building and launching the app..."
   flutter run -d "$UDID" --no-resident

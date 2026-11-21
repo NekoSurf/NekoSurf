@@ -1,0 +1,21 @@
+name: media_kit_libs_ios_video
+description: NekoSurf's copy of media_kit_libs_ios_video 1.1.5, with libmpv-darwin-build's video-encodersgpl frameworks (FFmpeg encoders and Fftools-ffi) instead of the playback-only ones.
+version: 1.1.5+encodersgpl
+homepage: https://github.com/media-kit/media-kit.git
+repository: https://github.com/media-kit/media-kit.git
+environment:
+  sdk: ^3.6.0
+  flutter: ">=3.27.4"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  plugin_platform_interface: ^2.1.8
+
+
+flutter:
+  plugin:
+    platforms:
+      ios:
+        pluginClass: MediaKitLibsIosVideoPlugin

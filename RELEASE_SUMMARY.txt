@@ -1,1 +1,1 @@
-Posts now show the size, dimensions and type of their picture or video, and the File Information dialog shows its size too; in the media viewer, holding a finger on a video plays it at double speed; tapping the status bar scrolls back to the top.
+Posts now show the size, dimensions and type of their picture or video, and the File Information dialog shows its size too; in the media viewer, holding a finger on a video plays it at double speed; tapping the status bar scrolls back to the top; and the app is about 13 MB smaller on Android.

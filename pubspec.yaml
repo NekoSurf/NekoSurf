@@ -48,7 +48,6 @@ dependencies:
   device_info_plus: ^13.2.0
   country_flags: ^4.1.2
   saver_gallery: ^5.1.0
-  ffmpeg_kit_extended_flutter: ^0.5.10
   preload_page_view: ^0.2.0
   html: ^0.15.7
   webview_flutter: ^4.14.1
@@ -57,10 +56,14 @@ dependencies:
   archive: ^4.6.0
   file_picker: ^13.3.3
   crypto: ^3.0.8
+  async: ^2.13.0
+  ffi: ^2.2.0
   flutter_staggered_grid_view: ^0.7.0
 
 dev_dependencies:
   flutter_test:
+    sdk: flutter
+  integration_test:
     sdk: flutter
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
@@ -78,21 +81,12 @@ dependency_overrides:
       url: https://github.com/media-kit/media-kit.git
       ref: c533e446755f51cf53c7e57aea873f2aa5355f81
       path: media_kit_video
+  # Upstream's libraries packages with the encoder builds of the same mpv
+  # (with ffmpeg/ffprobe for saving videos): see their READMEs.
   media_kit_libs_android_video:
-    git:
-      url: https://github.com/media-kit/media-kit.git
-      ref: c533e446755f51cf53c7e57aea873f2aa5355f81
-      path: libs/android/media_kit_libs_android_video
+    path: packages/media_kit_libs_android_video
   media_kit_libs_ios_video:
-    git:
-      url: https://github.com/media-kit/media-kit.git
-      ref: c533e446755f51cf53c7e57aea873f2aa5355f81
-      path: libs/ios/media_kit_libs_ios_video
-
-ffmpeg_kit_extended_config:
-  type: "base" # pre-bundled builds: debug, base, full, audio, video, video_hw
-  gpl: false # enable to include GPL libraries
-  small: true # enable to use smaller builds
+    path: packages/media_kit_libs_ios_video
 
 flutter_launcher_icons:
   android: "launcher_icon"

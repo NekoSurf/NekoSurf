@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -37,7 +36,6 @@ import 'package:visibility_detector/visibility_detector.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
-  await FFmpegKitExtended.initialize();
   VisibilityDetectorController.instance.updateInterval = const Duration(
     milliseconds: 16,
   );

@@ -1,11 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
-import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_chan/chan/file_server_limit.dart';
 import 'package:flutter_chan/chan/http_client.dart';
 import 'package:flutter_chan/chan/post.dart';
+import 'package:flutter_chan/media/fftools/fftools.dart';
 import 'package:flutter_chan/media/video_server.dart';
 import 'package:flutter_chan/saved/saved_attachment.dart';
 import 'package:flutter_chan/saved/saved_folders.dart';
@@ -82,7 +83,8 @@ class SaveSteps {
 /// [onProgress] hears how much of the video is converted, from 0 to 1, as
 /// ffmpeg reports the time it's up to; null if the webm doesn't say how
 /// long it is.
-Future<void> _convertWebMToMP4(
+@visibleForTesting
+Future<void> convertWebMToMP4(
   File webmFile,
   File mp4File,
   void Function(double? progress) onProgress,
@@ -92,38 +94,84 @@ Future<void> _convertWebMToMP4(
 
   onProgress(durationMs == null ? null : 0);
   // yuv420p + aac keep the mp4 compatible with the Photos library.
-  final FFmpegSession session = await FFmpegKit.executeAsync(
-    '-y -i "${webmFile.path}" -vf "crop=trunc(iw/2)*2:trunc(ih/2)*2:0:0" -c:v h264_videotoolbox -allow_sw 1 -b:v $bitrate -pix_fmt yuv420p -c:a aac "${mp4File.path}"',
+  final FFToolsOutput result = await FFTools.ffmpeg(
+    [
+      ..._quiet,
+      '-y',
+      '-i',
+      webmFile.path,
+      '-vf',
+      'crop=trunc(iw/2)*2:trunc(ih/2)*2:0:0',
+      '-c:v',
+      'h264_videotoolbox',
+      '-allow_sw',
+      '1',
+      '-b:v',
+      '$bitrate',
+      '-pix_fmt',
+      'yuv420p',
+      '-c:a',
+      'aac',
+      mp4File.path,
+    ],
     onStatistics: durationMs == null
         ? null
-        : (Statistics statistics) =>
-              onProgress((statistics.time / durationMs).clamp(0, 1)),
-  );
+        : (FFmpegStatistics statistics) =>
+              onProgress((statistics.timeMs / durationMs).clamp(0, 1)),
+  ).value;
 
-  if (session.getReturnCode() != 0) {
-    throw Exception('webm conversion failed');
+  if (!result.succeeded) {
+    throw Exception('webm conversion failed: ${result.output.trim()}');
   }
   // ffmpeg's last report stops a frame or so short of the length.
   onProgress(1);
 }
 
+/// Keeps what ffmpeg and ffprobe print to their errors (and what ffprobe is
+/// asked for). The level is FFmpeg's, shared with mpv's playback; every
+/// command sets the same one.
+const List<String> _quiet = ['-hide_banner', '-loglevel', 'error'];
+
 /// [file]'s overall bitrate in bits per second and its length in
 /// milliseconds, each null if ffprobe can't tell.
 Future<(int?, int?)> _probe(File file) async {
   try {
-    final FFprobeSession session = await FFprobeKit.getMediaInformationAsync(
+    final FFToolsOutput result = await FFTools.ffprobe([
+      ..._quiet,
+      '-print_format',
+      'json',
+      '-show_format',
       file.path,
-    );
-    final MediaInformation? info = session.getMediaInformation();
-    final double? seconds = double.tryParse(info?.duration ?? '');
-    return (
-      int.tryParse(info?.bitrate ?? ''),
-      seconds == null || seconds <= 0 ? null : (seconds * 1000).round(),
-    );
+    ]);
+    if (result.succeeded) {
+      return parseProbe(result.output);
+    }
+    debugPrint('probe failed for ${file.path}: ${result.output.trim()}');
   } catch (e) {
     debugPrint('probe failed for ${file.path}: $e');
+  }
+  return (null, null);
+}
+
+/// The overall bitrate in bits per second and the length in milliseconds in
+/// ffprobe's `-show_format` JSON, each null if it doesn't say.
+@visibleForTesting
+(int?, int?) parseProbe(String json) {
+  final Object? decoded;
+  try {
+    decoded = jsonDecode(json);
+  } on FormatException {
     return (null, null);
   }
+  final Object? format = decoded is Map ? decoded['format'] : null;
+  if (format is! Map) {
+    return (null, null);
+  }
+  final double? seconds = double.tryParse('${format['duration']}');
+  return (
+    int.tryParse('${format['bit_rate']}'),
+    seconds == null || seconds <= 0 ? null : (seconds * 1000).round(),
+  );
 }
 
 /// What saving or sharing [url] gives out: downloaded into [folder] under a
@@ -146,7 +194,7 @@ Future<File> downloadToGive(
     return downloaded;
   }
   final File mp4 = File(_withMp4Extension(downloaded.path));
-  await _convertWebMToMP4(downloaded, mp4, steps.convert);
+  await convertWebMToMP4(downloaded, mp4, steps.convert);
   await deleteQuietly(downloaded);
   return mp4;
 }
@@ -186,7 +234,7 @@ Future<SavedAttachment> downloadToSaved(
         '${post.tim}$ext';
     output = File(folders.pathOfFile(savedName));
     if (converts) {
-      await _convertWebMToMP4(downloaded, output, steps.convert);
+      await convertWebMToMP4(downloaded, output, steps.convert);
     } else {
       await downloaded.copy(output.path);
     }
@@ -226,23 +274,44 @@ Future<String> _videoThumbnail(
 ) async {
   final String thumbName = '${post.tim}.jpg';
   final File out = File('$thumbsDir/$thumbName');
+  if (!await grabVideoFrame(videoPath, out)) {
+    await downloadThumbnail(post.thumbnailUrl, out);
+  }
+  return thumbName;
+}
+
+/// Writes a frame from half a second into the video at [videoPath] to [out],
+/// as a JPEG 480 pixels wide; false if it couldn't.
+@visibleForTesting
+Future<bool> grabVideoFrame(String videoPath, File out) async {
   try {
     // Seeking past the end of very short clips yields no frame, so retry from 0.
-    for (final String seek in ['-ss 0.5', '']) {
-      final FFmpegSession session = await FFmpegKit.executeAsync(
-        '-y $seek -i "$videoPath" -frames:v 1 -vf scale=480:-2 -q:v 3 "${out.path}"',
-      );
-      if (session.getReturnCode() == 0 &&
-          await out.exists() &&
-          await out.length() > 0) {
-        return thumbName;
+    for (final List<String> seek in [
+      ['-ss', '0.5'],
+      <String>[],
+    ]) {
+      final FFToolsOutput result = await FFTools.ffmpeg([
+        ..._quiet,
+        '-y',
+        ...seek,
+        '-i',
+        videoPath,
+        '-frames:v',
+        '1',
+        '-vf',
+        'scale=480:-2',
+        '-q:v',
+        '3',
+        out.path,
+      ]).value;
+      if (result.succeeded && await out.exists() && await out.length() > 0) {
+        return true;
       }
     }
   } catch (e) {
     debugPrint('thumbnail extraction failed: $e');
   }
-  await downloadThumbnail(post.thumbnailUrl, out);
-  return thumbName;
+  return false;
 }
 
 // Saving and sharing download and convert in folders of their own in the
