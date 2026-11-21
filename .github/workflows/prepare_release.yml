@@ -20,6 +20,12 @@ name: Prepare Release
 #   shows Markdown as typed), up to 4000 characters. The release commit
 #   writes it to ios/TestFlight/WhatToTest.en-US.txt, which Xcode Cloud
 #   reads from the tagged commit, replacing the last release's.
+#
+# With prerelease ticked it's a beta: the GitHub release is marked
+# Pre-release, which isn't GitHub's latest, so the app's update check, the
+# README's download links and TestFlight Status skip it; source.json
+# (AltStore) is left alone; and the three files stay for the full release
+# that follows. It still goes to TestFlight and gets its APK and IPA.
 on:
   workflow_dispatch:
     inputs:
@@ -28,6 +34,11 @@ on:
         required: false
         default: ""
         type: string
+      prerelease:
+        description: "Beta: a pre-release, not offered to AltStore or as an update, keeping the release notes for the full release"
+        required: false
+        default: false
+        type: boolean
 
 concurrency: release
 
@@ -169,8 +180,12 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
           BUILD: ${{ steps.version.outputs.build }}
           TAG: ${{ steps.version.outputs.tag }}
+          PRERELEASE: ${{ inputs.prerelease }}
         run: |
-          git rm -q --ignore-unmatch RELEASE_SUMMARY.txt RELEASE_NOTES.md WHAT_TO_TEST.txt
+          # A beta leaves them for the full release.
+          if [ "$PRERELEASE" != "true" ]; then
+            git rm -q --ignore-unmatch RELEASE_SUMMARY.txt RELEASE_NOTES.md WHAT_TO_TEST.txt
+          fi
 
           mkdir -p ios/TestFlight
           cp "$RUNNER_TEMP/what_to_test.txt" ios/TestFlight/WhatToTest.en-US.txt
@@ -183,7 +198,11 @@ jobs:
           git tag "$TAG"
           git push origin main
           git push origin "$TAG"
-          gh release create "$TAG" --title "$TAG" --notes-file "$RUNNER_TEMP/notes.md" --verify-tag
+          FLAGS=()
+          if [ "$PRERELEASE" = "true" ]; then
+            FLAGS+=(--prerelease)
+          fi
+          gh release create "$TAG" --title "$TAG" --notes-file "$RUNNER_TEMP/notes.md" --verify-tag "${FLAGS[@]}"
 
   # A release made with GITHUB_TOKEN doesn't trigger release_build.yml, so
   # build here instead.
@@ -221,7 +240,9 @@ jobs:
       - name: Upload to release
         run: gh release upload "$TAG" artifacts/* --repo "$GITHUB_REPOSITORY"
 
+      # Not a beta: AltStore would offer it to everyone.
       - name: Add version to source.json
+        if: ${{ !inputs.prerelease }}
         run: |
           IPA=$(ls artifacts/*.ipa | head -1)
           python3 .github/scripts/add_source_version.py "$TAG" "$IPA" "$NOTES"
@@ -232,6 +253,8 @@ jobs:
           git push origin main
 
       # The release is done by now: if this fails, the schedule still gets to it.
+      # It watches the latest release, which a beta isn't.
       - name: Start watching for the build on TestFlight
+        if: ${{ !inputs.prerelease }}
         continue-on-error: true
         run: gh workflow run testflight_status.yml --repo "$GITHUB_REPOSITORY" --ref main
