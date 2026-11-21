@@ -75,11 +75,11 @@ in the repository root, committed to `main` before it runs. The release
 commit deletes them, so after a release they don't exist: create them
 again for the next one.
 
-Ticking its `prerelease` box makes a beta instead: a GitHub Pre-release
-that goes to TestFlight but not to AltStore (`source.json`) or the app's
-update check, and that keeps the three files for the full release. Keep
-adding to them after a beta, and when comparing with the last release
-below, skip the betas' tags (the Pre-releases on GitHub).
+Ticking its `prerelease` box makes a beta instead, tagged and titled
+`beta-v0.12.2+297`: a GitHub Pre-release that goes to TestFlight but not to
+AltStore (`source.json`) or the app's update check, and that keeps the
+three files for the full release. Keep adding to them after a beta; the
+comparison with the last release below skips betas' tags.
 
 Keep them up to date as you go: when a change is something users notice,
 add it in the same commit (or right after), creating the files if they're

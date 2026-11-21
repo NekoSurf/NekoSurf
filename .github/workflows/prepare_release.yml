@@ -21,11 +21,13 @@ name: Prepare Release
 #   writes it to ios/TestFlight/WhatToTest.en-US.txt, which Xcode Cloud
 #   reads from the tagged commit, replacing the last release's.
 #
-# With prerelease ticked it's a beta: the GitHub release is marked
-# Pre-release, which isn't GitHub's latest, so the app's update check, the
-# README's download links and TestFlight Status skip it; source.json
-# (AltStore) is left alone; and the three files stay for the full release
-# that follows. It still goes to TestFlight and gets its APK and IPA.
+# With prerelease ticked it's a beta, tagged and titled
+# beta-v<version>+<build> like the earlier ones. The GitHub release is
+# marked Pre-release, which isn't GitHub's latest, so the app's update
+# check, the README's download links and TestFlight Status skip it;
+# source.json (AltStore) is left alone; and the three files stay for the
+# full release that follows. It still goes to TestFlight and gets its APK
+# and IPA.
 on:
   workflow_dispatch:
     inputs:
@@ -146,6 +148,7 @@ jobs:
         id: version
         env:
           VERSION: ${{ inputs.version }}
+          PRERELEASE: ${{ inputs.prerelease }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
@@ -160,9 +163,12 @@ jobs:
             exit 1
           fi
 
-          LAST_TAG_BUILD=$(git tag --list 'v*+*' | sed -E 's/.*\+([0-9]+)$/\1/' | sort -n | tail -1)
+          LAST_TAG_BUILD=$(git tag --list 'v*+*' 'beta-v*+*' | sed -E 's/.*\+([0-9]+)$/\1/' | sort -n | tail -1)
           BUILD=$(python .github/scripts/next_build_number.py "$BUNDLE_ID" "$(( ${LAST_TAG_BUILD:-0} + 1 ))")
           TAG="v$VERSION+$BUILD"
+          if [ "$PRERELEASE" = "true" ]; then
+            TAG="beta-$TAG"
+          fi
 
           if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
             echo "::error::Tag $TAG already exists"

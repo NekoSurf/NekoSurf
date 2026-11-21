@@ -105,8 +105,9 @@ jobs:
           RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           VERSION_ARGS=""
-          if [[ "$RELEASE_TAG" =~ ^v?([0-9]+\.[0-9]+\.[0-9]+)\+([0-9]+)$ ]]; then
-            VERSION_ARGS="--build-name=${BASH_REMATCH[1]} --build-number=${BASH_REMATCH[2]}"
+          # Betas' tags start with beta-.
+          if [[ "$RELEASE_TAG" =~ ^(beta-)?v?([0-9]+\.[0-9]+\.[0-9]+)\+([0-9]+)$ ]]; then
+            VERSION_ARGS="--build-name=${BASH_REMATCH[2]} --build-number=${BASH_REMATCH[3]}"
           fi
           flutter build apk --split-per-abi $VERSION_ARGS
         shell: bash
@@ -155,8 +156,9 @@ jobs:
           RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           VERSION_ARGS=""
-          if [[ "$RELEASE_TAG" =~ ^v?([0-9]+\.[0-9]+\.[0-9]+)\+([0-9]+)$ ]]; then
-            VERSION_ARGS="--build-name=${BASH_REMATCH[1]} --build-number=${BASH_REMATCH[2]}"
+          # Betas' tags start with beta-.
+          if [[ "$RELEASE_TAG" =~ ^(beta-)?v?([0-9]+\.[0-9]+\.[0-9]+)\+([0-9]+)$ ]]; then
+            VERSION_ARGS="--build-name=${BASH_REMATCH[2]} --build-number=${BASH_REMATCH[3]}"
           fi
           flutter build ios --release --no-codesign $VERSION_ARGS
         shell: bash
