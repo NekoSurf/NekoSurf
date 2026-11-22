@@ -12,8 +12,13 @@ class _Server {
   bool refusing = false;
   int requests = 0;
 
+  /// When each request came, from when the server was made.
+  final List<Duration> arrivals = [];
+  final Stopwatch _clock = Stopwatch()..start();
+
   late final MockClient client = MockClient((Request request) async {
     requests++;
+    arrivals.add(_clock.elapsed);
     return Response(
       refusing ? 'Too Many Requests' : 'video',
       refusing ? 429 : 200,
@@ -77,18 +82,19 @@ void main() {
 
   test('checks go out ever less often while it lasts', () async {
     server.refusing = true;
-    final Stopwatch watch = Stopwatch()..start();
-    await client.get(_video);
-    final List<Duration> checks = [];
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 4; i++) {
       await client.get(_video);
-      checks.add(watch.elapsed);
     }
-    // After 100 ms, then 200 ms more, then 300 ms (the longest) more.
-    expect(checks[0].inMilliseconds, greaterThanOrEqualTo(100));
-    expect((checks[1] - checks[0]).inMilliseconds, greaterThanOrEqualTo(200));
-    expect((checks[2] - checks[1]).inMilliseconds, inInclusiveRange(300, 450));
     expect(server.requests, 4);
+    // Timed as they reach the server: a wait starts when the refusal
+    // before it comes, before the one asking has read the answer. A timer
+    // can go off up to a millisecond early, as it rounds down to one.
+    int gap(int i) =>
+        (server.arrivals[i] - server.arrivals[i - 1]).inMilliseconds;
+    // After 100 ms, then 200 ms, then 300 ms (the longest).
+    expect(gap(1), greaterThanOrEqualTo(98));
+    expect(gap(2), greaterThanOrEqualTo(198));
+    expect(gap(3), inInclusiveRange(298, 450));
   });
 
   test('refusals of requests already out count as one', () async {
