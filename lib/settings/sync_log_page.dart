@@ -8,6 +8,7 @@ import 'package:flutter_chan/sync/cloud_sync.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_header.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
+import 'package:flutter_chan/ui/status_bar_tap.dart';
 import 'package:flutter_chan/ui/toast.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -92,6 +93,7 @@ class _SyncLogPageState extends State<SyncLogPage> {
     final MediaQueryData media = MediaQuery.of(context);
     return DashBarScaffold(
       title: 'Sync log',
+      onScrollToTop: () => scrollToTop(_scroll),
       actions: [
         Builder(
           builder: (BuildContext button) => DashIconButton(

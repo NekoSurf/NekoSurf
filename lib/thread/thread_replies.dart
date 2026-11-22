@@ -37,6 +37,7 @@ class _ThreadRepliesState extends State<ThreadReplies>
   Widget build(BuildContext context) {
     return DashBarScaffold(
       title: 'Replies to ${thread.labelOf(widget.post.no)}',
+      onScrollToTop: () => scrollToRow(0, alignment: 0),
       body: rows.isEmpty
           ? Padding(
               padding: EdgeInsets.fromLTRB(

@@ -5,6 +5,7 @@ import 'package:flutter_chan/ui/dash_header.dart';
 import 'package:flutter_chan/ui/keys.dart';
 import 'package:flutter_chan/ui/pull_to_refresh.dart';
 import 'package:flutter_chan/ui/scrollbars.dart';
+import 'package:flutter_chan/ui/status_bar_tap.dart';
 import 'package:flutter_chan/ui/window_size.dart';
 
 class DashScaffold extends StatefulWidget {
@@ -75,58 +76,62 @@ class _DashScaffoldState extends State<DashScaffold> {
 
     final Future<void> Function()? onRefresh = widget.onRefresh;
     final VoidCallback? onFind = widget.onFind;
-    final Widget page = Material(
-      color: DashColors.page(context),
-      child: Stack(
-        children: [
-          _refreshable(
-            top + kDashHeaderHeight,
-            NotificationListener<ScrollNotification>(
-              onNotification: _onScroll,
-              child: PageScrollbar(
-                // Below the header, and above the tab bar.
-                padding: MediaQuery.paddingOf(context).copyWith(
-                  top: top + kDashHeaderHeight,
-                  bottom: bottom + barSpace,
-                ),
-                child: CustomScrollView(
-                  primary: true,
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  physics: widget.onRefresh == null
-                      ? null
-                      : PullToRefresh.pullPhysics,
-                  slivers: [
-                    SliverToBoxAdapter(
-                      child: SizedBox(height: top + kDashHeaderHeight + 8),
-                    ),
-                    for (final Widget sliver in widget.slivers)
-                      if (widget.readable)
-                        ReadableSliver(sliver: sliver)
-                      else
-                        sliver,
-                    SliverToBoxAdapter(
-                      child: SizedBox(height: bottom + 24 + barSpace),
-                    ),
-                  ],
+    // The list scrolls with its route's or tab's controller.
+    final Widget page = StatusBarTap(
+      onTap: () => scrollToTop(PrimaryScrollController.maybeOf(context)),
+      child: Material(
+        color: DashColors.page(context),
+        child: Stack(
+          children: [
+            _refreshable(
+              top + kDashHeaderHeight,
+              NotificationListener<ScrollNotification>(
+                onNotification: _onScroll,
+                child: PageScrollbar(
+                  // Below the header, and above the tab bar.
+                  padding: MediaQuery.paddingOf(context).copyWith(
+                    top: top + kDashHeaderHeight,
+                    bottom: bottom + barSpace,
+                  ),
+                  child: CustomScrollView(
+                    primary: true,
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    physics: widget.onRefresh == null
+                        ? null
+                        : PullToRefresh.pullPhysics,
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: SizedBox(height: top + kDashHeaderHeight + 8),
+                      ),
+                      for (final Widget sliver in widget.slivers)
+                        if (widget.readable)
+                          ReadableSliver(sliver: sliver)
+                        else
+                          sliver,
+                      SliverToBoxAdapter(
+                        child: SizedBox(height: bottom + 24 + barSpace),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: DashHeader(
-              title: widget.title,
-              subtitle: widget.subtitle,
-              leading: widget.leading,
-              showBack: ModalRoute.of(context)?.canPop ?? false,
-              actions: widget.actions,
-              elevated: _elevated || DashHeaderLine.alwaysOf(context),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: DashHeader(
+                title: widget.title,
+                subtitle: widget.subtitle,
+                leading: widget.leading,
+                showBack: ModalRoute.of(context)?.canPop ?? false,
+                actions: widget.actions,
+                elevated: _elevated || DashHeaderLine.alwaysOf(context),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
     if (onRefresh == null && onFind == null) {
@@ -151,6 +156,7 @@ class DashBarScaffold extends StatelessWidget {
     required this.body,
     this.subtitle,
     this.actions = const [],
+    this.onScrollToTop,
   });
 
   final String title;
@@ -158,36 +164,45 @@ class DashBarScaffold extends StatelessWidget {
   final Widget body;
   final List<Widget> actions;
 
+  /// Takes [body] to its top when the status bar is tapped. Without it, the
+  /// list scrolling with the route's controller goes up.
+  final VoidCallback? onScrollToTop;
+
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
 
-    return Material(
-      color: DashColors.page(context),
-      child: Stack(
-        children: [
-          // Children keep using paddingOf(context).top to clear the header.
-          MediaQuery(
-            data: media.copyWith(
-              padding: media.padding.copyWith(
-                top: media.padding.top + kDashHeaderHeight,
+    return StatusBarTap(
+      onTap:
+          onScrollToTop ??
+          () => scrollToTop(PrimaryScrollController.maybeOf(context)),
+      child: Material(
+        color: DashColors.page(context),
+        child: Stack(
+          children: [
+            // Children keep using paddingOf(context).top to clear the header.
+            MediaQuery(
+              data: media.copyWith(
+                padding: media.padding.copyWith(
+                  top: media.padding.top + kDashHeaderHeight,
+                ),
+              ),
+              child: body,
+            ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: DashHeader(
+                title: title,
+                subtitle: subtitle,
+                showBack: ModalRoute.of(context)?.canPop ?? false,
+                actions: actions,
+                elevated: true,
               ),
             ),
-            child: body,
-          ),
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: DashHeader(
-              title: title,
-              subtitle: subtitle,
-              showBack: ModalRoute.of(context)?.canPop ?? false,
-              actions: actions,
-              elevated: true,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

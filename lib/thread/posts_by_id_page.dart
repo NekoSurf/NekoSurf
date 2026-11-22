@@ -46,6 +46,7 @@ class _PostsByIdPageState extends State<PostsByIdPage>
   Widget build(BuildContext context) {
     return DashBarScaffold(
       title: 'ID:${widget.id}',
+      onScrollToTop: () => scrollToRow(0, alignment: 0),
       subtitle: _posts.length == 1 ? '1 post' : '${_posts.length} posts',
       body: buildRowList(),
     );

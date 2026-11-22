@@ -15,6 +15,7 @@ import 'package:flutter_chan/ui/dash_dialogs.dart';
 import 'package:flutter_chan/ui/dash_header.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
 import 'package:flutter_chan/ui/keys.dart';
+import 'package:flutter_chan/ui/status_bar_tap.dart';
 import 'package:flutter_chan/ui/window_size.dart';
 import 'package:provider/provider.dart';
 
@@ -125,7 +126,7 @@ class _AppShellState extends State<AppShell> {
 
   void _selectTab(_Tab tab) {
     if (tab == _currentTab) {
-      _scrollToTop(_scrolls[tab]!);
+      scrollToTop(_scrolls[tab]);
       return;
     }
     setState(() {
@@ -134,16 +135,6 @@ class _AppShellState extends State<AppShell> {
     });
     if (tab == _Tab.settings) {
       _sync.markNoticeSeen();
-    }
-  }
-
-  void _scrollToTop(ScrollController scroll) {
-    if (scroll.hasClients && scroll.offset > 0) {
-      scroll.animateTo(
-        0,
-        duration: const Duration(milliseconds: 450),
-        curve: Curves.easeOutCubic,
-      );
     }
   }
 

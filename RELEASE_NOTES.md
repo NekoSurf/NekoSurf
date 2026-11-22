@@ -4,5 +4,8 @@
 - Each post's picture or video now shows its size, dimensions and type in a line below it
 - The File Information dialog in the media viewer now shows the file's size, and its dimensions too where known (also for saved files)
 
+### ⬆️ Back to the top
+- On iPhone and iPad, tap the status bar at the top of the screen to scroll back to the top of a board, a thread or any other list
+
 ### ⏩ Hold to fast-forward
 - In the media viewer, hold a finger on a video to play it at double speed, and let go to go back to normal

@@ -926,6 +926,7 @@ class _ThreadPageState extends State<ThreadPage>
         }),
         child: DashBarScaffold(
           title: _title,
+          onScrollToTop: () => scrollToRow(0, alignment: 0),
           subtitle: _threadStatus,
           actions: [
             DashIconButton(
