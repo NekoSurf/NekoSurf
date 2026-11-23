@@ -24,6 +24,15 @@
       ],
       "versions": [
         {
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.13.1%2B319/Runner.ipa",
+          "size": 32424806,
+          "version": "0.13.1",
+          "buildVersion": "319",
+          "date": "2026-11-23T09:33:46+00:00",
+          "localizedDescription": "Posts now show the size, dimensions and type of their picture or video, and the File Information dialog shows its size too; in the media viewer, holding a finger on a video plays it at double speed; tapping the status bar scrolls back to the top; and the app is about 13 MB smaller on Android.",
+          "minOSVersion": "17.0"
+        },
+        {
           "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.13.1%2B316/Runner.ipa",
           "size": 34348650,
           "version": "0.13.1",
