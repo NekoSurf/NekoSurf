@@ -80,6 +80,11 @@ class MediaVideo extends ChangeNotifier {
   bool _fastForward = false;
   bool _pausedBeforeFastForward = false;
   bool _loop = true;
+  // Reached its end without looping (the viewer's auto-advance). It stays
+  // there till it's played again: it started over by itself whenever any
+  // player was freed, and after the background it reopened at its end and
+  // said it had ended again, which moved the viewer on.
+  bool _ended = false;
 
   VideoLease? _lease;
   // Told to VideoServer, whose download for a watched video goes first.
@@ -267,6 +272,10 @@ class MediaVideo extends ChangeNotifier {
 
   void setLoop(bool loop) {
     _loop = loop;
+    if (loop) {
+      // Looping again (back in its post): it goes on from the top.
+      restartIfFinished();
+    }
     _lease?.player.setPlaylistMode(_playlistMode).catchError((_) {});
   }
 
@@ -288,7 +297,19 @@ class MediaVideo extends ChangeNotifier {
 
   void restartIfFinished() {
     final Player? player = _lease?.player;
-    if (player != null && player.state.completed) {
+    if (player == null) {
+      // Its player was taken at its end: it reopens from the top, and
+      // plays. It reopened at its end, ended again at once, and the
+      // viewer moved on by itself.
+      if (_ended) {
+        _ended = false;
+        _resumeAt = Duration.zero;
+        _resumePlaying = true;
+      }
+      return;
+    }
+    if (_ended || player.state.completed) {
+      _ended = false;
       player.seek(Duration.zero).catchError((_) {});
     }
   }
@@ -322,6 +343,12 @@ class MediaVideo extends ChangeNotifier {
     }
     _scrubbing = true;
     _playingBeforeScrub = _playing;
+    if (_ended) {
+      // Taken back from its end: it waits there to be played, rather than
+      // starting from the top when it is.
+      _ended = false;
+      _userPaused = true;
+    }
     scrubPosition.value = position.value;
     player.pause().catchError((_) {});
   }
@@ -426,7 +453,11 @@ class MediaVideo extends ChangeNotifier {
     if (!_hasFirstFrame && !(_firstFrameTimer?.isActive ?? false)) {
       _armFirstFrameTimer(lease);
     }
-    if (_opened && !_userPaused && !_scrubbing && !lease.player.state.playing) {
+    if (_opened &&
+        !_userPaused &&
+        !_scrubbing &&
+        !_ended &&
+        !lease.player.state.playing) {
       lease.player.play().catchError((_) {});
     }
   }
@@ -590,7 +621,8 @@ class MediaVideo extends ChangeNotifier {
       )
       ..add(
         player.stream.completed.listen((bool completed) {
-          if (current() && completed) {
+          if (current() && completed && !_loop && !_ended) {
+            _ended = true;
             _completed.add(null);
           }
         }),
@@ -647,8 +679,12 @@ class MediaVideo extends ChangeNotifier {
       return;
     }
     if (_hasFirstFrame) {
-      _resumeAt = lease.player.state.position;
-      _resumePlaying = !_userPaused;
+      // Sent back to the start from its end (restartIfFinished) before
+      // mpv said it got there: from the top. Reopened at its end, it ended
+      // again at once. One still ended reopens there, and stays.
+      final PlayerState state = lease.player.state;
+      _resumeAt = state.completed && !_ended ? Duration.zero : state.position;
+      _resumePlaying = !_userPaused && !_ended;
     }
     _dropPlayer();
     notifyListeners();

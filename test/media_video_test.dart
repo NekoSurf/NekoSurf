@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_chan/media/media_video.dart';
 import 'package:flutter_chan/media/video_players.dart';
@@ -346,6 +348,181 @@ void main() {
     await videos.end(tester);
   });
 
+  group('without looping', () {
+    testWidgets('it says it ended once, and stays there', (tester) async {
+      final _Videos videos = _Videos();
+      final MediaVideo a = videos.obtain('a')..setLoop(false);
+      int ended = 0;
+      final StreamSubscription<void> endings = a.completed.listen(
+        (_) => ended++,
+      );
+      a.want('post', shown: 0.5);
+      await _settle(tester);
+      final FakeOutput output = videos.outputOf(a);
+      expect(output.calls, contains('playlistMode none'));
+      output.showFirstFrame();
+      output.player.emitDuration(_s10);
+      await _settle(tester);
+
+      output.player.reachEnd();
+      await _settle(tester);
+      expect(ended, 1);
+      expect(a.isPlaying, isFalse);
+      output.player.emitCompleted(true);
+      await _settle(tester);
+      expect(ended, 1);
+
+      // Another video's player is freed: the players say so, and a doesn't
+      // start over.
+      int mark = output.calls.length;
+      final MediaVideo b = videos.obtain('b');
+      b.want('post');
+      await _settle(tester);
+      videos.release(b, 'post');
+      await _settle(tester);
+      // Nor when someone else wants it.
+      a.want('viewer');
+      await _settle(tester);
+      a.unwant('viewer');
+      await _settle(tester);
+      expect(_since(output, mark), isNot(contains('play')));
+      expect(a.isPlaying, isFalse);
+
+      // Its player taken at its end, it opens there again later, but
+      // doesn't play or say it ended again.
+      for (final String name in <String>['c', 'd', 'e']) {
+        videos.obtain(name).want('post');
+      }
+      await _settle(tester);
+      final MediaVideo f = videos.obtain('f');
+      f.want('post');
+      await _settle(tester);
+      expect(a.controller, isNull);
+      mark = output.calls.length;
+      videos.release(f, 'post');
+      await _settle(tester);
+      expect(videos.outputOf(a), same(output));
+      expect(output.player.opened.last.start, _s10);
+      output.showFirstFrame();
+      output.player.emitDuration(_s10);
+      output.player.reachEnd();
+      await _settle(tester);
+      expect(_since(output, mark), isNot(contains('play')));
+      expect(ended, 1);
+      expect(a.isPlaying, isFalse);
+
+      // Not awaited: its future is outside the test's fake time.
+      unawaited(endings.cancel());
+      await videos.end(tester);
+    });
+
+    testWidgets('restartIfFinished then want plays it from the start', (
+      tester,
+    ) async {
+      final _Videos videos = _Videos();
+      final MediaVideo a = videos.obtain('a')..setLoop(false);
+      a.want('viewer', audible: true);
+      await _settle(tester);
+      final FakeOutput output = videos.outputOf(a);
+      output.showFirstFrame();
+      output.player.emitDuration(_s10);
+      await _settle(tester);
+      output.player.reachEnd();
+      await _settle(tester);
+
+      final int mark = output.calls.length;
+      a.restartIfFinished();
+      a.want('viewer', audible: true);
+      await _settle(tester);
+      expect(_since(output, mark), <String>['seek 0ms', 'play']);
+      expect(a.isPlaying, isTrue);
+      await videos.end(tester);
+    });
+
+    // The fullscreen viewer, with auto-advance on, leaves a video that ended
+    // and comes back to it after its player was taken. It reopened where
+    // its player was taken, at the end, and played: it ended again at once,
+    // and the viewer moved on again.
+    group('after its player was taken at the end', () {
+      testWidgets('restartIfFinished then want plays it from the start', (
+        tester,
+      ) async {
+        final _Videos videos = _Videos();
+        final MediaVideo a = videos.obtain('a');
+        int ended = 0;
+        final StreamSubscription<void> endings = a.completed.listen(
+          (_) => ended++,
+        );
+        // As the fullscreen viewer shows it with auto-advance on...
+        void activate() => a
+          ..setLoop(false)
+          ..restartIfFinished()
+          ..want('viewer', audible: true);
+        // ...and leaves it when it moves on.
+        void deactivate() => a
+          ..unwant('viewer')
+          ..setRate(1)
+          ..setLoop(true);
+
+        activate();
+        await _settle(tester);
+        final FakeOutput first = videos.outputOf(a);
+        first.showFirstFrame();
+        first.player.emitDuration(_s10);
+        await _settle(tester);
+        first.player.reachEnd();
+        await _settle(tester);
+        expect(ended, 1);
+        deactivate();
+        await _settle(tester);
+
+        // Other videos take every player, a's first as nobody wants it.
+        for (final String name in <String>['b', 'c', 'd', 'e']) {
+          videos.obtain(name).want('post');
+        }
+        await _settle(tester);
+        expect(a.controller, isNull);
+
+        // Back to it in the viewer.
+        activate();
+        await _settle(tester);
+        final FakeOutput output = videos.outputOf(a);
+        expect(output.player.opened.last.start ?? Duration.zero, Duration.zero);
+        expect(output.calls.last, 'play');
+        expect(ended, 1);
+
+        unawaited(endings.cancel());
+        await videos.end(tester);
+      });
+    });
+
+    testWidgets('looping again, it plays again', (tester) async {
+      final _Videos videos = _Videos();
+      final MediaVideo a = videos.obtain('a')..setLoop(false);
+      a.want('post');
+      await _settle(tester);
+      final FakeOutput output = videos.outputOf(a);
+      output.showFirstFrame();
+      output.player.emitDuration(_s10);
+      await _settle(tester);
+      output.player.reachEnd();
+      await _settle(tester);
+
+      final int mark = output.calls.length;
+      a.want('post');
+      await _settle(tester);
+      expect(_since(output, mark), isEmpty);
+
+      a.setLoop(true);
+      expect(output.calls.last, 'playlistMode single');
+      a.want('post');
+      await _settle(tester);
+      expect(output.calls.last, 'play');
+      expect(a.isPlaying, isTrue);
+      await videos.end(tester);
+    });
+  });
+
   group('scrubbing', () {
     testWidgets('pauses, seeks one at a time and ends at the last target', (
       tester,
@@ -405,6 +582,40 @@ void main() {
       expect(video.position.value, const Duration(seconds: 5));
       // It played before, so it plays on.
       expect(player.calls.last, 'play');
+      expect(video.isPlaying, isTrue);
+      await videos.end(tester);
+    });
+
+    testWidgets('a finished video taken back stays paused there', (
+      tester,
+    ) async {
+      final _Videos videos = _Videos();
+      final MediaVideo video = videos.obtain('a')..setLoop(false);
+      video.want('post');
+      await _settle(tester);
+      final FakeOutput output = videos.outputOf(video);
+      output.showFirstFrame();
+      output.player.emitDuration(_s10);
+      await _settle(tester);
+      output.player.reachEnd();
+      await _settle(tester);
+
+      final int mark = output.calls.length;
+      video.scrubStart();
+      video.scrubTo(const Duration(seconds: 2));
+      await video.scrubEnd();
+      await _settle(tester);
+      video.want('post');
+      await _settle(tester);
+      expect(_since(output, mark), isNot(contains('play')));
+      expect(video.isPlaying, isFalse);
+      expect(video.position.value, const Duration(seconds: 2));
+
+      // Played, it goes on from there rather than from the top.
+      final int played = output.calls.length;
+      video.togglePlay();
+      await _settle(tester);
+      expect(_since(output, played), <String>['play']);
       expect(video.isPlaying, isTrue);
       await videos.end(tester);
     });
