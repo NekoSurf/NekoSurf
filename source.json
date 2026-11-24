@@ -24,6 +24,15 @@
       ],
       "versions": [
         {
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.13.1%2B321/Runner.ipa",
+          "size": 32441433,
+          "version": "0.13.1",
+          "buildVersion": "321",
+          "date": "2026-11-24T13:22:58+00:00",
+          "localizedDescription": "On iPhone, muted videos in threads no longer stop your music; a video that needed a second try shows its picture, swiping back works when it starts on a video that isn't playing, and scrolling video threads on Android no longer stalls as each video comes on screen.",
+          "minOSVersion": "17.0"
+        },
+        {
           "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.13.1%2B319/Runner.ipa",
           "size": 32424806,
           "version": "0.13.1",
