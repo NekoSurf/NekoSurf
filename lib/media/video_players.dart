@@ -36,7 +36,17 @@ const int _mediaBufferBytes = 8 * 1024 * 1024;
 /// break their decoders there, and players still alive when iOS tears the
 /// app down make mpv crash.
 class VideoPlayers extends ChangeNotifier {
-  VideoPlayers._() {
+  /// Players made by [create]; [sizesUpFront] says whether a player's
+  /// output is sized for its video before it opens it, and [reuses] whether
+  /// a player given back is kept for the next video. The app's own is
+  /// [instance]; tests make theirs.
+  @visibleForTesting
+  VideoPlayers({
+    required PlayerOutput Function({int? width, int? height}) create,
+    required this.sizesUpFront,
+    required bool reuses,
+  }) : _create = create,
+       _reuses = reuses {
     _lifecycleListener = AppLifecycleListener(
       onInactive: _pauseWhileInactive,
       onResume: _playAfterInactive,
@@ -48,7 +58,19 @@ class VideoPlayers extends ChangeNotifier {
     );
   }
 
-  static final VideoPlayers instance = VideoPlayers._();
+  static VideoPlayers? _instance;
+
+  static VideoPlayers get instance => _instance ??= VideoPlayers(
+    create: MpvPlayerOutput.create,
+    // media_kit's iOS output otherwise works the size out while rendering,
+    // asking mpv for it from its render thread, which can lock up. Its
+    // Android output can't be sized (and sizes itself from the video).
+    sizesUpFront: Platform.isIOS,
+    reuses: Platform.isIOS,
+  );
+
+  @visibleForTesting
+  static set instance(VideoPlayers players) => _instance = players;
 
   // Four, so a thread showing four short videos at once plays them all.
   static const int _maxPlayers = 4;
@@ -56,6 +78,14 @@ class VideoPlayers extends ChangeNotifier {
   // How much more a video must be wanted to take a wanted player, so two
   // videos about as visible don't take it from each other while scrolling.
   static const double _takeOverMargin = 0.25;
+
+  final PlayerOutput Function({int? width, int? height}) _create;
+  final bool _reuses;
+
+  /// Whether a player's output is sized for its video before it opens it,
+  /// from the size its holder knows: a holder that doesn't know it should
+  /// find it out first if it can.
+  final bool sizesUpFront;
 
   // Least recently wanted first.
   final List<VideoLease> _leases = <VideoLease>[];
@@ -65,9 +95,11 @@ class VideoPlayers extends ChangeNotifier {
   bool _notifyScheduled = false;
   // Someone was refused a player and waits for a notification.
   bool _waiting = false;
-  // Lives as long as the app.
-  // ignore: unused_field
   late final AppLifecycleListener _lifecycleListener;
+
+  /// How many players exist, held or free.
+  @visibleForTesting
+  int get playerCount => _leases.length + _free.length;
 
   /// Videos pause while the app isn't active (in the app switcher, say),
   /// as the app is covered there ("Hide in the app switcher"); the app
@@ -126,37 +158,26 @@ class VideoPlayers extends ChangeNotifier {
       _victimFor(priority)!._evict();
     }
 
-    final bool knownSize = width != null && height != null;
+    final bool sized = sizesUpFront && width != null && height != null;
     final _PooledPlayer pooled;
     final bool byOutput;
     ({int? width, int? height})? resize;
     if (_free.isNotEmpty) {
-      // Only on iOS (see [_giveBack]).
       pooled = _free.removeAt(0);
-      // Sized when this lease opens its video, not now: the video it was
-      // taken from may still be on screen, showing it.
-      resize = (
-        width: knownSize ? width : null,
-        height: knownSize ? height : null,
-      );
-      // Its own first frame was reported long ago, for its first video.
+      if (sizesUpFront) {
+        // Sized when this lease opens its video, not now: the video it was
+        // taken from may still be on screen, showing it.
+        resize = (width: sized ? width : null, height: sized ? height : null);
+      }
+      // Its output's first frame was reported long ago, for its first video.
       byOutput = true;
     } else {
-      final Player player = Player(
-        configuration: const PlayerConfiguration(bufferSize: _mediaBufferBytes),
+      pooled = _PooledPlayer(
+        _create(width: sized ? width : null, height: sized ? height : null),
       );
-      _waitForStreams(player);
-      final VideoController controller = VideoController(
-        player,
-        // Sized up front on iOS: media_kit's iOS video output otherwise works
-        // the size out while rendering, which can lock up.
-        configuration: VideoControllerConfiguration(
-          width: Platform.isIOS && knownSize ? width : null,
-          height: Platform.isIOS && knownSize ? height : null,
-        ),
-      );
-      pooled = _PooledPlayer(player, controller);
-      byOutput = Platform.isIOS && knownSize;
+      // media_kit's iOS output reports a first frame as soon as it has a
+      // size, which it has from the start when sized up front.
+      byOutput = sized;
     }
     final VideoLease lease = VideoLease._(
       this,
@@ -182,19 +203,6 @@ class VideoPlayers extends ChangeNotifier {
       return null;
     }
     return victim;
-  }
-
-  /// Lets [player] wait for a stream from VideoServer as long as mpv
-  /// usually would. media_kit gives up after 5 s, but the server stalls a
-  /// stream whenever its download waits (held for a video being watched,
-  /// or a slow connection); mpv then reconnected over and over, and after a
-  /// few minutes gave up mid-video. The server closes the stream itself if
-  /// the download fails.
-  static void _waitForStreams(Player player) {
-    final PlatformPlayer platform = player.platform!;
-    if (platform is NativePlayer) {
-      platform.setProperty('network-timeout', '60').catchError((_) {});
-    }
   }
 
   void _touch(VideoLease lease) {
@@ -227,10 +235,11 @@ class VideoPlayers extends ChangeNotifier {
     _free.clear();
   }
 
-  /// Keeps [pooled] for the next video on iOS, or disposes it: on Android,
-  /// in the background (where there are no players) or when it [broke].
+  /// Keeps [pooled] for the next video, or disposes it: when players
+  /// aren't reused, in the background (where there are no players) or when
+  /// it [broke].
   void _giveBack(_PooledPlayer pooled, {required bool broke}) {
-    if (!Platform.isIOS || _inBackground || broke) {
+    if (!_reuses || _inBackground || broke) {
       unawaited(pooled.dispose());
       return;
     }
@@ -250,6 +259,12 @@ class VideoPlayers extends ChangeNotifier {
       _waiting = false;
       notifyListeners();
     });
+  }
+
+  @override
+  void dispose() {
+    _lifecycleListener.dispose();
+    super.dispose();
   }
 }
 
@@ -279,12 +294,11 @@ class VideoLease {
   bool _released = false;
 
   Player get player => _pooled.player;
-  VideoController get controller => _pooled.controller;
+  VideoController get controller => _pooled.output.controller;
 
   /// Completes when the video [open] opened shows its first frame.
-  Future<void> get firstFrame => _byOutput
-      ? _output.future
-      : _pooled.controller.waitUntilFirstFrameRendered;
+  Future<void> get firstFrame =>
+      _byOutput ? _output.future : _pooled.output.firstFrame;
 
   /// Opens [media] paused, after [setUp]. A reused player first finishes
   /// what its last holder still had running and stops that video. Skipped
@@ -307,8 +321,8 @@ class VideoLease {
         if (_released) {
           return;
         }
-        await controller
-            .setSize(width: size.width, height: size.height)
+        await _pooled.output
+            .setSize(size.width, size.height)
             .catchError((_) {});
       }
       opened = true;
@@ -365,6 +379,93 @@ class VideoLease {
   }
 }
 
+/// A player and the output that draws its video, as [VideoPlayers] uses
+/// them: mpv's through media_kit ([MpvPlayerOutput]), or a test's.
+abstract interface class PlayerOutput {
+  Player get player;
+
+  /// What views show the video with.
+  VideoController get controller;
+
+  /// Runs [onRestart] each time mpv restarts playback, which it does once
+  /// the first frame after opening a video (or seeking) is drawn, paused
+  /// or not. Done once it listens.
+  Future<void> listenForRestarts(void Function() onRestart);
+
+  /// The output's own first frame, which it reports for its first video.
+  Future<void> get firstFrame;
+
+  /// Sizes the output; null for the video's own size.
+  Future<void> setSize(int? width, int? height);
+
+  Future<void> dispose();
+}
+
+/// An mpv player and its video output, through media_kit.
+class MpvPlayerOutput implements PlayerOutput {
+  MpvPlayerOutput._(this.player, this.controller);
+
+  /// Sized up front to [width] x [height], if given.
+  factory MpvPlayerOutput.create({int? width, int? height}) {
+    final Player player = Player(
+      configuration: const PlayerConfiguration(bufferSize: _mediaBufferBytes),
+    );
+    _waitForStreams(player);
+    return MpvPlayerOutput._(
+      player,
+      VideoController(
+        player,
+        configuration: VideoControllerConfiguration(
+          width: width,
+          height: height,
+        ),
+      ),
+    );
+  }
+
+  @override
+  final Player player;
+
+  @override
+  final VideoController controller;
+
+  /// Lets [player] wait for a stream from VideoServer as long as mpv
+  /// usually would. media_kit gives up after 5 s, but the server stalls a
+  /// stream whenever its download waits (held for a video being watched,
+  /// or a slow connection); mpv then reconnected over and over, and after a
+  /// few minutes gave up mid-video. The server closes the stream itself if
+  /// the download fails.
+  static void _waitForStreams(Player player) {
+    final PlatformPlayer platform = player.platform!;
+    if (platform is NativePlayer) {
+      platform.setProperty('network-timeout', '60').catchError((_) {});
+    }
+  }
+
+  @override
+  Future<void> listenForRestarts(void Function() onRestart) {
+    final PlatformPlayer? platform = player.platform;
+    if (platform is! NativePlayer) {
+      return Future<void>.value();
+    }
+    return platform
+        .observeEvent(mpv_event_id.MPV_EVENT_PLAYBACK_RESTART, (_) async {
+          onRestart();
+        })
+        .catchError((_) {});
+  }
+
+  @override
+  Future<void> get firstFrame => controller.waitUntilFirstFrameRendered;
+
+  @override
+  Future<void> setSize(int? width, int? height) =>
+      controller.setSize(width: width, height: height);
+
+  @override
+  Future<void> dispose() => player.dispose();
+}
+
 /// A player and its video output, kept alive across the videos it plays.
 ///
 /// What a holder does to set it up and open its video ([VideoLease.open])
@@ -372,26 +473,22 @@ class VideoLease {
 /// another ([run]): a holder that lost the player while still opening its
 /// video would otherwise open it into the next one's.
 class _PooledPlayer {
-  _PooledPlayer(this.player, this.controller) {
+  _PooledPlayer(this.output) {
     _videoParams = player.stream.videoParams.listen(_onVideoParams);
-    final PlatformPlayer platform = player.platform!;
-    if (platform is NativePlayer) {
-      listening = platform
-          .observeEvent(mpv_event_id.MPV_EVENT_PLAYBACK_RESTART, (_) async {
-            _restarted = true;
-            _checkOutput();
-          })
-          .catchError((_) {});
-    }
+    listening = output.listenForRestarts(() {
+      _restarted = true;
+      _checkOutput();
+    });
   }
 
-  final Player player;
-  final VideoController controller;
+  final PlayerOutput output;
+
+  Player get player => output.player;
 
   late final StreamSubscription<VideoParams> _videoParams;
 
   /// Done once mpv's playback restarts reach this (see [watchOutput]).
-  Future<void> listening = Future<void>.value();
+  late final Future<void> listening;
 
   Completer<void>? _output;
   // Since [watchOutput]: mpv decoded the video's first frame, and restarted
@@ -468,7 +565,7 @@ class _PooledPlayer {
       await player.pause();
     } catch (_) {}
     try {
-      await player.dispose();
+      await output.dispose();
     } catch (_) {}
   }
 }

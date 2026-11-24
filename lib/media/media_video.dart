@@ -27,7 +27,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 /// so ([waitingForServer]), then plays by itself once 4chan lets up.
 class MediaVideo extends ChangeNotifier {
   MediaVideo._(this.source, this._width, this._height) {
-    VideoPlayers.instance.addListener(_sync);
+    _players.addListener(_sync);
     if (_served) {
       FileServerLimit.instance.addListener(_limitChanged);
     }
@@ -60,6 +60,8 @@ class MediaVideo extends ChangeNotifier {
   static const Duration _positionStep = Duration(milliseconds: 50);
 
   final String source;
+  // The players it plays with, kept: tests change VideoPlayers.instance.
+  final VideoPlayers _players = VideoPlayers.instance;
   final int? _width;
   final int? _height;
   int _refs = 0;
@@ -297,7 +299,7 @@ class MediaVideo extends ChangeNotifier {
       return;
     }
     _all.remove(source);
-    VideoPlayers.instance.removeListener(_sync);
+    _players.removeListener(_sync);
     if (_served) {
       FileServerLimit.instance.removeListener(_limitChanged);
     }
@@ -466,7 +468,7 @@ class MediaVideo extends ChangeNotifier {
     }
     // Every player plays a video shown about as much or more; _sync runs
     // again when that changes.
-    if (!VideoPlayers.instance.canAcquire(_priority)) {
+    if (!_players.canAcquire(_priority)) {
       return;
     }
     _starting = true;
@@ -487,7 +489,7 @@ class MediaVideo extends ChangeNotifier {
       // Not before the first await: want() runs during builds.
       notifyListeners();
 
-      final VideoLease? lease = VideoPlayers.instance.acquire(
+      final VideoLease? lease = _players.acquire(
         onEvicted: _onEvicted,
         priority: _priority,
         width: _width,
