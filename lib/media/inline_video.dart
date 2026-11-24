@@ -203,37 +203,39 @@ class _InlineVideoState extends State<InlineVideo> {
     final Widget view = widget.autoplay
         ? MediaVideoView(video: _video, fit: BoxFit.cover, thumbnail: thumbnail)
         : thumbnail;
+    final Widget box = AspectRatio(
+      key: widget.boxKey,
+      aspectRatio: widget.aspectRatio,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(mediaInlineRadius),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            view,
+            if (widget.autoplay)
+              _InlineOverlay(video: _video)
+            else
+              const Center(
+                child: Icon(
+                  CupertinoIcons.play_circle_fill,
+                  color: Colors.white,
+                  size: 44,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
     return GestureDetector(
       onTap: widget.onTap,
       child: VisibilityDetector(
         key: _visibilityKey,
         onVisibilityChanged: _handleVisibility,
-        child: VideoScrubGesture(
-          video: _video,
-          child: AspectRatio(
-            key: widget.boxKey,
-            aspectRatio: widget.aspectRatio,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(mediaInlineRadius),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  view,
-                  if (widget.autoplay)
-                    _InlineOverlay(video: _video)
-                  else
-                    const Center(
-                      child: Icon(
-                        CupertinoIcons.play_circle_fill,
-                        color: Colors.white,
-                        size: 44,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ),
+        // Only the thumbnail shows without autoplay, so there's nothing to
+        // scrub: a sideways swipe on it goes back, as anywhere else.
+        child: widget.autoplay
+            ? VideoScrubGesture(video: _video, child: box)
+            : box,
       ),
     );
   }

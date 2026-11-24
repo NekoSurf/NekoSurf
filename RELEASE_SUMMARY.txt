@@ -1,1 +1,1 @@
-A video that needed a second try now shows its picture instead of its thumbnail.
+A video that needed a second try shows its picture, and swiping back from a thread works when it starts on a video that isn't playing.

@@ -38,6 +38,12 @@ class _VideoScrubGestureState extends State<VideoScrubGesture> {
   MediaVideo? _fastForwarding;
   double _targetMs = 0;
 
+  // Only a video showing its picture is scrubbed. A drag on one that isn't
+  // (still loading, or failed) is left to what's behind it, like the page's
+  // back swipe: claimed and then ignored, the swipe did nothing.
+  bool _canScrub() =>
+      widget.video.hasFirstFrame && widget.video.duration > Duration.zero;
+
   void _handleHoldStart(LongPressStartDetails details) {
     final MediaVideo video = widget.video;
     if (_scrubbing != null || !video.fastForwardStart()) {
@@ -64,7 +70,7 @@ class _VideoScrubGestureState extends State<VideoScrubGesture> {
 
   void _handleStart(DragStartDetails details) {
     final MediaVideo video = widget.video;
-    if (!video.hasFirstFrame || video.duration <= Duration.zero) {
+    if (!_canScrub()) {
       return;
     }
 
@@ -133,6 +139,7 @@ class _VideoScrubGestureState extends State<VideoScrubGesture> {
               _EdgeExcludingHorizontalDragRecognizer
             >(_EdgeExcludingHorizontalDragRecognizer.new, (recognizer) {
               recognizer
+                ..canStart = _canScrub
                 ..onStart = _handleStart
                 ..onUpdate = _handleUpdate
                 ..onEnd = _handleEnd
@@ -244,10 +251,15 @@ class _EdgeExcludingHorizontalDragRecognizer
     extends HorizontalDragGestureRecognizer {
   _EdgeExcludingHorizontalDragRecognizer();
 
-  // Not claiming edge pointers keeps them away from the arena entirely.
+  /// Whether a drag starting now would scrub.
+  bool Function() canStart = () => true;
+
+  // Not claiming edge pointers, or any while there's nothing to scrub,
+  // keeps them away from the arena entirely.
   @override
   bool isPointerAllowed(PointerEvent event) {
     return event.position.dx > VideoScrubGesture.edgeInset &&
+        canStart() &&
         super.isPointerAllowed(event);
   }
 }
