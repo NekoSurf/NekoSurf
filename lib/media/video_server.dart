@@ -12,12 +12,12 @@ import 'package:path_provider/path_provider.dart';
 
 /// Serves videos to mpv from a local HTTP server while it caches them.
 ///
-/// mpv opens `http://127.0.0.1:<port>/<id>` and gets bytes as soon as they
-/// arrive from 4chan, so playback starts right away instead of after the
-/// download, while the same download fills a file on disk. Once that file
-/// is complete, videos play from it directly: a video seen before starts
-/// instantly and never downloads twice. Preloading starts the download
-/// without a player.
+/// mpv opens `http://127.0.0.1:<port>/<name>`, named like the video's file
+/// in the cache, and gets bytes as soon as they arrive from 4chan, so
+/// playback starts right away instead of after the download, while the
+/// same download fills that file. Once it is complete, videos play from it
+/// directly: a video seen before starts instantly and never downloads
+/// twice. Preloading starts the download without a player.
 ///
 /// The download goes where the player reads: scrubbing past what has
 /// arrived moves it there, and what it skipped is filled in after.
@@ -44,8 +44,8 @@ class VideoServer {
 
   static final VideoServer instance = VideoServer._();
 
-  /// Beyond this, the least recently watched videos are deleted. The app sets
-  /// it on launch, from its setting.
+  /// Beyond this, the least recently watched videos are deleted; nothing is
+  /// while it's unset. The app sets it to 300 MB on launch.
   int? _maxCacheBytes;
 
   Future<void> setMaxCacheBytes(int bytes) async {
@@ -62,11 +62,10 @@ class VideoServer {
   static const int _maxQueued = 6;
 
   final Map<String, _Download> _downloads = <String, _Download>{};
-  final Map<String, String> _ids = <String, String>{};
-  final Map<String, ValueNotifier<double?>> _progress =
-      <String, ValueNotifier<double?>>{};
-  final Map<String, ValueNotifier<List<(double, double)>>> _loaded =
-      <String, ValueNotifier<List<(double, double)>>>{};
+  final Map<String, _Notifier<double?>> _progress =
+      <String, _Notifier<double?>>{};
+  final Map<String, _Notifier<List<(double, double)>>> _loaded =
+      <String, _Notifier<List<(double, double)>>>{};
   final Set<String> _watched = <String>{};
   // Videos being saved or shared, waiting for their download; they go first
   // like watched ones. Counted, as one may be saved and shared at once.
@@ -74,11 +73,20 @@ class VideoServer {
   // Background downloads waiting their turn, next first.
   final List<_Download> _queued = <_Download>[];
 
+  // Downloads being sent to mpv, by their sockets; each has its file open.
+  final Set<Socket> _streams = <Socket>{};
+
   Future<HttpServer>? _server;
   Future<Directory>? _dir;
+  // Pruning lists the cache while files come and go; one pass at a time.
+  Future<void> _pruning = Future<void>.value();
 
   @visibleForTesting
   void close() => _closeServer();
+
+  /// How many downloads are being sent to a player right now.
+  @visibleForTesting
+  int get openStreams => _streams.length;
 
   /// What mpv should open for [url]: the cached file if it's complete,
   /// otherwise a local stream of the download, which starts now. [url]
@@ -95,14 +103,15 @@ class VideoServer {
     if (file.existsSync() && !_downloads.containsKey(url)) {
       _progressOf(url).value = 1;
       _loadedOf(url).value = _all;
-      _touch(file);
+      await _touch(file);
       return file.path;
     }
 
     final _Download download = _downloadFor(url, file);
     _schedule();
     final HttpServer server = await (_server ??= _openServer());
-    return 'http://127.0.0.1:${server.port}/${download.id}';
+    return 'http://127.0.0.1:${server.port}/'
+        '${Uri.encodeComponent(download.name)}';
   }
 
   /// [url] is on screen and playing (again): its download goes first.
@@ -141,6 +150,7 @@ class VideoServer {
       waiting--;
       if (_downloads[dropped.url] == dropped) {
         _downloads.remove(dropped.url);
+        _forget(dropped.url);
       }
     }
     _schedule();
@@ -215,14 +225,11 @@ class VideoServer {
       download.cancel();
       _schedule();
     }
-    _progressOf(url).value = null;
-    _loadedOf(url).value = const <(double, double)>[];
     try {
       final File file = await _fileFor(url);
-      if (file.existsSync()) {
-        await file.delete();
-      }
+      await file.delete();
     } catch (_) {}
+    _forget(url);
   }
 
   /// How much the finished videos on disk take up, in bytes.
@@ -230,10 +237,8 @@ class VideoServer {
     try {
       final Directory dir = await (_dir ??= _openDir());
       int total = 0;
-      for (final File file in dir.listSync().whereType<File>()) {
-        if (!file.path.endsWith('.part')) {
-          total += file.lengthSync();
-        }
+      for (final (_, FileStat stat) in await _finished(dir)) {
+        total += stat.size;
       }
       return total;
     } catch (_) {
@@ -244,28 +249,23 @@ class VideoServer {
   /// Deletes every finished video; ones downloading now carry on. A video
   /// playing from disk keeps playing (its open file outlives the delete).
   Future<void> clearCache() async {
+    final Set<String> deleted = <String>{};
     try {
       final Directory dir = await (_dir ??= _openDir());
-      for (final File file in dir.listSync().whereType<File>()) {
-        if (!file.path.endsWith('.part')) {
-          await file.delete();
+      await for (final FileSystemEntity entity in dir.list()) {
+        if (entity is File && !entity.path.endsWith('.part')) {
+          await entity.delete();
+          deleted.add(_nameOf(entity));
         }
       }
     } catch (_) {}
-    for (final MapEntry<String, ValueNotifier<double?>> entry
-        in _progress.entries) {
-      if (!_downloads.containsKey(entry.key)) {
-        entry.value.value = null;
-        _loadedOf(entry.key).value = const <(double, double)>[];
-      }
-    }
+    _forgetFiles(deleted);
   }
 
   _Download _downloadFor(String url, File file) {
     return _downloads.putIfAbsent(url, () {
-      final String id = _ids[url] ??= '${_ids.length}';
       return _Download(
-        id: id,
+        name: _nameFor(url),
         url: url,
         file: file,
         progress: _progressOf(url),
@@ -275,7 +275,9 @@ class VideoServer {
             _downloads.remove(url);
           }
           _queued.remove(download);
-          if (!download.failed) {
+          if (download.failed) {
+            _forget(url);
+          } else {
             unawaited(_pruneSoon());
           }
           _schedule();
@@ -316,32 +318,102 @@ class VideoServer {
     }
   }
 
-  ValueNotifier<double?> _progressOf(String url) =>
-      _progress.putIfAbsent(url, () => ValueNotifier<double?>(null));
+  _Notifier<double?> _progressOf(String url) =>
+      _progress.putIfAbsent(url, () => _Notifier<double?>(null));
 
   static const List<(double, double)> _all = <(double, double)>[(0, 1)];
 
-  ValueNotifier<List<(double, double)>> _loadedOf(String url) => _loaded
-      .putIfAbsent(url, () => ValueNotifier<List<(double, double)>>(const []));
+  _Notifier<List<(double, double)>> _loadedOf(String url) => _loaded
+      .putIfAbsent(url, () => _Notifier<List<(double, double)>>(const []));
 
-  void _touch(File file) {
+  /// Nothing of [url] is downloading or on disk anymore. What still listens
+  /// hears that; otherwise what was known of it goes, as every video seen
+  /// would otherwise keep its own.
+  void _forget(String url) {
+    if (_downloads.containsKey(url)) {
+      return;
+    }
+    final _Notifier<double?>? progress = _progress[url];
+    if (progress != null && progress.listened) {
+      progress.value = null;
+    } else {
+      _progress.remove(url);
+    }
+    final _Notifier<List<(double, double)>>? loaded = _loaded[url];
+    if (loaded != null && loaded.listened) {
+      loaded.value = const <(double, double)>[];
+    } else {
+      _loaded.remove(url);
+    }
+  }
+
+  /// Files named [names] were deleted: forgets the videos they held.
+  void _forgetFiles(Set<String> names) {
+    if (names.isEmpty) {
+      return;
+    }
+    for (final String url in <String>{..._progress.keys, ..._loaded.keys}) {
+      // Named as by _nameFor; what isn't a URL never had a file.
+      if (names.contains(Uri.tryParse(url)?.pathSegments.join('_'))) {
+        _forget(url);
+      }
+    }
+  }
+
+  Future<void> _touch(File file) async {
     try {
       // Pruning goes by age; keep what's still being watched.
-      file.setLastModifiedSync(DateTime.now());
+      await file.setLastModified(DateTime.now());
     } catch (_) {}
   }
 
-  Future<File> _fileFor(String url) async {
+  /// What [url]'s file in the cache is called; mpv asks for its stream by
+  /// the same name.
+  static String _nameFor(String url) => Uri.parse(url).pathSegments.join('_');
+
+  static String _nameOf(File file) => file.uri.pathSegments.last;
+
+  Future<File> _fileFor(String url) => _fileNamed(_nameFor(url));
+
+  Future<File> _fileNamed(String name) async {
     final Directory dir = await (_dir ??= _openDir());
-    return File('${dir.path}/${Uri.parse(url).pathSegments.join('_')}');
+    return File('${dir.path}/$name');
   }
 
   Future<Directory> _openDir() async {
     final Directory temp = await getTemporaryDirectory();
     final Directory dir = Directory('${temp.path}/video_cache');
     await dir.create(recursive: true);
-    unawaited(_prune(dir, leftovers: true));
+    // Before any download starts, as it would make one of its own.
+    await _deleteLeftovers(dir);
+    unawaited(_prune(dir));
     return dir;
+  }
+
+  /// Deletes what downloads that never finished left behind.
+  static Future<void> _deleteLeftovers(Directory dir) async {
+    try {
+      await for (final FileSystemEntity entity in dir.list()) {
+        if (entity is File && entity.path.endsWith('.part')) {
+          await entity.delete();
+        }
+      }
+    } catch (_) {}
+  }
+
+  /// The finished videos in [dir], with their size and age.
+  static Future<List<(File, FileStat)>> _finished(Directory dir) async {
+    final List<(File, FileStat)> files = <(File, FileStat)>[];
+    await for (final FileSystemEntity entity in dir.list()) {
+      if (entity is File && !entity.path.endsWith('.part')) {
+        final FileStat stat = await entity.stat();
+        // Gone since it was listed.
+        if (stat.type != FileSystemEntityType.notFound) {
+          files.add((entity, stat));
+        }
+      }
+    }
+    return files;
   }
 
   Future<void> _pruneSoon() async {
@@ -351,35 +423,31 @@ class VideoServer {
     }
   }
 
-  /// Deletes the least recently watched videos beyond [_maxCacheBytes], and
-  /// with [leftovers], what downloads that never finished left behind.
-  Future<void> _prune(Directory dir, {bool leftovers = false}) async {
-    try {
-      final List<File> files = <File>[];
-      for (final File file in dir.listSync().whereType<File>()) {
-        if (file.path.endsWith('.part')) {
-          if (leftovers) {
-            await file.delete();
-          }
-        } else {
-          files.add(file);
-        }
-      }
-      final Map<File, FileStat> stats = {
-        for (final File file in files) file: file.statSync(),
-      };
-      files.sort((a, b) => stats[a]!.modified.compareTo(stats[b]!.modified));
+  /// Deletes the least recently watched videos beyond [_maxCacheBytes].
+  Future<void> _prune(Directory dir) =>
+      _pruning = _pruning.then((_) => _pruneNow(dir));
 
-      int total = stats.values.fold(0, (sum, stat) => sum + stat.size);
-      for (final File file in files) {
+  Future<void> _pruneNow(Directory dir) async {
+    if (_maxCacheBytes == null) {
+      return;
+    }
+    final Set<String> deleted = <String>{};
+    try {
+      final List<(File, FileStat)> files = await _finished(dir);
+      files.sort((a, b) => a.$2.modified.compareTo(b.$2.modified));
+
+      int total = files.fold(0, (sum, file) => sum + file.$2.size);
+      for (final (File file, FileStat stat) in files) {
         final int? max = _maxCacheBytes;
         if (max == null || total <= max) {
           break;
         }
-        total -= stats[file]!.size;
+        total -= stat.size;
         await file.delete();
+        deleted.add(_nameOf(file));
       }
     } catch (_) {}
+    _forgetFiles(deleted);
   }
 
   Future<HttpServer> _openServer() async {
@@ -397,50 +465,40 @@ class VideoServer {
     final Future<HttpServer>? server = _server;
     _server = null;
     server?.then((s) => s.close(force: true)).catchError((_) {});
+    // Streams left the server's hands (see _serveDownload); they end too.
+    for (final Socket socket in _streams.toList()) {
+      socket.destroy();
+    }
   }
 
   Future<void> _handle(HttpRequest request) async {
     final HttpResponse response = request.response;
     try {
-      final String id = request.uri.pathSegments.isEmpty
+      // The name of the video's file in the cache (see [source]).
+      final String name = request.uri.pathSegments.isEmpty
           ? ''
           : request.uri.pathSegments.first;
-      _Download? download;
-      for (final _Download candidate in _downloads.values) {
-        if (candidate.id == id) {
-          download = candidate;
-          break;
-        }
-      }
-
-      if (download == null) {
-        // Finished meanwhile: serve the file it left behind.
-        final String? url = _urlForId(id);
-        final File? file = url == null ? null : await _fileFor(url);
-        if (file == null || !file.existsSync()) {
-          response.statusCode = HttpStatus.notFound;
-          await response.close();
+      for (final _Download download in _downloads.values) {
+        if (download.name == name) {
+          await _serveDownload(request, download);
           return;
         }
-        await _serveFile(request, file);
-        return;
       }
 
-      await _serveDownload(request, download);
+      // Finished meanwhile: serve the file it left behind. Only from the
+      // cache, whatever the name says.
+      final File file = await _fileNamed(name);
+      if (name.isEmpty || name.contains('/') || !await file.exists()) {
+        response.statusCode = HttpStatus.notFound;
+        await response.close();
+        return;
+      }
+      await _serveFile(request, file);
     } catch (_) {
       try {
         await response.close();
       } catch (_) {}
     }
-  }
-
-  String? _urlForId(String id) {
-    for (final MapEntry<String, String> entry in _ids.entries) {
-      if (entry.value == id) {
-        return entry.key;
-      }
-    }
-    return null;
   }
 
   /// 4chan's videos are webm or mp4; [path] ends like the original.
@@ -463,7 +521,7 @@ class VideoServer {
 
   Future<void> _serveFile(HttpRequest request, File file) async {
     final HttpResponse response = request.response;
-    final int length = file.lengthSync();
+    final int length = await file.length();
     final (int, int?)? range = _parseRange(request);
     final int start = range?.$1 ?? 0;
     final int end = min(range?.$2 ?? length - 1, length - 1);
@@ -485,58 +543,111 @@ class VideoServer {
   }
 
   Future<void> _serveDownload(HttpRequest request, _Download download) async {
-    final HttpResponse response = request.response;
-    final int total = await download.totalLength;
-    if (!download.part.existsSync() && download.file.existsSync()) {
-      // Finished while this request waited.
-      await _serveFile(request, download.file);
-      return;
-    }
     final (int, int?)? range = _parseRange(request);
-    final int start = range?.$1 ?? 0;
-    final int end = min(range?.$2 ?? total - 1, total - 1);
-
-    response.headers.set(HttpHeaders.acceptRangesHeader, 'bytes');
-    response.headers.contentType = _contentType(download.url);
-    if (range != null) {
-      response.statusCode = HttpStatus.partialContent;
-      response.headers.set(
-        HttpHeaders.contentRangeHeader,
-        'bytes $start-$end/$total',
-      );
+    final bool head = request.method == 'HEAD';
+    // mpv hangs up when it seeks, or reconnects after a stall, often while
+    // the download it waits for is held or stalled. The response says
+    // nothing of that until it's written to, so this takes the socket,
+    // which does, and answers on it.
+    final Socket socket = await request.response.detachSocket(
+      writeHeaders: false,
+    );
+    _streams.add(socket);
+    // Failed writes also end its stream, which is heard below.
+    socket.done.ignore();
+    final Completer<bool> hungUp = Completer<bool>();
+    void hangUp() {
+      if (!hungUp.isCompleted) {
+        hungUp.complete(false);
+      }
     }
-    response.contentLength = max(0, end - start + 1);
-    if (request.method == 'HEAD') {
-      await response.close();
-      return;
-    }
 
-    download.seek(start);
-    final RandomAccessFile reader = await download.part.open();
-    int sent = start;
+    socket.listen(
+      (Uint8List _) {},
+      onDone: hangUp,
+      onError: (Object _) => hangUp(),
+      cancelOnError: true,
+    );
+    // True once [future] is done; false if mpv hung up first.
+    Future<bool> connected(Future<void> future) =>
+        Future.any(<Future<bool>>[future.then((_) => true), hungUp.future]);
+
+    RandomAccessFile? reader;
     try {
-      while (sent <= end) {
-        final int available = min(download.arrivedFrom(sent), end + 1);
-        if (available > sent) {
-          await reader.setPosition(sent);
-          final Uint8List chunk = await reader.read(available - sent);
-          if (chunk.isEmpty) {
+      final Future<int> totalLength = download.totalLength;
+      if (!await connected(totalLength)) {
+        return;
+      }
+      final int total = await totalLength;
+      final int start = range?.$1 ?? 0;
+      final int end = min(range?.$2 ?? total - 1, total - 1);
+      if (!head) {
+        try {
+          reader = await download.part.open();
+        } on FileSystemException {
+          // Finished while this request waited.
+          reader = await download.file.open();
+        }
+      }
+
+      final List<String> lines = <String>[
+        if (range == null)
+          'HTTP/1.1 200 OK'
+        else
+          'HTTP/1.1 206 Partial Content',
+        'content-type: ${_contentType(download.url)}',
+        'content-length: ${max(0, end - start + 1)}',
+        if (range != null) 'content-range: bytes $start-$end/$total',
+        'accept-ranges: bytes',
+        // Out of the server's hands, the socket takes no other request.
+        'connection: close',
+      ];
+      socket.write('${lines.join('\r\n')}\r\n\r\n');
+
+      if (reader != null) {
+        download.seek(start);
+        int sent = start;
+        while (sent <= end) {
+          final int available = min(download.arrivedFrom(sent), end + 1);
+          if (available > sent) {
+            await reader.setPosition(sent);
+            final Uint8List chunk = await reader.read(available - sent);
+            if (chunk.isEmpty) {
+              break;
+            }
+            socket.add(chunk);
+            sent += chunk.length;
+            // Waits for mpv to take it: a player that stopped reading
+            // doesn't have the rest pile up in memory.
+            if (!await connected(socket.flush())) {
+              return;
+            }
+            continue;
+          }
+          if (download.failed) {
             break;
           }
-          response.add(chunk);
-          sent += chunk.length;
-          continue;
+          if (!await connected(download.changed())) {
+            return;
+          }
         }
-        if (download.failed) {
-          break;
-        }
-        await download.changed();
       }
+      await connected(socket.flush());
     } finally {
-      await reader.close();
+      socket.destroy();
+      try {
+        await reader?.close();
+      } catch (_) {}
+      _streams.remove(socket);
     }
-    await response.close();
   }
+}
+
+/// A [ValueNotifier] that tells whether anything listens to it.
+class _Notifier<T> extends ValueNotifier<T> {
+  _Notifier(super.value);
+
+  bool get listened => hasListeners;
 }
 
 /// One video being downloaded to `<file>.part`, renamed to [file] when done.
@@ -546,7 +657,7 @@ class VideoServer {
 /// the end it comes back for what it skipped, so the file fills in spans.
 class _Download {
   _Download({
-    required this.id,
+    required this.name,
     required this.url,
     required this.file,
     required this.progress,
@@ -564,7 +675,8 @@ class _Download {
 
   static final RegExp _contentRange = RegExp(r'^bytes (\d+)-(\d+)/(\d+)$');
 
-  final String id;
+  // The file's name, which its stream goes by.
+  final String name;
   final String url;
   final File file;
   final File part;

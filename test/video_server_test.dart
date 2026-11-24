@@ -3,25 +3,32 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_chan/media/video_server.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Stands in for 4chan's image server: serves [bytes] in slow chunks,
-/// honours ranges, and can drop the first connection halfway.
+/// honours ranges, and can drop the first connection halfway or stall.
 class _Upstream {
   _Upstream(
     this.bytes, {
     this.dropFirstAfter,
+    this.stallAfter,
     this.chunkDelay = const Duration(milliseconds: 5),
   });
 
   final Uint8List bytes;
   final int? dropFirstAfter;
+  // Sends no more than this until [resume]; at 0, not even its headers.
+  final int? stallAfter;
   final Duration chunkDelay;
   late final HttpServer server;
   int requests = 0;
   final List<String?> ranges = <String?>[];
   bool _dropped = false;
+  final Completer<void> _resumed = Completer<void>();
+
+  void resume() => _resumed.complete();
 
   String get url => 'http://127.0.0.1:${server.port}/b/1700000000000.webm';
 
@@ -59,6 +66,10 @@ class _Upstream {
         } catch (_) {}
         return;
       }
+      final int? stall = stallAfter;
+      if (stall != null && at - start >= stall) {
+        await _resumed.future;
+      }
       request.response.add(bytes.sublist(at, min(at + chunk, end + 1)));
       await request.response.flush();
       await Future<void>.delayed(chunkDelay);
@@ -92,6 +103,17 @@ Future<(HttpClientResponse, Uint8List)> _get(
   return (response, body.takeBytes());
 }
 
+/// Waits for [condition], or fails after a few seconds.
+Future<void> _until(bool Function() condition) async {
+  final Stopwatch waited = Stopwatch()..start();
+  while (!condition()) {
+    if (waited.elapsed > const Duration(seconds: 5)) {
+      fail('Timed out');
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+}
+
 void main() {
   late Directory dir;
   late VideoServer videos;
@@ -113,6 +135,8 @@ void main() {
 
     final String local = await videos.source(upstream.url);
     expect(local, startsWith('http://127.0.0.1:'));
+    // Named like its file in the cache.
+    expect(Uri.parse(local).pathSegments, ['b_1700000000000.webm']);
     expect(await videos.cachedFile(upstream.url), isNull);
 
     final (HttpClientResponse response, Uint8List body) = await _get(local);
@@ -127,8 +151,95 @@ void main() {
     expect((await videos.cachedFile(upstream.url))?.path, cached);
     expect(videos.progressOf(upstream.url).value, 1);
     expect(upstream.requests, 1);
+
+    // A player that asks again gets the file.
+    final (HttpClientResponse again, Uint8List againBody) = await _get(local);
+    expect(again.statusCode, HttpStatus.ok);
+    expect(againBody, bytes);
     await upstream.server.close(force: true);
   });
+
+  test('serves nothing from outside the cache', () async {
+    final File outside = File('${dir.path}_outside.webm')
+      ..writeAsBytesSync(_video(1024));
+    addTearDown(outside.deleteSync);
+    final _Upstream upstream = _Upstream(_video(1024));
+    await upstream.start();
+    final Uri local = Uri.parse(await videos.source(upstream.url));
+
+    for (final String path in <String>[
+      '/b_1.webm',
+      '/..%2F${outside.uri.pathSegments.last}',
+    ]) {
+      final (HttpClientResponse response, _) = await _get(
+        local.replace(path: path).toString(),
+      );
+      expect(response.statusCode, HttpStatus.notFound, reason: path);
+    }
+    await upstream.server.close(force: true);
+  });
+
+  test('lets go of a stream when the player hangs up mid-video', () async {
+    final Uint8List bytes = _video(1024 * 1024);
+    final _Upstream upstream = _Upstream(bytes, stallAfter: 256 * 1024);
+    await upstream.start();
+    final String local = await videos.source(upstream.url);
+
+    // The player has what arrived before the download stalled.
+    final HttpClient client = HttpClient();
+    final HttpClientResponse response = await (await client.getUrl(
+      Uri.parse(local),
+    )).close();
+    int received = 0;
+    final StreamSubscription<List<int>> reading = response.listen(
+      (List<int> chunk) => received += chunk.length,
+      onError: (Object _) {},
+    );
+    await _until(() => received == 256 * 1024);
+    expect(videos.openStreams, 1);
+
+    // Then hangs up, as mpv does when it seeks or reconnects.
+    await reading.cancel();
+    client.close(force: true);
+    await _until(() => videos.openStreams == 0);
+    expect(videos.progressOf(upstream.url).value, 0.25);
+
+    // The download carries on without it.
+    upstream.resume();
+    while (await videos.cachedFile(upstream.url) == null) {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+    expect((await videos.cachedFile(upstream.url))!.readAsBytesSync(), bytes);
+    expect(videos.openStreams, 0);
+    await upstream.server.close(force: true);
+  });
+
+  test(
+    'lets go of a stream when the player hangs up before it starts',
+    () async {
+      final Uint8List bytes = _video(512 * 1024);
+      final _Upstream upstream = _Upstream(bytes, stallAfter: 0);
+      await upstream.start();
+      final String local = await videos.source(upstream.url);
+
+      // 4chan hasn't answered yet, so neither has the server.
+      final HttpClient client = HttpClient();
+      final HttpClientRequest request = await client.getUrl(Uri.parse(local));
+      unawaited(request.close().then((_) {}, onError: (Object _) {}));
+      await _until(() => videos.openStreams == 1);
+
+      client.close(force: true);
+      await _until(() => videos.openStreams == 0);
+      expect(videos.progressOf(upstream.url).value, isNull);
+
+      upstream.resume();
+      while (await videos.cachedFile(upstream.url) == null) {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+      expect((await videos.cachedFile(upstream.url))!.readAsBytesSync(), bytes);
+      await upstream.server.close(force: true);
+    },
+  );
 
   test('hands out the first bytes before the download is done', () async {
     final Uint8List bytes = _video(2 * 1024 * 1024);
@@ -372,13 +483,27 @@ void main() {
     expect(await videos.cacheSize(), 3 * bytes.length);
 
     // Room for two: the least recently watched goes.
+    final ValueListenable<double?> shown = videos.progressOf(urls.first);
+    final List<double?> heard = <double?>[];
+    void hear() => heard.add(shown.value);
+    shown.addListener(hear);
+    final ValueListenable<List<(double, double)>> unheard = videos.loadedOf(
+      urls.first,
+    );
     await videos.setMaxCacheBytes(2 * bytes.length);
     expect(await videos.cacheSize(), 2 * bytes.length);
+    // What listens hears it's gone; what doesn't is let go.
+    expect(heard, [null]);
+    expect(videos.progressOf(urls.first), same(shown));
+    expect(videos.loadedOf(urls.first), isNot(same(unheard)));
+    expect(videos.loadedOf(urls.first).value, isEmpty);
+    shown.removeListener(hear);
     expect(await videos.source(urls.first), startsWith('http'));
     expect(await videos.source(urls.last), isNot(startsWith('http')));
 
     await videos.clearCache();
     expect(await videos.cacheSize(), lessThan(bytes.length));
+    expect(videos.progressOf(urls.last).value, isNull);
     await upstream.server.close(force: true);
   });
 }
