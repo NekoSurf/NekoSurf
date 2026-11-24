@@ -123,6 +123,12 @@ class _InlineVideoState extends State<InlineVideo> {
     if (!oldWidget.preload && widget.preload) {
       _video.prefetch();
     }
+    // Data saver turned on or off while the thread stays on screen (beside
+    // the settings, on a wide screen): the video otherwise went on playing,
+    // unseen behind its thumbnail, till it was scrolled.
+    if (oldWidget.autoplay != widget.autoplay) {
+      _updateDemand();
+    }
   }
 
   void _handleVisibility(VisibilityInfo info) {
