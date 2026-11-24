@@ -294,6 +294,13 @@ class FakeOutput implements PlayerOutput {
     restart();
   }
 
+  /// Whether mpv draws on a surface the video's size (see
+  /// [PlayerOutput.drawsAt]); false while an Android surface switch runs.
+  bool drawsAtVideoSize = true;
+
+  @override
+  bool drawsAt(VideoParams params) => drawsAtVideoSize;
+
   @override
   Future<void> setSize(int? width, int? height) async {
     calls.add('setSize ${width}x$height');

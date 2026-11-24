@@ -1,10 +1,17 @@
 import 'dart:async';
+import 'dart:ffi' as ffi;
 import 'dart:io';
+import 'dart:isolate';
 
+import 'package:ffi/ffi.dart' show StringUtf8Pointer, malloc;
 import 'package:flutter/widgets.dart';
-import 'package:media_kit/generated/libmpv/bindings.dart' show mpv_event_id;
+import 'package:media_kit/generated/libmpv/bindings.dart'
+    show MPV, mpv_event_id, mpv_handle;
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+// Not exported; see MpvPlayerOutput._switchSurfacesInBackground.
+// ignore: implementation_imports
+import 'package:media_kit_video/src/video_controller/android_video_controller/android_video_controller.dart';
 
 /// 4chan caps webms at a few MB and videos play from a downloaded file, so
 /// a small demuxer cache is plenty; media_kit's default is 32 MB per player.
@@ -73,9 +80,8 @@ class VideoPlayers extends ChangeNotifier {
   /// Android reuses players too since a video's first frame comes from
   /// mpv's own events ([_PooledPlayer.watchOutput]): before that it came
   /// from media_kit's output, which reports one only for a player's first
-  /// video, so a reused player never showed. Checked against media_kit's
-  /// Android output, not yet on a phone; false gives each video a new
-  /// player there again.
+  /// video, so a reused player never showed. Checked on an AYN Thor; false
+  /// gives each video a new player there again.
   static const bool _reusesOnAndroid = true;
 
   // Four, so a thread showing four short videos at once plays them all.
@@ -182,8 +188,10 @@ class VideoPlayers extends ChangeNotifier {
         _create(width: sized ? width : null, height: sized ? height : null),
       );
       // media_kit's iOS output reports a first frame as soon as it has a
-      // size, which it has from the start when sized up front.
-      byOutput = sized;
+      // size, which it has from the start when sized up front. Its Android
+      // output reports it before mpv has drawn on a surface the video's
+      // size ([PlayerOutput.drawsAt]).
+      byOutput = sized || !sizesUpFront;
     }
     final VideoLease lease = VideoLease._(
       this,
@@ -401,6 +409,12 @@ abstract interface class PlayerOutput {
   /// The output's own first frame, which it reports for its first video.
   Future<void> get firstFrame;
 
+  /// Whether a frame mpv draws now for a video with [params] shows at its
+  /// shape. On Android the output gets a surface the video's size only
+  /// after mpv decoded it; until mpv has switched to it, what shows is
+  /// stretched to the new size, squashing it.
+  bool drawsAt(VideoParams params);
+
   /// Sizes the output; null for the video's own size.
   Future<void> setSize(int? width, int? height);
 
@@ -423,7 +437,7 @@ class MpvPlayerOutput implements PlayerOutput {
       ),
     );
     _waitForStreams(player);
-    return MpvPlayerOutput._(
+    final MpvPlayerOutput output = MpvPlayerOutput._(
       player,
       VideoController(
         player,
@@ -433,6 +447,10 @@ class MpvPlayerOutput implements PlayerOutput {
         ),
       ),
     );
+    if (Platform.isAndroid) {
+      unawaited(output._switchSurfacesInBackground());
+    }
+    return output;
   }
 
   @override
@@ -440,6 +458,106 @@ class MpvPlayerOutput implements PlayerOutput {
 
   @override
   final VideoController controller;
+
+  bool _disposed = false;
+
+  // The last surface switch, which runs after any before it.
+  Future<void>? _surfaceSwitch;
+
+  // Android: the size of the surface mpv draws on, once switched to it.
+  // Null where media_kit's output isn't taken over: drawn at any size.
+  ({int width, int height})? _surface;
+  bool _switchesSurfaces = false;
+
+  @override
+  bool drawsAt(VideoParams params) {
+    if (!_switchesSurfaces) {
+      return true;
+    }
+    // As media_kit sizes the surface.
+    final bool turned = params.rotate == 90 || params.rotate == 270;
+    final int width = (turned ? params.dh : params.dw) ?? 0;
+    final int height = (turned ? params.dw : params.dh) ?? 0;
+    return _surface == (width: width, height: height);
+  }
+
+  /// On Android, media_kit gives each new video size a new surface, and
+  /// switches mpv over to it with mpv calls that block until mpv has torn
+  /// its output down and set it up again. Made from the UI thread, each
+  /// switch froze scrolling for 30-90 ms whenever a video came on screen
+  /// (measured on an AYN Thor). This makes the same calls, in the same
+  /// order, from a background isolate instead.
+  ///
+  /// media_kit opens nothing in a player before its controller is set up,
+  /// so this takes over before the first video's surface.
+  Future<void> _switchSurfacesInBackground() async {
+    final PlatformVideoController platform = await controller.platform.future;
+    if (platform is! AndroidVideoController || _disposed) {
+      return;
+    }
+    final int handle = await player.handle;
+    _switchesSurfaces = true;
+    platform.wid.removeListener(platform.widListener);
+    platform.wid.addListener(() {
+      _surfaceSwitch = _switchSurface(
+        platform,
+        handle,
+      ).catchError((Object _) {});
+    });
+  }
+
+  // As AndroidVideoController.widListener does it.
+  Future<void> _switchSurface(AndroidVideoController platform, int handle) {
+    return platform.lock.synchronized(() async {
+      if (_disposed) {
+        return;
+      }
+      final Rect? rect = platform.rect.value;
+      final int wid = platform.wid.value ?? 0;
+      final String vo = platform.configuration.vo!;
+      await _setInBackground(handle, <(String, String)>[
+        // mpv needs its output set up again after the size.
+        ('vo', 'null'),
+        (
+          'android-surface-size',
+          '${rect?.width.toInt() ?? 1}x${rect?.height.toInt() ?? 1}',
+        ),
+        ('wid', '$wid'),
+        // Without a surface, an output would crash mpv.
+        ('vo', wid == 0 ? 'null' : vo),
+        if (vo == 'mediacodec_embed') ('vid', wid == 0 ? 'no' : 'auto'),
+      ]);
+      if (_disposed) {
+        return;
+      }
+      _surface = wid == 0 || rect == null
+          ? null
+          : (width: rect.width.toInt(), height: rect.height.toInt());
+      // Draws the picture again on the new surface, where it is, and
+      // restarts playback, which shows it (_PooledPlayer.watchOutput).
+      await player.seek(player.state.position);
+    });
+  }
+
+  // Static, so the isolate's closure holds nothing but its arguments.
+  static Future<void> _setInBackground(
+    int handle,
+    List<(String, String)> properties,
+  ) {
+    return Isolate.run(() {
+      final MPV mpv = MPV(ffi.DynamicLibrary.open('libmpv.so'));
+      final ffi.Pointer<mpv_handle> ctx = ffi.Pointer<mpv_handle>.fromAddress(
+        handle,
+      );
+      for (final (String name, String value) in properties) {
+        final ffi.Pointer<ffi.Int8> n = name.toNativeUtf8().cast();
+        final ffi.Pointer<ffi.Int8> v = value.toNativeUtf8().cast();
+        mpv.mpv_set_property_string(ctx, n, v);
+        malloc.free(n);
+        malloc.free(v);
+      }
+    });
+  }
 
   /// Lets [player] wait for a stream from VideoServer as long as mpv
   /// usually would. media_kit gives up after 5 s, but the server stalls a
@@ -474,8 +592,14 @@ class MpvPlayerOutput implements PlayerOutput {
   Future<void> setSize(int? width, int? height) =>
       controller.setSize(width: width, height: height);
 
+  // A surface switch still running would set properties on a player
+  // that's gone.
   @override
-  Future<void> dispose() => player.dispose();
+  Future<void> dispose() async {
+    _disposed = true;
+    await _surfaceSwitch;
+    await player.dispose();
+  }
 }
 
 /// A player and its video output, kept alive across the videos it plays.
@@ -507,18 +631,31 @@ class _PooledPlayer {
   // playback with it.
   bool _decoded = false;
   bool _restarted = false;
+  VideoParams? _params;
   Future<void> _last = Future<void>.value();
 
   void _onVideoParams(VideoParams params) {
     if ((params.dw ?? 0) > 0) {
       _decoded = true;
+      _params = params;
       _checkOutput();
     }
   }
 
   void _checkOutput() {
     final Completer<void>? output = _output;
-    if (output != null && _decoded && _restarted && !output.isCompleted) {
+    final VideoParams? params = _params;
+    if (output == null || output.isCompleted || params == null) {
+      return;
+    }
+    if (!this.output.drawsAt(params)) {
+      // That restart drew on a surface of another size: only the one
+      // after the switch counts. Counted, the frame showed briefly with
+      // black bars, when mpv's parameters came again after the switch.
+      _restarted = false;
+      return;
+    }
+    if (_decoded && _restarted) {
       output.complete();
     }
   }
@@ -533,7 +670,9 @@ class _PooledPlayer {
   /// Completes [output] once the video opened next shows its first frame:
   /// mpv has decoded it (it has video-params) and restarted playback with
   /// it (playback-restart), which it does only once that frame is drawn,
-  /// paused or not. Both come with mpv's events, in either order.
+  /// paused or not. Both come with mpv's events, in either order. And on
+  /// a surface its size ([PlayerOutput.drawsAt]): on Android, the restart
+  /// after mpv switched to it counts.
   ///
   /// Not video-params alone: mpv sets them as the first frame leaves the
   /// decoder, which can be well before it's drawn (a resumed video is
@@ -553,6 +692,7 @@ class _PooledPlayer {
     _output = output;
     _decoded = false;
     _restarted = false;
+    _params = null;
   }
 
   /// Stops the video it played, once its holder's steps are done. What

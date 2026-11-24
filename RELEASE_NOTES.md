@@ -4,7 +4,7 @@
 - Muted videos in a thread no longer stop music or a podcast playing in another app; a video takes over the sound only once you hear it, in the media viewer or unmuted in the thread
 
 ### 🤖 Smoother video threads on Android
-- Videos now reuse their players as they do on iPhone, so scrolling through a thread full of videos stutters less
+- Scrolling through a thread full of videos no longer stalls each time a new video comes on screen
 
 ## What's fixed
 

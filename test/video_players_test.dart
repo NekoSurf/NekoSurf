@@ -396,6 +396,36 @@ void main() {
       expect(shown, isTrue);
     });
 
+    testWidgets('waits for a surface its size, and the restart after', (
+      tester,
+    ) async {
+      final VideoPlayers players = _players(outputs);
+      final (VideoLease lease, FakeOutput output) = await reused(
+        tester,
+        players,
+      );
+      bool shown = false;
+      lease.firstFrame.then((_) => shown = true);
+      await lease.open(Media('/videos/second.webm'), setUp: _noSetUp);
+
+      // On Android, still on the last video's surface: squashed.
+      output.drawsAtVideoSize = false;
+      output.player.decode();
+      output.restart();
+      await tester.pump();
+      expect(shown, isFalse);
+
+      // Switched; mpv says the video's parameters again, then draws it
+      // there.
+      output.drawsAtVideoSize = true;
+      output.player.decode();
+      await tester.pump();
+      expect(shown, isFalse);
+      output.restart();
+      await tester.pump();
+      expect(shown, isTrue);
+    });
+
     testWidgets("not the output's own first frame", (tester) async {
       final VideoPlayers players = _players(outputs);
       final (VideoLease lease, FakeOutput output) = await reused(
