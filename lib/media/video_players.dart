@@ -15,13 +15,11 @@ const int _mediaBufferBytes = 8 * 1024 * 1024;
 /// decoder, threads and video surface; with a dozen alive (visible,
 /// preloaded and pooled), scrolling through videos lagged.
 ///
-/// On iOS, a player given back is kept and handed to the next video
-/// instead of being disposed. Creating an mpv player and tearing one down
-/// both block the UI thread (mpv starts up there, and its GL context is
-/// freed there), so with a new player for every video, scrolling stuttered
-/// each time a video came on screen once all were in use. Android's video
-/// output never reports a reused player's first frame, so there each video
-/// still gets a new one.
+/// A player given back is kept and handed to the next video instead of
+/// being disposed. Creating an mpv player and tearing one down both block
+/// the UI thread (mpv starts up there, and its GL context is freed there),
+/// so with a new player for every video, scrolling stuttered each time a
+/// video came on screen once all were in use.
 ///
 /// A holder gives its lease a [VideoLease.priority] while it plays or is
 /// about to: how much of the video is on screen, or more for fullscreen.
@@ -66,11 +64,19 @@ class VideoPlayers extends ChangeNotifier {
     // asking mpv for it from its render thread, which can lock up. Its
     // Android output can't be sized (and sizes itself from the video).
     sizesUpFront: Platform.isIOS,
-    reuses: Platform.isIOS,
+    reuses: Platform.isIOS || _reusesOnAndroid,
   );
 
   @visibleForTesting
   static set instance(VideoPlayers players) => _instance = players;
+
+  /// Android reuses players too since a video's first frame comes from
+  /// mpv's own events ([_PooledPlayer.watchOutput]): before that it came
+  /// from media_kit's output, which reports one only for a player's first
+  /// video, so a reused player never showed. Checked against media_kit's
+  /// Android output, not yet on a phone; false gives each video a new
+  /// player there again.
+  static const bool _reusesOnAndroid = true;
 
   // Four, so a thread showing four short videos at once plays them all.
   static const int _maxPlayers = 4;
@@ -537,7 +543,8 @@ class _PooledPlayer {
   ///
   /// Not media_kit's first frame either: its iOS output reports one as soon
   /// as it has a size, which it has from the start when sized up front,
-  /// before mpv has even opened the video.
+  /// before mpv has even opened the video; and its Android output reports
+  /// one only for a player's first video.
   ///
   /// Nor by reading mpv's state from Dart (as observeProperty does), which
   /// waits for mpv on the UI thread while mpv may wait on it to draw: on
