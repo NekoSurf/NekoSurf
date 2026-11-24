@@ -355,6 +355,17 @@ class _SharedMediaViewerState extends State<SharedMediaViewer> {
                                 setState(() => _activeVideo = video);
                               }
                             },
+                            // Its page is gone, and the video may be too:
+                            // the controls kept listening to it after it
+                            // was disposed. Not setState, as pages go while
+                            // the viewer lays out; it isn't the page shown,
+                            // so its controls are hidden till the next build
+                            // drops them.
+                            onGone: (video) {
+                              if (_activeVideo == video) {
+                                _activeVideo = null;
+                              }
+                            },
                             onScrubStateChanged: (isScrubbing) {
                               if (!mounted ||
                                   _isVideoScrubbing == isScrubbing) {
@@ -751,6 +762,7 @@ class _SharedMediaVideoPage extends StatefulWidget {
     required this.autoAdvance,
     required this.onCompleted,
     required this.onActive,
+    required this.onGone,
   });
 
   final double rate;
@@ -758,6 +770,9 @@ class _SharedMediaVideoPage extends StatefulWidget {
 
   /// It's the page shown, with this video for the controls.
   final ValueChanged<MediaVideo> onActive;
+
+  /// The page is going, and gives its video back.
+  final ValueChanged<MediaVideo> onGone;
 
   /// The video reached its end; only fires with [autoAdvance] on.
   final VoidCallback onCompleted;
@@ -847,6 +862,7 @@ class _SharedMediaVideoPageState extends State<_SharedMediaVideoPage> {
     if (widget.isActive) {
       _deactivate();
     }
+    widget.onGone(_video);
     _video.release(this);
     super.dispose();
   }
