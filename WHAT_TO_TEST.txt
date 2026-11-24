@@ -1,0 +1,3 @@
+WHAT'S FIXED
+
+• A video that didn't start at first and was tried again now shows its picture, instead of its thumbnail with the progress bar moving

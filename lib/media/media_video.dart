@@ -725,6 +725,11 @@ class MediaVideoView extends StatelessWidget {
                 opacity: video.hasFirstFrame ? 1 : 0,
                 duration: const Duration(milliseconds: 150),
                 child: Video(
+                  // A new one for each player: media_kit's Video only
+                  // listens to the player it started with, and hid the next
+                  // one's picture when the video changed player within a
+                  // frame (its retry, or reopening once 4chan lets up).
+                  key: ObjectKey(controller),
                   controller: controller,
                   fit: fit,
                   // No controls: media_kit's NoVideoControls is an untyped null.

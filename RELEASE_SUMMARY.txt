@@ -1,0 +1,1 @@
+A video that needed a second try now shows its picture instead of its thumbnail.
