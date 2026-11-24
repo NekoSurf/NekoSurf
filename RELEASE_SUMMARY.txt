@@ -1,1 +1,0 @@
-On iPhone, muted videos in threads no longer stop your music; a video that needed a second try shows its picture, swiping back works when it starts on a video that isn't playing, and scrolling video threads on Android no longer stalls as each video comes on screen.
