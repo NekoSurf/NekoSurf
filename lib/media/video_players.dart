@@ -408,7 +408,13 @@ class MpvPlayerOutput implements PlayerOutput {
   /// Sized up front to [width] x [height], if given.
   factory MpvPlayerOutput.create({int? width, int? height}) {
     final Player player = Player(
-      configuration: const PlayerConfiguration(bufferSize: _mediaBufferBytes),
+      configuration: const PlayerConfiguration(
+        bufferSize: _mediaBufferBytes,
+        // The app sets iPhone's audio up itself (VideoAudio): mpv set it
+        // up for playback as each video loaded, which stopped other apps'
+        // music for muted videos in threads.
+        iosManageAudioSession: false,
+      ),
     );
     _waitForStreams(player);
     return MpvPlayerOutput._(

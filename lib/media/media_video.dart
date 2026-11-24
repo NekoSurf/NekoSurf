@@ -5,6 +5,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/chan/file_server_limit.dart';
+import 'package:flutter_chan/media/video_audio.dart';
 import 'package:flutter_chan/media/video_players.dart';
 import 'package:flutter_chan/media/video_server.dart';
 import 'package:flutter_chan/media/video_size.dart';
@@ -333,6 +334,7 @@ class MediaVideo extends ChangeNotifier {
     _detach();
     _lease?.release();
     _lease = null;
+    VideoAudio.instance.setHeard(this, false);
     unawaited(_completed.close());
     position.dispose();
     scrubPosition.dispose();
@@ -417,6 +419,16 @@ class MediaVideo extends ChangeNotifier {
 
   void _applyVolume() {
     _lease?.player.setVolume(_volume).catchError((_) {});
+    _updateHeard();
+  }
+
+  /// Tells iPhone's audio whether this is heard: it plays with sound for
+  /// someone, so other apps' sound stops for it (see [VideoAudio]).
+  void _updateHeard() {
+    VideoAudio.instance.setHeard(
+      this,
+      _lease != null && _demands.isNotEmpty && _volume > 0,
+    );
   }
 
   /// Brings the player in line with who wants the video. Also runs when
@@ -424,6 +436,7 @@ class MediaVideo extends ChangeNotifier {
   void _sync() {
     final VideoLease? lease = _lease;
     final bool wanted = _demands.isNotEmpty;
+    _updateHeard();
 
     if (!wanted) {
       final bool active = _watched || (lease?.wanted ?? false);
@@ -544,6 +557,7 @@ class MediaVideo extends ChangeNotifier {
         return;
       }
       _lease = lease;
+      _updateHeard();
       _attach(lease, token);
       notifyListeners();
 
@@ -709,6 +723,7 @@ class MediaVideo extends ChangeNotifier {
     _hasFirstFrame = false;
     _playing = false;
     _buffering = false;
+    _updateHeard();
   }
 
   /// Sizes of video files found so far: a saved video keeps its size.

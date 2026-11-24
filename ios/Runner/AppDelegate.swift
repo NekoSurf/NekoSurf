@@ -1,3 +1,4 @@
+import AVFoundation
 import CloudKit
 import CoreImage
 import Flutter
@@ -10,6 +11,7 @@ import UIKit
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     AppSwitcherCover.watch()
+    VideoAudio.mixWithOthers()
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
@@ -48,6 +50,55 @@ import UIKit
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "CloudSync") {
       CloudSyncChannel.register(with: registrar)
+    }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "VideoAudio") {
+      VideoAudio.register(with: registrar)
+    }
+  }
+}
+
+/// How videos' sound goes with other apps' (music, a podcast). Left to
+/// mpv, each video set iOS up for playback as it loaded, sound or not, so
+/// scrolling past a muted video in a thread stopped whatever was playing.
+/// The app does it instead (media_kit's iosManageAudioSession is off):
+/// videos play alongside other audio, following the silent switch, until
+/// one is heard (fullscreen, or unmuted in a thread). Then they take over,
+/// as a video app's do, and sound with the switch on silent.
+///
+/// Other audio isn't told it may go on once no video is heard: that means
+/// deactivating the session, which stops every player's audio output,
+/// muted ones too, and mpv's video waits on its audio.
+enum VideoAudio {
+  // Not the main thread: activating the session can take a while.
+  private static let queue = DispatchQueue(label: "nekosurf.videoaudio")
+
+  /// Before any player exists.
+  static func mixWithOthers() {
+    try? AVAudioSession.sharedInstance().setCategory(.ambient, mode: .default)
+  }
+
+  static func register(with registrar: FlutterPluginRegistrar) {
+    let channel = FlutterMethodChannel(
+      name: "nekosurf/video_audio", binaryMessenger: registrar.messenger())
+    channel.setMethodCallHandler { call, result in
+      guard call.method == "setHeard", let heard = call.arguments as? Bool else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      queue.async {
+        let session = AVAudioSession.sharedInstance()
+        do {
+          if heard {
+            try session.setCategory(.playback, mode: .moviePlayback)
+            try session.setActive(true)
+          } else {
+            try session.setCategory(.ambient, mode: .default)
+          }
+        } catch {
+          NSLog("VideoAudio: couldn't set the audio session up: \(error)")
+        }
+        DispatchQueue.main.async { result(nil) }
+      }
     }
   }
 }
