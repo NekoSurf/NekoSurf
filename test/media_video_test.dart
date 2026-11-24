@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_chan/media/media_video.dart';
 import 'package:flutter_chan/media/video_players.dart';
+import 'package:flutter_chan/media/video_size.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'fake_player.dart';
@@ -617,6 +618,92 @@ void main() {
       await _settle(tester);
       expect(_since(output, played), <String>['play']);
       expect(video.isPlaying, isTrue);
+      await videos.end(tester);
+    });
+  });
+
+  group('finding the size', () {
+    late List<String> lookedUp;
+
+    setUp(() {
+      lookedUp = <String>[];
+      final Future<VideoSize?> Function(String) original = MediaVideo.findSize;
+      MediaVideo.findSize = (String path) async {
+        lookedUp.add(path);
+        return path.contains('-b.')
+            ? (width: 480, height: 270)
+            : (width: 720, height: 1280);
+      };
+      addTearDown(() => MediaVideo.findSize = original);
+    });
+
+    testWidgets('sized up front, a video without a size is sized from its '
+        'file', (tester) async {
+      final _Videos videos = _Videos(sizesUpFront: true);
+      final MediaVideo a = videos.obtain('a');
+      a.want('post');
+      await _settle(tester);
+      expect(lookedUp, <String>[a.source]);
+      final FakeOutput output = videos.outputOf(a);
+      expect(output.size, (720, 1280));
+      output.showFirstFrame();
+      await _settle(tester);
+      expect(a.hasFirstFrame, isTrue);
+
+      // A reused player is sized for it as it opens.
+      videos.release(a, 'post');
+      await _settle(tester);
+      final MediaVideo b = videos.obtain('b');
+      b.want('post');
+      await _settle(tester);
+      expect(videos.outputOf(b), same(output));
+      expect(output.sizes, <(int?, int?)>[(480, 270)]);
+
+      // A size found once is kept.
+      videos.release(b, 'post');
+      await _settle(tester);
+      final MediaVideo aAgain = videos.again(a.source);
+      aAgain.want('post');
+      await _settle(tester);
+      expect(lookedUp, <String>[a.source, b.source]);
+      expect(output.sizes.last, (720, 1280));
+      await videos.end(tester);
+    });
+
+    testWidgets('a video with its size known is not looked up', (tester) async {
+      final _Videos videos = _Videos(sizesUpFront: true);
+      final MediaVideo a = videos.obtain('a', width: 640, height: 360);
+      a.want('post');
+      await _settle(tester);
+      expect(lookedUp, isEmpty);
+      expect(videos.outputOf(a).size, (640, 360));
+      await videos.end(tester);
+    });
+
+    testWidgets('not sized up front, nothing is looked up', (tester) async {
+      final _Videos videos = _Videos();
+      final MediaVideo a = videos.obtain('a');
+      a.want('post');
+      await _settle(tester);
+      expect(lookedUp, isEmpty);
+      expect(videos.outputOf(a).size, (null, null));
+      await videos.end(tester);
+    });
+
+    testWidgets('a size that cannot be found leaves the video unsized', (
+      tester,
+    ) async {
+      MediaVideo.findSize = (String path) async {
+        lookedUp.add(path);
+        return null;
+      };
+      final _Videos videos = _Videos(sizesUpFront: true);
+      final MediaVideo a = videos.obtain('a');
+      a.want('post');
+      await _settle(tester);
+      expect(lookedUp, <String>[a.source]);
+      expect(videos.outputOf(a).size, (null, null));
+      expect(a.isPlaying, isTrue);
       await videos.end(tester);
     });
   });

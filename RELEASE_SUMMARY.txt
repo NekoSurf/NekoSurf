@@ -1,1 +1,1 @@
-A video that needed a second try shows its picture, swiping back works when it starts on a video that isn't playing, and a finished video in the media viewer stays at its end.
+A video that needed a second try shows its picture, swiping back works when it starts on a video that isn't playing, a finished video in the media viewer stays at its end, and saved videos on iPhone start like videos in threads.

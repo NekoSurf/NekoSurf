@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chan/chan/file_server_limit.dart';
 import 'package:flutter_chan/media/video_players.dart';
 import 'package:flutter_chan/media/video_server.dart';
+import 'package:flutter_chan/media/video_size.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
@@ -62,8 +63,10 @@ class MediaVideo extends ChangeNotifier {
   final String source;
   // The players it plays with, kept: tests change VideoPlayers.instance.
   final VideoPlayers _players = VideoPlayers.instance;
-  final int? _width;
-  final int? _height;
+  // Its size, when known: from the post, or found out from the file (see
+  // _findSize).
+  int? _width;
+  int? _height;
   int _refs = 0;
 
   // Who wants it playing, and whether they want sound.
@@ -517,6 +520,14 @@ class MediaVideo extends ChangeNotifier {
         notifyListeners();
         return;
       }
+      if (_players.sizesUpFront &&
+          !_served &&
+          (_width == null || _height == null)) {
+        await _findSize();
+        if (token != _token || _demands.isEmpty) {
+          return;
+        }
+      }
       // Not before the first await: want() runs during builds.
       notifyListeners();
 
@@ -698,6 +709,32 @@ class MediaVideo extends ChangeNotifier {
     _hasFirstFrame = false;
     _playing = false;
     _buffering = false;
+  }
+
+  /// Sizes of video files found so far: a saved video keeps its size.
+  static final Map<String, VideoSize> _foundSizes = <String, VideoSize>{};
+
+  /// How a file's size is found; tests set their own.
+  @visibleForTesting
+  static Future<VideoSize?> Function(String path) findSize = probeVideoSize;
+
+  /// Finds the size of a video on the phone shown without one (a saved
+  /// video): its player is sized for it up front on iPhone, where media_kit
+  /// otherwise asked mpv for it from its render thread as it drew, which
+  /// can lock up (see VideoPlayers.sizesUpFront).
+  Future<void> _findSize() async {
+    VideoSize? size = _foundSizes[source];
+    if (size == null) {
+      try {
+        size = await findSize(source);
+      } catch (_) {}
+      if (size == null) {
+        return;
+      }
+      _foundSizes[source] = size;
+    }
+    _width = size.width;
+    _height = size.height;
   }
 
   void _fail() {

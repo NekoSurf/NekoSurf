@@ -3,3 +3,4 @@
 - A video that didn't start at first and was tried again now shows its picture, instead of its thumbnail with the progress bar moving
 - Swiping back from a thread now works when the swipe starts on a video that isn't playing yet, or on a video's thumbnail with Data saver on
 - With auto-advance on in the media viewer, a video that has ended stays at its end instead of starting over by itself, and going back to it plays it from the start instead of moving straight on again
+- On iPhone, saved videos in the Saved tab now start the way videos in threads do, avoiding a freeze that could happen as they began
