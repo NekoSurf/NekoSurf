@@ -95,6 +95,16 @@ flutter run
 
 Found a bug or have an idea? [Open an issue](https://github.com/NekoSurf/NekoSurf/issues).
 
+## Support NekoSurf
+
+NekoSurf is free, with no ads, and made in my spare time. If you enjoy it, you can [sponsor it on GitHub](https://github.com/sponsors/wrngwrld), monthly or once; it helps pay the Apple Developer fee that keeps it on TestFlight.
+
+### Supporters
+
+Thank you to everyone who sponsors NekoSurf:
+
+- Be the first! [Sponsor on GitHub](https://github.com/sponsors/wrngwrld)
+
 ## License
 
 NekoSurf is free software under the [GPL-3.0](LICENSE).
