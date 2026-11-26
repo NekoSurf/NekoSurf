@@ -225,6 +225,32 @@ void main() {
     );
   });
 
+  testWidgets('a post whose file was deleted says so', (tester) async {
+    final Post post = Post(
+      board: 'gif',
+      no: 2,
+      time: 1700000000,
+      filedeleted: 1,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ThreadPagePost(
+            post: post,
+            thread: ThreadPosts(
+              board: 'gif',
+              number: 1,
+              posts: [Post(board: 'gif', no: 1), post],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('File deleted'), findsOneWidget);
+  });
+
   group('quotes', () {
     Future<void> pumpQuoting(WidgetTester tester, String com) async {
       final Post post = Post(board: 'g', no: 3, time: 1700000000, com: com);

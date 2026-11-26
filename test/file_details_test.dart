@@ -23,4 +23,15 @@ void main() {
   test('a post without a file has no details', () {
     expect(Post(board: 'g', no: 1).fileDetails, isNull);
   });
+
+  test('a post whose file was deleted says so, and keeps saying it', () {
+    final Post post = Post.fromJson(<String, dynamic>{
+      'no': 1,
+      'filedeleted': 1,
+    }, 'gif');
+    expect(post.hasFile, isFalse);
+    expect(post.fileDeleted, isTrue);
+    expect(Post.fromJson(post.toJson(), 'gif').fileDeleted, isTrue);
+    expect(Post(board: 'g', no: 1).fileDeleted, isFalse);
+  });
 }

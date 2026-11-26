@@ -379,6 +379,15 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                         thread: widget.thread,
                         repliedTo: widget.repliedTo,
                       ),
+                    )
+                  else if (widget.post.fileDeleted)
+                    Text(
+                      'File deleted',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontStyle: FontStyle.italic,
+                        color: DashColors.muted(context),
+                      ),
                     ),
                 ],
               ),
@@ -661,6 +670,17 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
                 onTap: fold,
                 onTapQuote: widget.onTapQuote,
                 repliedTo: widget.repliedTo,
+              ),
+            ],
+            if (!folded && !isPreview && post.fileDeleted) ...[
+              const SizedBox(height: 6),
+              Text(
+                'File deleted',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontStyle: FontStyle.italic,
+                  color: muted,
+                ),
               ),
             ],
             if (!folded && !isPreview && post.hasFile) ...[

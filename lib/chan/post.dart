@@ -30,6 +30,7 @@ class Post {
     this.trip,
     this.capcode,
     this.spoiler,
+    this.filedeleted,
     this.archivedFileUrl,
     this.archivedThumbnailUrl,
   });
@@ -63,6 +64,7 @@ class Post {
     trip: json['trip'] as String?,
     capcode: json['capcode'] as String?,
     spoiler: json['spoiler'] as int?,
+    filedeleted: json['filedeleted'] as int?,
     archivedFileUrl: json['archived_file_url'] as String?,
     archivedThumbnailUrl: json['archived_thumbnail_url'] as String?,
   );
@@ -123,6 +125,7 @@ class Post {
     'trip': ?trip,
     'capcode': ?capcode,
     'spoiler': ?spoiler,
+    'filedeleted': ?filedeleted,
     'archived_file_url': ?archivedFileUrl,
     'archived_thumbnail_url': ?archivedThumbnailUrl,
   };
@@ -164,6 +167,10 @@ class Post {
   /// The staff role the post is by, like "mod".
   final String? capcode;
   final int? spoiler;
+
+  /// 1 when the post had a file that's been deleted; 4chan then leaves out
+  /// the file's details, so it has no [hasFile].
+  final int? filedeleted;
 
   /// Where an archive keeps the attached file and its thumbnail, for a post
   /// loaded from one (see fetchArchivedThread) rather than from 4chan.
@@ -228,6 +235,9 @@ class Post {
   bool get isSticky => sticky == 1;
 
   bool get hasFile => tim != null && ext != null;
+
+  /// Its file was deleted, as 4chan says where it was.
+  bool get fileDeleted => filedeleted == 1 && !hasFile;
 
   /// Whether the attached file is a video; 4chan takes webm and mp4.
   bool get isVideo {
