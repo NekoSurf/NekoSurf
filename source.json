@@ -24,6 +24,15 @@
       ],
       "versions": [
         {
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.13.1%2B322/Runner.ipa",
+          "size": 32439526,
+          "version": "0.13.1",
+          "buildVersion": "322",
+          "date": "2026-11-26T22:57:45+00:00",
+          "localizedDescription": "Sponsor NekoSurf from Settings, and a post whose file was deleted now says so instead of showing up empty.",
+          "minOSVersion": "17.0"
+        },
+        {
           "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.13.1%2B321/Runner.ipa",
           "size": 32441433,
           "version": "0.13.1",
