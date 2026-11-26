@@ -88,12 +88,15 @@ void main() {
       'Track history',
       'Only while the app is open',
       'Clear cache',
+      'Sponsor NekoSurf',
       'Send feedback',
       'Privacy policy',
     ]) {
       expect(find.text(title), findsOneWidget, reason: title);
     }
     expect(find.text('NekoSurf'), findsOneWidget);
+    expect(find.text('View on GitHub'), findsOneWidget);
+    expect(find.text('Sponsor'), findsOneWidget);
     // One for threads, one for posts.
     expect(find.text('Add filter'), findsNWidgets(2));
   });

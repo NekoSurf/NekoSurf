@@ -101,39 +101,23 @@ class _AboutCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 10),
-                GestureDetector(
-                  onTap: () => openUrl('https://github.com/NekoSurf/NekoSurf'),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _CardLink(
+                      icon: CupertinoIcons.chevron_left_slash_chevron_right,
+                      label: 'View on GitHub',
+                      onTap: () =>
+                          openUrl('https://github.com/NekoSurf/NekoSurf'),
                     ),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? Colors.black.withValues(alpha: 0.3)
-                          : Colors.white.withValues(alpha: 0.65),
-                      borderRadius: BorderRadius.circular(999),
+                    _CardLink(
+                      icon: CupertinoIcons.heart_fill,
+                      iconColor: const Color(0xFFF472B6),
+                      label: 'Sponsor',
+                      onTap: () => openUrl(_AboutLinks.sponsorUrl),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          CupertinoIcons.chevron_left_slash_chevron_right,
-                          size: 13,
-                          color: DashColors.text(context),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'View on GitHub',
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w700,
-                            color: DashColors.text(context),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  ],
                 ),
               ],
             ),
@@ -144,10 +128,59 @@ class _AboutCard extends StatelessWidget {
   }
 }
 
-/// Where to say what's wrong or missing, and what the app does with data.
+/// A small rounded button on the card at the top.
+class _CardLink extends StatelessWidget {
+  const _CardLink({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.iconColor,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final Color? iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isDark = context.isDark;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.black.withValues(alpha: 0.3)
+              : Colors.white.withValues(alpha: 0.65),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: iconColor ?? DashColors.text(context)),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: DashColors.text(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Where to support the app, say what's wrong or missing, and read what the
+/// app does with data.
 class _AboutLinks extends StatelessWidget {
   const _AboutLinks();
 
+  static const String sponsorUrl = 'https://github.com/sponsors/wrngwrld';
   static const String feedbackUrl =
       'https://github.com/NekoSurf/NekoSurf/issues/new';
   static const String privacyPolicyUrl =
@@ -163,8 +196,16 @@ class _AboutLinks extends StatelessWidget {
 
     return SettingsGroup(
       title: 'About',
-      footer: 'Both open on GitHub, in your browser.',
+      footer: 'All open on GitHub, in your browser.',
       children: [
+        SettingsRow(
+          icon: CupertinoIcons.heart_fill,
+          color: const Color(0xFFF472B6),
+          title: 'Sponsor NekoSurf',
+          subtitle: 'Help keep it free, with no ads',
+          trailing: opensOutside,
+          onTap: () => openUrl(sponsorUrl),
+        ),
         SettingsRow(
           icon: CupertinoIcons.chat_bubble_text_fill,
           color: const Color(0xFF60A5FA),

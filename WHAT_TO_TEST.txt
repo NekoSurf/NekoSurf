@@ -1,3 +1,8 @@
+WHAT'S NEW
+
+Sponsor NekoSurf
+• A Sponsor button at the top of Settings, and a row in About, open NekoSurf's GitHub Sponsors page, to help keep it free and without ads
+
 WHAT'S FIXED
 
 • A post whose file was deleted now says "File deleted", instead of showing up empty
