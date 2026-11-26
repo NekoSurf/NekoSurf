@@ -1,1 +1,0 @@
-Sponsor NekoSurf from Settings, and a post whose file was deleted now says so instead of showing up empty.

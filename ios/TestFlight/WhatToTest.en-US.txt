@@ -1,14 +1,8 @@
 WHAT'S NEW
 
-Videos play alongside your music on iPhone
-• Muted videos in a thread no longer stop music or a podcast playing in another app; a video takes over the sound only once you hear it, in the media viewer or unmuted in the thread
-
-Smoother video threads on Android
-• Scrolling through a thread full of videos no longer stalls each time a new video comes on screen
+Sponsor NekoSurf
+• A Sponsor button at the top of Settings, and a row in About, open NekoSurf's GitHub Sponsors page, to help keep it free and without ads
 
 WHAT'S FIXED
 
-• A video that didn't start at first and was tried again now shows its picture, instead of its thumbnail with the progress bar moving
-• Swiping back from a thread now works when the swipe starts on a video that isn't playing yet, or on a video's thumbnail with Data saver on
-• With auto-advance on in the media viewer, a video that has ended stays at its end instead of starting over by itself, and going back to it plays it from the start instead of moving straight on again
-• On iPhone, saved videos in the Saved tab now start the way videos in threads do, avoiding a freeze that could happen as they began
+• A post whose file was deleted now says "File deleted", instead of showing up empty
