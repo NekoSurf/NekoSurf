@@ -20,6 +20,16 @@ class Settings extends StatefulWidget {
 
 class _SettingsState extends State<Settings> {
   late final Future<PackageInfo> _version = PackageInfo.fromPlatform();
+  final TextEditingController _search = TextEditingController();
+
+  /// What's searched for, in lower case; empty for everything.
+  String _query = '';
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,14 +37,31 @@ class _SettingsState extends State<Settings> {
       child: Column(
         children: [
           _AboutCard(version: _version),
-          const SizedBox(height: 22),
-          const AppearanceSettings(),
-          const BrowsingSettings(),
-          const PrivacySettings(),
-          const StorageSettings(),
-          const CloudSyncSettings(),
-          const BackupSettings(),
-          const _AboutLinks(),
+          // Under the card, which stays while searching, so the field
+          // doesn't move as it's typed in.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 22),
+            child: CupertinoSearchTextField(
+              controller: _search,
+              placeholder: 'Search settings',
+              backgroundColor: DashColors.card(context),
+              onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
+            ),
+          ),
+          SettingsSearch(
+            query: _query,
+            child: const Column(
+              children: [
+                AppearanceSettings(),
+                BrowsingSettings(),
+                PrivacySettings(),
+                StorageSettings(),
+                CloudSyncSettings(),
+                BackupSettings(),
+                _AboutLinks(),
+              ],
+            ),
+          ),
         ],
       ),
     );

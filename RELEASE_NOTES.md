@@ -6,6 +6,9 @@
 - Hold a board to add it to your favorites or open its archive
 - Hold a thread under Continue reading to bookmark it or take it out of History; the row takes less room when the titles are short
 
+### 🔎 Search in Settings
+- Type in the field under the card at the top of Settings to see just the settings that match
+
 ### 🔖 Tidier Bookmarks
 - Archived and deleted threads move to the end, under No longer live, with a button to remove them all
 - Under the title, how many bookmarks you have and how many have new replies

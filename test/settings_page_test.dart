@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chan/history/history_model.dart';
 import 'package:flutter_chan/history/watched_posts_model.dart';
@@ -126,12 +127,44 @@ void main() {
     await tester.tap(find.text('Add filter').last);
     await tester.pumpAndSettle();
     expect(find.text('Hide posts matching'), findsOneWidget);
-    await tester.enterText(find.byType(EditableText), 'crypto');
+    // The dialog's field, not the search field over the settings.
+    await tester.enterText(find.byType(EditableText).last, 'crypto');
     await tester.tap(find.text('Add'));
     await tester.pumpAndSettle();
 
     expect(settings.postFilters, [PostFilter(PostFilterKind.text, 'crypto')]);
     expect(find.text('“crypto”'), findsOneWidget);
+  });
+
+  testWidgets('searching shows only the settings that match', (tester) async {
+    await pumpSettings(tester);
+    final Finder search = find.widgetWithText(
+      CupertinoSearchTextField,
+      'Search settings',
+    );
+
+    await tester.enterText(search, 'history');
+    await tester.pumpAndSettle();
+    // Found by their titles and what they say.
+    expect(find.text('Track history'), findsOneWidget);
+    expect(find.text('Show Continue reading'), findsOneWidget);
+    expect(find.text('Appearance'), findsNothing);
+    // Groups with nothing found go; the card above the field stays.
+    expect(find.text('THEME'), findsNothing);
+    expect(find.text('View on GitHub'), findsOneWidget);
+
+    // A group's title finds all of it.
+    await tester.enterText(search, 'theme');
+    await tester.pumpAndSettle();
+    expect(find.text('Appearance'), findsOneWidget);
+    expect(find.text('Color'), findsOneWidget);
+    expect(find.text('Track history'), findsNothing);
+
+    await tester.enterText(search, '');
+    await tester.pumpAndSettle();
+    expect(find.text('Appearance'), findsOneWidget);
+    expect(find.text('Track history'), findsOneWidget);
+    expect(find.text('View on GitHub'), findsOneWidget);
   });
 
   testWidgets('choices change right there', (tester) async {
