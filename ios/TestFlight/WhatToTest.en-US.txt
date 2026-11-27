@@ -1,8 +1,15 @@
 WHAT'S NEW
 
-Sponsor NekoSurf
-• A Sponsor button at the top of Settings, and a row in About, open NekoSurf's GitHub Sponsors page, to help keep it free and without ads
+Menus that feel better
+• Menus spring out of the button that opened them, and touching outside one closes it and scrolls the page in the same swipe
+• Slide your finger over a menu and let go on what you want, with a tick as you pass each item
 
-WHAT'S FIXED
+A fresh look for Boards, Bookmarks and Saved
+• On the Boards tab, Continue reading shows the threads you were last in as big pictures, with how many replies are new; it links to History, and can be turned off in Settings → History
+• In the Bookmarks tab, threads with new replies come first, as big pictures
+• The Saved tab groups your files by when you saved them, under Today, Yesterday and so on
+• With no bookmarks yet, the Bookmarks tab says how to add them, with a button to the boards
+• A board, your feed and a board's archive start straight with their threads, with how many there are under the title
 
-• A post whose file was deleted now says "File deleted", instead of showing up empty
+The same page slide on Android
+• Pages slide in and out on Android as they do on iPhone, with the page underneath moving along
