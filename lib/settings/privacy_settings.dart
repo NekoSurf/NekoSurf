@@ -204,6 +204,20 @@ class PrivacySettings extends StatelessWidget {
                 ),
               ),
             ),
+            _enabledIf(
+              settings.trackHistory.value,
+              SettingsRow(
+                icon: CupertinoIcons.book_fill,
+                color: const Color(0xFFF472B6),
+                title: 'Show Continue reading',
+                subtitle:
+                    'Start the Boards tab with the threads you opened last.',
+                trailing: SettingsSwitch(
+                  value: settings.showContinueReading.value,
+                  onChanged: settings.showContinueReading.set,
+                ),
+              ),
+            ),
           ],
         ),
       ],

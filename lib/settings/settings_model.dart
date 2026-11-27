@@ -141,6 +141,7 @@ class SettingsProvider with ChangeNotifier implements SyncTarget {
     'askBeforePhotos',
     'coverInAppSwitcher',
     'historyThisSessionOnly',
+    'showContinueReading',
     'archivesOff',
   };
 
@@ -275,6 +276,12 @@ class SettingsProvider with ChangeNotifier implements SyncTarget {
     true,
   );
   late final Setting<bool> trackHistory = _bool('trackHistory', true);
+
+  /// The Boards tab starts with Continue reading, the threads last opened.
+  late final Setting<bool> showContinueReading = _bool(
+    'showContinueReading',
+    true,
+  );
 
   /// The Saved tab shows the latest saves first.
   late final Setting<bool> savedNewestFirst = _bool('savedNewestFirst', true);

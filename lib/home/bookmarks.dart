@@ -1,12 +1,15 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart' show Colors;
 import 'package:flutter_chan/board/thread_order.dart';
 import 'package:flutter_chan/board/thread_views.dart';
 import 'package:flutter_chan/bookmarks/bookmark.dart';
 import 'package:flutter_chan/bookmarks/bookmarks_model.dart';
 import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/chan/thread_status.dart';
+import 'package:flutter_chan/history/new_replies.dart';
 import 'package:flutter_chan/history/watched_posts_model.dart';
-import 'package:flutter_chan/home/bookmarks_summary.dart';
+import 'package:flutter_chan/home/app_shell.dart';
+import 'package:flutter_chan/home/thread_cards.dart';
 import 'package:flutter_chan/offline/offline_threads.dart';
 import 'package:flutter_chan/offline/offline_threads_page.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
@@ -15,7 +18,9 @@ import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_dialogs.dart';
 import 'package:flutter_chan/ui/dash_menu.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
+import 'package:flutter_chan/ui/dash_widgets.dart';
 import 'package:flutter_chan/ui/master_detail.dart';
+import 'package:flutter_chan/ui/open.dart';
 import 'package:provider/provider.dart';
 
 /// The Bookmarks tab: the bookmarked threads as a board shows its threads.
@@ -239,10 +244,7 @@ class _BookmarksState extends State<Bookmarks> {
             )
           else ...[
             SliverToBoxAdapter(
-              child: BookmarksSummary(
-                bookmarks: items,
-                newestFirst: bookmarks.newestFirst,
-              ),
+              child: _NewReplies(posts: [for (final b in items) _post(b)]),
             ),
             _Threads(
               posts: [for (final b in items) _post(b)],
@@ -304,35 +306,120 @@ class _Threads extends StatelessWidget {
   }
 }
 
+/// The bookmarked threads with new replies, as big picture cards above the
+/// rest, under "All bookmarks"; nothing while none has any.
+class _NewReplies extends StatelessWidget {
+  const _NewReplies({required this.posts});
+
+  final List<Post> posts;
+
+  @override
+  Widget build(BuildContext context) {
+    // Read positions change with every scroll in a thread; this only
+    // rebuilds when a count does.
+    final String counts = context.select<WatchedPostsProvider, String>(
+      (watched) => [
+        for (final Post post in posts)
+          watched.newReplies(post.no, post.replies ?? 0) ?? 0,
+      ].join(','),
+    );
+    final List<int> newReplies = [
+      for (final String n in counts.split(',')) int.tryParse(n) ?? 0,
+    ];
+    final List<ThreadCard> cards = [
+      for (int i = 0; i < posts.length && i < newReplies.length; i++)
+        if (newReplies[i] > 0)
+          ThreadCard(
+            post: posts[i],
+            onTap: () => openThread(context, posts[i]),
+            badge: NewRepliesBadge(count: newReplies[i], short: true),
+          ),
+    ];
+    if (cards.isEmpty) {
+      return const SizedBox(height: 4);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const DashSectionHeader(title: 'New replies', top: 8),
+        ThreadCardRow(cards: cards, width: 240, imageHeight: 150),
+        const DashSectionHeader(title: 'All bookmarks'),
+      ],
+    );
+  }
+}
+
 class _EmptyState extends StatelessWidget {
   const _EmptyState();
 
   @override
   Widget build(BuildContext context) {
+    final VoidCallback? showBoards = ShowBoardsTab.maybeOf(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(32, 80, 32, 0),
       child: Column(
         children: [
-          Icon(
-            CupertinoIcons.bookmark,
-            size: 44,
-            color: context.accent.withValues(alpha: 0.8),
+          Container(
+            width: 132,
+            height: 132,
+            padding: const EdgeInsets.all(22),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  context.accent.withValues(alpha: 0.28),
+                  context.accent2.withValues(alpha: 0.22),
+                ],
+              ),
+              border: Border.all(color: context.accent.withValues(alpha: 0.3)),
+            ),
+            child: ClipOval(
+              child: Image.asset(
+                'assets/icons/icon-round.png',
+                semanticLabel: 'NekoSurf',
+              ),
+            ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           Text(
             'No bookmarks yet',
             style: TextStyle(
-              fontSize: 20,
+              fontSize: 22,
               fontWeight: FontWeight.w800,
+              letterSpacing: -0.4,
               color: DashColors.text(context),
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
-            'Tap the bookmark icon on a thread to keep it here.',
+            'Tap the bookmark in a thread to keep it here, with its new '
+            'replies.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: DashColors.muted(context)),
+            style: TextStyle(
+              fontSize: 15,
+              height: 1.45,
+              color: DashColors.muted(context),
+            ),
           ),
+          if (showBoards != null) ...[
+            const SizedBox(height: 22),
+            CupertinoButton(
+              color: context.accent,
+              borderRadius: BorderRadius.circular(16),
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
+              onPressed: showBoards,
+              child: const Text(
+                'Browse boards',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.black,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

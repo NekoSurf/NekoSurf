@@ -67,25 +67,6 @@ class BoardPill extends StatelessWidget {
   }
 }
 
-/// A board's name, big, as far as it fits a page's badge.
-class BoardBadge extends StatelessWidget {
-  const BoardBadge({super.key, required this.board});
-
-  final String board;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      '/$board/',
-      style: TextStyle(
-        fontSize: board.length > 3 ? 13 : 17,
-        fontWeight: FontWeight.w800,
-        color: boardColor(board),
-      ),
-    );
-  }
-}
-
 class PostNumberPill extends StatelessWidget {
   const PostNumberPill({super.key, required this.no});
 

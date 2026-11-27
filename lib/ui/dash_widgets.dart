@@ -38,101 +38,85 @@ class DashCard extends StatelessWidget {
 }
 
 class DashSectionHeader extends StatelessWidget {
-  const DashSectionHeader({super.key, required this.title});
+  const DashSectionHeader({
+    super.key,
+    required this.title,
+    this.trailing,
+    this.top = 28,
+  });
 
   final String title;
 
+  /// On the right, in line with the title: a link or a count.
+  final Widget? trailing;
+
+  /// Room above it.
+  final double top;
+
   @override
   Widget build(BuildContext context) {
+    final Widget? trailing = this.trailing;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 28, 20, 12),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w800,
-          letterSpacing: -0.4,
-          color: DashColors.text(context),
-        ),
+      padding: EdgeInsets.fromLTRB(20, top, 20, 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.4,
+                color: DashColors.text(context),
+              ),
+            ),
+          ),
+          ?trailing,
+        ],
       ),
     );
   }
 }
 
-class DashPageHeader extends StatelessWidget {
-  const DashPageHeader({
-    super.key,
-    required this.badge,
-    required this.color,
-    required this.title,
-    required this.subtitle,
-  });
+/// A count beside a section's title, like "5 files".
+class DashSectionCount extends StatelessWidget {
+  const DashSectionCount(this.text, {super.key});
 
-  final Widget badge;
-  final Color color;
-  final String title;
-  final String subtitle;
+  final String text;
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = context.isDark;
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 4, 12, 10),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            color.withValues(alpha: isDark ? 0.22 : 0.3),
-            context.accent2.withValues(alpha: isDark ? 0.12 : 0.18),
-          ],
+    return Text(
+      text,
+      style: TextStyle(fontSize: 13, color: DashColors.muted(context)),
+    );
+  }
+}
+
+/// A link beside a section's title, like "History".
+class DashSectionLink extends StatelessWidget {
+  const DashSectionLink(this.text, {super.key, required this.onTap});
+
+  final String text;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: context.accent,
+          ),
         ),
-        border: Border.all(color: color.withValues(alpha: 0.22)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 54,
-            height: 54,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(17),
-            ),
-            alignment: Alignment.center,
-            child: badge,
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.4,
-                    color: DashColors.text(context),
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: DashColors.muted(context),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }

@@ -157,24 +157,27 @@ class _AppShellState extends State<AppShell> {
         ? _currentTab
         : _Tab.boards;
 
-    final Widget pages = IndexedStack(
-      key: _pagesKey,
-      // Every tab keeps its place, shown in the tab bar or not: the stack
-      // goes by position, so the others keep their state when Saved goes.
-      index: current.index,
-      children: [
-        for (final _Tab tab in _Tab.values)
-          TickerMode(
-            enabled: tab == current,
-            child: _builtTabs.contains(tab) && shown.contains(tab)
-                // A page's list scrolls with the controller it's given.
-                ? PrimaryScrollController(
-                    controller: _scrolls[tab]!,
-                    child: _pages[tab]!,
-                  )
-                : const SizedBox.shrink(),
-          ),
-      ],
+    final Widget pages = ShowBoardsTab(
+      show: () => _selectTab(_Tab.boards),
+      child: IndexedStack(
+        key: _pagesKey,
+        // Every tab keeps its place, shown in the tab bar or not: the stack
+        // goes by position, so the others keep their state when Saved goes.
+        index: current.index,
+        children: [
+          for (final _Tab tab in _Tab.values)
+            TickerMode(
+              enabled: tab == current,
+              child: _builtTabs.contains(tab) && shown.contains(tab)
+                  // A page's list scrolls with the controller it's given.
+                  ? PrimaryScrollController(
+                      controller: _scrolls[tab]!,
+                      child: _pages[tab]!,
+                    )
+                  : const SizedBox.shrink(),
+            ),
+        ],
+      ),
     );
 
     // With a keyboard, ⌘1 to ⌘4 go to the tabs, in their order.
@@ -274,4 +277,19 @@ class _AppShellState extends State<AppShell> {
       ),
     );
   }
+}
+
+/// Lets a tab's page send the reader to the Boards tab, like an empty
+/// Bookmarks tab's "Browse boards".
+class ShowBoardsTab extends InheritedWidget {
+  const ShowBoardsTab({super.key, required this.show, required super.child});
+
+  final VoidCallback show;
+
+  /// Null outside the tabs.
+  static VoidCallback? maybeOf(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<ShowBoardsTab>()?.show;
+
+  @override
+  bool updateShouldNotify(ShowBoardsTab oldWidget) => false;
 }

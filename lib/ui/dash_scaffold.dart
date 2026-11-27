@@ -23,6 +23,7 @@ class DashScaffold extends StatefulWidget {
   });
 
   final String title;
+
   final String? subtitle;
   final Widget? leading;
   final List<Widget> slivers;
@@ -46,10 +47,20 @@ class DashScaffold extends StatefulWidget {
 class _DashScaffoldState extends State<DashScaffold> {
   bool _elevated = false;
 
+  /// How far the list is scrolled, so the tinted top goes up with it.
+  final ValueNotifier<double> _scrolled = ValueNotifier<double>(0);
+
+  @override
+  void dispose() {
+    _scrolled.dispose();
+    super.dispose();
+  }
+
   bool _onScroll(ScrollNotification n) {
     if (n.depth != 0) {
       return false;
     }
+    _scrolled.value = n.metrics.pixels;
     final bool elevated = n.metrics.pixels > 6;
     if (elevated != _elevated) {
       setState(() => _elevated = elevated);
@@ -83,6 +94,25 @@ class _DashScaffoldState extends State<DashScaffold> {
         color: DashColors.page(context),
         child: Stack(
           children: [
+            // The top of the page, tinted with the theme's colours and fading
+            // into it, scrolling away with the list.
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: top + kDashHeaderHeight + 320,
+              child: IgnorePointer(
+                child: ValueListenableBuilder<double>(
+                  valueListenable: _scrolled,
+                  // Pulled down, it stays put rather than come off the top.
+                  builder: (context, scrolled, child) => Transform.translate(
+                    offset: Offset(0, scrolled > 0 ? -scrolled : 0),
+                    child: child,
+                  ),
+                  child: _Wash(isDark: context.isDark),
+                ),
+              ),
+            ),
             _refreshable(
               top + kDashHeaderHeight,
               NotificationListener<ScrollNotification>(
@@ -144,6 +174,30 @@ class _DashScaffoldState extends State<DashScaffold> {
         withCommand(LogicalKeyboardKey.keyF): ?onFind,
       }),
       child: page,
+    );
+  }
+}
+
+class _Wash extends StatelessWidget {
+  const _Wash({required this.isDark});
+
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            context.accent.withValues(alpha: isDark ? 0.28 : 0.3),
+            context.accent2.withValues(alpha: 0.12),
+            context.accent2.withValues(alpha: 0),
+          ],
+          stops: const [0, 0.45, 1],
+        ),
+      ),
     );
   }
 }

@@ -267,7 +267,9 @@ class GridPost extends StatelessWidget {
                                       icon: CupertinoIcons.archivebox,
                                       label: 'Archived',
                                       // Room for the counts beside it.
-                                      iconOnly: newReplies > 0,
+                                      iconOnly:
+                                          newReplies > 0 ||
+                                          post.replies != null,
                                     ),
                                   ],
                                   if (status case ThreadStatus.deleted) ...[
@@ -276,7 +278,9 @@ class GridPost extends StatelessWidget {
                                       color: DashColors.danger,
                                       icon: CupertinoIcons.trash,
                                       label: 'Deleted',
-                                      iconOnly: newReplies > 0,
+                                      iconOnly:
+                                          newReplies > 0 ||
+                                          post.replies != null,
                                     ),
                                   ],
                                 ],

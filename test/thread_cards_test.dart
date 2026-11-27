@@ -298,7 +298,11 @@ void main() {
         ),
       ),
     );
-    expect(find.text('Deleted'), findsOneWidget);
+    // Beside the counts, as a red bin, read out as Deleted.
+    expect(
+      find.byWidgetPredicate((w) => w is Icon && w.semanticLabel == 'Deleted'),
+      findsOneWidget,
+    );
 
     // It still opens: as it last loaded, or from an archive.
     await tester.tap(find.byType(GridPost));

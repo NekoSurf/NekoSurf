@@ -8,12 +8,10 @@ import 'package:flutter_chan/chan/catalog.dart';
 import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/ui/back_swipe_route.dart';
-import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_header.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
 import 'package:flutter_chan/ui/dash_widgets.dart';
 import 'package:flutter_chan/ui/master_detail.dart';
-import 'package:flutter_chan/ui/pills.dart';
 import 'package:flutter_chan/ui/reload.dart';
 import 'package:provider/provider.dart';
 
@@ -114,6 +112,9 @@ class _BoardPageState extends State<BoardPage> with ThreadOrder<BoardPage> {
     return MasterDetail(
       master: DashScaffold(
         title: widget.boardName,
+        subtitle: _isLoading
+            ? '/${widget.board}/'
+            : '/${widget.board}/ · ${_count(visibleThreads.length)}',
         readable: settings.boardViewMode.value == ViewMode.list,
         onRefresh: () => _loadBoard(keepShown: true),
         onFind: _searchFocus.requestFocus,
@@ -144,16 +145,6 @@ class _BoardPageState extends State<BoardPage> with ThreadOrder<BoardPage> {
         ],
         slivers: [
           SliverToBoxAdapter(
-            child: DashPageHeader(
-              color: boardColor(widget.board),
-              badge: BoardBadge(board: widget.board),
-              title: _isLoading
-                  ? 'Loading...'
-                  : '${visibleThreads.length} threads',
-              subtitle: 'Sorted by ${sort.title.toLowerCase()}',
-            ),
-          ),
-          SliverToBoxAdapter(
             child: DashSearchField(
               controller: _searchBarController,
               focusNode: _searchFocus,
@@ -180,3 +171,6 @@ class _BoardPageState extends State<BoardPage> with ThreadOrder<BoardPage> {
     );
   }
 }
+
+/// "1 thread", "152 threads".
+String _count(int threads) => '$threads ${threads == 1 ? 'thread' : 'threads'}';

@@ -87,6 +87,7 @@ void main() {
       'Hide in the app switcher',
       'Track history',
       'Only while the app is open',
+      'Show Continue reading',
       'Clear cache',
       'Sponsor NekoSurf',
       'Send feedback',

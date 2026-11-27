@@ -12,7 +12,6 @@ import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
 import 'package:flutter_chan/ui/dash_widgets.dart';
 import 'package:flutter_chan/ui/master_detail.dart';
-import 'package:flutter_chan/ui/pills.dart';
 import 'package:flutter_chan/ui/reload.dart';
 import 'package:provider/provider.dart';
 
@@ -89,21 +88,14 @@ class _ArchivePageState extends State<ArchivePage> {
     return MasterDetail(
       master: DashScaffold(
         title: 'Archive',
-        subtitle: '/${widget.board}/ · ${widget.boardName}',
+        subtitle: _isLoading
+            ? '/${widget.board}/ · ${widget.boardName}'
+            : '/${widget.board}/ · ${_threads.length} archived '
+                  '${_threads.length == 1 ? 'thread' : 'threads'}',
         readable: !grid,
         onFind: _searchFocus.requestFocus,
         actions: const [ViewModeButton()],
         slivers: [
-          SliverToBoxAdapter(
-            child: DashPageHeader(
-              color: boardColor(widget.board),
-              badge: BoardBadge(board: widget.board),
-              title: _isLoading
-                  ? 'Loading...'
-                  : '${_threads.length} archived threads',
-              subtitle: 'Newest first · previews load as you scroll',
-            ),
-          ),
           if (!_isLoading && _error == null)
             SliverToBoxAdapter(
               child: DashSearchField(

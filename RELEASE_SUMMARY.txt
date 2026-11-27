@@ -1,1 +1,1 @@
-Menus spring out of their button, close as you scroll, and you can slide over them to choose; pages slide on Android as on iPhone.
+A fresh look for Boards, Bookmarks and Saved, with big pictures of the threads you're reading; menus spring out and close as you scroll, and pages slide on Android as on iPhone.

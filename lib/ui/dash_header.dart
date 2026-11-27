@@ -106,10 +106,17 @@ class DashHeader extends StatelessWidget {
       child: ClipRect(
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-          child: Container(
+          // Blurring the tinted top would leave an edge where it ends.
+          enabled: elevated,
+          // See-through at the top of the page, so a tinted top (see
+          // DashScaffold.wash) runs on under it; frosted once scrolled.
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
             padding: EdgeInsets.fromLTRB(16, top + 8, 12, 10),
             decoration: BoxDecoration(
-              color: DashColors.page(context).withValues(alpha: 0.82),
+              color: DashColors.page(
+                context,
+              ).withValues(alpha: elevated ? 0.82 : 0),
               border: Border(
                 bottom: BorderSide(
                   color: elevated

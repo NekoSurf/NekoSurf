@@ -10,9 +10,11 @@ import 'package:flutter_chan/saved/saved_attachment.dart';
 import 'package:flutter_chan/saved/saved_attachments_model.dart';
 import 'package:flutter_chan/saved/saved_browsing.dart';
 import 'package:flutter_chan/saved/saved_folders.dart';
+import 'package:flutter_chan/saved/saved_groups.dart';
 import 'package:flutter_chan/saved/saved_media_viewer_page.dart';
 import 'package:flutter_chan/sync/cloud_sync.dart';
 import 'package:flutter_chan/ui/colors.dart';
+import 'package:flutter_chan/ui/dash_widgets.dart';
 import 'package:flutter_chan/ui/image_frost.dart';
 import 'package:flutter_chan/ui/pills.dart';
 import 'package:flutter_chan/ui/toast.dart';
@@ -320,28 +322,76 @@ class _SavedGridState extends State<SavedGrid> with WidgetsBindingObserver {
     final int videos = all.where((a) => a.isVideo).length;
     final int images = all.length - videos;
 
+    Widget tile(SavedAttachment a) {
+      final String key = a.fileName;
+      final bool here = provider.hasFile(a);
+      return _Tile(
+        syncKey: a.id,
+        coming: here
+            ? null
+            : provider.isInICloud(a)
+            ? _Coming.inICloud
+            : _Coming.goingUpElsewhere,
+        thumb: File(folders.thumbnailPath(a)),
+        title: _title(a),
+        details: _details(folders, a),
+        isVideo: a.isVideo,
+        isGif: key.toLowerCase().endsWith('.gif'),
+        selecting: browsing.selecting,
+        selected: browsing.selected.contains(key),
+        onTap: () {
+          if (browsing.selecting) {
+            browsing.toggleSelected(key);
+          } else if (!here) {
+            showToast(
+              context,
+              provider.isInICloud(a) ||
+                      CloudSync.instance.fileDownload(a.id) != null
+                  ? 'Still downloading from iCloud'
+                  : 'Still uploading from your other device',
+            );
+          } else {
+            final List<SavedAttachment> openable = visible
+                .where(provider.hasFile)
+                .toList();
+            _openViewer(folders, openable, openable.indexOf(a));
+          }
+        },
+        onLongPress: () {
+          if (browsing.selecting) {
+            return;
+          }
+          HapticFeedback.selectionClick();
+          browsing.setSelecting(true);
+          browsing.toggleSelected(key);
+        },
+      );
+    }
+
     return SliverMainAxisGroup(
       slivers: [
-        SliverToBoxAdapter(
-          child: _SummaryCard(
-            total: all.length,
-            images: images,
-            videos: videos,
-            sizeFuture: _sizeFuture,
-            format: _formatBytes,
-            previews: [
-              for (final a in all.reversed.take(3))
-                File(folders.thumbnailPath(a)),
-            ],
-          ),
-        ),
-        const SliverToBoxAdapter(child: SizedBox(height: 14)),
         SliverToBoxAdapter(
           child: MediaFilterPills(
             filter: browsing.filter,
             images: images,
             videos: videos,
             onChanged: browsing.setFilter,
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: FutureBuilder<int>(
+            future: _sizeFuture,
+            builder: (context, snapshot) => Padding(
+              padding: const EdgeInsets.fromLTRB(20, 2, 20, 0),
+              child: Text(
+                '${all.length} ${all.length == 1 ? 'file' : 'files'}'
+                '${snapshot.hasData ? ' · ${_formatBytes(snapshot.data!)}' : ''}',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: DashColors.muted(context),
+                ),
+              ),
+            ),
           ),
         ),
         if (visible.isEmpty)
@@ -357,194 +407,39 @@ class _SavedGridState extends State<SavedGrid> with WidgetsBindingObserver {
             ),
           )
         else
-          SliverPadding(
-            // In line with the summary card and the other tabs.
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-            sliver: SliverMasonryGrid.count(
-              crossAxisCount: columns,
-              mainAxisSpacing: _gap,
-              crossAxisSpacing: _gap,
-              childCount: visible.length,
-              itemBuilder: (context, index) {
-                final a = visible[index];
-                final String key = a.fileName;
-                final bool here = provider.hasFile(a);
-                final String thumb = folders.thumbnailPath(a);
-                return AspectRatio(
-                  key: ValueKey(key),
-                  aspectRatio: _ratio(thumb),
-                  child: _Tile(
-                    syncKey: a.id,
-                    coming: here
-                        ? null
-                        : provider.isInICloud(a)
-                        ? _Coming.inICloud
-                        : _Coming.goingUpElsewhere,
-                    thumb: File(thumb),
-                    title: _title(a),
-                    details: _details(folders, a),
-                    isVideo: a.isVideo,
-                    isGif: key.toLowerCase().endsWith('.gif'),
-                    selecting: browsing.selecting,
-                    selected: browsing.selected.contains(key),
-                    onTap: () {
-                      if (browsing.selecting) {
-                        browsing.toggleSelected(key);
-                      } else if (!here) {
-                        showToast(
-                          context,
-                          provider.isInICloud(a) ||
-                                  CloudSync.instance.fileDownload(a.id) != null
-                              ? 'Still downloading from iCloud'
-                              : 'Still uploading from your other device',
-                        );
-                      } else {
-                        final List<SavedAttachment> openable = visible
-                            .where(provider.hasFile)
-                            .toList();
-                        _openViewer(folders, openable, openable.indexOf(a));
-                      }
-                    },
-                    onLongPress: () {
-                      if (browsing.selecting) {
-                        return;
-                      }
-                      HapticFeedback.selectionClick();
-                      browsing.setSelecting(true);
-                      browsing.toggleSelected(key);
-                    },
+          for (final SavedGroup group in groupByDay(visible, DateTime.now()))
+            SliverMainAxisGroup(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: DashSectionHeader(
+                    title: group.title,
+                    top: 20,
+                    trailing: DashSectionCount(
+                      '${group.items.length} '
+                      '${group.items.length == 1 ? 'file' : 'files'}',
+                    ),
                   ),
-                );
-              },
+                ),
+                SliverPadding(
+                  // In line with the other tabs.
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  sliver: SavedColumns(
+                    columns: intoColumns(
+                      group.items,
+                      columns,
+                      (a) => _ratio(folders.thumbnailPath(a)),
+                    ),
+                    gap: _gap,
+                    tile: (a) => AspectRatio(
+                      key: ValueKey(a.fileName),
+                      aspectRatio: _ratio(folders.thumbnailPath(a)),
+                      child: tile(a),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
       ],
-    );
-  }
-}
-
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({
-    required this.total,
-    required this.images,
-    required this.videos,
-    required this.sizeFuture,
-    required this.format,
-    required this.previews,
-  });
-
-  final int total;
-  final int images;
-  final int videos;
-  final Future<int>? sizeFuture;
-  final String Function(int) format;
-  final List<File> previews;
-
-  @override
-  Widget build(BuildContext context) {
-    final bool isDark = context.isDark;
-    const angles = [-0.2, 0.05, 0.22];
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.fromLTRB(20, 18, 8, 18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            _amber.withValues(alpha: isDark ? 0.22 : 0.35),
-            context.accent2.withValues(alpha: isDark ? 0.18 : 0.28),
-          ],
-        ),
-        border: Border.all(color: _amber.withValues(alpha: 0.22)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$total',
-                  style: TextStyle(
-                    fontSize: 44,
-                    height: 1,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -1.5,
-                    color: DashColors.text(context),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  total == 1 ? 'saved file' : 'saved files',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: DashColors.text(context).withValues(alpha: 0.7),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                FutureBuilder<int>(
-                  future: sizeFuture,
-                  builder: (context, snapshot) => Text(
-                    '$images images · $videos videos'
-                    '${snapshot.hasData ? ' · ${format(snapshot.data!)}' : ''}',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      color: DashColors.text(context).withValues(alpha: 0.65),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(
-            width: 112,
-            height: 96,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                for (int i = previews.length - 1; i >= 0; i--)
-                  Transform.translate(
-                    offset: Offset((i - 1) * 14.0, 0),
-                    child: Transform.rotate(
-                      angle: angles[i],
-                      child: Container(
-                        width: 62,
-                        height: 62,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.3),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: Image.file(
-                          previews[i],
-                          fit: BoxFit.cover,
-                          cacheWidth: 200,
-                          errorBuilder: (_, _, _) => ColoredBox(
-                            color: DashColors.card(context),
-                            child: const Icon(
-                              CupertinoIcons.photo,
-                              color: _amber,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

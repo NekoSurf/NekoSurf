@@ -6,9 +6,7 @@ import 'package:flutter_chan/chan/api.dart';
 import 'package:flutter_chan/chan/catalog.dart';
 import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
-import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
-import 'package:flutter_chan/ui/dash_widgets.dart';
 import 'package:flutter_chan/ui/master_detail.dart';
 import 'package:flutter_chan/ui/reload.dart';
 import 'package:provider/provider.dart';
@@ -83,23 +81,15 @@ class _FeedPageState extends State<FeedPage> with ThreadOrder<FeedPage> {
     return MasterDetail(
       master: DashScaffold(
         title: 'Feed',
+        subtitle: _isLoading && _threads.isEmpty
+            ? 'From $boardCount favorite ${boardCount == 1 ? 'board' : 'boards'}'
+            : '${visibleThreads.length} '
+                  '${visibleThreads.length == 1 ? 'thread' : 'threads'} from '
+                  '$boardCount ${boardCount == 1 ? 'board' : 'boards'}',
         readable: settings.boardViewMode.value == ViewMode.list,
         onRefresh: _loadFeed,
         actions: [const ViewModeButton(), sortMenu(settings)],
         slivers: [
-          SliverToBoxAdapter(
-            child: DashPageHeader(
-              color: DashColors.feed,
-              badge: const Icon(
-                CupertinoIcons.rectangle_stack_fill,
-                color: DashColors.feed,
-              ),
-              title: _isLoading && _threads.isEmpty
-                  ? 'Loading...'
-                  : '${visibleThreads.length} threads',
-              subtitle: 'From $boardCount favorite boards',
-            ),
-          ),
           if (_isLoading && _threads.isEmpty)
             const SliverFillRemaining(
               child: Center(child: CupertinoActivityIndicator()),

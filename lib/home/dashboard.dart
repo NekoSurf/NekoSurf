@@ -5,9 +5,12 @@ import 'package:flutter_chan/board/feed_page.dart';
 import 'package:flutter_chan/chan/api.dart';
 import 'package:flutter_chan/chan/board.dart';
 import 'package:flutter_chan/chan/post_text.dart';
+import 'package:flutter_chan/history/history_model.dart';
 import 'package:flutter_chan/history/history_page.dart';
+import 'package:flutter_chan/history/new_replies.dart';
 import 'package:flutter_chan/home/dashboard_widgets.dart';
 import 'package:flutter_chan/home/open_link_dialog.dart';
+import 'package:flutter_chan/home/thread_cards.dart';
 import 'package:flutter_chan/search/search_page.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/ui/back_swipe_route.dart';
@@ -31,10 +34,15 @@ class _DashboardState extends State<Dashboard> {
   final TextEditingController _search = TextEditingController();
   String _query = '';
 
+  /// Threads in "Continue reading", at most.
+  static const int _continueCount = 10;
+
   @override
   void initState() {
     super.initState();
     _load();
+    // For how many replies are new in "Continue reading".
+    Provider.of<HistoryProvider>(context, listen: false).checkThreads();
   }
 
   @override
@@ -57,7 +65,65 @@ class _DashboardState extends State<Dashboard> {
 
   Future<void> _refresh() {
     setState(() => _load(refresh: true));
-    return _boardsFuture.then((_) {}, onError: (_) {});
+    return Future.wait([
+      _boardsFuture.then((_) {}, onError: (_) {}),
+      Provider.of<HistoryProvider>(
+        context,
+        listen: false,
+      ).checkThreads(force: true),
+    ]);
+  }
+
+  /// The threads "Continue reading" shows, newest first: none when it's
+  /// turned off in Settings.
+  List<HistoryThread> _continueThreads(
+    SettingsProvider settings,
+    HistoryProvider history,
+  ) {
+    if (!settings.showContinueReading.value) {
+      return const [];
+    }
+    return history.threads
+        .where((t) => !history.isDeleted(t) && !settings.hidesBoard(t.board))
+        .take(_continueCount)
+        .toList();
+  }
+
+  /// "Continue reading": [threads] as big picture cards with how many
+  /// replies are new, and a link to History.
+  List<Widget> _continueReading(
+    HistoryProvider history,
+    List<HistoryThread> threads,
+  ) {
+    if (threads.isEmpty) {
+      return const [];
+    }
+    return [
+      DashSectionHeader(
+        title: 'Continue reading',
+        top: 8,
+        trailing: DashSectionLink(
+          'History',
+          onTap: () => _push(const HistoryPage()),
+        ),
+      ),
+      ThreadCardRow(
+        cards: [
+          for (final HistoryThread t in threads)
+            ThreadCard(
+              post: t.toPost(),
+              onTap: () => openThread(context, t.toPost()),
+              badge: NewRepliesCount(
+                thread: t.no,
+                replies: history.replies(t),
+                builder: (context, newReplies) => newReplies > 0
+                    ? NewRepliesBadge(count: newReplies, short: true)
+                    : const SizedBox.shrink(),
+              ),
+            ),
+        ],
+      ),
+    ];
   }
 
   void _push(Widget page) {
@@ -126,6 +192,12 @@ class _DashboardState extends State<Dashboard> {
     final SettingsProvider settings = Provider.of<SettingsProvider>(context);
     final bool nsfw = settings.showsNsfw;
 
+    final HistoryProvider history = Provider.of<HistoryProvider>(context);
+    final List<HistoryThread> continueThreads = _continueThreads(
+      settings,
+      history,
+    );
+
     return DashScaffold(
       title: 'NekoSurf',
       subtitle: 'Browse the boards',
@@ -151,11 +223,13 @@ class _DashboardState extends State<Dashboard> {
             ),
             onPressed: () => settings.setNsfwSession(!settings.nsfwSessionOn),
           ),
-        DashIconButton(
-          label: 'History',
-          icon: const Icon(CupertinoIcons.clock),
-          onPressed: () => _push(const HistoryPage()),
-        ),
+        // Continue reading has its own link to History.
+        if (continueThreads.isEmpty)
+          DashIconButton(
+            label: 'History',
+            icon: const Icon(CupertinoIcons.clock),
+            onPressed: () => _push(const HistoryPage()),
+          ),
         DashIconButton(
           label: 'Search',
           icon: const Icon(CupertinoIcons.search),
@@ -182,7 +256,7 @@ class _DashboardState extends State<Dashboard> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const DashHero(),
+                  ..._continueReading(history, continueThreads),
                   if (snapshot.connectionState == ConnectionState.waiting)
                     const Padding(
                       padding: EdgeInsets.only(top: 60),
