@@ -24,6 +24,15 @@
       ],
       "versions": [
         {
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.13.1%2B324/Runner.ipa",
+          "size": 32473147,
+          "version": "0.13.1",
+          "buildVersion": "324",
+          "date": "2026-11-27T15:32:21+00:00",
+          "localizedDescription": "A quicker board list grouped by letter, with swipe and hold to favorite; search in Settings, tidier Bookmarks and a board's name that fits its page.",
+          "minOSVersion": "17.0"
+        },
+        {
           "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.13.1%2B323/Runner.ipa",
           "size": 32461490,
           "version": "0.13.1",
