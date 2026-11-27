@@ -1,15 +1,27 @@
 WHAT'S NEW
 
-Menus that feel better
-• Menus spring out of the button that opened them, and touching outside one closes it and scrolls the page in the same swipe
-• Slide your finger over a menu and let go on what you want, with a tick as you pass each item
+A quicker board list
+• The board list on the Boards tab is one line per board, saying what it's about in a few words, grouped by letter
+• Swipe a board to add it to your favorites, which aren't listed a second time below them
+• Hold a board to add it to your favorites or open its archive
+• Hold a thread under Continue reading to bookmark it or take it out of History; the row takes less room when the titles are short
 
-A fresh look for Boards, Bookmarks and Saved
-• On the Boards tab, Continue reading shows the threads you were last in as big pictures, with how many replies are new; it links to History, and can be turned off in Settings → History
-• In the Bookmarks tab, threads with new replies come first, as big pictures
-• The Saved tab groups your files by when you saved them, under Today, Yesterday and so on
-• With no bookmarks yet, the Bookmarks tab says how to add them, with a button to the boards
-• A board, your feed and a board's archive start straight with their threads, with how many there are under the title
+Search in Settings
+• Type in the field under the card at the top of Settings to see just the settings that match
 
-The same page slide on Android
-• Pages slide in and out on Android as they do on iPhone, with the page underneath moving along
+Tidier Bookmarks
+• Archived and deleted threads move to the end, under No longer live, with a button to remove them all
+• Under the title, how many bookmarks you have and how many have new replies
+
+Small touches
+• A board's name now fits at the top of its page: the view, the archive and the sort order are in one menu next to the heart
+• A thread's title has more room at the top of its page too: the gallery is in its menu, beside the bookmark
+• The heart on a board's page is pink, like your favorites on the Boards tab
+• In light mode, board names like /fa/ and the letters in the board list are dark enough to read on white
+• Menus are worded the same way everywhere ("Mark all as read", "Scroll to top"), and the Saved tab's page is called Saved
+• Empty pages, and pages that fail to load, look the same everywhere and say what to do: a board or your feed with no threads to show, History, Saved for offline, Saved and Bookmarks
+• A light tap is felt when you favorite a board, bookmark a thread or save a file, and a tick when you pick from a menu or change a setting
+
+WHAT'S FIXED
+
+• Tapping outside a menu only closes it, instead of also tapping what's underneath; a swipe still scrolls the page
