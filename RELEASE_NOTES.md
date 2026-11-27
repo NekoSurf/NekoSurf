@@ -15,6 +15,7 @@
 
 ### ✨ Small touches
 - A board's name now fits at the top of its page: the view, the archive and the sort order are in one menu next to the heart
+- A thread's title has more room at the top of its page too: the gallery is in its ⋯ menu, beside the bookmark
 - A light tap is felt when you favorite a board, bookmark a thread or save a file, and a tick when you pick from a menu or change a setting
 
 ## What's fixed

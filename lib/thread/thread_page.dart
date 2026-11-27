@@ -28,7 +28,6 @@ import 'package:flutter_chan/thread/thread_rows_list.dart';
 import 'package:flutter_chan/ui/back_swipe_route.dart';
 import 'package:flutter_chan/ui/checked_browser.dart';
 import 'package:flutter_chan/ui/colors.dart';
-import 'package:flutter_chan/ui/dash_header.dart';
 import 'package:flutter_chan/ui/dash_menu.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
 import 'package:flutter_chan/ui/frosted.dart';
@@ -929,15 +928,16 @@ class _ThreadPageState extends State<ThreadPage>
           onScrollToTop: () => scrollToRow(0, alignment: 0),
           subtitle: _threadStatus,
           actions: [
-            DashIconButton(
-              label: 'Gallery',
-              icon: const Icon(CupertinoIcons.square_grid_3x2),
-              onPressed: _openGallery,
-            ),
+            // Only the bookmark beside the menu, so the title has the room.
             BookmarkButton(bookmark: Bookmark.fromPost(_opening)),
             Builder(
               builder: (BuildContext menuButton) => DashMenuButton(
                 menuChildren: [
+                  DashMenuEntry(
+                    title: 'Gallery',
+                    icon: CupertinoIcons.square_grid_3x2,
+                    onPressed: _openGallery,
+                  ),
                   DashMenuEntry(
                     title: 'Share',
                     icon: CupertinoIcons.share,
