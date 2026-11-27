@@ -1,5 +1,4 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart' show Colors;
 import 'package:flutter_chan/board/thread_order.dart';
 import 'package:flutter_chan/board/thread_views.dart';
 import 'package:flutter_chan/bookmarks/bookmark.dart';
@@ -14,11 +13,11 @@ import 'package:flutter_chan/offline/offline_threads.dart';
 import 'package:flutter_chan/offline/offline_threads_page.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/sync/cloud_sync.dart';
-import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_dialogs.dart';
 import 'package:flutter_chan/ui/dash_menu.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
 import 'package:flutter_chan/ui/dash_widgets.dart';
+import 'package:flutter_chan/ui/empty_state.dart';
 import 'package:flutter_chan/ui/master_detail.dart';
 import 'package:flutter_chan/ui/open.dart';
 import 'package:provider/provider.dart';
@@ -368,71 +367,15 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final VoidCallback? showBoards = ShowBoardsTab.maybeOf(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(32, 80, 32, 0),
-      child: Column(
-        children: [
-          Container(
-            width: 132,
-            height: 132,
-            padding: const EdgeInsets.all(22),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  context.accent.withValues(alpha: 0.28),
-                  context.accent2.withValues(alpha: 0.22),
-                ],
-              ),
-              border: Border.all(color: context.accent.withValues(alpha: 0.3)),
-            ),
-            child: ClipOval(
-              child: Image.asset(
-                'assets/icons/icon-round.png',
-                semanticLabel: 'NekoSurf',
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'No bookmarks yet',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.4,
-              color: DashColors.text(context),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
+      padding: const EdgeInsets.only(top: 32),
+      child: DashEmptyState(
+        icon: CupertinoIcons.bookmark,
+        title: 'No bookmarks yet',
+        message:
             'Tap the bookmark in a thread to keep it here, with its new '
             'replies.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 15,
-              height: 1.45,
-              color: DashColors.muted(context),
-            ),
-          ),
-          if (showBoards != null) ...[
-            const SizedBox(height: 22),
-            CupertinoButton(
-              color: context.accent,
-              borderRadius: BorderRadius.circular(16),
-              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
-              onPressed: showBoards,
-              child: const Text(
-                'Browse boards',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.black,
-                ),
-              ),
-            ),
-          ],
-        ],
+        actionLabel: 'Browse boards',
+        onAction: showBoards,
       ),
     );
   }

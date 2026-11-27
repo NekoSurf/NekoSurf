@@ -13,6 +13,7 @@ import 'package:flutter_chan/ui/dash_header.dart';
 import 'package:flutter_chan/ui/dash_menu.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
 import 'package:flutter_chan/ui/dash_widgets.dart';
+import 'package:flutter_chan/ui/empty_state.dart';
 import 'package:flutter_chan/ui/haptics.dart';
 import 'package:flutter_chan/ui/master_detail.dart';
 import 'package:flutter_chan/ui/reload.dart';
@@ -171,6 +172,26 @@ class _BoardPageState extends State<BoardPage> with ThreadOrder<BoardPage> {
           else if (_error != null)
             SliverFillRemaining(
               child: ReloadWidget.forError(_error, onReload: _loadBoard),
+            )
+          else if (visibleThreads.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: _searchBarController.text.trim().isNotEmpty
+                  ? const DashEmptyState(
+                      icon: CupertinoIcons.search,
+                      title: 'No threads match',
+                      message: 'Try other words, or clear the search.',
+                    )
+                  : DashEmptyState(
+                      icon: CupertinoIcons.text_bubble,
+                      title: 'No threads to show',
+                      message:
+                          'The board has none right now, or your filters '
+                          'hide them all.',
+                      actionLabel: 'Refresh',
+                      actionIcon: CupertinoIcons.arrow_clockwise,
+                      onAction: () => _loadBoard(keepShown: true),
+                    ),
             )
           else
             ThreadsView(

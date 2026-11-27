@@ -15,6 +15,7 @@ import 'package:flutter_chan/saved/saved_media_viewer_page.dart';
 import 'package:flutter_chan/sync/cloud_sync.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_widgets.dart';
+import 'package:flutter_chan/ui/empty_state.dart';
 import 'package:flutter_chan/ui/image_frost.dart';
 import 'package:flutter_chan/ui/pills.dart';
 import 'package:flutter_chan/ui/toast.dart';
@@ -822,42 +823,23 @@ class _EmptyState extends StatelessWidget {
     );
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(32, 56, 32, 0),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              tile(-0.14, context.accent, CupertinoIcons.photo_fill),
-              Transform.translate(
-                offset: const Offset(0, -12),
-                child: tile(0, _amber, CupertinoIcons.paperclip),
-              ),
-              tile(0.14, context.accent2, CupertinoIcons.play_fill),
-            ],
-          ),
-          const SizedBox(height: 28),
-          Text(
-            'Your collection starts here',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
-              color: DashColors.text(context),
+      padding: const EdgeInsets.only(top: 8),
+      child: DashEmptyState(
+        art: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            tile(-0.14, context.accent, CupertinoIcons.photo_fill),
+            Transform.translate(
+              offset: const Offset(0, -12),
+              child: tile(0, _amber, CupertinoIcons.paperclip),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Open an image or video in a thread and tap save to keep it here, available offline.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14.5,
-              height: 1.4,
-              color: DashColors.muted(context),
-            ),
-          ),
-        ],
+            tile(0.14, context.accent2, CupertinoIcons.play_fill),
+          ],
+        ),
+        title: 'Your collection starts here',
+        message:
+            'Open an image or video in a thread and tap save to keep it '
+            'here, available offline.',
       ),
     );
   }

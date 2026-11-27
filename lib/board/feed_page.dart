@@ -7,6 +7,7 @@ import 'package:flutter_chan/chan/catalog.dart';
 import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
+import 'package:flutter_chan/ui/empty_state.dart';
 import 'package:flutter_chan/ui/master_detail.dart';
 import 'package:flutter_chan/ui/reload.dart';
 import 'package:provider/provider.dart';
@@ -96,6 +97,20 @@ class _FeedPageState extends State<FeedPage> with ThreadOrder<FeedPage> {
             )
           else if (_hasError)
             SliverFillRemaining(child: ReloadWidget(onReload: _loadFeed))
+          else if (visibleThreads.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: DashEmptyState(
+                icon: CupertinoIcons.rectangle_stack,
+                title: 'No threads to show',
+                message:
+                    'Your favorite boards have none right now, or your '
+                    'filters hide them all.',
+                actionLabel: 'Refresh',
+                actionIcon: CupertinoIcons.arrow_clockwise,
+                onAction: _loadFeed,
+              ),
+            )
           else
             ThreadsView(
               threads: visibleThreads,

@@ -11,6 +11,7 @@ import 'package:flutter_chan/ui/dash_header.dart';
 import 'package:flutter_chan/ui/dash_menu.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
 import 'package:flutter_chan/ui/dash_widgets.dart';
+import 'package:flutter_chan/ui/empty_state.dart';
 import 'package:flutter_chan/ui/open.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:intl/intl.dart';
@@ -84,18 +85,15 @@ class OfflineThreadsPage extends StatelessWidget {
       ],
       slivers: [
         if (threads.isEmpty)
-          SliverFillRemaining(
+          const SliverFillRemaining(
             hasScrollBody: false,
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Center(
-                child: Text(
-                  'Save a thread for offline from its menu, and it stays here '
-                  'with its images and videos, to read without a connection.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: DashColors.muted(context)),
-                ),
-              ),
+            child: DashEmptyState(
+              icon: CupertinoIcons.arrow_down_circle,
+              title: 'Nothing saved for offline',
+              message:
+                  'Save a thread for offline from its menu, and it stays '
+                  'here with its images and videos, to read without a '
+                  'connection.',
             ),
           ),
         SliverPadding(

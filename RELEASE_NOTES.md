@@ -17,6 +17,7 @@
 - A board's name now fits at the top of its page: the view, the archive and the sort order are in one menu next to the heart
 - A thread's title has more room at the top of its page too: the gallery is in its ⋯ menu, beside the bookmark
 - The heart on a board's page is pink, like your favorites on the Boards tab
+- Empty pages, and pages that fail to load, look the same everywhere and say what to do: a board or your feed with no threads to show, History, Saved for Offline, Saved and Bookmarks
 - A light tap is felt when you favorite a board, bookmark a thread or save a file, and a tick when you pick from a menu or change a setting
 
 ## What's fixed

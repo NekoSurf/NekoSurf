@@ -12,6 +12,7 @@ import 'package:flutter_chan/ui/dash_header.dart';
 import 'package:flutter_chan/ui/dash_menu.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
 import 'package:flutter_chan/ui/dash_widgets.dart';
+import 'package:flutter_chan/ui/empty_state.dart';
 import 'package:flutter_chan/ui/master_detail.dart';
 import 'package:flutter_chan/ui/open.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
@@ -122,18 +123,20 @@ class _HistoryPageState extends State<HistoryPage> {
           if (days.isEmpty)
             SliverFillRemaining(
               hasScrollBody: false,
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Center(
-                  child: Text(
-                    tracking
-                        ? 'Threads you open show up here.'
-                        : 'History is turned off in Privacy settings.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: DashColors.muted(context)),
-                  ),
-                ),
-              ),
+              child: tracking
+                  ? const DashEmptyState(
+                      icon: CupertinoIcons.clock,
+                      title: 'No history yet',
+                      message:
+                          'The threads you open show up here, newest first.',
+                    )
+                  : const DashEmptyState(
+                      icon: CupertinoIcons.clock,
+                      title: 'History is off',
+                      message:
+                          'Turn on Track history in Settings → History to '
+                          'see the threads you open here.',
+                    ),
             ),
           for (final (String label, List<HistoryThread> threads) in days) ...[
             SliverToBoxAdapter(child: DashSectionHeader(title: label)),

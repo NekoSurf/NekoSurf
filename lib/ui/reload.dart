@@ -1,7 +1,7 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_chan/chan/load_errors.dart';
 import 'package:flutter_chan/ui/colors.dart';
+import 'package:flutter_chan/ui/empty_state.dart';
 
 /// Shown in place of content that failed to load, with a retry button and
 /// optionally a second way out, like opening the page in the browser.
@@ -65,82 +65,16 @@ class ReloadWidget extends StatelessWidget {
     return ColoredBox(
       color: DashColors.page(context),
       child: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: context.accent.withValues(alpha: 0.14),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, size: 28, color: context.accent),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: DashColors.text(context),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1.35,
-                  color: DashColors.muted(context),
-                ),
-              ),
-              const SizedBox(height: 20),
-              CupertinoButton(
-                color: context.accent,
-                borderRadius: BorderRadius.circular(999),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 22,
-                  vertical: 10,
-                ),
-                onPressed: onReload,
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      CupertinoIcons.arrow_counterclockwise,
-                      size: 18,
-                      color: Colors.black,
-                    ),
-                    SizedBox(width: 8),
-                    Text(
-                      'Try again',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.black,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (secondaryLabel != null && onSecondary != null)
-                CupertinoButton(
-                  onPressed: onSecondary,
-                  child: Text(
-                    secondaryLabel!,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: context.accent,
-                    ),
-                  ),
-                ),
-            ],
+        child: SingleChildScrollView(
+          child: DashEmptyState(
+            icon: icon,
+            title: title,
+            message: message,
+            actionLabel: 'Try again',
+            actionIcon: CupertinoIcons.arrow_counterclockwise,
+            onAction: onReload,
+            secondaryLabel: secondaryLabel,
+            onSecondary: onSecondary,
           ),
         ),
       ),
