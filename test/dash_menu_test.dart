@@ -102,6 +102,46 @@ void main() {
     expect(scroll.offset, greaterThan(100));
   });
 
+  testWidgets('a tap outside it only closes it', (tester) async {
+    tester.view
+      ..physicalSize = const Size(400, 800)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    int pressed = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: [
+              DashMenuAnchor(
+                menuChildren: [DashMenuEntry(title: 'One', onPressed: () {})],
+                builder: (context, open) =>
+                    TextButton(onPressed: open, child: const Text('Open')),
+              ),
+              const SizedBox(height: 400),
+              TextButton(
+                onPressed: () => pressed++,
+                child: const Text('Under'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Under'));
+    await tester.pumpAndSettle();
+    expect(find.text('One'), findsNothing);
+    expect(pressed, 0);
+
+    // Closed, it's tapped as usual.
+    await tester.tap(find.text('Under'));
+    await tester.pumpAndSettle();
+    expect(pressed, 1);
+  });
+
   testWidgets('going back closes it first', (tester) async {
     await openMenuAt(tester, 100);
 

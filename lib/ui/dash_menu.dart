@@ -411,6 +411,11 @@ class _DashMenuState extends State<_DashMenu>
 
   bool _closing = false;
 
+  /// The touches outside it still down, which it waits for before it goes,
+  /// so the tap it catches from them doesn't reach the page instead.
+  final Set<int> _outside = <int>{};
+  Completer<void>? _lifted;
+
   /// Shrinks it away, then it's gone. Once.
   Future<void> close() async {
     if (_closing) {
@@ -420,7 +425,18 @@ class _DashMenuState extends State<_DashMenu>
     widget.onClosing();
     setState(() {});
     await _animation.reverse();
+    if (_outside.isNotEmpty) {
+      await (_lifted ??= Completer<void>()).future;
+    }
     widget.onClosed();
+  }
+
+  void _up(PointerEvent event) {
+    _outside.remove(event.pointer);
+    if (_outside.isEmpty) {
+      _lifted?.complete();
+      _lifted = null;
+    }
   }
 
   @override
@@ -449,11 +465,22 @@ class _DashMenuState extends State<_DashMenu>
     return Stack(
       children: [
         // Under the menu, so only touches outside it reach this; they go on
-        // to the page too (translucent), and close the menu.
+        // to the page too (translucent), and close the menu. A swipe scrolls
+        // the page, but a tap only closes it, as on iPhone: this catches it
+        // first, being on top, while the page's scrolling wins a drag.
         Positioned.fill(
           child: Listener(
             behavior: HitTestBehavior.translucent,
-            onPointerDown: (_) => close(),
+            onPointerDown: (event) {
+              _outside.add(event.pointer);
+              close();
+            },
+            onPointerUp: _up,
+            onPointerCancel: _up,
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () {},
+            ),
           ),
         ),
         Positioned(
