@@ -24,6 +24,15 @@
       ],
       "versions": [
         {
+          "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.13.1%2B323/Runner.ipa",
+          "size": 32461490,
+          "version": "0.13.1",
+          "buildVersion": "323",
+          "date": "2026-11-27T13:30:26+00:00",
+          "localizedDescription": "A fresh look for Boards, Bookmarks and Saved, with big pictures of the threads you're reading; menus spring out and close as you scroll, and pages slide on Android as on iPhone.",
+          "minOSVersion": "17.0"
+        },
+        {
           "downloadURL": "https://github.com/NekoSurf/NekoSurf/releases/download/v0.13.1%2B322/Runner.ipa",
           "size": 32439526,
           "version": "0.13.1",
