@@ -3,8 +3,13 @@ import 'package:flutter_chan/ui/dash_menu.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  /// A button at [top] that opens a menu, on a screen 800 high.
-  Future<void> openMenuAt(WidgetTester tester, double top) async {
+  /// A button at [top] that opens a menu, on a screen 800 high. Entries
+  /// chosen go in [chosen].
+  Future<void> openMenuAt(
+    WidgetTester tester,
+    double top, {
+    List<String>? chosen,
+  }) async {
     tester.view
       ..physicalSize = const Size(400, 800)
       ..devicePixelRatio = 1;
@@ -19,7 +24,10 @@ void main() {
               child: DashMenuAnchor(
                 menuChildren: [
                   for (final String title in ['One', 'Two', 'Three', 'Four'])
-                    DashMenuEntry(title: title, onPressed: () {}),
+                    DashMenuEntry(
+                      title: title,
+                      onPressed: () => chosen?.add(title),
+                    ),
                 ],
                 builder: (context, open) =>
                     TextButton(onPressed: open, child: const Text('Open')),
@@ -53,6 +61,98 @@ void main() {
     );
     // All of it, not squeezed.
     expect(find.text('One').hitTestable(), findsOneWidget);
+  });
+
+  testWidgets('a swipe outside it closes it and scrolls the page', (
+    tester,
+  ) async {
+    tester.view
+      ..physicalSize = const Size(400, 800)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final ScrollController scroll = ScrollController();
+    addTearDown(scroll.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ListView(
+            controller: scroll,
+            children: [
+              DashMenuAnchor(
+                menuChildren: [DashMenuEntry(title: 'One', onPressed: () {})],
+                builder: (context, open) =>
+                    TextButton(onPressed: open, child: const Text('Open')),
+              ),
+              for (int i = 0; i < 50; i++)
+                SizedBox(height: 60, child: Text('$i')),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    expect(find.text('One'), findsOneWidget);
+
+    await tester.dragFrom(const Offset(200, 600), const Offset(0, -300));
+    await tester.pumpAndSettle();
+
+    expect(find.text('One'), findsNothing);
+    expect(scroll.offset, greaterThan(100));
+  });
+
+  testWidgets('going back closes it first', (tester) async {
+    await openMenuAt(tester, 100);
+
+    final NavigatorState navigator = tester.state(find.byType(Navigator));
+    expect(await navigator.maybePop(), isTrue);
+    await tester.pumpAndSettle();
+
+    expect(find.text('One'), findsNothing);
+    expect(find.text('Open'), findsOneWidget);
+  });
+
+  testWidgets('a tap on an entry chooses it', (tester) async {
+    final List<String> chosen = <String>[];
+    await openMenuAt(tester, 100, chosen: chosen);
+
+    await tester.tap(find.text('Two'));
+    await tester.pumpAndSettle();
+
+    expect(chosen, ['Two']);
+    expect(find.text('One'), findsNothing);
+  });
+
+  testWidgets('sliding over the entries chooses the one let go on', (
+    tester,
+  ) async {
+    final List<String> chosen = <String>[];
+    await openMenuAt(tester, 100, chosen: chosen);
+
+    final TestGesture gesture = await tester.startGesture(
+      tester.getCenter(find.text('One')),
+    );
+    await gesture.moveTo(tester.getCenter(find.text('Two')));
+    await gesture.moveTo(tester.getCenter(find.text('Three')));
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(chosen, ['Three']);
+  });
+
+  testWidgets('sliding off the menu chooses nothing', (tester) async {
+    final List<String> chosen = <String>[];
+    await openMenuAt(tester, 100, chosen: chosen);
+
+    final TestGesture gesture = await tester.startGesture(
+      tester.getCenter(find.text('One')),
+    );
+    await gesture.moveTo(const Offset(390, 790));
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(chosen, isEmpty);
+    expect(find.text('One'), findsOneWidget);
   });
 
   group('lifted', () {

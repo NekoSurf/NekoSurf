@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'dart:ui';
 
@@ -30,7 +31,14 @@ class DashMenuDivider extends DashMenuEntry {
   const DashMenuDivider() : super(isDivider: true);
 }
 
-/// Dropdown card anchored to the widget behind [context].
+/// Dropdown card anchored to the widget behind [context]. Completes once
+/// it's closed.
+///
+/// It floats over the page rather than being a route of its own, so that, as
+/// on iPhone, a touch outside it closes it and carries on to the page: a
+/// list scrolls with the same swipe. (A route can't let it through: the
+/// navigator cancels the touches on screen when a route goes.) Going back,
+/// like Android's back gesture, closes it first.
 Future<void> showDashMenu(
   BuildContext context, {
   required List<DashMenuEntry> entries,
@@ -38,16 +46,53 @@ Future<void> showDashMenu(
 }) {
   final box = context.findRenderObject()! as RenderBox;
   final Rect anchor = box.localToGlobal(Offset.zero) & box.size;
+  final OverlayState overlay = Overlay.of(context, rootOverlay: true);
+  final ModalRoute<Object?>? route = ModalRoute.of(context);
+  final Completer<void> closed = Completer<void>();
+  final GlobalKey<_DashMenuState> menu = GlobalKey<_DashMenuState>();
+  final _ClosesOnBack back = _ClosesOnBack(() => menu.currentState?.close());
+  route?.registerPopEntry(back);
 
-  return showGeneralDialog<void>(
-    context: context,
-    barrierDismissible: true,
-    barrierLabel: 'Dismiss',
-    barrierColor: Colors.black.withValues(alpha: 0.25),
-    transitionDuration: const Duration(milliseconds: 160),
-    pageBuilder: (ctx, _, _) =>
-        _DashMenu(anchor: anchor, entries: entries, title: title),
+  late final OverlayEntry entry;
+  entry = OverlayEntry(
+    builder: (_) => _DashMenu(
+      key: menu,
+      anchor: anchor,
+      entries: entries,
+      title: title,
+      // At once, so a swipe back that starts outside the menu isn't held.
+      onClosing: () => route?.unregisterPopEntry(back),
+      onClosed: () {
+        back.dispose();
+        entry.remove();
+        entry.dispose();
+        closed.complete();
+      },
+    ),
   );
+  overlay.insert(entry);
+  return closed.future;
+}
+
+/// Holds the page's going back while a menu is open, closing the menu
+/// instead.
+class _ClosesOnBack extends PopEntry<Object?> {
+  _ClosesOnBack(this.onBack);
+
+  final VoidCallback onBack;
+
+  @override
+  final ValueNotifier<bool> canPopNotifier = ValueNotifier<bool>(false);
+
+  @override
+  void onPopInvokedWithResult(bool didPop, Object? result) {
+    if (!didPop) {
+      // Closing lets go of this, which the route is still going through.
+      scheduleMicrotask(onBack);
+    }
+  }
+
+  void dispose() => canPopNotifier.dispose();
 }
 
 /// Lifts what's behind [context] off the page and opens the menu under it, as
@@ -326,21 +371,67 @@ class DashMenuButton extends StatelessWidget {
   }
 }
 
-class _DashMenu extends StatelessWidget {
-  const _DashMenu({required this.anchor, required this.entries, this.title});
+class _DashMenu extends StatefulWidget {
+  const _DashMenu({
+    super.key,
+    required this.anchor,
+    required this.entries,
+    required this.onClosing,
+    required this.onClosed,
+    this.title,
+  });
 
   final Rect anchor;
   final List<DashMenuEntry> entries;
   final String? title;
 
+  /// It's starting to close.
+  final VoidCallback onClosing;
+
+  /// It's gone from the screen.
+  final VoidCallback onClosed;
+
+  @override
+  State<_DashMenu> createState() => _DashMenuState();
+}
+
+class _DashMenuState extends State<_DashMenu>
+    with SingleTickerProviderStateMixin {
   static const double _width = _MenuPanel.width;
   static const double _margin = 12;
 
   /// Room below the anchor that's enough for most menus, so they open there.
   static const double _enoughBelow = 240;
 
+  late final AnimationController _animation = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 300),
+    reverseDuration: const Duration(milliseconds: 180),
+  )..forward();
+
+  bool _closing = false;
+
+  /// Shrinks it away, then it's gone. Once.
+  Future<void> close() async {
+    if (_closing) {
+      return;
+    }
+    _closing = true;
+    widget.onClosing();
+    setState(() {});
+    await _animation.reverse();
+    widget.onClosed();
+  }
+
+  @override
+  void dispose() {
+    _animation.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final Rect anchor = widget.anchor;
     final Size screen = MediaQuery.sizeOf(context);
     final EdgeInsets safe = MediaQuery.paddingOf(context);
 
@@ -357,14 +448,34 @@ class _DashMenu extends StatelessWidget {
 
     return Stack(
       children: [
+        // Under the menu, so only touches outside it reach this; they go on
+        // to the page too (translucent), and close the menu.
+        Positioned.fill(
+          child: Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: (_) => close(),
+          ),
+        ),
         Positioned(
           left: left,
           top: opensAbove ? null : top,
           bottom: opensAbove ? bottom : null,
           width: _width,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: maxHeight),
-            child: _MenuPanel(entries: entries, title: title),
+          child: IgnorePointer(
+            ignoring: _closing,
+            child: _GrowsFromAnchor(
+              animation: _animation,
+              alignment: Alignment(alignRight ? 1 : -1, opensAbove ? 1 : -1),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: maxHeight),
+                child: _MenuPanel(
+                  entries: widget.entries,
+                  title: widget.title,
+                  fade: _animation,
+                  onClose: close,
+                ),
+              ),
+            ),
           ),
         ),
       ],
@@ -372,14 +483,67 @@ class _DashMenu extends StatelessWidget {
   }
 }
 
+/// Grows the menu out of the corner nearest what opened it, with a little
+/// overshoot, as iOS's menus spring out of their button; it shrinks back
+/// into it as it fades when closed.
+class _GrowsFromAnchor extends StatelessWidget {
+  const _GrowsFromAnchor({
+    required this.animation,
+    required this.alignment,
+    required this.child,
+  });
+
+  final Animation<double> animation;
+  final Alignment alignment;
+  final Widget child;
+
+  /// Past 1 a little before settling, like a spring.
+  static const Curve _spring = Cubic(0.2, 1.25, 0.35, 1);
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      child: child,
+      builder: (BuildContext context, Widget? child) {
+        final bool closing = animation.status == AnimationStatus.reverse;
+        final double scale = closing
+            ? lerpDouble(0.85, 1, Curves.easeIn.transform(animation.value))!
+            : lerpDouble(0.4, 1, _spring.transform(animation.value))!;
+        return Transform.scale(
+          scale: scale,
+          alignment: alignment,
+          child: child,
+        );
+      },
+    );
+  }
+}
+
 /// The card a menu's entries are on. Choosing one closes the menu and runs
 /// it, after [onChoosing].
-class _MenuPanel extends StatelessWidget {
-  const _MenuPanel({required this.entries, this.title, this.onChoosing});
+///
+/// As on iOS, the row under the finger lights up as soon as it's touched,
+/// and the finger can slide over the others, with a tick on each, to let go
+/// on the one it wants. Scrolling a long menu chooses nothing.
+class _MenuPanel extends StatefulWidget {
+  const _MenuPanel({
+    required this.entries,
+    this.title,
+    this.onChoosing,
+    this.fade,
+    this.onClose,
+  });
 
   final List<DashMenuEntry> entries;
   final String? title;
   final VoidCallback? onChoosing;
+
+  /// What it comes and goes with; its route's animation if null.
+  final Animation<double>? fade;
+
+  /// Closes it; pops its route if null.
+  final VoidCallback? onClose;
 
   static const double width = 250;
   static const double _padding = 6;
@@ -396,55 +560,180 @@ class _MenuPanel extends StatelessWidget {
       );
 
   @override
+  State<_MenuPanel> createState() => _MenuPanelState();
+}
+
+class _MenuPanelState extends State<_MenuPanel> {
+  final ScrollController _scroll = ScrollController();
+  late List<GlobalKey> _rowKeys = _keysFor(widget.entries);
+
+  /// The row lit up under the finger.
+  int? _pressed;
+  int? _pointer;
+  double _scrolledAtDown = 0;
+  bool _scrolled = false;
+
+  static List<GlobalKey> _keysFor(List<DashMenuEntry> entries) =>
+      List<GlobalKey>.generate(entries.length, (_) => GlobalKey());
+
+  @override
+  void didUpdateWidget(covariant _MenuPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.entries.length != widget.entries.length) {
+      _rowKeys = _keysFor(widget.entries);
+    }
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  double get _offset => _scroll.hasClients ? _scroll.offset : 0;
+
+  /// The entry under [position], on screen; null over a divider or the edge.
+  int? _rowAt(Offset position) {
+    for (int i = 0; i < widget.entries.length; i++) {
+      if (widget.entries[i].isDivider) {
+        continue;
+      }
+      final RenderObject? box = _rowKeys[i].currentContext?.findRenderObject();
+      if (box is RenderBox && box.hasSize) {
+        final Offset local = box.globalToLocal(position);
+        if (box.size.contains(local)) {
+          return i;
+        }
+      }
+    }
+    return null;
+  }
+
+  void _press(int? row) {
+    if (row != _pressed) {
+      setState(() => _pressed = row);
+    }
+  }
+
+  void _choose(DashMenuEntry entry) {
+    widget.onChoosing?.call();
+    final VoidCallback? close = widget.onClose;
+    if (close != null) {
+      close();
+    } else {
+      Navigator.of(context).pop();
+    }
+    entry.onPressed?.call();
+  }
+
+  void _onDown(PointerDownEvent event) {
+    if (_pointer != null) {
+      return;
+    }
+    _pointer = event.pointer;
+    _scrolledAtDown = _offset;
+    _scrolled = false;
+    _press(_rowAt(event.position));
+  }
+
+  void _onMove(PointerMoveEvent event) {
+    if (event.pointer != _pointer || _scrolled) {
+      return;
+    }
+    if ((_offset - _scrolledAtDown).abs() > 1) {
+      _scrolled = true;
+      _press(null);
+      return;
+    }
+    final int? row = _rowAt(event.position);
+    if (row != null && row != _pressed) {
+      HapticFeedback.selectionClick();
+    }
+    _press(row);
+  }
+
+  void _onUp(PointerUpEvent event) {
+    if (event.pointer != _pointer) {
+      return;
+    }
+    _pointer = null;
+    final int? row = _scrolled ? null : _rowAt(event.position);
+    _press(null);
+    if (row != null) {
+      _choose(widget.entries[row]);
+    }
+  }
+
+  void _onCancel(PointerCancelEvent event) {
+    if (event.pointer == _pointer) {
+      _pointer = null;
+      _press(null);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final List<DashMenuEntry> entries = widget.entries;
+    final String? title = widget.title;
+
     return Material(
       color: Colors.transparent,
       child: Frosted(
-        fadesWithRoute: true,
+        fadesWithRoute: widget.fade == null,
+        fade: widget.fade,
         radius: 22,
-        padding: const EdgeInsets.all(_padding),
+        padding: const EdgeInsets.all(_MenuPanel._padding),
         color: Frosted.panel(context),
         borderColor: DashColors.border(context),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (title != null)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 6, 10, 8),
-                  child: Text(
-                    title!,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: DashColors.muted(context),
-                    ),
-                  ),
-                ),
-              for (final entry in entries)
-                if (entry.isDivider)
+        child: Listener(
+          onPointerDown: _onDown,
+          onPointerMove: _onMove,
+          onPointerUp: _onUp,
+          onPointerCancel: _onCancel,
+          child: SingleChildScrollView(
+            controller: _scroll,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (title != null)
                   Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: (_dividerHeight - 1) / 2,
+                    padding: const EdgeInsets.fromLTRB(10, 6, 10, 8),
+                    child: Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: DashColors.muted(context),
+                      ),
                     ),
-                    child: Divider(
-                      height: 1,
-                      color: DashColors.border(context),
-                    ),
-                  )
-                else
-                  _MenuRow(
-                    entry: entry,
-                    onTap: () {
-                      onChoosing?.call();
-                      Navigator.of(context).pop();
-                      entry.onPressed?.call();
-                    },
                   ),
-            ],
+                for (int i = 0; i < entries.length; i++)
+                  if (entries[i].isDivider)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: (_MenuPanel._dividerHeight - 1) / 2,
+                      ),
+                      child: Divider(
+                        height: 1,
+                        color: DashColors.border(context),
+                      ),
+                    )
+                  else
+                    Semantics(
+                      button: true,
+                      selected: entries[i].isSelected,
+                      onTap: () => _choose(entries[i]),
+                      child: _MenuRow(
+                        key: _rowKeys[i],
+                        entry: entries[i],
+                        pressed: _pressed == i,
+                      ),
+                    ),
+              ],
+            ),
           ),
         ),
       ),
@@ -453,56 +742,52 @@ class _MenuPanel extends StatelessWidget {
 }
 
 class _MenuRow extends StatelessWidget {
-  const _MenuRow({required this.entry, required this.onTap});
+  const _MenuRow({super.key, required this.entry, required this.pressed});
 
   final DashMenuEntry entry;
-  final VoidCallback onTap;
+
+  /// The finger is on it.
+  final bool pressed;
 
   @override
   Widget build(BuildContext context) {
     final Color tint = entry.isDestructive ? DashColors.danger : context.accent;
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Container(
-        height: _MenuPanel._rowHeight,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-          color: entry.isSelected
-              ? context.accent.withValues(alpha: 0.12)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(15),
-        ),
-        child: Row(
-          children: [
-            if (entry.icon != null)
-              Padding(
-                padding: const EdgeInsets.only(right: 10),
-                child: Icon(entry.icon, size: 18, color: tint),
-              ),
-            Expanded(
-              child: Text(
-                entry.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: entry.isDestructive
-                      ? DashColors.danger
-                      : DashColors.text(context),
-                ),
+    return Container(
+      height: _MenuPanel._rowHeight,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: pressed
+            ? DashColors.text(context).withValues(alpha: 0.1)
+            : entry.isSelected
+            ? context.accent.withValues(alpha: 0.12)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Row(
+        children: [
+          if (entry.icon != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: Icon(entry.icon, size: 18, color: tint),
+            ),
+          Expanded(
+            child: Text(
+              entry.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: entry.isDestructive
+                    ? DashColors.danger
+                    : DashColors.text(context),
               ),
             ),
-            if (entry.isSelected)
-              Icon(
-                CupertinoIcons.checkmark_alt,
-                size: 18,
-                color: context.accent,
-              ),
-          ],
-        ),
+          ),
+          if (entry.isSelected)
+            Icon(CupertinoIcons.checkmark_alt, size: 18, color: context.accent),
+        ],
       ),
     );
   }
