@@ -24,6 +24,8 @@ import 'package:flutter_chan/settings/synced_items.dart';
 import 'package:flutter_chan/sync/cloud_sync.dart';
 import 'package:flutter_chan/ui/app_restart.dart';
 import 'package:flutter_chan/ui/colors.dart';
+import 'package:flutter_chan/ui/holiday_fall.dart';
+import 'package:flutter_chan/ui/holidays.dart';
 import 'package:flutter_chan/ui/keys.dart';
 import 'package:flutter_chan/ui/open.dart';
 import 'package:flutter_chan/ui/unfocus_on_push.dart';
@@ -288,15 +290,23 @@ class _AppWithThemeState extends State<AppWithTheme>
   Brightness _phoneBrightness =
       WidgetsBinding.instance.platformDispatcher.platformBrightness;
 
+  /// The holiday it is today, if any, whether or not the app dresses up.
+  Holiday? _holiday = Holiday.on(Holiday.clock());
+
+  /// Looks again at midnight, for a holiday that starts or ends with it.
+  Timer? _midnight;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _lifecycle = AppLifecycleListener(onHide: _left);
+    _lifecycle = AppLifecycleListener(onHide: _left, onResume: _back);
+    _waitForMidnight();
   }
 
   @override
   void dispose() {
+    _midnight?.cancel();
     _lifecycle.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -306,6 +316,30 @@ class _AppWithThemeState extends State<AppWithTheme>
   /// (NSFW boards turned on with the flame stay on until it's closed.)
   void _left() {
     context.read<HistoryProvider>().forgetSession();
+  }
+
+  /// Back in the app, maybe days later: which holiday is it now?
+  void _back() {
+    _checkHoliday();
+    _waitForMidnight();
+  }
+
+  void _checkHoliday() {
+    final Holiday? today = Holiday.on(Holiday.clock());
+    if (today != _holiday) {
+      setState(() => _holiday = today);
+    }
+  }
+
+  void _waitForMidnight() {
+    _midnight?.cancel();
+    final DateTime now = Holiday.clock();
+    final DateTime next = DateTime(now.year, now.month, now.day + 1);
+    // A second past, so the clock reads the new day.
+    _midnight = Timer(next.difference(now) + const Duration(seconds: 1), () {
+      _checkHoliday();
+      _waitForMidnight();
+    });
   }
 
   @override
@@ -318,9 +352,24 @@ class _AppWithThemeState extends State<AppWithTheme>
 
   @override
   Widget build(BuildContext context) {
-    final ThemeColor themeColor = context.select<SettingsProvider, ThemeColor>(
+    final ThemeColor chosen = context.select<SettingsProvider, ThemeColor>(
       (s) => s.themeColor.value,
     );
+    final HolidayChoice choice = context
+        .select<SettingsProvider, HolidayChoice>((s) => s.holiday.value);
+    final Holiday? holiday = choice.fixed ?? _holiday;
+    final bool holidayColors = context.select<SettingsProvider, bool>(
+      (s) => s.holidayColors.value,
+    );
+    // OLED's black stays: it's chosen for the screen, not the look.
+    final ThemeColor themeColor =
+        holiday != null && holidayColors && !chosen.isAlwaysDark
+        ? holiday.theme
+        : chosen;
+    final Holiday? falling =
+        context.select<SettingsProvider, bool>((s) => s.holidayFall.value)
+        ? holiday
+        : null;
     final Brightness brightness = themeColor.isAlwaysDark
         ? Brightness.dark
         : context
@@ -339,12 +388,16 @@ class _AppWithThemeState extends State<AppWithTheme>
           statusBarBrightness: brightness,
           statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
         ),
-        child: _buildApp(brightness, themeColor),
+        child: _buildApp(brightness, themeColor, falling),
       ),
     );
   }
 
-  Widget _buildApp(Brightness brightness, ThemeColor themeColor) {
+  Widget _buildApp(
+    Brightness brightness,
+    ThemeColor themeColor,
+    Holiday? falling,
+  ) {
     return CupertinoApp(
       debugShowCheckedModeBanner: false,
       onGenerateInitialRoutes: (_) => [homeRoute(widget.home)],
@@ -365,7 +418,18 @@ class _AppWithThemeState extends State<AppWithTheme>
                 },
               ),
             ),
-            child: AppKeys(child: child!),
+            child: AppKeys(
+              // A holiday's snow or leaves drift down over every page.
+              child: falling == null
+                  ? child!
+                  : Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        child!,
+                        HolidayFall(holiday: falling),
+                      ],
+                    ),
+            ),
           ),
         ),
       ),

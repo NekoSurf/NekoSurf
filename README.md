@@ -67,6 +67,7 @@
 ### 🎨 Make it yours
 
 - Light, dark or following your phone, in 15 color themes that tint the whole app, or pure black for OLED screens
+- Holiday colors on Christmas, Halloween, New Year's, Valentine's, St. Patrick's and Easter, with snow, leaves or confetti falling over the app; or keep one all year
 - Make the text of posts in threads smaller or larger
 
 ### 🔒 Private

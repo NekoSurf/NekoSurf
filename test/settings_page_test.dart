@@ -229,7 +229,11 @@ void main() {
   testWidgets('the theme is chosen right there', (tester) async {
     await pumpSettings(tester);
     expect(find.text('Cyan'), findsOneWidget);
-    expect(find.byType(ThemeSwatch), findsNWidgets(ThemeColor.values.length));
+    // Holidays' colors aren't to choose: the app wears them by itself.
+    expect(
+      find.byType(ThemeSwatch),
+      findsNWidgets(ThemeColor.values.where((t) => !t.isHoliday).length),
+    );
 
     await tester.tap(find.text('Appearance'));
     await tester.pumpAndSettle();

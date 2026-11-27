@@ -40,9 +40,68 @@ enum ThemeColor {
 
   /// Pure black, for OLED screens, which then light no pixels there: always
   /// dark, with Cyan's colors on it.
-  oled('OLED', Color(0xFF6DD4EC), Color(0xFFA78BFA), Color(0xFF0E7C9B));
+  oled('OLED', Color(0xFF6DD4EC), Color(0xFFA78BFA), Color(0xFF0E7C9B)),
 
-  const ThemeColor(this.title, this.accent, this.accent2, this.ink);
+  // A holiday's, worn while it lasts (see Holiday) and not offered in
+  // Settings. Their pages are tinted by a hue of their own, so the second
+  // color shows too: Christmas's red on green, Halloween's orange on purple.
+  newYear(
+    'New Year',
+    Color(0xFFFCD34D),
+    Color(0xFFF0ABFC),
+    Color(0xFF92400E),
+    paletteHue: 228,
+    isHoliday: true,
+  ),
+  valentines(
+    "Valentine's Day",
+    Color(0xFFF9A8D4),
+    Color(0xFFFB7185),
+    Color(0xFFBE185D),
+    paletteHue: 345,
+    isHoliday: true,
+  ),
+  stPatricks(
+    "St. Patrick's Day",
+    Color(0xFF86EFAC),
+    Color(0xFFFDE047),
+    Color(0xFF15803D),
+    paletteHue: 125,
+    isHoliday: true,
+  ),
+  easter(
+    'Easter',
+    Color(0xFFC4B5FD),
+    Color(0xFFFDE68A),
+    Color(0xFF6D28D9),
+    paletteHue: 265,
+    isHoliday: true,
+  ),
+  halloween(
+    'Halloween',
+    Color(0xFFFF9F43),
+    Color(0xFFC084FC),
+    Color(0xFFC2410C),
+    paletteHue: 275,
+    isHoliday: true,
+  ),
+  christmas(
+    'Christmas',
+    Color(0xFFFF6B6B),
+    Color(0xFF4ADE80),
+    Color(0xFFB91C1C),
+    paletteHue: 150,
+    isHoliday: true,
+  );
+
+  const ThemeColor(
+    this.title,
+    this.accent,
+    this.accent2,
+    this.ink, {
+    this.paletteHue,
+    this.isHoliday = false,
+  });
 
   final String title;
 
@@ -56,6 +115,12 @@ enum ThemeColor {
   /// [accent] dark enough to read as text on a light background.
   final Color ink;
 
+  /// The hue [palette] is tinted with, when it isn't [accent]'s.
+  final double? paletteHue;
+
+  /// A holiday's colors, which the app wears by itself, not one to choose.
+  final bool isHoliday;
+
   /// Whether the app is dark in this theme, whatever the appearance is.
   bool get isAlwaysDark => this == ThemeColor.oled;
 
@@ -67,7 +132,10 @@ enum ThemeColor {
     () => switch (this) {
       ThemeColor.cyan => DashPalette.classic(brightness),
       ThemeColor.oled => DashPalette.black(),
-      _ => DashPalette.tinted(HSLColor.fromColor(accent).hue, brightness),
+      _ => DashPalette.tinted(
+        paletteHue ?? HSLColor.fromColor(accent).hue,
+        brightness,
+      ),
     },
   );
 }

@@ -5,6 +5,8 @@ import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/settings/settings_widgets.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_menu.dart';
+import 'package:flutter_chan/ui/holidays.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 /// Light or dark, and the theme's color.
@@ -32,9 +34,19 @@ class AppearanceSettings extends StatelessWidget {
 
     final bool isAlwaysDark = settings.themeColor.value.isAlwaysDark;
 
+    final HolidayChoice choice = settings.holiday.value;
+    final Holiday? today = choice.on(Holiday.clock());
+    // A holiday chosen to keep has no end.
+    final String until = today == null || choice.fixed != null
+        ? ''
+        : ' until ${DateFormat.MMMd().format(today.lastDay(Holiday.clock()))}';
+
     return SettingsGroup(
       title: 'Theme',
-      footer: "Auto follows your phone's light or dark mode.",
+      footer:
+          "Auto follows your phone's light or dark mode. On holidays, the app "
+          "wears the holiday's colors (OLED stays black), and your color comes "
+          'back after. Choose a holiday to keep it all year.',
       children: [
         if (isAlwaysDark)
           const SettingsRow(
@@ -89,11 +101,12 @@ class AppearanceSettings extends StatelessWidget {
                     runSpacing: 10,
                     children: [
                       for (final ThemeColor theme in ThemeColor.values)
-                        ThemeSwatch(
-                          theme: theme,
-                          selected: theme == settings.themeColor.value,
-                          onTap: () => settings.themeColor.set(theme),
-                        ),
+                        if (!theme.isHoliday)
+                          ThemeSwatch(
+                            theme: theme,
+                            selected: theme == settings.themeColor.value,
+                            onTap: () => settings.themeColor.set(theme),
+                          ),
                     ],
                   );
                 },
@@ -101,9 +114,65 @@ class AppearanceSettings extends StatelessWidget {
             ),
           ],
         ),
+        DashMenuAnchor(
+          menuChildren: [
+            for (final HolidayChoice option in HolidayChoice.values)
+              DashMenuEntry(
+                title: option.title,
+                icon: option == HolidayChoice.byDate
+                    ? CupertinoIcons.calendar
+                    : null,
+                isSelected: option == choice,
+                onPressed: () => settings.holiday.set(option),
+              ),
+          ],
+          builder: (context, open) => SettingsRow(
+            icon: CupertinoIcons.calendar,
+            color: const Color(0xFF34D399),
+            title: 'Holiday',
+            subtitle: choice.fixed == null
+                ? 'Whichever holiday it is'
+                : 'All year round',
+            value: choice.title,
+            onTap: open,
+          ),
+        ),
+        SettingsRow(
+          icon: CupertinoIcons.gift_fill,
+          color: const Color(0xFFF87171),
+          title: 'Holiday colors',
+          subtitle: today == null
+              ? 'On Christmas, Halloween and other holidays'
+              : '${today.title} colors$until',
+          trailing: SettingsSwitch(
+            value: settings.holidayColors.value,
+            onChanged: settings.holidayColors.set,
+          ),
+        ),
+        SettingsRow(
+          icon: CupertinoIcons.snow,
+          color: const Color(0xFF60A5FA),
+          title: 'Holiday effects',
+          subtitle: today == null
+              ? 'Snow, leaves or confetti falling on holidays'
+              : '${_falling[today.fall]}$until',
+          trailing: SettingsSwitch(
+            value: settings.holidayFall.value,
+            onChanged: settings.holidayFall.set,
+          ),
+        ),
       ],
     );
   }
+
+  static const Map<HolidayFallShape, String> _falling = {
+    HolidayFallShape.snow: 'Falling snow',
+    HolidayFallShape.leaf: 'Falling leaves',
+    HolidayFallShape.confetti: 'Confetti',
+    HolidayFallShape.heart: 'Falling hearts',
+    HolidayFallShape.clover: 'Falling clovers',
+    HolidayFallShape.petal: 'Falling petals',
+  };
 }
 
 /// A theme to choose: its two colors, blended in a circle.

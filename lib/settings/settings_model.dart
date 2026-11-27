@@ -11,6 +11,7 @@ import 'package:flutter_chan/sync/cloud_sync.dart';
 import 'package:flutter_chan/sync/sync_items.dart';
 import 'package:flutter_chan/thread/post_hiding.dart';
 import 'package:flutter_chan/ui/colors.dart';
+import 'package:flutter_chan/ui/holidays.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const int megabyte = 1024 * 1024;
@@ -123,6 +124,9 @@ class SettingsProvider with ChangeNotifier implements SyncTarget {
     'allowNSFW',
     'appearance',
     'themeColor',
+    'holiday',
+    'holidayColors',
+    'holidayFall',
     'boardSort',
     'boardSortDirection',
     'boardViewMode',
@@ -222,6 +226,20 @@ class SettingsProvider with ChangeNotifier implements SyncTarget {
     ThemeColor.values,
     ThemeColor.cyan,
   );
+
+  /// The holiday the app dresses up for: by the date, or one all year.
+  late final Setting<HolidayChoice> holiday = _enum(
+    'holiday',
+    HolidayChoice.values,
+    HolidayChoice.byDate,
+  );
+
+  /// The app wears a holiday's colors while it lasts (see Holiday).
+  late final Setting<bool> holidayColors = _bool('holidayColors', true);
+
+  /// A holiday's snow, leaves or confetti drift down every screen.
+  late final Setting<bool> holidayFall = _bool('holidayFall', true);
+
   late final Setting<Sort> boardSort = _enum(
     'boardSort',
     Sort.values,

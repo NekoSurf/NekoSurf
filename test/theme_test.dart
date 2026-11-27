@@ -2,6 +2,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_chan/main.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/ui/colors.dart';
+import 'package:flutter_chan/ui/holiday_fall.dart';
+import 'package:flutter_chan/ui/holidays.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -32,6 +34,10 @@ class _Probe extends StatelessWidget {
 }
 
 void main() {
+  // A day that's no holiday, unless a test says otherwise.
+  setUp(() => Holiday.clock = () => DateTime(2026, 11, 20));
+  tearDown(() => Holiday.clock = DateTime.now);
+
   group('every theme', () {
     test('takes black text on its accent', () {
       for (final ThemeColor theme in ThemeColor.values) {
@@ -182,5 +188,100 @@ void main() {
     await settings.appearance.set(Appearance.light);
     await tester.pump();
     expect(_Probe.isDark, isTrue);
+  });
+
+  testWidgets('on a holiday the app wears its colors, unless turned off', (
+    tester,
+  ) async {
+    Holiday.clock = () => DateTime(2026, 12, 24, 20);
+    SharedPreferences.setMockInitialValues({});
+    final SettingsProvider settings = SettingsProvider(
+      await SharedPreferences.getInstance(),
+    );
+    await settings.themeColor.set(ThemeColor.blue);
+    await tester.pumpWidget(
+      ChangeNotifierProvider<SettingsProvider>.value(
+        value: settings,
+        child: const AppWithTheme(home: _Probe()),
+      ),
+    );
+    expect(_Probe.accent, ThemeColor.christmas.accent);
+    // Chosen is still chosen, for after.
+    expect(settings.themeColor.value, ThemeColor.blue);
+
+    await settings.holidayColors.set(false);
+    await tester.pump();
+    expect(_Probe.accent, ThemeColor.blue.accent);
+
+    // OLED keeps its black.
+    await settings.holidayColors.set(true);
+    await settings.themeColor.set(ThemeColor.oled);
+    await tester.pump();
+    expect(_Probe.page, const Color(0xFF000000));
+  });
+
+  testWidgets("a holiday's snow falls over the app, on its own switch", (
+    tester,
+  ) async {
+    Holiday.clock = () => DateTime(2026, 12, 24, 20);
+    SharedPreferences.setMockInitialValues({});
+    final SettingsProvider settings = SettingsProvider(
+      await SharedPreferences.getInstance(),
+    );
+    await tester.pumpWidget(
+      ChangeNotifierProvider<SettingsProvider>.value(
+        value: settings,
+        child: const AppWithTheme(home: _Probe()),
+      ),
+    );
+    expect(find.byType(HolidayFall), findsOneWidget);
+
+    // Without the colors, it still snows.
+    await settings.holidayColors.set(false);
+    await tester.pump();
+    expect(_Probe.accent, ThemeColor.cyan.accent);
+    expect(find.byType(HolidayFall), findsOneWidget);
+
+    await settings.holidayFall.set(false);
+    await tester.pump();
+    expect(find.byType(HolidayFall), findsNothing);
+  });
+
+  testWidgets("no snow when it isn't a holiday", (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final SettingsProvider settings = SettingsProvider(
+      await SharedPreferences.getInstance(),
+    );
+    await tester.pumpWidget(
+      ChangeNotifierProvider<SettingsProvider>.value(
+        value: settings,
+        child: const AppWithTheme(home: _Probe()),
+      ),
+    );
+    expect(find.byType(HolidayFall), findsNothing);
+  });
+
+  testWidgets('a chosen holiday stays all year', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final SettingsProvider settings = SettingsProvider(
+      await SharedPreferences.getInstance(),
+    );
+    await tester.pumpWidget(
+      ChangeNotifierProvider<SettingsProvider>.value(
+        value: settings,
+        child: const AppWithTheme(home: _Probe()),
+      ),
+    );
+    expect(_Probe.accent, ThemeColor.cyan.accent);
+
+    await settings.holiday.set(HolidayChoice.christmas);
+    await tester.pump();
+    expect(_Probe.accent, ThemeColor.christmas.accent);
+    expect(find.byType(HolidayFall), findsOneWidget);
+
+    await settings.holiday.set(HolidayChoice.byDate);
+    await tester.pump();
+    expect(_Probe.accent, ThemeColor.cyan.accent);
+    expect(find.byType(HolidayFall), findsNothing);
   });
 }
