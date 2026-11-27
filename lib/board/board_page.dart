@@ -8,6 +8,7 @@ import 'package:flutter_chan/chan/catalog.dart';
 import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/ui/back_swipe_route.dart';
+import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_header.dart';
 import 'package:flutter_chan/ui/dash_menu.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
@@ -125,7 +126,8 @@ class _BoardPageState extends State<BoardPage> with ThreadOrder<BoardPage> {
             label: isFavorite ? 'Remove from favorites' : 'Add to favorites',
             icon: Icon(
               isFavorite ? CupertinoIcons.heart_fill : CupertinoIcons.heart,
-              color: CupertinoColors.systemRed,
+              // The favorites' pink, as in the Boards tab.
+              color: DashColors.feed,
             ),
             onPressed: () {
               keepFeedback();
