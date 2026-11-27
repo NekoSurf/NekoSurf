@@ -6,5 +6,9 @@
 - Hold a board to add it to your favorites or open its archive
 - Hold a thread under Continue reading to bookmark it or take it out of History; the row takes less room when the titles are short
 
+### 🔖 Tidier Bookmarks
+- Archived and deleted threads move to the end, under No longer live, with a button to remove them all
+- Under the title, how many bookmarks you have and how many have new replies
+
 ### ✨ Small touches
 - A board's name now fits at the top of its page: the view, the archive and the sort order are in one menu next to the heart

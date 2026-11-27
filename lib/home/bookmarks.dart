@@ -177,10 +177,36 @@ class _BookmarksState extends State<Bookmarks> {
     _check(items);
     final Set<String> dead = _deadKeys(items);
     final bool hasOffline = _hasOffline;
+    final List<Post> posts = [for (final b in items) _post(b)];
+    // Archived and deleted threads go last, under their own heading.
+    final List<Post> live = [
+      for (final b in items)
+        if (!dead.contains(b.key)) _post(b),
+    ];
+    final List<Post> gone = [
+      for (final b in items)
+        if (dead.contains(b.key)) _post(b),
+    ];
+    // For the tab's badge and the line under the title. Read positions
+    // change with every scroll in a thread; this only rebuilds when the
+    // count does.
+    final int withNewReplies = context.select<WatchedPostsProvider, int>(
+      (watched) => posts
+          .where(
+            (Post post) =>
+                (watched.newReplies(post.no, post.replies ?? 0) ?? 0) > 0,
+          )
+          .length,
+    );
+    _report(context, withNewReplies);
 
     return MasterDetail(
       master: DashScaffold(
         title: 'Bookmarks',
+        subtitle: items.isEmpty
+            ? null
+            : '${items.length} ${items.length == 1 ? 'bookmark' : 'bookmarks'}'
+                  '${withNewReplies > 0 ? ' · $withNewReplies with new replies' : ''}',
         reserveTabBarSpace: true,
         readable: settings.boardViewMode.value == ViewMode.list,
         onRefresh: items.isEmpty
@@ -234,22 +260,22 @@ class _BookmarksState extends State<Bookmarks> {
         ],
         slivers: [
           if (items.isEmpty)
-            SliverToBoxAdapter(
-              child: Builder(
-                builder: (context) {
-                  _report(context, 0);
-                  return const _EmptyState();
-                },
-              ),
-            )
+            const SliverToBoxAdapter(child: _EmptyState())
           else ...[
-            SliverToBoxAdapter(
-              child: _NewReplies(posts: [for (final b in items) _post(b)]),
-            ),
-            _Threads(
-              posts: [for (final b in items) _post(b)],
-              statusOf: _status,
-            ),
+            SliverToBoxAdapter(child: _NewReplies(posts: live)),
+            if (live.isNotEmpty) _Threads(posts: live, statusOf: _status),
+            if (gone.isNotEmpty) ...[
+              SliverToBoxAdapter(
+                child: DashSectionHeader(
+                  title: 'No longer live',
+                  trailing: DashSectionLink(
+                    'Remove all',
+                    onTap: () => _removeDead(bookmarks, dead),
+                  ),
+                ),
+              ),
+              _Threads(posts: gone, statusOf: _status),
+            ],
           ],
         ],
       ),
@@ -281,20 +307,6 @@ class _Threads extends StatelessWidget {
     final bool grid =
         Provider.of<SettingsProvider>(context).boardViewMode.value ==
         ViewMode.grid;
-    // For the tab's badge. Read positions change with every scroll in a
-    // thread; this only rebuilds when the count does.
-    _report(
-      context,
-      context.select<WatchedPostsProvider, int>(
-        (watched) => posts
-            .where(
-              (Post post) =>
-                  (watched.newReplies(post.no, post.replies ?? 0) ?? 0) > 0,
-            )
-            .length,
-      ),
-    );
-
     return ThreadsView(
       threads: posts,
       grid: grid,

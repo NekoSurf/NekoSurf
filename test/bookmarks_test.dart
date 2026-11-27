@@ -95,4 +95,17 @@ void main() {
     await tester.pumpAndSettle();
     expect(bookmarks.bookmarks, hasLength(1));
   });
+
+  testWidgets('under the title, how many there are and how many are new', (
+    tester,
+  ) async {
+    await pumpBookmarks(tester, [_bookmark('g', 1), _bookmark('g', 2)]);
+    expect(find.text('2 bookmarks'), findsOneWidget);
+
+    watched.noteThreadPosts(2, [2]);
+    watched.noteThreadPosts(2, [2, 3, 4]);
+    await tester.pump();
+    expect(find.text('2 bookmarks · 1 with new replies'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+  });
 }
