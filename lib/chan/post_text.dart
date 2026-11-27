@@ -1,3 +1,5 @@
+import 'package:html/parser.dart';
+
 final RegExp _htmlTag = RegExp('<[^>]*>', multiLine: true);
 final RegExp _quoteLink = RegExp(r'>>(\d+)');
 
@@ -15,13 +17,22 @@ const Map<String, String> _namedEntities = <String, String>{
   'copy': '©',
 };
 
+/// A named entity not in [_namedEntities], like "&eacute;" in 4chan's
+/// description of /vp/, decoded by the html package; as it is if unknown.
+String _rareEntity(String entity) {
+  final String text = parseFragment(entity).text ?? '';
+  // Only the whole of it, as one character: HTML also reads "&not" in
+  // "&notanentity;" as "¬".
+  return text.runes.length == 1 ? text : entity;
+}
+
 /// [body] with its HTML entities as the characters they stand for, each once:
 /// "&amp;gt;" is someone writing "&gt;", not ">".
 String unescape(String body) {
   return body.replaceAllMapped(_entity, (Match match) {
     final String entity = match.group(1)!;
     if (!entity.startsWith('#')) {
-      return _namedEntities[entity] ?? match.group(0)!;
+      return _namedEntities[entity] ?? _rareEntity(match.group(0)!);
     }
     final bool isHex = entity[1] == 'x' || entity[1] == 'X';
     final int? code = int.tryParse(

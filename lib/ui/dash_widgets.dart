@@ -159,6 +159,10 @@ ActionPane swipeActions({
   required VoidCallback onPressed,
   Color color = DashColors.danger,
   Color foregroundColor = Colors.white,
+  // Rounded like the cards a row is usually on; square in a grouped list.
+  BorderRadius borderRadius = const BorderRadius.horizontal(
+    right: Radius.circular(20),
+  ),
 }) {
   return ActionPane(
     extentRatio: 0.3,
@@ -168,7 +172,7 @@ ActionPane swipeActions({
         label: label,
         backgroundColor: color,
         foregroundColor: foregroundColor,
-        borderRadius: const BorderRadius.horizontal(right: Radius.circular(20)),
+        borderRadius: borderRadius,
         icon: icon,
         onPressed: (_) => onPressed(),
       ),

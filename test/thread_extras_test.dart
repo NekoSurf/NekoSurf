@@ -103,6 +103,9 @@ void main() {
     test('turns entities into characters', () {
       expect(unescape('&gt;&lt;&amp;&quot;&#039;&#39;&#47;'), '><&"\'\'/');
       expect(unescape('a&nbsp;b'), 'a b');
+      // Rarer named ones, like in 4chan's description of /vp/.
+      expect(unescape('Pok&eacute;mon'), 'Pokémon');
+      expect(unescape('&notanentity;'), '&notanentity;');
       expect(unescape('&#x27;&#X27;'), "''");
     });
 

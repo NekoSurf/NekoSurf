@@ -132,19 +132,12 @@ class _DashboardState extends State<Dashboard> {
 
   bool _isVisible(Board b, bool nsfw) => nsfw || !b.isNsfw;
 
-  bool _matches(Board b) {
-    final q = _query.toLowerCase();
-    return b.board.toLowerCase().contains(q) ||
-        b.title.toLowerCase().contains(q) ||
-        (b.metaDescription ?? '').toLowerCase().contains(q);
-  }
-
   Widget _row(Board b, bool isDark, FavoriteProvider favorites) {
     final String code = b.board;
     return DashBoardRow(
       board: code,
       title: b.title,
-      description: plainText(b.metaDescription ?? ''),
+      description: boardBlurb(plainText(b.metaDescription ?? '')),
       isFavorite: favorites.contains(code),
       nsfw: b.isNsfw,
       onTap: () => openBoard(context, code, name: b.title),
@@ -156,18 +149,68 @@ class _DashboardState extends State<Dashboard> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: DashCard(
-        child: Column(
-          children: [
-            for (int i = 0; i < rows.length; i++) ...[
-              if (i > 0)
-                Divider(
-                  height: 1,
-                  indent: 68,
-                  color: DashColors.border(context),
-                ),
-              rows[i],
+        // What swiping a row shows stays inside the card's corners.
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: Column(
+            children: [
+              for (int i = 0; i < rows.length; i++) ...[
+                if (i > 0)
+                  Divider(
+                    height: 1,
+                    indent: DashBoardRow.textInset,
+                    color: DashColors.border(context),
+                  ),
+                rows[i],
+              ],
             ],
-          ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// [byLetter]'s boards in one card, each letter's under a band with the
+  /// letter.
+  Widget _byLetter(
+    Map<String, List<Board>> byLetter,
+    bool isDark,
+    FavoriteProvider favorites,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: DashCard(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final MapEntry<String, List<Board>> letter
+                  in byLetter.entries) ...[
+                Container(
+                  color: context.accent.withValues(alpha: 0.08),
+                  padding: const EdgeInsets.fromLTRB(16, 5, 16, 5),
+                  child: Text(
+                    letter.key,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: context.accent,
+                    ),
+                  ),
+                ),
+                for (int i = 0; i < letter.value.length; i++) ...[
+                  if (i > 0)
+                    Divider(
+                      height: 1,
+                      indent: DashBoardRow.textInset,
+                      color: DashColors.border(context),
+                    ),
+                  _row(letter.value[i], isDark, favorites),
+                ],
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -287,10 +330,19 @@ class _DashboardState extends State<Dashboard> {
         .where((b) => favorites.contains(b.board))
         .toList();
 
-    final sorted = [...boards]..sort((a, b) => a.board.compareTo(b.board));
-    final visibleBoards = _query.isEmpty
-        ? sorted
-        : sorted.where(_matches).toList();
+    final bool othersOnly = _query.isEmpty && favoriteBoards.isNotEmpty;
+    final List<Board> visibleBoards = listedBoards(
+      boards,
+      query: _query,
+      isFavorite: favorites.contains,
+    );
+    // By letter, unless searching.
+    final Map<String, List<Board>> byLetter = {};
+    if (_query.isEmpty) {
+      for (final Board b in visibleBoards) {
+        byLetter.putIfAbsent(boardLetter(b.board), () => []).add(b);
+      }
+    }
 
     return [
       if (favoriteBoards.isNotEmpty) ...[
@@ -306,7 +358,7 @@ class _DashboardState extends State<Dashboard> {
           for (final b in favoriteBoards) _row(b, isDark, favorites),
         ], isDark),
       ],
-      const DashSectionHeader(title: 'All boards'),
+      DashSectionHeader(title: othersOnly ? 'Other boards' : 'All boards'),
       _searchField(isDark),
       if (visibleBoards.isEmpty)
         Padding(
@@ -318,10 +370,39 @@ class _DashboardState extends State<Dashboard> {
             ),
           ),
         )
-      else
+      else if (byLetter.isEmpty)
         _group([
           for (final b in visibleBoards) _row(b, isDark, favorites),
-        ], isDark),
+        ], isDark)
+      else
+        _byLetter(byLetter, isDark, favorites),
     ];
   }
+}
+
+/// The boards in the list under Favorites, by their code: those matching
+/// [query], favorites too; without one, all but the favorites, which have
+/// their own list above.
+@visibleForTesting
+List<Board> listedBoards(
+  List<Board> boards, {
+  required String query,
+  required bool Function(String board) isFavorite,
+}) {
+  final String q = query.toLowerCase();
+  return [
+    for (final Board b in boards)
+      if (q.isEmpty
+          ? !isFavorite(b.board)
+          : b.board.toLowerCase().contains(q) ||
+                b.title.toLowerCase().contains(q) ||
+                (b.metaDescription ?? '').toLowerCase().contains(q))
+        b,
+  ]..sort((a, b) => a.board.compareTo(b.board));
+}
+
+/// The letter a board is listed under: its code's first, or # for a digit.
+String boardLetter(String board) {
+  final String first = board.isEmpty ? '#' : board[0].toUpperCase();
+  return RegExp('[A-Z]').hasMatch(first) ? first : '#';
 }

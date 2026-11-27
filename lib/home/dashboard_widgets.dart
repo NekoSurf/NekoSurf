@@ -1,6 +1,9 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/semantics.dart';
+import 'package:flutter_chan/ui/back_swipe_route.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_widgets.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 
 class DashFeedCard extends StatelessWidget {
   const DashFeedCard({
@@ -69,6 +72,9 @@ class DashFeedCard extends StatelessWidget {
   }
 }
 
+/// A board on one line: its code in its colour, its name, and what it's
+/// about, cut short where there's no more room. Swiped, it's added to or
+/// taken out of the favorites.
 class DashBoardRow extends StatelessWidget {
   const DashBoardRow({
     super.key,
@@ -89,112 +95,117 @@ class DashBoardRow extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onToggleFavorite;
 
+  /// How far the name starts from the row's edge, for the dividers between.
+  static const double textInset = 16 + _codeWidth + 8;
+  static const double _codeWidth = 46;
+
   @override
   Widget build(BuildContext context) {
-    final color = nsfw ? DashColors.danger : boardColor(board);
+    final Color color = nsfw ? DashColors.danger : boardColor(board);
+    final String favoriteLabel = isFavorite
+        ? 'Remove from favorites'
+        : 'Add to favorites';
 
-    return GestureDetector(
+    final Widget row = GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(13),
-              ),
-              alignment: Alignment.center,
-              padding: const EdgeInsets.symmetric(horizontal: 3),
-              // Stays on one line, however large the text is set.
+            SizedBox(
+              width: _codeWidth,
+              // Stays on one line, however long the code.
               child: FittedBox(
                 fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
                 child: Text(
                   '/$board/',
                   maxLines: 1,
                   style: TextStyle(
-                    fontSize: board.length > 3 ? 10 : 12,
+                    fontSize: 14,
                     fontWeight: FontWeight.w800,
                     color: color,
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 15.5,
-                            fontWeight: FontWeight.w700,
-                            color: DashColors.text(context),
-                          ),
-                        ),
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: title,
+                      style: TextStyle(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w700,
+                        color: DashColors.text(context),
                       ),
-                      if (nsfw)
-                        Container(
-                          margin: const EdgeInsets.only(left: 6),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                            vertical: 1.5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: DashColors.danger.withValues(alpha: 0.18),
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                          child: const Text(
-                            'NSFW',
-                            style: TextStyle(
-                              fontSize: 9.5,
-                              fontWeight: FontWeight.w800,
-                              color: DashColors.danger,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  if (description.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        description,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                    ),
+                    if (description.isNotEmpty)
+                      TextSpan(
+                        text: '  $description',
                         style: TextStyle(
-                          fontSize: 12.5,
+                          fontSize: 13,
                           color: DashColors.muted(context),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            CupertinoButton(
-              padding: const EdgeInsets.all(6),
-              minimumSize: const Size(32, 32),
-              onPressed: onToggleFavorite,
-              child: Icon(
-                isFavorite ? CupertinoIcons.heart_fill : CupertinoIcons.heart,
-                semanticLabel: isFavorite
-                    ? 'Remove from favorites'
-                    : 'Add to favorites',
-                size: 20,
-                color: isFavorite ? DashColors.feed : DashColors.muted(context),
+            if (nsfw)
+              Container(
+                margin: const EdgeInsets.only(left: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 5,
+                  vertical: 1.5,
+                ),
+                decoration: BoxDecoration(
+                  color: DashColors.danger.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: const Text(
+                  'NSFW',
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w800,
+                    color: DashColors.danger,
+                  ),
+                ),
               ),
-            ),
+            if (isFavorite)
+              const Padding(
+                padding: EdgeInsets.only(left: 6),
+                child: Icon(
+                  CupertinoIcons.heart_fill,
+                  size: 14,
+                  color: DashColors.feed,
+                ),
+              ),
           ],
         ),
+      ),
+    );
+
+    return Semantics(
+      customSemanticsActions: {
+        CustomSemanticsAction(label: favoriteLabel): onToggleFavorite,
+      },
+      child: Slidable(
+        endActionPane: swipeActions(
+          label: isFavorite ? 'Remove' : 'Favorite',
+          icon: isFavorite
+              ? CupertinoIcons.heart_slash_fill
+              : CupertinoIcons.heart_fill,
+          color: isFavorite ? DashColors.danger : DashColors.feed,
+          onPressed: onToggleFavorite,
+          borderRadius: BorderRadius.zero,
+        ),
+        child: SlidableBackSwipe(child: row),
       ),
     );
   }

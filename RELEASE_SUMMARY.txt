@@ -1,0 +1,1 @@
+A quicker board list, one line per board grouped by letter, and swipe a board to favorite it.
