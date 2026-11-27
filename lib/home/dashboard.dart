@@ -22,6 +22,7 @@ import 'package:flutter_chan/ui/dash_header.dart';
 import 'package:flutter_chan/ui/dash_menu.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
 import 'package:flutter_chan/ui/dash_widgets.dart';
+import 'package:flutter_chan/ui/haptics.dart';
 import 'package:flutter_chan/ui/open.dart';
 import 'package:flutter_chan/ui/reload.dart';
 import 'package:provider/provider.dart';
@@ -153,7 +154,10 @@ class _DashboardState extends State<Dashboard> {
           icon: isBookmarked
               ? CupertinoIcons.bookmark_fill
               : CupertinoIcons.bookmark,
-          onPressed: () => bookmarks.toggleBookmark(bookmark),
+          onPressed: () {
+            keepFeedback();
+            bookmarks.toggleBookmark(bookmark);
+          },
         ),
         DashMenuEntry(
           title: 'Remove from history',
@@ -180,7 +184,10 @@ class _DashboardState extends State<Dashboard> {
       isFavorite: favorites.contains(code),
       nsfw: b.isNsfw,
       onTap: () => openBoard(context, code, name: b.title),
-      onToggleFavorite: () => favorites.toggle(code),
+      onToggleFavorite: () {
+        keepFeedback();
+        favorites.toggle(code);
+      },
       onMenu: (rowContext) => showDashMenu(
         rowContext,
         title: '/$code/ · ${b.title}',
@@ -192,7 +199,10 @@ class _DashboardState extends State<Dashboard> {
             icon: favorites.contains(code)
                 ? CupertinoIcons.heart_slash
                 : CupertinoIcons.heart,
-            onPressed: () => favorites.toggle(code),
+            onPressed: () {
+              keepFeedback();
+              favorites.toggle(code);
+            },
           ),
           if (b.hasArchive)
             DashMenuEntry(

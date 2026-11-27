@@ -12,6 +12,7 @@ import 'package:flutter_chan/ui/dash_header.dart';
 import 'package:flutter_chan/ui/dash_menu.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
 import 'package:flutter_chan/ui/dash_widgets.dart';
+import 'package:flutter_chan/ui/haptics.dart';
 import 'package:flutter_chan/ui/master_detail.dart';
 import 'package:flutter_chan/ui/reload.dart';
 import 'package:provider/provider.dart';
@@ -126,7 +127,10 @@ class _BoardPageState extends State<BoardPage> with ThreadOrder<BoardPage> {
               isFavorite ? CupertinoIcons.heart_fill : CupertinoIcons.heart,
               color: CupertinoColors.systemRed,
             ),
-            onPressed: () => favorites.toggle(widget.board),
+            onPressed: () {
+              keepFeedback();
+              favorites.toggle(widget.board);
+            },
           ),
           // The rest in one menu, so the board's name has the room.
           sortMenu(

@@ -616,6 +616,9 @@ class _MenuPanelState extends State<_MenuPanel> {
   }
 
   void _choose(DashMenuEntry entry) {
+    // A tick for what's chosen, however it was: tapped, slid to and let
+    // go, or with VoiceOver.
+    HapticFeedback.selectionClick();
     widget.onChoosing?.call();
     final VoidCallback? close = widget.onClose;
     if (close != null) {

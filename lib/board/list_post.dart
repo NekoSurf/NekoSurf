@@ -13,6 +13,7 @@ import 'package:flutter_chan/media/post_thumbnail.dart';
 import 'package:flutter_chan/ui/back_swipe_route.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_widgets.dart';
+import 'package:flutter_chan/ui/haptics.dart';
 import 'package:flutter_chan/ui/open.dart';
 import 'package:flutter_chan/ui/pills.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
@@ -52,14 +53,20 @@ class ListPost extends StatelessWidget {
           ? swipeActions(
               label: 'Remove',
               icon: CupertinoIcons.trash_fill,
-              onPressed: () => bookmarks.removeBookmark(bookmark),
+              onPressed: () {
+                keepFeedback();
+                bookmarks.removeBookmark(bookmark);
+              },
             )
           : swipeActions(
               label: 'Add',
               icon: CupertinoIcons.bookmark_fill,
               color: context.accent,
               foregroundColor: Colors.black,
-              onPressed: () => bookmarks.addBookmark(bookmark),
+              onPressed: () {
+                keepFeedback();
+                bookmarks.addBookmark(bookmark);
+              },
             ),
       child: SlidableBackSwipe(
         child: GestureDetector(
@@ -280,7 +287,10 @@ class ListPost extends StatelessWidget {
                     const SizedBox(width: 6),
 
                     GestureDetector(
-                      onTap: () => bookmarks.toggleBookmark(bookmark),
+                      onTap: () {
+                        keepFeedback();
+                        bookmarks.toggleBookmark(bookmark);
+                      },
                       child: Icon(
                         isBookmarked
                             ? CupertinoIcons.bookmark_fill

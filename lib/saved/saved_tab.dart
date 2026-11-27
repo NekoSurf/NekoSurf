@@ -11,6 +11,7 @@ import 'package:flutter_chan/ui/dash_dialogs.dart';
 import 'package:flutter_chan/ui/dash_header.dart';
 import 'package:flutter_chan/ui/dash_menu.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
+import 'package:flutter_chan/ui/haptics.dart';
 import 'package:flutter_chan/ui/toast.dart';
 import 'package:provider/provider.dart';
 
@@ -56,6 +57,7 @@ class _SavedTabState extends State<SavedTab> {
         !mounted) {
       return;
     }
+    keepFeedback();
     int failed = 0;
     final bool ran = await reportingFailure(context, () async {
       failed = await copySavedToPhotos(names);

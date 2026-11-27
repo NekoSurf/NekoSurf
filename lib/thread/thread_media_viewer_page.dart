@@ -11,6 +11,7 @@ import 'package:flutter_chan/saved/photos_prompt.dart';
 import 'package:flutter_chan/saved/report_failure.dart';
 import 'package:flutter_chan/saved/saved_attachments_model.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
+import 'package:flutter_chan/ui/haptics.dart';
 import 'package:provider/provider.dart';
 
 class ThreadMediaViewerPage extends StatefulWidget {
@@ -91,6 +92,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
   // viewer moves on meanwhile.
 
   Future<void> _save() async {
+    keepFeedback();
     final Post post = _currentPost;
     final SavedAttachmentsProvider saved = context
         .read<SavedAttachmentsProvider>();
@@ -119,6 +121,7 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
     if (!await confirmSavingToPhotos(context) || !mounted) {
       return;
     }
+    keepFeedback();
     await reportingFailure(
       context,
       () => _toPhotos.run(

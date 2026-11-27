@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_chan/bookmarks/bookmark.dart';
 import 'package:flutter_chan/bookmarks/bookmarks_model.dart';
 import 'package:flutter_chan/ui/dash_header.dart';
+import 'package:flutter_chan/ui/haptics.dart';
 import 'package:provider/provider.dart';
 
 class BookmarkButton extends StatelessWidget {
@@ -16,7 +17,10 @@ class BookmarkButton extends StatelessWidget {
 
     return DashIconButton(
       label: isBookmarked ? 'Remove bookmark' : 'Bookmark',
-      onPressed: () => bookmarks.toggleBookmark(bookmark),
+      onPressed: () {
+        keepFeedback();
+        bookmarks.toggleBookmark(bookmark);
+      },
       icon: Icon(
         isBookmarked ? CupertinoIcons.bookmark_fill : CupertinoIcons.bookmark,
       ),

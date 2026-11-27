@@ -10,6 +10,7 @@ import 'package:flutter_chan/media/image_cache.dart';
 import 'package:flutter_chan/media/post_thumbnail.dart';
 import 'package:flutter_chan/media/spoiler_cover.dart';
 import 'package:flutter_chan/ui/colors.dart';
+import 'package:flutter_chan/ui/haptics.dart';
 import 'package:flutter_chan/ui/hover.dart';
 import 'package:flutter_chan/ui/image_frost.dart';
 import 'package:flutter_chan/ui/open.dart';
@@ -163,7 +164,10 @@ class GridPost extends StatelessWidget {
                       top: 10,
                       right: 10,
                       child: GestureDetector(
-                        onTap: () => bookmarks.toggleBookmark(bookmark),
+                        onTap: () {
+                          keepFeedback();
+                          bookmarks.toggleBookmark(bookmark);
+                        },
                         child: ImageFrost(
                           image: frost,
                           card: card,

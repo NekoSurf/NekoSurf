@@ -1,5 +1,7 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_chan/ui/colors.dart';
 
 /// What's typed in Settings' search field, for the rows to show only what
@@ -272,7 +274,13 @@ class SettingsSwitch extends StatelessWidget {
     return CupertinoSwitch(
       value: value,
       activeTrackColor: context.accent,
-      onChanged: onChanged,
+      onChanged: (bool on) {
+        // It ticks by itself on iPhone, but not on Android.
+        if (defaultTargetPlatform != TargetPlatform.iOS) {
+          HapticFeedback.selectionClick();
+        }
+        onChanged(on);
+      },
     );
   }
 }
@@ -299,6 +307,7 @@ class SettingsSegments<T extends Object> extends StatelessWidget {
       padding: const EdgeInsets.all(3),
       onValueChanged: (T? chosen) {
         if (chosen != null) {
+          HapticFeedback.selectionClick();
           onChanged(chosen);
         }
       },

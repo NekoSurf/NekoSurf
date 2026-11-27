@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_chan/ui/dash_menu.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -121,6 +122,30 @@ void main() {
 
     expect(chosen, ['Two']);
     expect(find.text('One'), findsNothing);
+  });
+
+  testWidgets('choosing an entry ticks', (tester) async {
+    final List<String> haptics = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (MethodCall call) async {
+        if (call.method == 'HapticFeedback.vibrate') {
+          haptics.add(call.arguments as String);
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    await openMenuAt(tester, 100);
+
+    await tester.tap(find.text('Two'));
+    await tester.pumpAndSettle();
+    expect(haptics, ['HapticFeedbackType.selectionClick']);
   });
 
   testWidgets('sliding over the entries chooses the one let go on', (
