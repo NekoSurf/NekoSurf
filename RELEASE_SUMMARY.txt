@@ -1,1 +1,1 @@
-Menus spring out of their button, close as you scroll, and you can slide over them to choose.
+Menus spring out of their button, close as you scroll, and you can slide over them to choose; pages slide on Android as on iPhone.

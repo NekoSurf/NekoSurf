@@ -24,7 +24,6 @@ import 'package:flutter_chan/settings/synced_items.dart';
 import 'package:flutter_chan/sync/cloud_sync.dart';
 import 'package:flutter_chan/ui/app_restart.dart';
 import 'package:flutter_chan/ui/colors.dart';
-import 'package:flutter_chan/ui/fast_page_transitions.dart';
 import 'package:flutter_chan/ui/keys.dart';
 import 'package:flutter_chan/ui/open.dart';
 import 'package:flutter_chan/ui/unfocus_on_push.dart';
@@ -358,14 +357,11 @@ class _AppWithThemeState extends State<AppWithTheme>
           maxScaleFactor: 1.3,
           child: Theme(
             data: Theme.of(context).copyWith(
+              // iOS's slide everywhere, Android included.
               pageTransitionsTheme: PageTransitionsTheme(
                 builders: {
                   for (final platform in TargetPlatform.values)
-                    platform:
-                        platform == TargetPlatform.iOS ||
-                            platform == TargetPlatform.macOS
-                        ? const CupertinoPageTransitionsBuilder()
-                        : const FastCupertinoTransitionsBuilder(),
+                    platform: const CupertinoPageTransitionsBuilder(),
                 },
               ),
             ),
