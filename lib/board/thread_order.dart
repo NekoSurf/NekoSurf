@@ -38,9 +38,16 @@ mixin ThreadOrder<T extends StatefulWidget> on State<T> {
     sortDirection = settings.boardSortDirection.value;
   }
 
-  Widget sortMenu(SettingsProvider settings) {
+  /// The orders to pick from, after [leading]: what else the page's one
+  /// menu offers, like switching between the grid and the list.
+  Widget sortMenu(
+    SettingsProvider settings, {
+    List<DashMenuEntry> leading = const [],
+  }) {
     return DashMenuButton(
       menuChildren: [
+        ...leading,
+        if (leading.isNotEmpty) const DashMenuDivider(),
         for (final Sort option in Sort.values)
           DashMenuEntry(
             title: option.title,
@@ -82,6 +89,17 @@ mixin ThreadOrder<T extends StatefulWidget> on State<T> {
       onOrderChanged();
     });
   }
+}
+
+/// Switches pages of threads between the grid and the list, from a menu.
+DashMenuEntry viewModeEntry(SettingsProvider settings) {
+  final bool grid = settings.boardViewMode.value == ViewMode.grid;
+  return DashMenuEntry(
+    title: grid ? 'Show as List' : 'Show as Grid',
+    icon: grid ? CupertinoIcons.list_bullet : CupertinoIcons.square_grid_2x2,
+    onPressed: () =>
+        settings.boardViewMode.set(grid ? ViewMode.list : ViewMode.grid),
+  );
 }
 
 /// Switches pages of threads between the grid and the list.

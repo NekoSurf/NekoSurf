@@ -1,1 +1,1 @@
-A quicker board list grouped by letter, with swipe and hold to favorite.
+A quicker board list grouped by letter, with swipe and hold to favorite; a board's name that fits its page.

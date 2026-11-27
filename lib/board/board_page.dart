@@ -9,6 +9,7 @@ import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/ui/back_swipe_route.dart';
 import 'package:flutter_chan/ui/dash_header.dart';
+import 'package:flutter_chan/ui/dash_menu.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
 import 'package:flutter_chan/ui/dash_widgets.dart';
 import 'package:flutter_chan/ui/master_detail.dart';
@@ -127,21 +128,26 @@ class _BoardPageState extends State<BoardPage> with ThreadOrder<BoardPage> {
             ),
             onPressed: () => favorites.toggle(widget.board),
           ),
-          const ViewModeButton(),
-          if (_hasArchive)
-            DashIconButton(
-              label: 'Archive',
-              icon: const Icon(CupertinoIcons.archivebox),
-              onPressed: () => Navigator.of(context).push(
-                BackSwipePageRoute(
-                  builder: (_) => ArchivePage(
-                    board: widget.board,
-                    boardName: widget.boardName,
+          // The rest in one menu, so the board's name has the room.
+          sortMenu(
+            settings,
+            leading: [
+              viewModeEntry(settings),
+              if (_hasArchive)
+                DashMenuEntry(
+                  title: 'Archive',
+                  icon: CupertinoIcons.archivebox,
+                  onPressed: () => Navigator.of(context).push(
+                    BackSwipePageRoute(
+                      builder: (_) => ArchivePage(
+                        board: widget.board,
+                        boardName: widget.boardName,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-          sortMenu(settings),
+            ],
+          ),
         ],
         slivers: [
           SliverToBoxAdapter(
