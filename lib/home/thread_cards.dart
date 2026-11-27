@@ -1,14 +1,24 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/media/post_thumbnail.dart';
 import 'package:flutter_chan/ui/colors.dart';
 
 /// A thread as a big picture card in a [ThreadCardRow].
 class ThreadCard {
-  const ThreadCard({required this.post, required this.onTap, this.badge});
+  const ThreadCard({
+    required this.post,
+    required this.onTap,
+    this.badge,
+    this.onMenu,
+  });
 
   final Post post;
   final VoidCallback onTap;
+
+  /// Opens the card's menu, when it's held (or right-clicked), anchored to
+  /// the card's context.
+  final void Function(BuildContext context)? onMenu;
 
   /// Over the picture's corner, like how many replies are new.
   final Widget? badge;
@@ -34,11 +44,27 @@ class ThreadCardRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Room for two lines of the title at the text size chosen.
+    // Room for the titles at the text size chosen: two lines if any needs
+    // them, or one, so short titles don't leave a gap under the row.
+    final TextScaler scaler = MediaQuery.textScalerOf(context);
+    const TextStyle style = TextStyle(
+      fontSize: _titleSize,
+      height: _titleLineHeight,
+      fontWeight: FontWeight.w700,
+    );
+    final bool twoLines = cards.any((card) {
+      final TextPainter painter = TextPainter(
+        text: TextSpan(text: card.post.title, style: style),
+        textDirection: TextDirection.ltr,
+        textScaler: scaler,
+        maxLines: 1,
+      )..layout(maxWidth: width);
+      final bool overflows = painter.didExceedMaxLines;
+      painter.dispose();
+      return overflows;
+    });
     final double titleHeight =
-        MediaQuery.textScalerOf(context).scale(_titleSize) *
-        _titleLineHeight *
-        2;
+        scaler.scale(_titleSize) * _titleLineHeight * (twoLines ? 2 : 1);
     return SizedBox(
       height: imageHeight + 8 + titleHeight + 4,
       child: ListView.separated(
@@ -77,6 +103,16 @@ class _Card extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: card.onTap,
+        onLongPress: card.onMenu == null
+            ? null
+            : () {
+                HapticFeedback.mediumImpact();
+                card.onMenu!(context);
+              },
+        // A right click, with a trackpad or mouse, does what holding does.
+        onSecondaryTap: card.onMenu == null
+            ? null
+            : () => card.onMenu!(context),
         child: SizedBox(
           width: width,
           child: Column(

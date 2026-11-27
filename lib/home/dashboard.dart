@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chan/board/archive_page.dart';
 import 'package:flutter_chan/board/favorite_model.dart';
 import 'package:flutter_chan/board/feed_page.dart';
+import 'package:flutter_chan/bookmarks/bookmark.dart';
+import 'package:flutter_chan/bookmarks/bookmarks_model.dart';
 import 'package:flutter_chan/chan/api.dart';
 import 'package:flutter_chan/chan/board.dart';
 import 'package:flutter_chan/chan/post_text.dart';
@@ -115,6 +117,7 @@ class _DashboardState extends State<Dashboard> {
             ThreadCard(
               post: t.toPost(),
               onTap: () => openThread(context, t.toPost()),
+              onMenu: (cardContext) => _continueMenu(cardContext, history, t),
               badge: NewRepliesCount(
                 thread: t.no,
                 replies: history.replies(t),
@@ -126,6 +129,40 @@ class _DashboardState extends State<Dashboard> {
         ],
       ),
     ];
+  }
+
+  /// What holding a Continue reading card offers: bookmarking it, and taking
+  /// it out of History, and so out of the row.
+  void _continueMenu(
+    BuildContext cardContext,
+    HistoryProvider history,
+    HistoryThread thread,
+  ) {
+    final BookmarksProvider bookmarks = Provider.of<BookmarksProvider>(
+      context,
+      listen: false,
+    );
+    final Bookmark bookmark = Bookmark.fromPost(thread.toPost());
+    final bool isBookmarked = bookmarks.isBookmarked(bookmark);
+    showDashMenu(
+      cardContext,
+      title: plainText(thread.toPost().title),
+      entries: [
+        DashMenuEntry(
+          title: isBookmarked ? 'Remove bookmark' : 'Bookmark',
+          icon: isBookmarked
+              ? CupertinoIcons.bookmark_fill
+              : CupertinoIcons.bookmark,
+          onPressed: () => bookmarks.toggleBookmark(bookmark),
+        ),
+        DashMenuEntry(
+          title: 'Remove from history',
+          icon: CupertinoIcons.trash,
+          isDestructive: true,
+          onPressed: () => history.removeThread(thread),
+        ),
+      ],
+    );
   }
 
   void _push(Widget page) {
