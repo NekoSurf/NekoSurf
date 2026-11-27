@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_chan/ui/back_swipe_route.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_widgets.dart';
@@ -85,6 +86,7 @@ class DashBoardRow extends StatelessWidget {
     required this.nsfw,
     required this.onTap,
     required this.onToggleFavorite,
+    this.onMenu,
   });
 
   final String board;
@@ -94,6 +96,10 @@ class DashBoardRow extends StatelessWidget {
   final bool nsfw;
   final VoidCallback onTap;
   final VoidCallback onToggleFavorite;
+
+  /// Opens the row's menu, when it's held (or right-clicked), anchored to
+  /// the row's [context].
+  final void Function(BuildContext context)? onMenu;
 
   /// How far the name starts from the row's edge, for the dividers between.
   static const double textInset = 16 + _codeWidth + 8;
@@ -106,8 +112,17 @@ class DashBoardRow extends StatelessWidget {
         ? 'Remove from favorites'
         : 'Add to favorites';
 
+    final void Function(BuildContext context)? onMenu = this.onMenu;
     final Widget row = GestureDetector(
       onTap: onTap,
+      onLongPress: onMenu == null
+          ? null
+          : () {
+              HapticFeedback.mediumImpact();
+              onMenu(context);
+            },
+      // A right click, with a trackpad or mouse, does what holding does.
+      onSecondaryTap: onMenu == null ? null : () => onMenu(context),
       behavior: HitTestBehavior.opaque,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

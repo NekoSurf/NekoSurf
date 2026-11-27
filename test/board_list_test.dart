@@ -82,40 +82,49 @@ void main() {
     expect(boardLetter('r9k'), 'R');
   });
 
-  testWidgets('a board row is one line, swiped to favorite it', (tester) async {
-    int toggled = 0;
-    await tester.pumpWidget(
-      CupertinoApp(
-        home: CupertinoPageScaffold(
-          child: Center(
-            child: DashBoardRow(
-              board: 'g',
-              title: 'Technology',
-              description: 'Computer hardware and software.',
-              isFavorite: false,
-              nsfw: false,
-              onTap: () {},
-              onToggleFavorite: () => toggled++,
+  testWidgets(
+    'a board row is one line, swiped to favorite it, held for its menu',
+    (tester) async {
+      int toggled = 0;
+      int held = 0;
+      await tester.pumpWidget(
+        CupertinoApp(
+          home: CupertinoPageScaffold(
+            child: Center(
+              child: DashBoardRow(
+                board: 'g',
+                title: 'Technology',
+                description: 'Computer hardware and software.',
+                isFavorite: false,
+                nsfw: false,
+                onTap: () {},
+                onToggleFavorite: () => toggled++,
+                onMenu: (_) => held++,
+              ),
             ),
           ),
         ),
-      ),
-    );
-    expect(find.text('/g/'), findsOneWidget);
-    expect(
-      find.text(
-        'Technology  Computer hardware and software.',
-        findRichText: true,
-      ),
-      findsOneWidget,
-    );
-    // No heart till swiped.
-    expect(find.text('Favorite'), findsNothing);
+      );
+      expect(find.text('/g/'), findsOneWidget);
+      expect(
+        find.text(
+          'Technology  Computer hardware and software.',
+          findRichText: true,
+        ),
+        findsOneWidget,
+      );
+      // No heart till swiped.
+      expect(find.text('Favorite'), findsNothing);
 
-    await tester.drag(find.text('/g/'), const Offset(-300, 0));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Favorite'));
-    await tester.pumpAndSettle();
-    expect(toggled, 1);
-  });
+      // Holding it opens its menu.
+      await tester.longPress(find.text('/g/'));
+      expect(held, 1);
+
+      await tester.drag(find.text('/g/'), const Offset(-300, 0));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Favorite'));
+      await tester.pumpAndSettle();
+      expect(toggled, 1);
+    },
+  );
 }

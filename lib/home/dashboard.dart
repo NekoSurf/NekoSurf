@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_chan/board/archive_page.dart';
 import 'package:flutter_chan/board/favorite_model.dart';
 import 'package:flutter_chan/board/feed_page.dart';
 import 'package:flutter_chan/chan/api.dart';
@@ -16,6 +17,7 @@ import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/ui/back_swipe_route.dart';
 import 'package:flutter_chan/ui/colors.dart';
 import 'package:flutter_chan/ui/dash_header.dart';
+import 'package:flutter_chan/ui/dash_menu.dart';
 import 'package:flutter_chan/ui/dash_scaffold.dart';
 import 'package:flutter_chan/ui/dash_widgets.dart';
 import 'package:flutter_chan/ui/open.dart';
@@ -142,6 +144,28 @@ class _DashboardState extends State<Dashboard> {
       nsfw: b.isNsfw,
       onTap: () => openBoard(context, code, name: b.title),
       onToggleFavorite: () => favorites.toggle(code),
+      onMenu: (rowContext) => showDashMenu(
+        rowContext,
+        title: '/$code/ · ${b.title}',
+        entries: [
+          DashMenuEntry(
+            title: favorites.contains(code)
+                ? 'Remove from favorites'
+                : 'Add to favorites',
+            icon: favorites.contains(code)
+                ? CupertinoIcons.heart_slash
+                : CupertinoIcons.heart,
+            onPressed: () => favorites.toggle(code),
+          ),
+          if (b.hasArchive)
+            DashMenuEntry(
+              title: 'Archive',
+              icon: CupertinoIcons.archivebox,
+              onPressed: () =>
+                  _push(ArchivePage(board: code, boardName: b.title)),
+            ),
+        ],
+      ),
     );
   }
 

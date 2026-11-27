@@ -1,1 +1,1 @@
-A quicker board list, one line per board grouped by letter, and swipe a board to favorite it.
+A quicker board list grouped by letter, with swipe and hold to favorite.
