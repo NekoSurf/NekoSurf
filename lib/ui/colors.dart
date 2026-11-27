@@ -205,3 +205,26 @@ Color boardColor(String board) {
   final hash = board.codeUnits.fold<int>(0, (a, b) => a + b);
   return _boardPalette[hash % _boardPalette.length];
 }
+
+/// [boardColor] for text, like a board's code: the same in the dark, where
+/// the palette's soft colours read, and in the light darkened just enough
+/// to read on white too (4.5:1), so a yellow /fa/ doesn't fade into it.
+Color boardTextColor(BuildContext context, String board) =>
+    readableText(context, boardColor(board));
+
+/// [color] for text: as it is in the dark, and in the light darkened just
+/// enough to read on white (4.5:1).
+Color readableText(BuildContext context, Color color) =>
+    context.isDark ? color : _readableOnWhite(color);
+
+final Map<Color, Color> _onWhite = <Color, Color>{};
+
+Color _readableOnWhite(Color color) => _onWhite.putIfAbsent(color, () {
+  const double white = 1;
+  double contrast(Color c) => (white + 0.05) / (c.computeLuminance() + 0.05);
+  HSLColor hsl = HSLColor.fromColor(color);
+  while (contrast(hsl.toColor()) < 4.5 && hsl.lightness > 0.02) {
+    hsl = hsl.withLightness(hsl.lightness - 0.02);
+  }
+  return hsl.toColor();
+});

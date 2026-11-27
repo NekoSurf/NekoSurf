@@ -266,7 +266,7 @@ class _DashboardState extends State<Dashboard> {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
-                      color: context.accent,
+                      color: readableText(context, context.accent),
                     ),
                   ),
                 ),

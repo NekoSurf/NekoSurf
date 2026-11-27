@@ -102,7 +102,7 @@ class ListPost extends StatelessWidget {
                                 child: Text(
                                   posterName.characters.first.toUpperCase(),
                                   style: TextStyle(
-                                    color: boardTint,
+                                    color: boardTextColor(context, post.board),
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
                                   ),

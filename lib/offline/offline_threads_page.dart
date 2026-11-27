@@ -163,6 +163,7 @@ class _OfflineRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Color tint = boardColor(thread.board);
+    final Color textTint = boardTextColor(context, thread.board);
     final String title = plainText(thread.title).trim();
     final String body = plainText(thread.com ?? '').trim();
     final String headline = title.isNotEmpty
@@ -191,7 +192,7 @@ class _OfflineRow extends StatelessWidget {
                     ? Text(
                         '/${thread.board}/',
                         style: TextStyle(
-                          color: tint,
+                          color: textTint,
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
                         ),
@@ -215,7 +216,7 @@ class _OfflineRow extends StatelessWidget {
                       Text(
                         '/${thread.board}/',
                         style: TextStyle(
-                          color: tint,
+                          color: textTint,
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
                         ),

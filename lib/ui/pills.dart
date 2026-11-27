@@ -58,7 +58,7 @@ class BoardPill extends StatelessWidget {
       child: Text(
         '/$board/',
         style: TextStyle(
-          color: tint,
+          color: boardTextColor(context, board),
           fontSize: 11,
           fontWeight: FontWeight.w700,
         ),

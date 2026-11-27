@@ -107,7 +107,9 @@ class DashBoardRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color color = nsfw ? DashColors.danger : boardColor(board);
+    final Color color = nsfw
+        ? DashColors.danger
+        : boardTextColor(context, board);
     final String favoriteLabel = isFavorite
         ? 'Remove from favorites'
         : 'Add to favorites';
