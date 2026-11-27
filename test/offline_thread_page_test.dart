@@ -161,8 +161,8 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
     await tester.tap(find.bySemanticsLabel('More'));
     await tester.pumpAndSettle();
-    expect(find.text('Update Offline Copy'), findsOneWidget);
-    await tester.tap(find.text('Remove Offline Copy'));
+    expect(find.text('Update offline copy'), findsOneWidget);
+    await tester.tap(find.text('Remove offline copy'));
     await tester.pumpAndSettle();
     await waitUntil(tester, () => !offline.isSaved('g', 1));
     await finish(tester);

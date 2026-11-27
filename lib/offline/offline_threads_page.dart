@@ -69,7 +69,7 @@ class OfflineThreadsPage extends StatelessWidget {
     ];
 
     return DashScaffold(
-      title: 'Saved for Offline',
+      title: 'Saved for offline',
       subtitle: threads.isEmpty
           ? null
           : '${threads.length == 1 ? '1 thread' : '${threads.length} threads'}'

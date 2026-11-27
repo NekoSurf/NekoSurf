@@ -138,11 +138,11 @@ void main() {
     await tester.pumpWidget(app(ThreadPage(post: Post(board: 'g', no: 100))));
     await waitUntil(
       tester,
-      () => find.text('Look in Archives').evaluate().isNotEmpty,
+      () => find.text('Look in archives').evaluate().isNotEmpty,
     );
     expect(find.text('Thread not found'), findsOneWidget);
 
-    await tester.tap(find.text('Look in Archives'));
+    await tester.tap(find.text('Look in archives'));
     await waitUntil(tester, () => find.text('A reply').evaluate().isNotEmpty);
     expect(find.text('First words'), findsOneWidget);
     expect(find.text('Deleted · from b4k'), findsOneWidget);
@@ -186,10 +186,10 @@ void main() {
     await tester.pumpWidget(app(ThreadPage(post: Post(board: 'g', no: 100))));
     await waitUntil(
       tester,
-      () => find.text('Look in Archives').evaluate().isNotEmpty,
+      () => find.text('Look in archives').evaluate().isNotEmpty,
     );
 
-    await tester.tap(find.text('Look in Archives'));
+    await tester.tap(find.text('Look in archives'));
     await waitUntil(
       tester,
       () => find.text('None of the archives have it').evaluate().isNotEmpty,
@@ -210,7 +210,7 @@ void main() {
       () => find.text('Thread not found').evaluate().isNotEmpty,
     );
     expect(find.text('Open on 4chan'), findsOneWidget);
-    expect(find.text('Look in Archives'), findsNothing);
+    expect(find.text('Look in archives'), findsNothing);
     await finish(tester);
   });
 
@@ -219,9 +219,9 @@ void main() {
     await tester.pumpWidget(app(ThreadPage(post: Post(board: 'g', no: 100))));
     await waitUntil(
       tester,
-      () => find.text('Look in Archives').evaluate().isNotEmpty,
+      () => find.text('Look in archives').evaluate().isNotEmpty,
     );
-    await tester.tap(find.text('Look in Archives'));
+    await tester.tap(find.text('Look in archives'));
     // b4k, the one left, says so by name.
     await waitUntil(
       tester,

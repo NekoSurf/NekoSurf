@@ -224,7 +224,7 @@ class _SavedTabState extends State<SavedTab> {
       listenable: browsing,
       builder: (context, _) => DashScaffold(
         title: !browsing.selecting
-            ? 'Saved Attachments'
+            ? 'Saved'
             : browsing.selected.isEmpty
             ? 'Select Items'
             : '${browsing.selected.length} Selected',

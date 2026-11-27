@@ -148,8 +148,8 @@ class _ThreadPageState extends State<ThreadPage>
   bool get _canLookInArchives => _archivesToAsk.isNotEmpty;
 
   String get _lookInArchivesTitle => _archive == null && _copySource == null
-      ? 'Look in Archives'
-      : 'Look in Other Archives';
+      ? 'Look in archives'
+      : 'Look in other archives';
 
   /// Looks for the deleted thread in the archives that keep its board, and
   /// shows it from the first that has it.
@@ -947,7 +947,7 @@ class _ThreadPageState extends State<ThreadPage>
                     ),
                   ),
                   DashMenuEntry(
-                    title: 'Open in Browser',
+                    title: 'Open in browser',
                     icon: CupertinoIcons.globe,
                     onPressed: () {
                       openUrl(urls.threadPage(widget.board, widget.thread));
@@ -967,14 +967,14 @@ class _ThreadPageState extends State<ThreadPage>
                   if (_offline.saving == null && thread.posts.isNotEmpty)
                     DashMenuEntry(
                       title: _offline.saved
-                          ? 'Update Offline Copy'
+                          ? 'Update offline copy'
                           : 'Save for Offline',
                       icon: CupertinoIcons.arrow_down_circle,
                       onPressed: _saveOffline,
                     ),
                   if (_offline.saved && _offline.saving == null)
                     DashMenuEntry(
-                      title: 'Remove Offline Copy',
+                      title: 'Remove offline copy',
                       icon: CupertinoIcons.trash,
                       isDestructive: true,
                       onPressed: () => OfflineThreads.instance.remove(
@@ -984,19 +984,19 @@ class _ThreadPageState extends State<ThreadPage>
                     ),
                   if (hasUnseen)
                     DashMenuEntry(
-                      title: 'Mark All as Read',
+                      title: 'Mark all as read',
                       icon: CupertinoIcons.checkmark_alt,
                       onPressed: () => _watched.markThreadSeen(widget.thread),
                     ),
                   DashMenuEntry(
-                    title: 'Scroll to Top',
+                    title: 'Scroll to top',
                     icon: CupertinoIcons.arrow_up,
                     onPressed: () {
                       scrollToRow(0, alignment: 0);
                     },
                   ),
                   DashMenuEntry(
-                    title: 'Scroll to Bottom',
+                    title: 'Scroll to bottom',
                     icon: CupertinoIcons.arrow_down,
                     onPressed: scrollToEnd,
                   ),
@@ -1024,7 +1024,7 @@ class _ThreadPageState extends State<ThreadPage>
                           ? 'Open on 4chan'
                           : _lookingInArchives
                           ? 'Looking in archives…'
-                          : 'Look in Archives',
+                          : 'Look in archives',
                       onSecondary: !_canLookInArchives
                           ? () => openUrl(
                               urls.threadPage(widget.board, widget.thread),

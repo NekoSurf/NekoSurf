@@ -250,7 +250,7 @@ class SettingsProvider with ChangeNotifier implements SyncTarget {
     PostTextSize.standard,
   );
 
-  /// The archives Look in Archives leaves out, by host.
+  /// The archives Look in archives leaves out, by host.
   late final Setting<Set<String>> archivesOff = _names('archivesOff');
 
   /// The archives to look in for [board]'s deleted threads, in order.

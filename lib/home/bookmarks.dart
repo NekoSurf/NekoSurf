@@ -237,7 +237,7 @@ class _BookmarksState extends State<Bookmarks> {
               menuChildren: [
                 if (hasOffline)
                   DashMenuEntry(
-                    title: 'Saved for Offline',
+                    title: 'Saved for offline',
                     icon: CupertinoIcons.arrow_down_circle,
                     onPressed: () => openOfflineThreads(context),
                   ),

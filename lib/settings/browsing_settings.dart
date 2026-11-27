@@ -227,7 +227,7 @@ class BrowsingSettings extends StatelessWidget {
         SettingsGroup(
           title: 'Archives',
           footer:
-              'Look in Archives, on a thread 4chan has deleted, asks the '
+              'Look in archives, on a thread 4chan has deleted, asks the '
               'archives that keep its board, from the top. They are run by '
               'others; one that is off is never asked. archived.moe can ask '
               'you to complete a check first.',

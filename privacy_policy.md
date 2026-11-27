@@ -1,6 +1,6 @@
 # Privacy Policy
 
-_Last updated: 19 November 2026_
+_Last updated: 27 November 2026_
 
 NekoSurf is a free, open-source app for reading 4chan, made by wrngwrld. This policy explains what the app does with your data. In short:
 
@@ -35,7 +35,7 @@ Only when you choose them:
 
 - **Reverse image search** opens Google Lens, Bing, Yandex or SauceNAO in your browser with the address of the image you picked. That service's privacy policy applies.
 - **Links** you open go to your browser.
-- **Look in Archives**, on a thread 4chan has deleted, asks the archives that keep its board whether they have it, all at once: Desuarchive (desuarchive.org), b4k (arch.b4k.dev), Palanq (archive.palanq.win), Archive of Sins (archiveofsins.com), TheBArchive (thebarchive.com), 4plebs (archive.4plebs.org), warosu (warosu.org) and, last, archived.moe. They're run by others, not by 4chan or the developer. They receive the board and the thread's number, and the thread's images and videos then load from the archive's image server. archived.moe is protected by Cloudflare, so it's asked in a browser view inside the app, which completes Cloudflare's check and keeps its cookie for later, as for find.4chan.org. While looking, at most once a week, the app also asks them which boards they keep. Each can be turned off in Settings → Archives, and one that's off is never contacted. Their own policies apply.
+- **Look in archives**, on a thread 4chan has deleted, asks the archives that keep its board whether they have it, all at once: Desuarchive (desuarchive.org), b4k (arch.b4k.dev), Palanq (archive.palanq.win), Archive of Sins (archiveofsins.com), TheBArchive (thebarchive.com), 4plebs (archive.4plebs.org), warosu (warosu.org) and, last, archived.moe. They're run by others, not by 4chan or the developer. They receive the board and the thread's number, and the thread's images and videos then load from the archive's image server. archived.moe is protected by Cloudflare, so it's asked in a browser view inside the app, which completes Cloudflare's check and keeps its cookie for later, as for find.4chan.org. While looking, at most once a week, the app also asks them which boards they keep. Each can be turned off in Settings → Archives, and one that's off is never contacted. Their own policies apply.
 
 ## Permissions
 
@@ -50,7 +50,7 @@ Only when you choose them:
 
 ## Deleting your data
 
-- In **Settings → Storage**, clear the cache of images and videos, and remove threads saved for offline (also in Bookmarks → More → Saved for Offline, or from the thread's menu).
+- In **Settings → Storage**, clear the cache of images and videos, and remove threads saved for offline (also in Bookmarks → More → Saved for offline, or from the thread's menu).
 - On the **History** page, clear the threads you've visited, with the copies kept of them. Watched posts are forgotten a week after you last opened the thread.
 - In the **Saved tab**, delete what you've saved.
 - **Uninstalling** the app deletes everything it stored, except what you saved to Photos or your gallery, on Android the Download/4Chan folder (if you kept saved files there), any backup files you kept, and what iCloud sync keeps in your iCloud account (delete it in NekoSurf's Settings or your iPhone's iCloud settings).

@@ -7,9 +7,9 @@ import 'package:provider/provider.dart';
 
 extension SortNames on Sort {
   String get title => switch (this) {
-    Sort.byImagesCount => 'Image Count',
-    Sort.byReplyCount => 'Reply Count',
-    Sort.byBumpOrder => 'Bump Order',
+    Sort.byImagesCount => 'Image count',
+    Sort.byReplyCount => 'Reply count',
+    Sort.byBumpOrder => 'Bump order',
     Sort.byNewest => 'Newest',
   };
 
@@ -73,7 +73,7 @@ mixin ThreadOrder<T extends StatefulWidget> on State<T> {
         ),
         const DashMenuDivider(),
         DashMenuEntry(
-          title: 'Show Sticky Threads',
+          title: 'Show sticky threads',
           icon: CupertinoIcons.pin,
           isSelected: settings.showStickyThreads.value,
           onPressed: () =>
@@ -95,7 +95,7 @@ mixin ThreadOrder<T extends StatefulWidget> on State<T> {
 DashMenuEntry viewModeEntry(SettingsProvider settings) {
   final bool grid = settings.boardViewMode.value == ViewMode.grid;
   return DashMenuEntry(
-    title: grid ? 'Show as List' : 'Show as Grid',
+    title: grid ? 'Show as list' : 'Show as grid',
     icon: grid ? CupertinoIcons.list_bullet : CupertinoIcons.square_grid_2x2,
     onPressed: () =>
         settings.boardViewMode.set(grid ? ViewMode.list : ViewMode.grid),
