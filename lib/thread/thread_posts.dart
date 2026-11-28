@@ -1,5 +1,6 @@
 import 'package:flutter_chan/chan/post.dart';
 import 'package:flutter_chan/chan/post_text.dart';
+import 'package:flutter_chan/saved/download_folder.dart';
 
 class ThreadPosts {
   ThreadPosts({required this.board, required this.number, required this.posts});
@@ -137,4 +138,14 @@ List<Post> _subtree(int root, Map<int, List<Post>> replies) {
 
   collectChildren(root);
   return collected;
+}
+
+/// The folder Save to Photos puts [thread]'s files in, with a folder per
+/// thread: its number and subject, or the start of its first post.
+String threadFolderOf(ThreadPosts thread) {
+  final Post? first = thread.posts.firstOrNull;
+  return threadFolderName(
+    thread.number,
+    first != null && first.no == thread.number ? first.title : null,
+  );
 }

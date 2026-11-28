@@ -34,7 +34,7 @@ void main() {
     watched = WatchedPostsProvider(prefs);
     addTearDown(watched.dispose);
 
-    await tester.binding.setSurfaceSize(const Size(400, 4000));
+    await tester.binding.setSurfaceSize(const Size(400, 4400));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
       MultiProvider(

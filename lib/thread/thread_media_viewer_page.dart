@@ -4,6 +4,7 @@ import 'package:flutter_chan/media/image_cache.dart';
 import 'package:flutter_chan/media/reverse_image_search.dart';
 import 'package:flutter_chan/media/shared_media_viewer.dart';
 import 'package:flutter_chan/media/spoiler_cover.dart';
+import 'package:flutter_chan/saved/download_folder.dart';
 import 'package:flutter_chan/saved/downloads.dart';
 import 'package:flutter_chan/saved/give_media.dart';
 import 'package:flutter_chan/saved/media_tasks.dart';
@@ -20,10 +21,14 @@ class ThreadMediaViewerPage extends StatefulWidget {
     required this.mediaPosts,
     required this.initialIndex,
     required this.currentPost,
+    this.threadFolder,
   });
 
   final List<Post> mediaPosts;
   final int initialIndex;
+
+  /// The thread's folder, for Save to Photos with a folder per thread.
+  final String? threadFolder;
 
   /// Told which post is on screen, as the route returns it when closed.
   final ValueNotifier<int?> currentPost;
@@ -122,12 +127,20 @@ class _ThreadMediaViewerPageState extends State<ThreadMediaViewerPage> {
       return;
     }
     keepFeedback();
+    final PhotosPlace place = PhotosPlace.of(
+      context.read<SettingsProvider>(),
+      threadFolder: widget.threadFolder,
+    );
     await reportingFailure(
       context,
       () => _toPhotos.run(
         post.uploadId,
-        (SaveProgress onProgress) =>
-            downloadToPhotos(post.fileUrl, name, onProgress: onProgress),
+        (SaveProgress onProgress) => downloadToPhotos(
+          post.fileUrl,
+          name,
+          place: place,
+          onProgress: onProgress,
+        ),
       ),
     );
   }

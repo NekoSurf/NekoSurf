@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_chan/saved/download_folder.dart';
 import 'package:flutter_chan/saved/give_media.dart';
 import 'package:flutter_chan/saved/photos_prompt.dart';
 import 'package:flutter_chan/saved/report_failure.dart';
@@ -60,7 +61,10 @@ class _SavedTabState extends State<SavedTab> {
     keepFeedback();
     int failed = 0;
     final bool ran = await reportingFailure(context, () async {
-      failed = await copySavedToPhotos(names);
+      failed = await copySavedToPhotos(
+        names,
+        place: PhotosPlace.of(context.read<SettingsProvider>()),
+      );
     });
     if (ran && mounted) {
       showToast(

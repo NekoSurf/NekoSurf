@@ -1,7 +1,9 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_chan/board/thread_order.dart';
 import 'package:flutter_chan/chan/archives.dart';
 import 'package:flutter_chan/chan/catalog.dart';
+import 'package:flutter_chan/saved/download_folder.dart';
 import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/settings/settings_widgets.dart';
 import 'package:flutter_chan/thread/post_hiding.dart';
@@ -287,6 +289,22 @@ class BrowsingSettings extends StatelessWidget {
                 onChanged: settings.serverFileNames.set,
               ),
             ),
+            // iPhone saves to the Photos library, which has no folders.
+            if (defaultTargetPlatform == TargetPlatform.android) ...[
+              _DownloadFolderRow(settings: settings),
+              SettingsRow(
+                icon: CupertinoIcons.folder_fill,
+                color: const Color(0xFF60A5FA),
+                title: 'A folder per thread',
+                subtitle:
+                    'Save to Photos from a thread puts its files in a folder '
+                    'named after it, like "123456 - Subject".',
+                trailing: SettingsSwitch(
+                  value: settings.folderPerThread.value,
+                  onChanged: settings.folderPerThread.set,
+                ),
+              ),
+            ],
           ],
         ),
         SettingsGroup(
@@ -384,6 +402,50 @@ class BrowsingSettings extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// Where Save to Photos puts files on Android: tapped, Android's folder
+/// picker chooses another; its x goes back to Pictures and Movies.
+class _DownloadFolderRow extends StatelessWidget {
+  const _DownloadFolderRow({required this.settings});
+
+  final SettingsProvider settings;
+
+  Future<void> _choose() async {
+    final String? picked = await pickDownloadFolder();
+    if (picked == null) {
+      return;
+    }
+    final String before = settings.downloadFolder.value;
+    await settings.downloadFolder.set(picked);
+    if (before.isNotEmpty && before != picked) {
+      await forgetDownloadFolder(before);
+    }
+  }
+
+  Future<void> _reset() async {
+    final String before = settings.downloadFolder.value;
+    await settings.downloadFolder.set('');
+    await forgetDownloadFolder(before);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final String folder = settings.downloadFolder.value;
+    return SettingsRow(
+      icon: CupertinoIcons.arrow_down_doc_fill,
+      color: const Color(0xFF38BDF8),
+      title: 'Download folder',
+      subtitle: folder.isEmpty
+          ? 'Save to Photos puts files in Pictures and Movies. Tap to choose '
+                'a folder.'
+          : 'Save to Photos puts files in ${downloadFolderLabel(folder)}.',
+      trailing: folder.isEmpty
+          ? null
+          : _RemoveButton(label: 'Use Pictures and Movies', onTap: _reset),
+      onTap: _choose,
     );
   }
 }

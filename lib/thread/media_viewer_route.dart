@@ -47,10 +47,12 @@ class ThreadMediaViewerRoute extends MaterialPageRoute<int>
     required List<Post> mediaPosts,
     required int initialIndex,
     MediaZoomOrigin? origin,
+    String? threadFolder,
   }) : this._(
          mediaPosts: mediaPosts,
          initialIndex: initialIndex,
          origin: origin,
+         threadFolder: threadFolder,
          currentPost: ValueNotifier<int?>(mediaPosts[initialIndex].no),
        );
 
@@ -58,6 +60,7 @@ class ThreadMediaViewerRoute extends MaterialPageRoute<int>
     required List<Post> mediaPosts,
     required int initialIndex,
     required this.origin,
+    required String? threadFolder,
     required ValueNotifier<int?> currentPost,
   }) : _currentPost = currentPost,
        super(
@@ -68,6 +71,7 @@ class ThreadMediaViewerRoute extends MaterialPageRoute<int>
            mediaPosts: mediaPosts,
            initialIndex: initialIndex,
            currentPost: currentPost,
+           threadFolder: threadFolder,
          ),
        );
 

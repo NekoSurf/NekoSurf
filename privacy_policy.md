@@ -1,6 +1,6 @@
 # Privacy Policy
 
-_Last updated: 27 November 2026_
+_Last updated: 28 November 2026_
 
 NekoSurf is a free, open-source app for reading 4chan, made by wrngwrld. This policy explains what the app does with your data. In short:
 
@@ -40,7 +40,7 @@ Only when you choose them:
 ## Permissions
 
 - **On iPhone**, the app asks to add to your photo library when you first save something to Photos. It can only add; it can't see your photos.
-- **On Android**, the app asks for storage access to keep the Saved tab's files in Download/4Chan (not if you keep them out of Download), and on Android 9 and older also to save to your gallery.
+- **On Android**, the app asks for storage access to keep the Saved tab's files in Download/4Chan (not if you keep them out of Download), and on Android 9 and older also to save to your gallery. If you choose a download folder for Save to Photos (Settings → Media → Download folder), Android's folder picker lets the app into that folder only, to save there, until you choose another or go back to Pictures and Movies.
 - The app doesn't use your camera, microphone, contacts or location.
 
 ## How you got the app
@@ -53,7 +53,7 @@ Only when you choose them:
 - In **Settings → Storage**, clear the cache of images and videos, and remove threads saved for offline (also in Bookmarks → More → Saved for offline, or from the thread's menu).
 - On the **History** page, clear the threads you've visited, with the copies kept of them. Watched posts are forgotten a week after you last opened the thread.
 - In the **Saved tab**, delete what you've saved.
-- **Uninstalling** the app deletes everything it stored, except what you saved to Photos or your gallery, on Android the Download/4Chan folder (if you kept saved files there), any backup files you kept, and what iCloud sync keeps in your iCloud account (delete it in NekoSurf's Settings or your iPhone's iCloud settings).
+- **Uninstalling** the app deletes everything it stored, except what you saved to Photos, your gallery or your download folder, on Android the Download/4Chan folder (if you kept saved files there), any backup files you kept, and what iCloud sync keeps in your iCloud account (delete it in NekoSurf's Settings or your iPhone's iCloud settings).
 
 ## Children
 

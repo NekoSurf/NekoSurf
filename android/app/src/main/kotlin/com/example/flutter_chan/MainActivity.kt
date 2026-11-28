@@ -1,11 +1,29 @@
 package com.wrngwrld.chanyan
 
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
 
 class MainActivity: FlutterActivity() {
+    private val downloadFolder = DownloadFolder(this)
+
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, DownloadFolder.CHANNEL)
+            .setMethodCallHandler(downloadFolder)
+    }
+
+    @Deprecated("Android's folder picker answers here")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (!downloadFolder.onActivityResult(requestCode, resultCode, data)) {
+            super.onActivityResult(requestCode, resultCode, data)
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         applyAppSwitcherCover()

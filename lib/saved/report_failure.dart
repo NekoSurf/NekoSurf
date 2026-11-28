@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_chan/chan/file_server_limit.dart';
+import 'package:flutter_chan/saved/download_folder.dart';
 import 'package:flutter_chan/saved/give_media.dart';
 import 'package:flutter_chan/saved/permission_denied.dart';
 import 'package:flutter_chan/saved/saved_folders.dart';
@@ -29,6 +30,13 @@ Future<bool> reportingFailure(
   } on PhotosDenied {
     if (context.mounted) {
       showToast(context, 'Permission denied');
+    }
+  } on DownloadFolderGone {
+    if (context.mounted) {
+      showToast(
+        context,
+        "Can't reach the download folder: choose it again in Settings",
+      );
     }
   } catch (e) {
     debugPrint('$message: $e');

@@ -244,6 +244,7 @@ class _ThreadPagePostState extends State<ThreadPagePost> {
             mediaPosts: mediaPosts,
             initialIndex: index,
             origin: _zoomOrigin(),
+            threadFolder: threadFolderOf(widget.thread),
           ),
         );
     // Only scroll the thread to a post swiped to in the viewer: scrolling

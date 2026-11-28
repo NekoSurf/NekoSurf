@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_chan/saved/download_folder.dart';
 import 'package:flutter_chan/saved/downloads.dart';
 import 'package:flutter_chan/saved/saved_folders.dart';
 import 'package:path_provider/path_provider.dart';
@@ -16,8 +17,12 @@ class PhotosDenied implements Exception {
   const PhotosDenied();
 }
 
-/// Asks to add to Photos or the gallery; it never needs to read them.
-Future<void> _askForPhotos() async {
+/// Asks to add to Photos or the gallery, unless saves go to a picked
+/// folder; it never needs to read them.
+Future<void> _askForPhotos(PhotosPlace place) async {
+  if (_toPickedFolder(place)) {
+    return;
+  }
   final bool granted;
   if (Platform.isAndroid) {
     final int sdkVersion =
@@ -31,12 +36,35 @@ Future<void> _askForPhotos() async {
   }
 }
 
-/// saver_gallery never answers on iOS for videos Photos rejects, so cap the wait.
-Future<bool> _addToPhotos(String path, String name) async {
+bool _toPickedFolder(PhotosPlace place) =>
+    Platform.isAndroid && place.folder != null;
+
+/// Adds the file to Photos, or on Android to [place]; throws
+/// [DownloadFolderGone]. saver_gallery never answers on iOS for videos
+/// Photos rejects, so cap the wait.
+Future<bool> _addToPhotos(String path, String name, PhotosPlace place) async {
+  if (_toPickedFolder(place)) {
+    try {
+      await copyToDownloadFolder(
+        place.folder!,
+        path,
+        name,
+        subfolder: place.subfolder,
+      );
+      return true;
+    } on DownloadFolderGone {
+      rethrow;
+    } catch (e) {
+      debugPrint('Download folder save failed for $name: $e');
+      return false;
+    }
+  }
   try {
     final result = await SaverGallery.saveFile(
       filePath: path,
       fileName: name,
+      // In Pictures or Movies, as by default, on Android.
+      albumPath: Platform.isAndroid ? place.subfolder : null,
       skipIfExists: false,
     ).timeout(const Duration(seconds: 20));
     if (!result.isSuccess) {
@@ -49,20 +77,21 @@ Future<bool> _addToPhotos(String path, String name) async {
   }
 }
 
-/// Downloads an upload to Photos/gallery; throws [PhotosDenied], or if it
-/// doesn't get there.
+/// Downloads an upload to Photos/gallery, on Android to [place]; throws
+/// [PhotosDenied], [DownloadFolderGone], or if it doesn't get there.
 Future<void> downloadToPhotos(
   String url,
   String fileName, {
+  PhotosPlace place = const PhotosPlace(),
   SaveProgress? onProgress,
 }) async {
-  await _askForPhotos();
+  await _askForPhotos(place);
 
   Directory? work;
   try {
     work = await newWorkFolder();
     final File file = await downloadToGive(work, url, fileName, onProgress);
-    if (!await _addToPhotos(file.path, file.path.split('/').last)) {
+    if (!await _addToPhotos(file.path, file.path.split('/').last, place)) {
       throw Exception('gallery save failed');
     }
   } finally {
@@ -72,16 +101,21 @@ Future<void> downloadToPhotos(
   }
 }
 
-/// Copies saved files to Photos/gallery; returns how many failed. Throws
-/// [PhotosDenied] or [StorageDenied].
-Future<int> copySavedToPhotos(List<String> fileNames) async {
-  await _askForPhotos();
+/// Copies saved files to Photos/gallery, on Android to [place]; returns how
+/// many failed. Throws [PhotosDenied], [DownloadFolderGone] or
+/// [StorageDenied].
+Future<int> copySavedToPhotos(
+  List<String> fileNames, {
+  PhotosPlace place = const PhotosPlace(),
+}) async {
+  await _askForPhotos(place);
   final SavedFolders folders = await openSavedFolders();
 
   int failed = 0;
   for (final String fileName in fileNames) {
     final String path = folders.pathOfFile(fileName);
-    if (!await File(path).exists() || !await _addToPhotos(path, fileName)) {
+    if (!await File(path).exists() ||
+        !await _addToPhotos(path, fileName, place)) {
       failed++;
     }
   }

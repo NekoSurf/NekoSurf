@@ -93,6 +93,11 @@ flutter {
     source '../..'
 }
 
+dependencies {
+    // Writing to the download folder picked with Android's folder picker.
+    implementation "androidx.documentfile:documentfile:1.1.0"
+}
+
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
     project.evaluationDependsOn(':app')

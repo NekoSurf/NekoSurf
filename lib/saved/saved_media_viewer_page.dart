@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_chan/media/shared_media_viewer.dart';
+import 'package:flutter_chan/saved/download_folder.dart';
 import 'package:flutter_chan/saved/give_media.dart';
 import 'package:flutter_chan/saved/media_tasks.dart';
 import 'package:flutter_chan/saved/photos_prompt.dart';
@@ -9,6 +10,7 @@ import 'package:flutter_chan/saved/report_failure.dart';
 import 'package:flutter_chan/saved/saved_attachment.dart';
 import 'package:flutter_chan/saved/saved_attachments_model.dart';
 import 'package:flutter_chan/saved/saved_folders.dart';
+import 'package:flutter_chan/settings/settings_model.dart';
 import 'package:flutter_chan/ui/dash_dialogs.dart';
 import 'package:provider/provider.dart';
 
@@ -81,10 +83,11 @@ class _SavedMediaViewerPageState extends State<SavedMediaViewerPage> {
     if (!await confirmSavingToPhotos(context) || !mounted) {
       return;
     }
+    final PhotosPlace place = PhotosPlace.of(context.read<SettingsProvider>());
     await reportingFailure(
       context,
       () => _toPhotos.run(fileName, (_) async {
-        if (await copySavedToPhotos(<String>[fileName]) > 0) {
+        if (await copySavedToPhotos(<String>[fileName], place: place) > 0) {
           throw Exception('gallery save failed');
         }
       }),

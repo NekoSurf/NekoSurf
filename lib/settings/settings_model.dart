@@ -317,6 +317,18 @@ class SettingsProvider with ChangeNotifier implements SyncTarget {
   /// Saved and shared files take 4chan's name for them, not the poster's.
   late final Setting<bool> serverFileNames = _bool('serverFileNames', false);
 
+  /// Where Save to Photos puts files on Android: a folder picked with
+  /// Android's folder picker, as it names it; empty for Pictures and Movies.
+  /// This phone's own, as its access to the folder is (not backed up).
+  late final Setting<String> downloadFolder = _string(downloadFolderKey, '');
+
+  /// See [downloadFolder].
+  static const String downloadFolderKey = 'downloadFolder';
+
+  /// Save to Photos from a thread, on Android, puts files in a folder named
+  /// after the thread.
+  late final Setting<bool> folderPerThread = _bool('folderPerThread', false);
+
   /// NSFW boards show only once they're turned on with the flame on Boards,
   /// until the app is closed: that's kept in memory only ([nsfwSessionOn]).
   late final Setting<bool> nsfwEachSession = _bool('nsfwEachSession', false);
@@ -407,6 +419,17 @@ class SettingsProvider with ChangeNotifier implements SyncTarget {
       _prefs.setBool,
       (bool value) => value,
       (Object? stored) => stored is bool ? stored : null,
+      this,
+    ),
+  );
+
+  Setting<String> _string(String key, String byDefault) => _keep(
+    Setting<String>._(
+      key,
+      _prefs.getString(key) ?? byDefault,
+      _prefs.setString,
+      (String value) => value,
+      (Object? stored) => stored is String ? stored : null,
       this,
     ),
   );

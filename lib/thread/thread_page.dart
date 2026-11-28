@@ -883,6 +883,7 @@ class _ThreadPageState extends State<ThreadPage>
       BackSwipePageRoute<void>(
         // What's hidden stays out of sight here too.
         builder: (_) => ThreadGalleryPage(
+          threadFolder: threadFolderOf(thread),
           mediaPosts: <Post>[
             for (final Post post in thread.media)
               if (!isHidden(post.no)) post,

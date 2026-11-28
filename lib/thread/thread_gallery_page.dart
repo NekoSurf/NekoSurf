@@ -10,9 +10,16 @@ import 'package:flutter_chan/ui/dash_scaffold.dart';
 import 'package:flutter_chan/ui/pills.dart';
 
 class ThreadGalleryPage extends StatefulWidget {
-  const ThreadGalleryPage({super.key, required this.mediaPosts});
+  const ThreadGalleryPage({
+    super.key,
+    required this.mediaPosts,
+    this.threadFolder,
+  });
 
   final List<Post> mediaPosts;
+
+  /// The thread's folder, for Save to Photos with a folder per thread.
+  final String? threadFolder;
 
   @override
   State<ThreadGalleryPage> createState() => _ThreadGalleryPageState();
@@ -24,10 +31,13 @@ class _ThreadGalleryPageState extends State<ThreadGalleryPage> {
   /// Swiping in the viewer stays within what's shown here.
   void _open(List<Post> shown, int index) {
     // Over the whole window, even from a pane beside another.
-    Navigator.of(
-      context,
-      rootNavigator: true,
-    ).push<int>(ThreadMediaViewerRoute(mediaPosts: shown, initialIndex: index));
+    Navigator.of(context, rootNavigator: true).push<int>(
+      ThreadMediaViewerRoute(
+        mediaPosts: shown,
+        initialIndex: index,
+        threadFolder: widget.threadFolder,
+      ),
+    );
   }
 
   @override

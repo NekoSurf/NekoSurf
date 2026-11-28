@@ -31,7 +31,8 @@ const int _format = 1;
 bool isLocalPreference(String key) =>
     key.startsWith('sync.') ||
     key == savedFilesHiddenKey ||
-    key == savedFilesMovingKey;
+    key == savedFilesMovingKey ||
+    key == SettingsProvider.downloadFolderKey;
 
 /// The backup isn't one, or is from a newer NekoSurf.
 class NotABackup implements Exception {
